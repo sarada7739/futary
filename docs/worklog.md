@@ -79,3 +79,47 @@
 - push 前に追跡ファイル一覧と秘密情報パターンの走査を行い、混入がないことを確認した。
   現時点で機密ファイルは存在しないが、001 以降は `.dev.vars` が生まれるため
   毎回 `git status` で確認すること
+
+---
+
+## 2026-08-27 / セッションB
+
+### やったこと
+- `docs/tasks/001-walking-skeleton.md` を実装した
+- pnpm workspace（`apps/api` `apps/app` `packages/contract` `packages/db`）を構成
+- `packages/contract`: `health.get` の契約定義（`oc` ビルダー、戻り値 `{ ok: true, now: number }`）
+- `packages/db`: Drizzle + drizzle-kit のマイグレーション基盤（空マイグレーション `0001_init.sql`）
+- `apps/api`: Hono + oRPC（`@orpc/server` v1.15.0、contract-first）。`/api/*` で公開し、
+  `health.get` の中で D1 に対して `SELECT 1` を実行して疎通確認
+- `apps/app`: Expo Router + TanStack Query（`@orpc/tanstack-query`）。`health.get` の結果を画面表示
+- ESLint（flat config）と GitHub Actions CI（型チェック→Lint→テスト）を構築
+- 人間に Cloudflare D1 / R2 の作成を依頼し、`database_id` を受け取って `wrangler.toml` に反映
+- ローカルD1へのマイグレーション適用、`wrangler dev` でのAPI起動、Expo Webでの画面表示を確認
+- `README.md`（`pnpm install` からローカル起動までの手順）を作成
+- `artifacts/001/` に動作証跡（起動ログ・テスト結果・手動確認記録・CIログ）を保存
+- ブランチ `task/001-walking-skeleton` を作成し、PR #1 を作成。GitHub Actions が `success` を確認
+
+### 決定事項
+- oRPC は contract-first 方式を採用する。`packages/contract` が Zod スキーマ + `oc` 契約を持ち、
+  `apps/api` が `implement()` で実装、`apps/app` は契約からのみクライアント型
+  （`ContractRouterClient`）を作る。実装の型（D1など）がクライアントに漏れない
+- `@cloudflare/workers-types` は使わず、`wrangler types` が生成するランタイム型
+  （`worker-configuration.d.ts`、gitignore対象・都度生成）に統一する
+- `@cloudflare/vitest-pool-workers` は現行バージョンで `defineWorkersConfig` が使えないため、
+  後継の `@cloudflare/vitest-plugin`（`cloudflareTest` プラグイン）を採用する
+- ローカル開発時のAPIエンドポイントは `apps/app/.env` の `EXPO_PUBLIC_API_ORIGIN` で指定する
+  （本番はアプリとAPIを同一Workerから配信するため不要）
+
+### 詰まった点
+- oRPCの型: 実装ルーター向けの `RouterClient<T>`（`@orpc/server`）ではなく、
+  契約からクライアント型を作る場合は `ContractRouterClient<T>`（`@orpc/contract`）を使う必要があった
+- `@cloudflare/vitest-pool-workers@0.22.0` は `exports` に `./config` が無く
+  `defineWorkersConfig` が存在しない（ドキュメントとパッケージの実体が一致していなかった）。
+  後継パッケージ `@cloudflare/vitest-plugin` に切り替えて解決した
+- Expo SDK 57 の Web ビルドで `@expo/log-box` が解決できないエラーが出た。
+  `metro.config.js` の `disableHierarchicalLookup: true` が pnpm のシンボリックリンク構造と
+  相性が悪く、依存の依存を解決できていなかった。この設定を外して解決
+- 開発時、`apps/app`（Expo, 8081）と `apps/api`（wrangler dev, 8787）が別ポートのため、
+  `window.location.origin` を使うと自分自身（8081）を叩いてしまっていた
+- ルートの `.gitignore` の `*.log` が `artifacts/001/*.log`（動作証跡）まで除外していた。
+  `!artifacts/**/*.log` の例外規則を追加して解決

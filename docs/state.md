@@ -3,16 +3,19 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-27 / セッションA
+**最終更新**: 2026-08-27 / セッションB
 
 ---
 
 ## 現在のフェーズ
 
-**設計完了。実装未着手。**
+**001（歩くスケルトン）実装完了。Rレビュー待ち。**
 
-要件・アーキテクチャ・規約・セキュリティ要件・ADR・タスク一覧（001〜016）を作成した。
-次はセッションB が `docs/tasks/001-walking-skeleton.md` から着手する。
+pnpm workspace / `packages/contract`（health.get）/ `apps/api`（Hono + oRPC + D1疎通）
+/ `apps/app`（Expo Router + TanStack Query）/ CI を一通り繋いだ。
+[PR #1](https://github.com/sarada7739/futary/pull/1)（ブランチ `task/001-walking-skeleton`）で
+GitHub Actions が緑。証跡は `artifacts/001/` を参照。
+次はセッションR が PR #1 と `artifacts/001/` をレビューし、受け入れ判定を行う。
 
 ## プロダクト概要
 
@@ -23,7 +26,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 | M | タスク | 内容 | 状態 |
 |---|---|---|---|
-| M1 | 001〜005 | 足回り・デザイン基盤・認証・ペア成立・認可 | 未着手 |
+| M1 | 001〜005 | 足回り・デザイン基盤・認証・ペア成立・認可 | 進行中（001 実装完了・Rレビュー待ち） |
 | M2 | 006〜009 | 投稿・画像・タイムライン・リアクション | 未着手 |
 | M3 | 010〜013 | カレンダー・統計・思い出し | 未着手 |
 | M4 | 014〜016 | ゲストデモ・LP・仕上げと公開 | 未着手 |
@@ -32,11 +35,11 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 完了タスク
 
-なし
+なし（001はRレビュー待ちのため未計上。マージされ次第ここに移す）
 
 ## 進行中タスク
 
-なし
+- 001-walking-skeleton: B実装完了。PR #1 レビュー待ち
 
 ## 環境
 
@@ -46,14 +49,15 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | リポジトリ | `sarada7739/futary`（**Private**。016 で Public に切り替える。ADR-011） |
 | 既定ブランチ | `main` |
 | gh CLI | 2.98.0 認証済み（スコープ: repo / workflow / gist / read:org） |
-| Cloudflare | **未設定**（D1 / R2 の作成が 001 で必要） |
+| Cloudflare | 設定済み。D1 `futary-db`（`database_id: 37d32e5d-80a9-4bc9-bae4-e7019bebd883`）、R2 `futary-images` |
 | Google OAuth | **未設定**（003 の前までに必要） |
 
 ## 次の一手
 
-1. Cloudflare アカウントで D1 データベースと R2 バケットを作成（人間の作業。001 の中で）
-2. Google Cloud Console で OAuth クライアントを作成（人間の作業。003 の前までに）
-3. セッションB が `docs/tasks/001-walking-skeleton.md` を実装する
+1. セッションR が PR #1（`task/001-walking-skeleton`）と `artifacts/001/` をレビューし、受け入れ判定する
+2. 問題なければ `main` にマージし、完了タスクへ移す
+3. Google Cloud Console で OAuth クライアントを作成（人間の作業。003 の前までに）
+4. 002（デザイン基盤）以降に進む
 
 ## 未解決の論点
 

@@ -26,6 +26,8 @@ worker-configuration.d.ts
 npm-debug.log*
 coverage/
 *.tsbuildinfo
+# artifacts配下の動作証跡ログは対象外（conventions.md 8節）
+!artifacts/**/*.log
 
 # OS
 .DS_Store

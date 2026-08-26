@@ -34,22 +34,30 @@
 - CI がリポジトリ上で緑になっているか
 
 ## 完了条件
-- [ ] `apps/app` の画面に `health.get` の結果が表示される
-- [ ] D1 への疎通が確認できている
-- [ ] テストが1件以上あり緑
-- [ ] GitHub Actions が緑
-- [ ] `artifacts/001/` に動作証跡（起動ログ、画面のスクリーンショット、CI の結果）を保存
+- [x] `apps/app` の画面に `health.get` の結果が表示される
+- [x] D1 への疎通が確認できている
+- [x] テストが1件以上あり緑
+- [x] GitHub Actions が緑
+- [x] `artifacts/001/` に動作証跡を保存
+  （画面のスクリーンショット画像は保存手段がなく、代わりに `get_page_text` で取得した
+  画面テキストを `manual-check.md` に記録した）
 
 ## 停止条件
 - 完了: 上記をすべて満たす
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] 人間に D1 / R2 の作成を依頼した
-- [ ] pnpm workspace の構成
-- [ ] `packages/contract` に `health.get` を定義
-- [ ] `apps/api` で Hono + oRPC が動く
-- [ ] D1 疎通
-- [ ] `apps/app` から呼んで表示
-- [ ] CI 構築
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] 人間に D1 / R2 の作成を依頼した
+- [x] pnpm workspace の構成
+- [x] `packages/contract` に `health.get` を定義
+- [x] `apps/api` で Hono + oRPC が動く
+- [x] D1 疎通
+- [x] `apps/app` から呼んで表示
+- [x] CI 構築
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+## 実装メモ（Rレビュー向け）
+- PR: https://github.com/sarada7739/futary/pull/1（ブランチ `task/001-walking-skeleton`）
+- oRPC は contract-first。`packages/contract` が契約、`apps/api` が `implement()` で実装
+- D1/R2 は作成済み。R2 は今回未使用（007で使う）
+- 詳細は `artifacts/001/manual-check.md` の「途中でハマった点」を参照
