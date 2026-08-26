@@ -38,9 +38,9 @@
 - [x] D1 への疎通が確認できている
 - [x] テストが1件以上あり緑
 - [x] GitHub Actions が緑
-- [x] `artifacts/001/` に動作証跡を保存
-  （画面のスクリーンショット画像は保存手段がなく、代わりに `get_page_text` で取得した
-  画面テキストを `manual-check.md` に記録した）
+- [x] `artifacts/001/` に動作証跡（起動ログ、画面のスクリーンショット、CI の結果）を保存
+  ※画面のスクリーンショット画像は保存手段がなく未達。代わりに `get_page_text` で取得した
+  画面テキストを `manual-check.md` に記録した（Rレビューで妥当と判定済み）
 
 ## 停止条件
 - 完了: 上記をすべて満たす
@@ -61,3 +61,17 @@
 - oRPC は contract-first。`packages/contract` が契約、`apps/api` が `implement()` で実装
 - D1/R2 は作成済み。R2 は今回未使用（007で使う）
 - 詳細は `artifacts/001/manual-check.md` の「途中でハマった点」を参照
+
+### レビュー往復1回目（Rの指摘への対応）
+- R-1（マイグレーション採番）: 対応済み。`0001_init.sql` を手書きしたため
+  `meta/_journal.json` の連番と食い違っていた。ダミーテーブルで一度
+  `drizzle-kit generate` を走らせて正しいジャーナル形式を得たうえで、
+  ファイル名を `0000_init.sql` に、スナップショットを空に戻して整合を取った。
+  次のテーブル追加で `0001_...` が正しく生成されることをシミュレーションで確認済み。
+  ローカルD1にも `0000_init.sql` として再適用済み
+- R-2（型基準の統一）: 対応済み。`apps/app/tsconfig.json` の `extends` を配列にし
+  `["../../tsconfig.base.json", "expo/tsconfig.base"]` の順で両方継承。
+  `tsc --showConfig` で `isolatedModules` / `noUncheckedIndexedAccess` /
+  `forceConsistentCasingInFileNames` が効きつつ、Expo側の `module: preserve` /
+  `customConditions` 等も保持されていることを確認。TypeScriptも `^5.9.3` に統一した
+- R-4/R-5/R-6は記録のみとのことなので未対応（R-4は003着手時に要再確認）
