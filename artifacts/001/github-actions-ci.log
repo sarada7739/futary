@@ -1,0 +1,331 @@
+﻿ci	Set up job	﻿2026-08-26T18:15:52.5218450Z Current runner version: '2.336.0'
+ci	Set up job	2026-08-26T18:15:52.5257988Z ##[group]Runner Image Provisioner
+ci	Set up job	2026-08-26T18:15:52.5259430Z Hosted Compute Agent
+ci	Set up job	2026-08-26T18:15:52.5260382Z Version: 20260819.586
+ci	Set up job	2026-08-26T18:15:52.5261883Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+ci	Set up job	2026-08-26T18:15:52.5263203Z Build Date: 2026-08-18T23:20:18Z
+ci	Set up job	2026-08-26T18:15:52.5264659Z Worker ID: {e2a9265d-a2f3-49fc-9ccf-aa4f629dfa2b}
+ci	Set up job	2026-08-26T18:15:52.5266109Z Azure Region: eastus
+ci	Set up job	2026-08-26T18:15:52.5267020Z ##[endgroup]
+ci	Set up job	2026-08-26T18:15:52.5269131Z ##[group]Operating System
+ci	Set up job	2026-08-26T18:15:52.5270286Z Ubuntu
+ci	Set up job	2026-08-26T18:15:52.5271087Z 24.04.4
+ci	Set up job	2026-08-26T18:15:52.5272007Z LTS
+ci	Set up job	2026-08-26T18:15:52.5272802Z ##[endgroup]
+ci	Set up job	2026-08-26T18:15:52.5273769Z ##[group]Runner Image
+ci	Set up job	2026-08-26T18:15:52.5275016Z Image: ubuntu-24.04
+ci	Set up job	2026-08-26T18:15:52.5275905Z Version: 20260823.283.1
+ci	Set up job	2026-08-26T18:15:52.5277756Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260823.283/images/ubuntu/Ubuntu2404-Readme.md
+ci	Set up job	2026-08-26T18:15:52.5280742Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260823.283
+ci	Set up job	2026-08-26T18:15:52.5282371Z ##[endgroup]
+ci	Set up job	2026-08-26T18:15:52.5284740Z ##[group]GITHUB_TOKEN Permissions
+ci	Set up job	2026-08-26T18:15:52.5287910Z Contents: read
+ci	Set up job	2026-08-26T18:15:52.5288955Z Metadata: read
+ci	Set up job	2026-08-26T18:15:52.5289919Z Packages: read
+ci	Set up job	2026-08-26T18:15:52.5290920Z ##[endgroup]
+ci	Set up job	2026-08-26T18:15:52.5294263Z Secret source: Actions
+ci	Set up job	2026-08-26T18:15:52.5295838Z Prepare workflow directory
+ci	Set up job	2026-08-26T18:15:52.5758673Z Prepare all required actions
+ci	Set up job	2026-08-26T18:15:52.5827381Z Getting action download info
+ci	Set up job	2026-08-26T18:15:52.7815561Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+ci	Set up job	2026-08-26T18:15:52.9528638Z Download action repository 'pnpm/action-setup@v4' (SHA:b906affcce14559ad1aafd4ab0e942779e9f58b1)
+ci	Set up job	2026-08-26T18:15:53.1509308Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+ci	Set up job	2026-08-26T18:15:53.3576077Z Complete job name: ci
+ci	Run actions/checkout@v4	﻿2026-08-26T18:15:53.4335314Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4344563Z ##[group]Run actions/checkout@v4
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4345403Z with:
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4345868Z   repository: sarada7739/futary
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4350108Z   token: ***
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4350562Z   ssh-strict: true
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4351023Z   ssh-user: git
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4351487Z   persist-credentials: true
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4351995Z   clean: true
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4352452Z   sparse-checkout-cone-mode: true
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4352992Z   fetch-depth: 1
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4353441Z   fetch-tags: false
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4354093Z   show-progress: true
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4354556Z   lfs: false
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4355028Z   submodules: false
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4355541Z   set-safe-directory: true
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4356058Z   allow-unsafe-pr-checkout: false
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.4356787Z ##[endgroup]
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7116369Z Syncing repository: sarada7739/futary
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7132501Z ##[group]Getting Git version info
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7174702Z Working directory is '/home/runner/work/futary/futary'
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7393340Z [command]/usr/bin/git version
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7396788Z git version 2.55.0
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7411467Z ##[endgroup]
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7419106Z Temporarily overriding HOME='/home/runner/work/_temp/f5e6fbe0-cbc5-4576-b342-dc34856d5fce' before making global git config changes
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7435298Z Adding repository directory to the temporary git global config as a safe directory
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7437913Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/futary/futary
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7455203Z Deleting the contents of '/home/runner/work/futary/futary'
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7457915Z ##[group]Initializing the repository
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7460420Z [command]/usr/bin/git init /home/runner/work/futary/futary
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7475365Z hint: Using 'master' as the name for the initial branch. This default branch name
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7529289Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7700873Z hint: to use in all of your new repositories, which will suppress this warning,
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7702905Z hint: call:
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7704721Z hint:
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7706228Z hint: 	git config --global init.defaultBranch <name>
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7708157Z hint:
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7709726Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7712645Z hint: 'development'. The just-created branch can be renamed via this command:
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7714735Z hint:
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7716328Z hint: 	git branch -m <name>
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7717796Z hint:
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7719726Z hint: Disable this message with "git config set advice.defaultBranchName false"
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7722127Z Initialized empty Git repository in /home/runner/work/futary/futary/.git/
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7728603Z [command]/usr/bin/git remote add origin https://github.com/sarada7739/futary
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7733542Z ##[endgroup]
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7745947Z ##[group]Disabling automatic garbage collection
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7749904Z [command]/usr/bin/git config --local gc.auto 0
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7756788Z ##[endgroup]
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7758325Z ##[group]Setting up auth
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7759693Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7763580Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7767966Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7773103Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7777782Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.7781150Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.8016483Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.8033172Z ##[endgroup]
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.8035342Z ##[group]Fetching the repository
+ci	Run actions/checkout@v4	2026-08-26T18:15:53.8054488Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +0f74803fb3c083e4ace90b73ca7e7f6d8eadb310:refs/remotes/pull/1/merge
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2248898Z From https://github.com/sarada7739/futary
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2251720Z  * [new ref]         0f74803fb3c083e4ace90b73ca7e7f6d8eadb310 -> pull/1/merge
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2257038Z ##[endgroup]
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2259202Z ##[group]Determining the checkout info
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2261404Z ##[endgroup]
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2265918Z [command]/usr/bin/git sparse-checkout disable
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2338723Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2383243Z ##[group]Checking out the ref
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2386403Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/1/merge
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2636355Z Note: switching to 'refs/remotes/pull/1/merge'.
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2637920Z 
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2639098Z You are in 'detached HEAD' state. You can look around, make experimental
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2641725Z changes and commit them, and you can discard any commits you make in this
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2644194Z state without impacting any branches by switching back to a branch.
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2646086Z 
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2647050Z If you want to create a new branch to retain commits you create, you may
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2649059Z do so (now or later) by using -c with the switch command. Example:
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2650361Z 
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2650820Z   git switch -c <new-branch-name>
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2651680Z 
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2652107Z Or undo this operation with:
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2652780Z 
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2653136Z   git switch -
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2654192Z 
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2655686Z Turn off this advice by setting config variable advice.detachedHead to false
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2657433Z 
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2666093Z HEAD is now at 0f74803 Merge 8eb9da02ad3e90d1d04693f285a4d9b8f0afebd9 into 700e04912577b29c23acd37495056aff6fc52f98
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2671787Z ##[endgroup]
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2704725Z [command]/usr/bin/git log -1 --format=%H
+ci	Run actions/checkout@v4	2026-08-26T18:15:55.2737039Z 0f74803fb3c083e4ace90b73ca7e7f6d8eadb310
+ci	Run pnpm/action-setup@v4	﻿2026-08-26T18:15:55.3143193Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3148767Z ##[group]Run pnpm/action-setup@v4
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3149553Z with:
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3150067Z   dest: ~/setup-pnpm
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3150689Z   run_install: null
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3151266Z   cache: false
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3151885Z   cache_dependency_path: pnpm-lock.yaml
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3152808Z   package_json_file: package.json
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3153565Z   standalone: false
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.3154253Z ##[endgroup]
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.4983493Z ##[group]Running self-installer...
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.9676481Z (node:2008) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:55.9705963Z (Use `node --trace-deprecation ...` to show where the warning was created)
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.1485440Z Progress: resolved 1, reused 0, downloaded 0, added 0
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.1633587Z Packages: +1
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.1645853Z +
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.5425593Z Progress: resolved 1, reused 0, downloaded 1, added 1, done
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.5749836Z 
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.5751393Z dependencies:
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.5752852Z + pnpm 11.24.0
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.5756286Z 
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.5895042Z Done in 857ms
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.6249660Z ##[endgroup]
+ci	Run pnpm/action-setup@v4	2026-08-26T18:15:56.6250591Z Installation Completed!
+ci	Run actions/setup-node@v4	﻿2026-08-26T18:15:56.6468509Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6469814Z ##[group]Run actions/setup-node@v4
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6470101Z with:
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6470320Z   node-version: 22
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6470552Z   cache: pnpm
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6470772Z   always-auth: false
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6471020Z   check-latest: false
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6473712Z   token: ***
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6474175Z env:
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6474469Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.6474816Z ##[endgroup]
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.8002417Z Found in cache @ /opt/hostedtoolcache/node/22.23.2/x64
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.8010896Z ##[group]Environment details
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.8016198Z (node:2023) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+ci	Run actions/setup-node@v4	2026-08-26T18:15:56.8021037Z (Use `node --trace-deprecation ...` to show where the warning was created)
+ci	Run actions/setup-node@v4	2026-08-26T18:15:57.3675636Z node: v22.23.2
+ci	Run actions/setup-node@v4	2026-08-26T18:15:57.3691103Z npm: 10.9.8
+ci	Run actions/setup-node@v4	2026-08-26T18:15:57.3741314Z yarn: 1.22.22
+ci	Run actions/setup-node@v4	2026-08-26T18:15:57.3745470Z ##[endgroup]
+ci	Run actions/setup-node@v4	2026-08-26T18:15:57.3769687Z [command]/home/runner/setup-pnpm/node_modules/.bin/pnpm store path --silent
+ci	Run actions/setup-node@v4	2026-08-26T18:15:58.0144431Z /home/runner/setup-pnpm/node_modules/.bin/store/v11
+ci	Run actions/setup-node@v4	2026-08-26T18:15:58.1176260Z pnpm cache is not found
+ci	Run pnpm install --frozen-lockfile	﻿2026-08-26T18:15:58.1322217Z ##[group]Run pnpm install --frozen-lockfile
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:58.1322659Z ^[[36;1mpnpm install --frozen-lockfile^[[0m
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:58.1374222Z shell: /usr/bin/bash -e {0}
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:58.1374529Z env:
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:58.1374817Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:58.1375167Z ##[endgroup]
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:58.7121035Z Scope: all 5 workspace projects
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:58.9416170Z ? Verifying lockfile against supply-chain policies (879 entries)...
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:58.9572289Z Lockfile is up to date, resolution step is skipped
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:59.1666067Z Progress: resolved 1, reused 0, downloaded 0, added 0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:59.2705193Z Packages: +729
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:15:59.2706243Z ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:00.1689154Z Progress: resolved 729, reused 0, downloaded 0, added 0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:01.1895986Z Progress: resolved 729, reused 0, downloaded 28, added 0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:02.2355274Z Progress: resolved 729, reused 0, downloaded 50, added 0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:03.2529364Z Progress: resolved 729, reused 0, downloaded 57, added 0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:04.2635668Z Progress: resolved 729, reused 0, downloaded 59, added 0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:05.2727046Z Progress: resolved 729, reused 0, downloaded 63, added 0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:05.4205751Z Packages are hard linked from the content-addressable store to the virtual store.
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:05.4213609Z   Content-addressable store is at: /home/runner/setup-pnpm/node_modules/.bin/store/v11
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:05.4237960Z   Virtual store is at:             node_modules/.pnpm
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:06.2759041Z Progress: resolved 729, reused 0, downloaded 106, added 4
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:07.2963811Z Progress: resolved 729, reused 0, downloaded 126, added 4
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:08.2959464Z Progress: resolved 729, reused 0, downloaded 157, added 8
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:09.2225779Z ✓ Lockfile passes supply-chain policies (879 entries in 10.2s)
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:09.2985345Z Progress: resolved 729, reused 0, downloaded 178, added 8
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:10.3005429Z Progress: resolved 729, reused 0, downloaded 260, added 16
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:11.2987520Z Progress: resolved 729, reused 0, downloaded 392, added 24
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:12.2989869Z Progress: resolved 729, reused 0, downloaded 539, added 35
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:13.2990201Z Progress: resolved 729, reused 0, downloaded 729, added 126
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:13.8615764Z Progress: resolved 729, reused 0, downloaded 729, added 729, done
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.2452426Z .../esbuild@0.28.1/node_modules/esbuild postinstall$ node install.js
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.2465281Z .../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.2485292Z .../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.2487513Z .../node_modules/workerd postinstall$ node install.js
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.3806822Z .../esbuild@0.18.20/node_modules/esbuild postinstall$ node install.js
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.3895604Z .../esbuild@0.28.1/node_modules/esbuild postinstall: Done
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.4612155Z .../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.4945334Z .../esbuild@0.28.2/node_modules/esbuild postinstall: Done
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.4975367Z .../node_modules/workerd postinstall: Done
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:14.5265097Z .../esbuild@0.18.20/node_modules/esbuild postinstall: Done
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.5511463Z 
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.5512217Z devDependencies:
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.5512694Z + @eslint/js 10.0.1
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.5513073Z + eslint 10.9.1
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.5513578Z + globals 17.11.0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.5514111Z + typescript 5.9.3
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.5514520Z + typescript-eslint 8.68.0
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.5515336Z 
+ci	Run pnpm install --frozen-lockfile	2026-08-26T18:16:15.6386629Z Done in 17.4s using pnpm v11.24.0
+ci	Run pnpm run type-check	﻿2026-08-26T18:16:15.7440218Z ##[group]Run pnpm run type-check
+ci	Run pnpm run type-check	2026-08-26T18:16:15.7440586Z ^[[36;1mpnpm run type-check^[[0m
+ci	Run pnpm run type-check	2026-08-26T18:16:15.7481405Z shell: /usr/bin/bash -e {0}
+ci	Run pnpm run type-check	2026-08-26T18:16:15.7481685Z env:
+ci	Run pnpm run type-check	2026-08-26T18:16:15.7481955Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+ci	Run pnpm run type-check	2026-08-26T18:16:15.7482283Z ##[endgroup]
+ci	Run pnpm run type-check	2026-08-26T18:16:16.3062099Z $ pnpm -r --if-present run type-check
+ci	Run pnpm run type-check	2026-08-26T18:16:16.8895328Z Scope: 4 of 5 workspace projects
+ci	Run pnpm run type-check	2026-08-26T18:16:16.8925221Z packages/contract type-check$ tsc --noEmit
+ci	Run pnpm run type-check	2026-08-26T18:16:16.8955291Z packages/db type-check$ tsc --noEmit
+ci	Run pnpm run type-check	2026-08-26T18:16:18.4735388Z packages/db type-check: Done
+ci	Run pnpm run type-check	2026-08-26T18:16:18.8827621Z packages/contract type-check: Done
+ci	Run pnpm run type-check	2026-08-26T18:16:18.8835222Z apps/api pretype-check$ wrangler types
+ci	Run pnpm run type-check	2026-08-26T18:16:18.8839588Z apps/app type-check$ tsc --noEmit
+ci	Run pnpm run type-check	2026-08-26T18:16:21.3055701Z apps/api pretype-check:  ⛅️ wrangler 4.126.0
+ci	Run pnpm run type-check	2026-08-26T18:16:21.3093506Z apps/api pretype-check: ────────────────────
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4217020Z apps/api pretype-check: Generating project types...
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4325067Z apps/api pretype-check: interface __BaseEnv_Env {
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4334715Z apps/api pretype-check: 	BUCKET: R2Bucket;
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4354771Z apps/api pretype-check: 	DB: D1Database;
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4364858Z apps/api pretype-check: }
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4385000Z apps/api pretype-check: declare namespace Cloudflare {
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4424879Z apps/api pretype-check: 	interface GlobalProps {
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4426060Z apps/api pretype-check: 		mainModule: typeof import("./src/index");
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4449182Z apps/api pretype-check: 	}
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4494934Z apps/api pretype-check: 	interface Env extends __BaseEnv_Env {}
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4514619Z apps/api pretype-check: }
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4516409Z apps/api pretype-check: interface Env extends __BaseEnv_Env {}
+ci	Run pnpm run type-check	2026-08-26T18:16:21.4534737Z apps/api pretype-check: Generating runtime types...
+ci	Run pnpm run type-check	2026-08-26T18:16:22.4426705Z apps/app type-check: Done
+ci	Run pnpm run type-check	2026-08-26T18:16:23.6295683Z apps/api pretype-check: Runtime types generated.
+ci	Run pnpm run type-check	2026-08-26T18:16:23.6312383Z apps/api pretype-check: ✨ Types written to worker-configuration.d.ts
+ci	Run pnpm run type-check	2026-08-26T18:16:23.6330653Z apps/api pretype-check: 📖 Read about runtime types
+ci	Run pnpm run type-check	2026-08-26T18:16:23.6337186Z apps/api pretype-check: https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+ci	Run pnpm run type-check	2026-08-26T18:16:23.6339130Z apps/api pretype-check: 📣 Remember to rerun 'wrangler types' after you change your wrangler.toml file.
+ci	Run pnpm run type-check	2026-08-26T18:16:23.6804197Z apps/api pretype-check: Done
+ci	Run pnpm run type-check	2026-08-26T18:16:23.6807173Z apps/api type-check$ tsc --noEmit
+ci	Run pnpm run type-check	2026-08-26T18:16:25.7195283Z apps/api type-check: Done
+ci	Run pnpm run lint	﻿2026-08-26T18:16:25.7514488Z ##[group]Run pnpm run lint
+ci	Run pnpm run lint	2026-08-26T18:16:25.7514847Z ^[[36;1mpnpm run lint^[[0m
+ci	Run pnpm run lint	2026-08-26T18:16:25.7555648Z shell: /usr/bin/bash -e {0}
+ci	Run pnpm run lint	2026-08-26T18:16:25.7555933Z env:
+ci	Run pnpm run lint	2026-08-26T18:16:25.7556232Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+ci	Run pnpm run lint	2026-08-26T18:16:25.7556564Z ##[endgroup]
+ci	Run pnpm run lint	2026-08-26T18:16:26.2746168Z $ eslint .
+ci	Run pnpm run test	﻿2026-08-26T18:16:27.5677537Z ##[group]Run pnpm run test
+ci	Run pnpm run test	2026-08-26T18:16:27.5678023Z ^[[36;1mpnpm run test^[[0m
+ci	Run pnpm run test	2026-08-26T18:16:27.5733383Z shell: /usr/bin/bash -e {0}
+ci	Run pnpm run test	2026-08-26T18:16:27.5733842Z env:
+ci	Run pnpm run test	2026-08-26T18:16:27.5734525Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+ci	Run pnpm run test	2026-08-26T18:16:27.5735039Z ##[endgroup]
+ci	Run pnpm run test	2026-08-26T18:16:28.0955202Z $ pnpm -r --if-present run test
+ci	Run pnpm run test	2026-08-26T18:16:28.6146089Z Scope: 4 of 5 workspace projects
+ci	Run pnpm run test	2026-08-26T18:16:28.6194821Z apps/api pretest$ wrangler types
+ci	Run pnpm run test	2026-08-26T18:16:29.8493703Z apps/api pretest:  ⛅️ wrangler 4.126.0
+ci	Run pnpm run test	2026-08-26T18:16:29.8495309Z apps/api pretest: ────────────────────
+ci	Run pnpm run test	2026-08-26T18:16:29.8958997Z apps/api pretest: Generating project types...
+ci	Run pnpm run test	2026-08-26T18:16:29.8999939Z apps/api pretest: interface __BaseEnv_Env {
+ci	Run pnpm run test	2026-08-26T18:16:29.9014891Z apps/api pretest: 	BUCKET: R2Bucket;
+ci	Run pnpm run test	2026-08-26T18:16:29.9025229Z apps/api pretest: 	DB: D1Database;
+ci	Run pnpm run test	2026-08-26T18:16:29.9026056Z apps/api pretest: }
+ci	Run pnpm run test	2026-08-26T18:16:29.9026807Z apps/api pretest: declare namespace Cloudflare {
+ci	Run pnpm run test	2026-08-26T18:16:29.9027744Z apps/api pretest: 	interface GlobalProps {
+ci	Run pnpm run test	2026-08-26T18:16:29.9028749Z apps/api pretest: 		mainModule: typeof import("./src/index");
+ci	Run pnpm run test	2026-08-26T18:16:29.9029581Z apps/api pretest: 	}
+ci	Run pnpm run test	2026-08-26T18:16:29.9030372Z apps/api pretest: 	interface Env extends __BaseEnv_Env {}
+ci	Run pnpm run test	2026-08-26T18:16:29.9031148Z apps/api pretest: }
+ci	Run pnpm run test	2026-08-26T18:16:29.9031926Z apps/api pretest: interface Env extends __BaseEnv_Env {}
+ci	Run pnpm run test	2026-08-26T18:16:29.9032844Z apps/api pretest: Generating runtime types...
+ci	Run pnpm run test	2026-08-26T18:16:29.9153309Z apps/api pretest: Runtime types generated.
+ci	Run pnpm run test	2026-08-26T18:16:29.9185566Z apps/api pretest: ✨ Types written to worker-configuration.d.ts
+ci	Run pnpm run test	2026-08-26T18:16:29.9204292Z apps/api pretest: 📖 Read about runtime types
+ci	Run pnpm run test	2026-08-26T18:16:29.9211767Z apps/api pretest: https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+ci	Run pnpm run test	2026-08-26T18:16:29.9213790Z apps/api pretest: 📣 Remember to rerun 'wrangler types' after you change your wrangler.toml file.
+ci	Run pnpm run test	2026-08-26T18:16:30.0723239Z apps/api pretest: Done
+ci	Run pnpm run test	2026-08-26T18:16:30.0728208Z apps/api test$ vitest run
+ci	Run pnpm run test	2026-08-26T18:16:31.1388943Z apps/api test: ^[[1m^[[30m^[[46m RUN ^[[49m^[[39m^[[22m ^[[36mv4.1.11 ^[[39m^[[90m/home/runner/work/futary/futary/apps/api^[[39m
+ci	Run pnpm run test	2026-08-26T18:16:34.1968774Z apps/api test:  ^[[32m✓^[[39m test/health.test.ts ^[[2m(^[[22m^[[2m1 test^[[22m^[[2m)^[[22m^[[32m 17^[[2mms^[[22m^[[39m
+ci	Run pnpm run test	2026-08-26T18:16:34.2077376Z apps/api test: ^[[2m Test Files ^[[22m ^[[1m^[[32m1 passed^[[39m^[[22m^[[90m (1)^[[39m
+ci	Run pnpm run test	2026-08-26T18:16:34.2095913Z apps/api test: ^[[2m      Tests ^[[22m ^[[1m^[[32m1 passed^[[39m^[[22m^[[90m (1)^[[39m
+ci	Run pnpm run test	2026-08-26T18:16:34.2115231Z apps/api test: ^[[2m   Start at ^[[22m 18:16:31
+ci	Run pnpm run test	2026-08-26T18:16:34.2118460Z apps/api test: ^[[2m   Duration ^[[22m 3.06s^[[2m (transform 562ms, setup 0ms, import 1.38s, tests 17ms, environment 0ms)^[[22m
+ci	Run pnpm run test	2026-08-26T18:16:34.2523594Z apps/api test: Done
+ci	Post Run actions/setup-node@v4	﻿2026-08-26T18:16:34.2945644Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+ci	Post Run actions/setup-node@v4	2026-08-26T18:16:34.2946882Z Post job cleanup.
+ci	Post Run actions/setup-node@v4	2026-08-26T18:16:34.4269978Z (node:2413) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+ci	Post Run actions/setup-node@v4	2026-08-26T18:16:34.4271702Z (Use `node --trace-deprecation ...` to show where the warning was created)
+ci	Post Run actions/setup-node@v4	2026-08-26T18:16:34.4640104Z [command]/usr/bin/tar --posix -cf cache.tzst --exclude cache.tzst -P -C /home/runner/work/futary/futary --files-from manifest.txt --use-compress-program zstdmt
+ci	Post Run actions/setup-node@v4	2026-08-26T18:16:38.4599231Z (node:2413) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+ci	Post Run actions/setup-node@v4	2026-08-26T18:16:39.4430824Z Sent 31219645 of 232546237 (13.4%), 29.7 MBs/sec
+ci	Post Run actions/setup-node@v4	2026-08-26T18:16:39.8901550Z Sent 232546237 of 232546237 (100.0%), 153.2 MBs/sec
+ci	Post Run actions/setup-node@v4	2026-08-26T18:16:40.0017477Z Cache saved with the key: node-cache-Linux-x64-pnpm-ef8488d536812d6abc1af0fc632e2c5b780a313f523f2b13b2cf7681725497e4
+ci	Post Run pnpm/action-setup@v4	﻿2026-08-26T18:16:40.0182735Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+ci	Post Run pnpm/action-setup@v4	2026-08-26T18:16:40.0184220Z Post job cleanup.
+ci	Post Run pnpm/action-setup@v4	2026-08-26T18:16:40.1707062Z Pruning is unnecessary.
+ci	Post Run actions/checkout@v4	﻿2026-08-26T18:16:40.1931079Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.1933432Z Post job cleanup.
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.2981849Z [command]/usr/bin/git version
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3062152Z git version 2.55.0
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3152826Z Temporarily overriding HOME='/home/runner/work/_temp/fc12afad-3a85-470e-a422-ccc97cbe5b1c' before making global git config changes
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3169416Z Adding repository directory to the temporary git global config as a safe directory
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3172061Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/futary/futary
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3185512Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3239171Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3679213Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3712617Z http.https://github.com/.extraheader
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3778410Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.3837351Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.4178847Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+ci	Post Run actions/checkout@v4	2026-08-26T18:16:40.4229734Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+ci	Complete job	﻿2026-08-26T18:16:40.4828937Z Cleaning up orphan processes
+ci	Complete job	2026-08-26T18:16:40.5123365Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4, pnpm/action-setup@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

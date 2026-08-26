@@ -1,0 +1,66 @@
+$ pnpm -r --if-present run type-check
+Scope: 4 of 5 workspace projects
+packages/contract type-check$ tsc --noEmit
+packages/db type-check$ tsc --noEmit
+packages/db type-check: Done
+packages/contract type-check: Done
+apps/api pretype-check$ wrangler types
+apps/app type-check$ tsc --noEmit
+apps/api pretype-check:  ⛅️ wrangler 4.126.0
+apps/api pretype-check: ────────────────────
+apps/api pretype-check: Generating project types...
+apps/api pretype-check: interface __BaseEnv_Env {
+apps/api pretype-check: 	BUCKET: R2Bucket;
+apps/api pretype-check: 	DB: D1Database;
+apps/api pretype-check: }
+apps/api pretype-check: declare namespace Cloudflare {
+apps/api pretype-check: 	interface GlobalProps {
+apps/api pretype-check: 		mainModule: typeof import("./src/index");
+apps/api pretype-check: 	}
+apps/api pretype-check: 	interface Env extends __BaseEnv_Env {}
+apps/api pretype-check: }
+apps/api pretype-check: interface Env extends __BaseEnv_Env {}
+apps/api pretype-check: Generating runtime types...
+apps/api pretype-check: Runtime types generated.
+apps/api pretype-check: ✨ Types written to worker-configuration.d.ts
+apps/api pretype-check: 📖 Read about runtime types
+apps/api pretype-check: https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+apps/api pretype-check: 📣 Remember to rerun 'wrangler types' after you change your wrangler.toml file.
+apps/api pretype-check: Done
+apps/api type-check$ tsc --noEmit
+apps/app type-check: Done
+apps/api type-check: Done
+=== LINT ===
+$ eslint .
+=== TEST ===
+$ pnpm -r --if-present run test
+Scope: 4 of 5 workspace projects
+apps/api pretest$ wrangler types
+apps/api pretest:  ⛅️ wrangler 4.126.0
+apps/api pretest: ────────────────────
+apps/api pretest: Generating project types...
+apps/api pretest: interface __BaseEnv_Env {
+apps/api pretest: 	BUCKET: R2Bucket;
+apps/api pretest: 	DB: D1Database;
+apps/api pretest: }
+apps/api pretest: declare namespace Cloudflare {
+apps/api pretest: 	interface GlobalProps {
+apps/api pretest: 		mainModule: typeof import("./src/index");
+apps/api pretest: 	}
+apps/api pretest: 	interface Env extends __BaseEnv_Env {}
+apps/api pretest: }
+apps/api pretest: interface Env extends __BaseEnv_Env {}
+apps/api pretest: Generating runtime types...
+apps/api pretest: Runtime types generated.
+apps/api pretest: ✨ Types written to worker-configuration.d.ts
+apps/api pretest: 📖 Read about runtime types
+apps/api pretest: https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+apps/api pretest: 📣 Remember to rerun 'wrangler types' after you change your wrangler.toml file.
+apps/api pretest: Done
+apps/api test$ vitest run
+apps/api test:  RUN  v4.1.11 C:/Users/coco7/futary/apps/api
+apps/api test:  Test Files  1 passed (1)
+apps/api test:       Tests  1 passed (1)
+apps/api test:    Start at  03:12:59
+apps/api test:    Duration  1.73s (transform 383ms, setup 0ms, import 674ms, tests 12ms, environment 0ms)
+apps/api test: Done

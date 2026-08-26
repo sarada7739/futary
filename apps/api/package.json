@@ -1,0 +1,33 @@
+{
+  "name": "@futary/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "wrangler types",
+    "dev": "wrangler dev",
+    "pretype-check": "wrangler types",
+    "type-check": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "pretest": "wrangler types",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
+  },
+  "dependencies": {
+    "@futary/contract": "workspace:*",
+    "@futary/db": "workspace:*",
+    "@orpc/contract": "1.15.0",
+    "@orpc/server": "1.15.0",
+    "hono": "^4.13.5",
+    "zod": "^4.1.11"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.1.0",
+    "@orpc/client": "1.15.0",
+    "@types/node": "^25.9.5",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.126.0"
+  }
+}
