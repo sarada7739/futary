@@ -172,3 +172,85 @@
 
 ### 詰まった点
 - なし
+
+---
+
+## 2026-08-27 / セッションB（002 実装）
+
+### やったこと
+- `docs/tasks/002-design-tokens-and-ui.md` を実装した
+- `packages/ui`（新規ワークスペースパッケージ）に `docs/architecture.md` 7節のトークン
+  （色・角丸・余白・影）を集約し、`Text`/`Button`/`Card`/`Avatar`/`Screen` の
+  共通コンポーネント5種を実装。いずれもトークン経由でのみ色を参照する
+- `apps/app/app/(tabs)/` にボトムタブ5つ（ホーム / アルバム / ＋投稿(FAB) / 検索 /
+  マイページ）を実装。中央の投稿タブは `tabBarButton` を丸い `Pressable` に
+  差し替えて FAB化した。アルバムと検索は「準備中」のプレースホルダーのみ
+- 既存の `apps/app/app/index.tsx`（001の health.get 疎通確認画面）を
+  `(tabs)/index.tsx` に移動し、ホーム画面として流用（ロゴ画像とCardで再構成）
+- ロゴ（論点L2）: `docs/sample/sample.png` からロゴ部分を切り出し
+  `apps/app/assets/logo.png` として配置。背景色がトークンの `bg` と同一のため
+  透過処理はせず矩形のまま採用した
+- `packages/ui` に単体テスト7件（トークンの値、`Avatar` の頭文字抽出ロジック）を追加
+- Web版をブラウザで起動し、スマホ幅（390x844）・PC幅（1280x900）双方で
+  タブ・FABの配置が崩れないことをスクリーンショットで確認
+- 証跡を `artifacts/002/` に保存し、PR #3
+  （ブランチ `task/002-design-tokens-and-ui`）を作成した
+- `docs/state.md` の論点L2を解決済みに更新
+
+### 決定事項
+- `packages/ui` のソース配置は `packages/contract`/`packages/db` に合わせて
+  `src/` 配下（`main`/`types` は `./src/index.ts`）にした。
+  タスク定義の `packages/ui/tokens.ts` という直下パスとは異なる
+- ロゴ画像は透過PNG化を試みたが、サンプル画像から切り出す際に背景のノイズが
+  残ってしまったため、透過なし・矩形のまま採用する方針に変更した
+- タブアイコンは `@expo/vector-icons` 等を新規導入せず、絵文字1文字で代用した
+  （依存追加はタスクスコープ外と判断）
+
+### 詰まった点
+- `packages/ui/tsconfig.json` で `expo/tsconfig.base` を extends しようとしたが、
+  `packages/ui` は `expo` パッケージに依存しておらず pnpm のシンボリックリンク
+  構造上解決できなかった。`expo/tsconfig.base` の中身を `tsconfig.base.json` の
+  上に直接書く形にして解決
+- 画像 import 用の `declare module "*.png"` を `apps/app/expo-env.d.ts` に書いたが、
+  このファイルは `.gitignore` 対象で Expo の dev サーバー起動時に標準内容へ
+  上書き・再生成される管理下のファイルだった。`apps/app/types/assets.d.ts` を
+  新設してそちらに移して解決
+- Chrome を `--headless=new`（および従来の `--headless`）で起動し `--window-size` を
+  指定してスクリーンショットを撮ると、指定サイズが無視され実際のビューポートが
+  固定で 500×749 になる不具合に遭遇した。ボトムタブ5つ目（マイページ）が見切れて
+  写り込み、実装のレイアウト崩れと誤認しかけたが `window.innerWidth` を出力させて
+  ヘッドレス側の不具合と切り分けた。`pnpm dlx playwright screenshot --channel=chrome`
+  （システムの Chrome をチャンネル指定で使用）に切り替えて解決した
+
+---
+
+## 2026-08-27 / セッションB（002 レビュー対応）
+
+### やったこと
+- セッションRから002の条件付き受け入れ（R-7/R-8/R-9が必須修正）を受け取り、対応した
+- R-7: ロゴ画像の背景色が画面の地の色と実測で一致していなかった問題を修正。
+  `docs/sample/sample.png` 自体に背景の微妙なムラ・ノイズがあり、単純な色距離での
+  透過では背景ノイズが残る／ロゴの線まで消えるトレードオフがあった。
+  彩度（RGBのmax-min）でマスクする方式に変更し、背景ノイズだけを完全に透過、
+  文字とハートの線だけを残した透過PNGを再生成。地の色とロゴ透明部分のピクセル値が
+  完全一致（`(254,246,243)`）することを実測で確認した
+- R-8: `(tabs)/index.tsx` の padding/gap、`album.tsx`/`search.tsx`/`post.tsx`/
+  `profile.tsx` の gap、`(tabs)/_layout.tsx` の paddingTop を、すべて `space`
+  トークン経由に変更した。トークンに無い値（FABの直径・タブバー高さ・
+  ラベルのフォントサイズ・ロゴの表示サイズ）は「コンポーネント固有の寸法で
+  余白トークンとは性質が違う」と判断し、トークン化は見送った旨を実装メモに記録
+- R-9: `packages/ui/tsconfig.json` の `include` に `test` を追加し、
+  `rootDir` を `.` に変更（`apps/api` と同じ構成）。テストファイルも型チェック対象にした
+- 修正後のスクリーンショットを撮り直し、`artifacts/002/` を更新
+- `docs/state.md` にL8（`shadow.fab` が `architecture.md` 未反映）を追加し、
+  L2の記述を透過版ロゴに合わせて更新
+
+### 決定事項
+- ロゴ画像は矩形のまま採用する方針を撤回し、彩度ベースの透過処理に変更した
+  （Rの指摘で「地の色をロゴ側の実測値に合わせる方向は禁止」と釘を刺されたため、
+  画像側を正しいトークン色に合わせる方向で対応した）
+
+### 詰まった点
+- 彩度ベースのマスク処理で、閾値（chromaのlow/high）をどこに置くかの調整に
+  少し試行錯誤した。分布を percentile で確認し、背景（概ね20以下）とロゴの線
+  （概ね60以上）の間に十分な余白があることを確認してから閾値を決めた
