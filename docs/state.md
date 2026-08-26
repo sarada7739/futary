@@ -9,7 +9,7 @@
 
 ## 現在のフェーズ
 
-**001（歩くスケルトン）完了。002（デザイントークンと共通UI）は実装完了、Rレビュー待ち。**
+**001（歩くスケルトン）・002（デザイントークンと共通UI）完了。003（認証）に着手可能。**
 
 pnpm workspace / `packages/contract`（health.get）/ `apps/api`（Hono + oRPC + D1疎通）
 / `apps/app`（Expo Router + TanStack Query）/ CI を一通り繋いだ。
@@ -18,8 +18,9 @@ squash mergeで `main` に取り込み済み（ブランチも削除済み）。
 証跡は `artifacts/001/` を参照。
 
 002は `packages/ui`（トークン + Text/Button/Card/Avatar/Screen）と
-`apps/app/app/(tabs)/`（ボトムタブ5つ + FAB）を実装し、PR #3
-（ブランチ `task/002-design-tokens-and-ui`）を作成済み。まだマージしていない。
+`apps/app/app/(tabs)/`（ボトムタブ5つ + FAB）を実装した。PR #3
+（ブランチ `task/002-design-tokens-and-ui`）はレビュー往復2回でRの受け入れを得て、
+squash mergeで `main` に取り込み済み（ブランチも削除済み）。
 証跡は `artifacts/002/` を参照。
 
 ## プロダクト概要
@@ -41,10 +42,11 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 ## 完了タスク
 
 - 001-walking-skeleton（PR #1、レビュー往復2回）
+- 002-design-tokens-and-ui（PR #3、レビュー往復2回）
 
 ## 進行中タスク
 
-- 002-design-tokens-and-ui（PR #3、Rレビュー待ち）
+なし
 
 ## 環境
 
@@ -59,9 +61,13 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 次の一手
 
-1. Google Cloud Console で OAuth クライアントを作成（人間の作業。003 の前までに）
-2. セッションR が PR #3（`docs/tasks/002-design-tokens-and-ui.md`）をレビューする
-3. 受け入れ後、人間が確認のうえ `main` へマージし、`docs/tasks/003-*` へ進む
+1. Google Cloud Console で OAuth クライアントを作成（人間の作業。003 の前までに、未完了なら着手前に確認）
+2. `docs/tasks/003-*` を確認し、セッションB が着手する（`/clear` してから新しいセッションで）
+3. 003着手前に必ず読む: `docs/security-requirements.md` 2節（Cookie属性、`BETTER_AUTH_SECRET`の扱い）
+   と3節（認可を `ctx.coupleId` に集約、手続きの引数に `coupleId` を持たせない）
+4. 003は L6（CORS）の期限。`credentials: true` を足す際に許可オリジンを環境で切り替えること
+5. 003完了時は `security-requirements.md` 10節の必須枠。security-auditor を回し
+   `docs/security-report.md` に記録（指摘ゼロでも記録する）
 
 ## 未解決の論点
 
