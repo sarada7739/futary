@@ -1,0 +1,30 @@
+# 依存関係
+node_modules/
+.pnpm-store/
+
+# ビルド成果物
+dist/
+build/
+.expo/
+.next/
+
+# Cloudflare
+.wrangler/
+
+# 秘密情報（絶対にコミットしない）
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.env.example
+
+# ログ・一時ファイル
+*.log
+npm-debug.log*
+coverage/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
