@@ -1,9 +1,13 @@
-import { Card, Screen, Text } from "@futary/ui";
+import { Card, Screen, space, Text } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import { Image, View } from "react-native";
 import logo from "../../assets/logo.png";
 import { orpc } from "../../lib/orpc";
+
+/** ロゴ画像のアスペクト比（204x112）に合わせた表示サイズ */
+const LOGO_WIDTH = 106;
+const LOGO_HEIGHT = 58;
 
 export default function HomeScreen() {
   const { data, isLoading, isError, error } = useQuery(
@@ -12,10 +16,10 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <View style={{ padding: 16, gap: 12 }}>
+      <View style={{ padding: space.lg, gap: space.md }}>
         <Image
           source={logo}
-          style={{ width: 132, height: 58 }}
+          style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
           resizeMode="contain"
         />
         <Card>

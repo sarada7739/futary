@@ -1,4 +1,4 @@
-import { colors, radius, shadow, Text } from "@futary/ui";
+import { colors, radius, shadow, space, Text } from "@futary/ui";
 import { Tabs } from "expo-router";
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
@@ -62,7 +62,7 @@ export default function TabsLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
           height: 64,
-          paddingTop: 8,
+          paddingTop: space.sm,
         },
         tabBarLabelStyle: { fontSize: 11 },
         tabBarItemStyle: { flex: 1 },

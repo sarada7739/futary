@@ -2,11 +2,11 @@
 $ pnpm -r --if-present run type-check
 Scope: 5 of 6 workspace projects
 packages/contract type-check$ tsc --noEmit
-packages/db type-check$ tsc --noEmit
 packages/ui type-check$ tsc --noEmit
+packages/db type-check$ tsc --noEmit
 packages/db type-check: Done
-packages/ui type-check: Done
 packages/contract type-check: Done
+packages/ui type-check: Done
 apps/api pretype-check$ wrangler types
 apps/app type-check$ tsc --noEmit
 apps/api pretype-check:  ⛅️ wrangler 4.126.0
@@ -44,8 +44,8 @@ packages/ui test$ vitest run
 packages/ui test:  RUN  v4.1.11 C:/Users/coco7/futary/packages/ui
 packages/ui test:  Test Files  2 passed (2)
 packages/ui test:       Tests  7 passed (7)
-packages/ui test:    Start at  08:08:26
-packages/ui test:    Duration  173ms (transform 31ms, setup 0ms, import 56ms, tests 4ms, environment 0ms)
+packages/ui test:    Start at  08:22:58
+packages/ui test:    Duration  175ms (transform 33ms, setup 0ms, import 57ms, tests 4ms, environment 0ms)
 packages/ui test: Done
 apps/api pretest$ wrangler types
 apps/api pretest:  ⛅️ wrangler 4.126.0
@@ -73,10 +73,16 @@ apps/api test$ vitest run
 apps/api test:  RUN  v4.1.11 C:/Users/coco7/futary/apps/api
 apps/api test:  Test Files  1 passed (1)
 apps/api test:       Tests  1 passed (1)
-apps/api test:    Start at  08:08:28
-apps/api test:    Duration  1.71s (transform 363ms, setup 0ms, import 648ms, tests 13ms, environment 0ms)
+apps/api test:    Start at  08:23:00
+apps/api test:    Duration  1.71s (transform 375ms, setup 0ms, import 659ms, tests 11ms, environment 0ms)
 apps/api test: Done
 
 === 生の16進カラーgrep (コンポーネント配下) ===
 $ grep -rn "#[0-9A-Fa-f]{3,6}" packages/ui/src/components/ apps/app/app/
 (該当なし)
+
+=== ロゴ境界のピクセル実測 (R-7対応確認) ===
+$ 画面の地色 と ロゴ矩形周辺 が一致することを確認
+screen bg (5,200): (254, 246, 243)
+logo edge (10,15): (254, 246, 243)
+logo area (100,45): (254, 246, 243)

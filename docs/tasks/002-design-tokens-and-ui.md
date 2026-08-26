@@ -66,10 +66,7 @@
   - アイコンは `@expo/vector-icons` 等を追加導入せず、絵文字1文字で代用
     （依存追加はタスクスコープ外と判断）
 - ロゴ: `docs/sample/sample.png` からロゴ部分（"futary" のスクリプト体 + ハート）を
-  そのまま矩形で切り出して `apps/app/assets/logo.png` として配置（論点L2 対応）。
-  背景を透過させると当初の切り出しでノイズが目立ったため、
-  背景色がトークンの `bg`（`#FEF6F3`）と同一であることを利用し、
-  透過せず矩形のまま採用した
+  切り出して `apps/app/assets/logo.png` として配置（論点L2 対応）
 - `packages/ui/tsconfig.json` は `expo/tsconfig.base` を extends できない
   （`packages/ui` は `expo` に依存しないため pnpm のシンボリックリンクで解決不可）ので、
   その中身を直接 `tsconfig.base.json` の上に足す形にした
@@ -77,3 +74,22 @@
   （Expo dev サーバーが上書き管理するファイル）ではなく
   `apps/app/types/assets.d.ts` を新設してそこに置いた
 - 詳細は `artifacts/002/manual-check.md` の「途中でハマった点」を参照
+
+### レビュー往復1回目（Rの指摘への対応）
+- R-7（ロゴ画像の背景が地の色と一致していない）: 対応済み。
+  当初は矩形のまま切り出して採用していたが、`docs/sample/sample.png` の背景自体に
+  微妙なムラ・ノイズがあり、地の色（`#FEF6F3`）と実測で一致していなかった。
+  ロゴ部分を彩度（RGBのmax-min、いわゆるchroma）ベースでマスクし直し、
+  背景ノイズ（chromaが低い領域）を完全に透明化、文字とハートの線（chromaが高い領域）
+  だけを残す透過PNGとして再生成した。画面の地色とロゴ透明部分の色が
+  ピクセル単位で一致すること（`(254,246,243)` で完全一致）を実測で確認した
+  （`artifacts/002/test-results.txt` 末尾）
+- R-8（余白がトークンを経由していない）: 対応済み。指摘箇所5件すべてを
+  `space` トークン経由に変更した。トークンに無い値（FABの直径56、タブバーの高さ64、
+  タブラベルのフォントサイズ11、FABの `marginTop: -20`、ロゴの表示サイズ106×58）は
+  「この1箇所でしか使わないコンポーネント固有の寸法であり、`space`（余白）や
+  `Text` の `size`（本文フォントサイズ）とは性質が異なる」と判断し、
+  トークン化は見送った
+- R-9（`packages/ui` のテストが型チェックされていない）: 対応済み。
+  `packages/ui/tsconfig.json` の `include` に `test` を追加し、`rootDir` を `.` に変更した
+  （`apps/api/tsconfig.json` と同じ構成に揃えた）

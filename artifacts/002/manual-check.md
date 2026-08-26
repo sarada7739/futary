@@ -46,6 +46,16 @@ pnpm --filter @futary/api run dev    # http://localhost:8787
 - `mobile-album.png`（390×844, スマホ幅）: アルバム（準備中）画面。タブ選択状態の色変化を確認
 - `desktop-home.png`（1280×900, PC幅）: ホーム画面。タブ・FABが横幅いっぱいでも破綻しないことを確認
 
+### 5. ロゴ背景の一致確認（Rレビュー R-7 対応）
+`mobile-home.png` を Pillow で読み込み、画面の地の色とロゴ画像の透明部分（背景が
+透けて見える箇所）のピクセル値を比較した。
+```
+screen bg (5,200):  (254, 246, 243)
+logo edge (10,15):  (254, 246, 243)
+logo area (100,45): (254, 246, 243)
+```
+→ 完全一致（`#FEF6F3`）。矩形の境界が視認できないことを確認した。
+
 ## 途中でハマった点（メモ）
 
 - `packages/ui/tsconfig.json` を `apps/app` と同じく `expo/tsconfig.base` を
@@ -68,3 +78,9 @@ pnpm --filter @futary/api run dev    # http://localhost:8787
 - Web 版で `"shadow*" style props are deprecated. Use "boxShadow".` という警告が
   コンソールに出る（React Native Web の仕様）。動作に支障はないため今回は対応せず、
   `shadow` トークンの実装を変える際の注意点として記録のみ
+- （レビュー往復1回目）ロゴ画像の背景が地の色と一致しない指摘（R-7）を受けて
+  再調査した結果、`docs/sample/sample.png` の背景そのものに軽微なムラ・グラデーション
+  があり、単純な色距離での透過処理では背景ノイズが残る／閾値を上げるとロゴの線まで
+  消えるというトレードオフがあった。彩度（RGBの max-min、chroma）でマスクすると、
+  低彩度の背景ノイズと高彩度のロゴの線（茶色の文字・ピンクの線）をきれいに分離できた
+  （chroma の分布を見ると背景は概ね20以下、ロゴの線は60以上に偏っていた）

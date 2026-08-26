@@ -5,7 +5,7 @@
     "jsx": "react-jsx",
     "lib": ["DOM", "ESNext"],
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "."
   },
-  "include": ["src"]
+  "include": ["src", "test"]
 }
