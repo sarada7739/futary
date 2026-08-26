@@ -29,11 +29,13 @@
 - `docs/sample/sample.png` と並べたとき、色と余白の印象が一致しているか
 
 ## 完了条件
-- [ ] トークンが `packages/ui/tokens.ts` に集約されている
-- [ ] 共通コンポーネント5種が動く
-- [ ] ボトムタブとFABが表示される
-- [ ] テストが緑
-- [ ] `artifacts/002/` にスクリーンショット（スマホ幅・PC幅の両方）を保存
+- [x] トークンが `packages/ui/tokens.ts` に集約されている
+  ※実際の配置は `packages/ui/src/tokens.ts`。`packages/contract`・`packages/db` と
+  同様に `main`/`types` が `./src/index.ts` を指す構成に揃えた（実装メモに詳細）
+- [x] 共通コンポーネント5種が動く
+- [x] ボトムタブとFABが表示される
+- [x] テストが緑
+- [x] `artifacts/002/` にスクリーンショット（スマホ幅・PC幅の両方）を保存
 
 ## 停止条件
 - 完了: 上記をすべて満たす
@@ -41,8 +43,37 @@
 - ロゴ画像の用意（論点L2）で詰まった場合は、暫定でテキストロゴを置いて先に進め、`state.md` に記録する
 
 ## 進捗
-- [ ] トークン定義
-- [ ] 共通コンポーネント
-- [ ] ボトムタブ + FAB
-- [ ] ロゴアセット
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] トークン定義
+- [x] 共通コンポーネント
+- [x] ボトムタブ + FAB
+- [x] ロゴアセット
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+## 実装メモ（Rレビュー向け）
+- ブランチ: `task/002-design-tokens-and-ui`
+- `packages/ui` は `packages/contract` / `packages/db` に合わせて
+  `src/` 配下にソースを置き、`main`/`types` を `./src/index.ts` にした
+  （タスク定義の `packages/ui/tokens.ts` という直下パスとは異なる配置）
+- コンポーネントは `packages/ui/src/components/` に `text.tsx` / `button.tsx` /
+  `card.tsx` / `avatar.tsx` / `screen.tsx`（ファイル名は規約通り kebab-case）。
+  `avatar.tsx` の頭文字抽出ロジックだけ `avatar-logic.ts` に分離してテストしている
+  （react-native 本体は Vitest 上でのレンダリングが難しいため、ロジックのみ単体テスト化し、
+  見た目は `artifacts/002/` のスクリーンショットで担保する方針にした）
+- ボトムタブは `apps/app/app/(tabs)/` にルーティンググループとして実装
+  （既存の `apps/app/app/index.tsx` は `(tabs)/index.tsx` へ移動し、ホーム画面として流用）
+  - `apps/app/app/(tabs)/_layout.tsx` が `expo-router` の `Tabs` を使ってタブを定義
+  - 中央の投稿タブは `tabBarButton` を丸い `Pressable` に差し替えて FAB化
+  - アイコンは `@expo/vector-icons` 等を追加導入せず、絵文字1文字で代用
+    （依存追加はタスクスコープ外と判断）
+- ロゴ: `docs/sample/sample.png` からロゴ部分（"futary" のスクリプト体 + ハート）を
+  そのまま矩形で切り出して `apps/app/assets/logo.png` として配置（論点L2 対応）。
+  背景を透過させると当初の切り出しでノイズが目立ったため、
+  背景色がトークンの `bg`（`#FEF6F3`）と同一であることを利用し、
+  透過せず矩形のまま採用した
+- `packages/ui/tsconfig.json` は `expo/tsconfig.base` を extends できない
+  （`packages/ui` は `expo` に依存しないため pnpm のシンボリックリンクで解決不可）ので、
+  その中身を直接 `tsconfig.base.json` の上に足す形にした
+- 画像 import 用の `declare module "*.png"` は `apps/app/expo-env.d.ts`
+  （Expo dev サーバーが上書き管理するファイル）ではなく
+  `apps/app/types/assets.d.ts` を新設してそこに置いた
+- 詳細は `artifacts/002/manual-check.md` の「途中でハマった点」を参照
