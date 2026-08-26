@@ -1,0 +1,14 @@
+name = "futary-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "futary-db"
+database_id = "37d32e5d-80a9-4bc9-bae4-e7019bebd883"
+migrations_dir = "../../packages/db/migrations"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "futary-images"

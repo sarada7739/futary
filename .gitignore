@@ -18,11 +18,16 @@ build/
 .env.*
 !.env.example
 
+# wrangler types が生成するランタイム型（各自 `wrangler types` で再生成する）
+worker-configuration.d.ts
+
 # ログ・一時ファイル
 *.log
 npm-debug.log*
 coverage/
 *.tsbuildinfo
+# artifacts配下の動作証跡ログは対象外（conventions.md 8節）
+!artifacts/**/*.log
 
 # OS
 .DS_Store
