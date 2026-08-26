@@ -38,10 +38,21 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 なし
 
+## 環境
+
+| 項目 | 状態 |
+|---|---|
+| 作業フォルダ | `C:\Users\coco7\futary` |
+| リポジトリ | `sarada7739/futary`（**Private**。016 で Public に切り替える。ADR-011） |
+| 既定ブランチ | `main` |
+| gh CLI | 2.98.0 認証済み（スコープ: repo / workflow / gist / read:org） |
+| Cloudflare | **未設定**（D1 / R2 の作成が 001 で必要） |
+| Google OAuth | **未設定**（003 の前までに必要） |
+
 ## 次の一手
 
-1. Google Cloud Console で OAuth クライアントを作成（人間の作業。003 の前までに）
-2. Cloudflare アカウントで D1 データベースと R2 バケットを作成（人間の作業。001 の中で）
+1. Cloudflare アカウントで D1 データベースと R2 バケットを作成（人間の作業。001 の中で）
+2. Google Cloud Console で OAuth クライアントを作成（人間の作業。003 の前までに）
 3. セッションB が `docs/tasks/001-walking-skeleton.md` を実装する
 
 ## 未解決の論点
