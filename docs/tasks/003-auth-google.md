@@ -30,6 +30,10 @@ Better Auth + Google OAuth + D1 + Expo SecureStore の組み合わせを、
 - `BETTER_AUTH_SECRET` は32バイト以上のランダム値。`.dev.vars` に置き、リポジトリに含めない
 - `GOOGLE_CLIENT_SECRET` を `wrangler.toml` に直接書かない（`wrangler secret` を使う）
 - 認証エラーの詳細をクライアントに返さない
+- **`apps/api/src/index.ts` の CORS 設定に `credentials: true` を足す場合は、
+  001から残っている開発用の `origin: ["http://localhost:8081", ...]` を
+  本番ではオリジンを絞る形に見直すこと（001のRレビューで指摘。放置すると
+  認証情報付きリクエストを許可オリジンが localhost 固定のまま受け付ける穴になる）**
 
 ## 人間に依頼すること
 - Google Cloud Console で OAuth 2.0 クライアントIDを作成する
