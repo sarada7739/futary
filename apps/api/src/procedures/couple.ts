@@ -1,5 +1,6 @@
 import { implementer } from "../implementer";
 import { generateInviteCode } from "../lib/invite-code";
+import { authedProcedure, readProcedure, writeProcedure } from "./base";
 
 const INVITE_TTL_SECONDS = 24 * 60 * 60;
 // user_id 単位はアカウントごとの上限（security-requirements.md 4節の基準そのもの）。
@@ -32,84 +33,71 @@ function isConstraintViolation(error: unknown): boolean {
   return error instanceof Error && /constraint failed/i.test(error.message);
 }
 
-async function findCoupleIdByUserId(db: D1Database, userId: string): Promise<string | null> {
-  const row = await db
-    .prepare("SELECT couple_id FROM couple_members WHERE user_id = ?1")
-    .bind(userId)
-    .first<{ couple_id: string }>();
-  return row?.couple_id ?? null;
-}
+// couple.create はまだどのペアにも所属していない認証済みユーザーが呼ぶ操作。
+// readProcedure/writeProcedure は「未所属なら NEEDS_ONBOARDING」で弾くため、
+// 未所属であることが前提のこの手続きには載せられない（invite.accept も同様）。
+// 認証必須だけを課す authedProcedure の上に載せる（context.user は非 null に絞り込まれる）
+const coupleCreate = implementer.couple.create
+  .use(authedProcedure)
+  .handler(async ({ context, input, errors }) => {
+    const { db } = context;
+    const id = crypto.randomUUID();
+    const now = nowSeconds();
 
-const coupleCreate = implementer.couple.create.handler(async ({ context, input, errors }) => {
-  if (!context.user) throw errors.FORBIDDEN();
-  const { db } = context;
-  const id = crypto.randomUUID();
-  const now = nowSeconds();
+    try {
+      await db.batch([
+        db
+          .prepare(
+            "INSERT INTO couples (id, anniversary_date, is_demo, created_at) VALUES (?1, ?2, 0, ?3)",
+          )
+          .bind(id, input.anniversaryDate, now),
+        db
+          .prepare(
+            "INSERT INTO couple_members (couple_id, user_id, slot, joined_at) VALUES (?1, ?2, 1, ?3)",
+          )
+          .bind(id, context.user.id, now),
+      ]);
+    } catch (error) {
+      // couple_members.user_id の UNIQUE 違反 = 既に別のペアに所属している
+      if (isConstraintViolation(error)) throw errors.FORBIDDEN();
+      throw error;
+    }
 
-  try {
-    await db.batch([
-      db
-        .prepare(
-          "INSERT INTO couples (id, anniversary_date, is_demo, created_at) VALUES (?1, ?2, 0, ?3)",
-        )
-        .bind(id, input.anniversaryDate, now),
-      db
-        .prepare(
-          "INSERT INTO couple_members (couple_id, user_id, slot, joined_at) VALUES (?1, ?2, 1, ?3)",
-        )
-        .bind(id, context.user.id, now),
-    ]);
-  } catch (error) {
-    // couple_members.user_id の UNIQUE 違反 = 既に別のペアに所属している
-    if (isConstraintViolation(error)) throw errors.FORBIDDEN();
-    throw error;
-  }
+    return { id, anniversaryDate: input.anniversaryDate, createdAt: now };
+  });
 
-  return { id, anniversaryDate: input.anniversaryDate, createdAt: now };
-});
-
-const coupleGet = implementer.couple.get.handler(async ({ context, errors }) => {
-  if (!context.user) throw errors.FORBIDDEN();
-
+// ctx.coupleId はミドルウェアが解決済み（未認証ならデモペア、認証済みなら所属ペア）
+const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ context }) => {
   const row = await context.db
     .prepare(
-      `SELECT co.id AS id, co.anniversary_date AS anniversary_date, co.created_at AS created_at
-         FROM couples co
-         JOIN couple_members cm ON cm.couple_id = co.id
-        WHERE cm.user_id = ?1`,
+      "SELECT id AS id, anniversary_date AS anniversary_date, created_at AS created_at FROM couples WHERE id = ?1",
     )
-    .bind(context.user.id)
+    .bind(context.coupleId)
     .first<CoupleRow>();
 
-  if (!row) throw errors.NEEDS_ONBOARDING();
+  // readProcedure が couple_id を確定させた時点で存在は保証されている想定
+  // （005時点でデモペアは未作成のため DEMO_COUPLE_ID は空文字＝ここには来ない）
+  if (!row) throw new Error("couple_id に対応するペアが見つかりません");
   return toCouple(row);
 });
 
-const coupleUpdate = implementer.couple.update.handler(async ({ context, input, errors }) => {
-  if (!context.user) throw errors.FORBIDDEN();
-
-  // 所有者確認とUPDATEを1文にまとめる（SELECTしてからUPDATE、という2段階にしない）
+const coupleUpdate = implementer.couple.update.use(writeProcedure).handler(async ({ context, input }) => {
   const row = await context.db
     .prepare(
       `UPDATE couples
           SET anniversary_date = ?1
-        WHERE id IN (SELECT couple_id FROM couple_members WHERE user_id = ?2)
+        WHERE id = ?2
         RETURNING id AS id, anniversary_date AS anniversary_date, created_at AS created_at`,
     )
-    .bind(input.anniversaryDate, context.user.id)
+    .bind(input.anniversaryDate, context.coupleId)
     .first<CoupleRow>();
 
-  if (!row) throw errors.NEEDS_ONBOARDING();
+  if (!row) throw new Error("couple_id に対応するペアが見つかりません");
   return toCouple(row);
 });
 
-const inviteIssue = implementer.invite.issue.handler(async ({ context, errors }) => {
-  if (!context.user) throw errors.FORBIDDEN();
-  const { db } = context;
-
-  const coupleId = await findCoupleIdByUserId(db, context.user.id);
-  if (!coupleId) throw errors.NEEDS_ONBOARDING();
-
+const inviteIssue = implementer.invite.issue.use(writeProcedure).handler(async ({ context }) => {
+  const { db, coupleId, userId } = context;
   const now = nowSeconds();
   const expiresAt = now + INVITE_TTL_SECONDS;
 
@@ -125,7 +113,7 @@ const inviteIssue = implementer.invite.issue.handler(async ({ context, errors })
           .prepare(
             "INSERT INTO invites (code, couple_id, created_by, expires_at, used_at) VALUES (?1, ?2, ?3, ?4, NULL)",
           )
-          .bind(code, coupleId, context.user.id, expiresAt),
+          .bind(code, coupleId, userId, expiresAt),
       ]);
       return { code, expiresAt };
     } catch (error) {
@@ -179,8 +167,9 @@ async function reserveInviteFailureSlot(
   return row?.id ?? null;
 }
 
-const inviteAccept = implementer.invite.accept.handler(async ({ context, input, errors }) => {
-  if (!context.user) throw errors.FORBIDDEN();
+// invite.accept はまだどのペアにも所属していない認証済みユーザーが呼ぶ操作
+// （couple.create と同じ理由で authedProcedure の上に載せる）
+const inviteAccept = implementer.invite.accept.use(authedProcedure).handler(async ({ context, input, errors }) => {
   const { db } = context;
   const userId = context.user.id;
   const now = nowSeconds();

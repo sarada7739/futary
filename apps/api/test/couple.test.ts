@@ -27,8 +27,9 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
 function contextFor(
   user: { id: string; name: string; email: string } | null,
   ip: string | null = "203.0.113.1",
+  demoCoupleId: string | null = null,
 ): RpcContext {
-  return { db, user: user ? { ...user, image: null } : null, ip };
+  return { db, user: user ? { ...user, image: null } : null, ip, demoCoupleId };
 }
 
 describe("couple.create", () => {
@@ -99,7 +100,11 @@ describe("couple.get", () => {
     });
   });
 
-  it("未認証なら FORBIDDEN", async () => {
+  // 005: couple.get は readProcedure の上に載っており、未認証でも
+  // DEMO_COUPLE_ID が設定されていれば通る（デモペアの読み取り）。
+  // ここでは demoCoupleId 未設定（デフォルト null）のケースを見ている。
+  // fail-closed の網羅的な検証は test/authorization.test.ts の5番目の項目を参照
+  it("未認証かつ DEMO_COUPLE_ID 未設定なら FORBIDDEN", async () => {
     await expect(call(router.couple.get, undefined, { context: contextFor(null) })).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
@@ -141,6 +146,8 @@ describe("couple.update", () => {
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 
+  // 005: writeProcedure が mode === 'readonly'（未認証）を一律 FORBIDDEN にする。
+  // DEMO_COUPLE_ID の設定有無に関係ない（test/authorization.test.ts の2番目の項目）
   it("未認証なら FORBIDDEN", async () => {
     await expect(
       call(router.couple.update, { anniversaryDate: "2022-02-02" }, { context: contextFor(null) }),
