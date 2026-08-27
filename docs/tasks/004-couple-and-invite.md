@@ -21,13 +21,51 @@
   - 有効期限は発行から24時間
   - **1ペアにつき有効なコードは1件**。再発行したら前のコードを無効化する
 - `invite.accept`: コードを受け取ってペアに参加する
+  - **`db.transaction()` を使わない。** D1 にインタラクティブなトランザクションは無い
+    （`docs/architecture.md` 4節「D1 にインタラクティブなトランザクションは無い」）。
+    `drizzle-orm/d1` の `transaction()` は生の `BEGIN` / `COMMIT` を発行するため実行時に失敗する
   - 未使用かつ有効期限内であることを、`used_at` を条件に含めた UPDATE の更新件数で判定する
     （SELECT で確認してから UPDATE、という2段階にしない）
-  - トランザクション内で参加人数を検査し、既に2人なら拒否する
+  - **参加人数もアプリ側で数えない。** `couple_members.slot` の
+    `CHECK (slot IN (1,2))` と `UNIQUE (couple_id, slot)` で DB に担保させる。
+    3人目は `slot = 3` を書こうとして CHECK 違反で失敗する
+  - 招待の消費と参加の INSERT は `batch()` にまとめる。
+    片方だけ成立する状態を作らない
   - 失敗回数を IP 単位で制限する（10回/時間）。超過で `RATE_LIMITED`
 - オンボーディング画面
   - ペアが無いユーザーには「新しく作る」「コードで参加する」の2択を出す
   - コード表示画面には共有ボタンを置く（LINE 等に貼れる）
+
+### `invite.accept` の実装方針
+
+以下の形で成立する。SQL の細部は B が調整してよいが、
+**「読んでから判断して書く」形にしないこと**と**制約違反が例外になること**は満たすこと。
+
+```sql
+-- 文1: 招待を消費する（未使用・期限内のときだけ更新される）
+UPDATE invites SET used_at = :now
+WHERE code = :code AND used_at IS NULL AND expires_at > :now;
+
+-- 文2: 参加する（文1で消費できたときだけ行が入る）
+INSERT INTO couple_members (couple_id, user_id, slot, joined_at)
+SELECT i.couple_id, :userId,
+       (SELECT COUNT(*) + 1 FROM couple_members m WHERE m.couple_id = i.couple_id),
+       :now
+FROM invites i
+WHERE i.code = :code AND i.used_at = :now;
+```
+
+この2文を `batch()` に入れる。判定は次のとおり。
+
+| 結果 | 意味 | 返すもの |
+|---|---|---|
+| 文1の更新件数が 0 | コードが無効・期限切れ・使用済み | `NOT_FOUND` |
+| CHECK 制約違反 | ペアが既に2人 | `FORBIDDEN` |
+| `user_id` の UNIQUE 違反 | 既に別のペアに所属している | `FORBIDDEN` |
+| 両方成功 | 参加成立 | couple |
+
+文2が `i.used_at = :now` を条件にしているため、
+文1が消費できなかった場合は文2も行を入れない。TOCTOU が発生しない。
 
 ## セキュリティ上の必須事項
 `docs/security-requirements.md` 4節に従う。**3点すべてを実装する。**
@@ -41,8 +79,11 @@
 ## 確認観点
 - 6桁が総当たり可能であることを踏まえ、3つの対策が確実に効いているか
 - 1人が2つのペアに所属できないこと（`couple_members.user_id` の UNIQUE）
-- 1ペアに3人目が入れないこと
+- 1ペアに3人目が入れないこと（`slot` の CHECK 制約で失敗すること）
 - 同じコードを2回使えないこと
+- **`db.transaction()` が使われていないこと**
+- **「SELECT で数えてから書く」形になっていないこと。** 条件が書き込み文の WHERE に
+  埋め込まれ、判定が更新件数か制約違反になっていること
 - コードがログに出力されていないか
 
 ## 完了条件
