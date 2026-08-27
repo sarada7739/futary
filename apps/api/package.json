@@ -15,10 +15,12 @@
     "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
+    "@better-auth/expo": "^1.7.2",
     "@futary/contract": "workspace:*",
     "@futary/db": "workspace:*",
     "@orpc/contract": "1.15.0",
     "@orpc/server": "1.15.0",
+    "better-auth": "^1.7.2",
     "hono": "^4.13.5",
     "zod": "^4.1.11"
   },

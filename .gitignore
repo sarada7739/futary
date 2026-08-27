@@ -17,6 +17,7 @@ build/
 .env
 .env.*
 !.env.example
+!.dev.vars.example
 
 # wrangler types が生成するランタイム型（各自 `wrangler types` で再生成する）
 worker-configuration.d.ts

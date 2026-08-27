@@ -279,3 +279,94 @@
 
 ### 詰まった点
 - なし
+
+---
+
+## 2026-08-27 / セッションB（003 実装）
+
+### やったこと
+- `docs/tasks/003-auth-google.md` を実装した。ブランチ `task/003-auth-google`
+- `packages/db`: `src/schema/auth.ts` に Better Auth 管理テーブル（user/session/
+  account/verification）を実装。フィールド定義は `better-auth/db` の `getAuthTables()`
+  を実際に呼び出して取得した値と突き合わせて作成（手で覚えている定義を書かなかった）。
+  マイグレーション `0001_auth.sql` を生成・ローカルD1に適用
+- `packages/db/src/index.ts` に `createDb(d1)`（drizzle-orm/d1）を追加
+- `apps/api/src/auth.ts`: `createAuth(env)` で Better Auth を初期化（drizzleAdapter,
+  Google provider, `@better-auth/expo` プラグイン）。Workers はリクエストごとに
+  env が変わるため、リクエストごとに生成する設計
+- `apps/api/src/index.ts`: `/api/auth/*` を Better Auth の handler にマウント、
+  CORS を `credentials: true` + 環境変数 `TRUSTED_ORIGINS` によるオリジン許可に変更
+  （L6の解決）、oRPC の `RpcContext` にセッションから解決した `user` を追加
+- `packages/contract/src/me.ts` + `apps/api/src/router.ts`: `me.get` を実装
+  （未認証は `null`）
+- `apps/app`: `lib/auth-client.ts`（Web=Cookie、ネイティブ=Expo SecureStore を
+  `Platform.OS` で出し分け）、`lib/api-origin.ts`（`orpc.ts` と共有に抽出）、
+  `app/(auth)/sign-in.tsx`（ログイン画面。「ログイン」「新しくはじめる」「ゲストで
+  はじめる」の3ボタン、ゲストは無効表示）、`app/_layout.tsx`（`Stack.Protected`
+  でログイン状態によるルーティングガード）、`(tabs)/profile.tsx`（ログアウト）
+- `packages/ui/src/components/button.tsx` に `secondary` バリアントと `disabled`
+  表示を追加（デザインサンプルの「新しくはじめる」枠線ボタンと「ゲストではじめる」
+  無効表示のため）
+- Vitest結合テスト5件（me.get未認証、get-session、sign-out、
+  expo-authorization-proxyのブロック確認、既存のhealth.get）
+- `pnpm audit` 実行 → 4件検出、いずれも開発時ツール経由と予備判断
+- `security-auditor` を新フロー（`artifacts/NNN/security-audit-raw.md` +
+  `docs/security-report.md` の2箇所に記録、監査役は書き込み不可）で実行。
+  High 2件検出（本番デプロイ時にCookieのSecure属性が落ちる設定ミスリスク、
+  BETTER_AUTH_SECRET未設定時のデフォルト鍵フォールバック）→ 両方修正:
+  `assertValidSecret`/`assertBaseUrl` による fail-fast、`BETTER_AUTH_URL`/
+  `TRUSTED_ORIGINS` を `wrangler.toml [vars]` から `.dev.vars`/`wrangler secret`
+  経由に変更（未設定なら起動時エラーで落ちる fail-closed 設計に変更）。
+  Medium指摘のうち `expo-authorization-proxy` のブロック、`rateLimit: { enabled: true }`
+  の明示も対応。残りのMedium/Low指摘は `docs/state.md` の未解決論点（L9〜L13）に記録
+- CI（`.github/workflows/ci.yml`）にテスト用ダミー `.dev.vars` を生成するステップを
+  追加（`.dev.vars` が無い環境で `BETTER_AUTH_SECRET` 未設定→fail-fastによりテストが
+  落ちることを手元で確認したため）
+- `wrangler dev` + `expo start --web` をローカルで起動し、ダミーのGoogle認証情報で
+  Googleの認可画面まで正しく遷移すること、CORS越境リクエストが機能すること、
+  fail-fast（`.dev.vars`退避時に500になること）を確認。証跡は `artifacts/003/` に保存
+  （ブラウザペインが表示されない状態だったためスクリーンショットは撮れず、
+  ネットワークログ・テキスト証跡・手順記録で代替）
+- 人間に確認したところ、Google OAuthクライアントの作成は「今は後回しでよい」との
+  回答。実際のGoogleログイン成功・D1レコード作成・Cookie属性実地確認は保留とし、
+  `docs/tasks/003-auth-google.md` に保留節として明記した
+
+### 決定事項
+- `packages/db` のスキーマをファイル1枚（`src/schema.ts`）から `src/schema/` ディレクトリ
+  （`auth.ts` + `index.ts`）に変更した。タスクファイルの記述パス
+  （`packages/db/schema/auth.ts`）とは異なるが、今後 couples/posts/events 等が
+  増える前提でモジュール分割した方が保守しやすいと判断（Bの裁量範囲と判断）
+- `BETTER_AUTH_URL` と `TRUSTED_ORIGINS` は `wrangler.toml [vars]` に置かない。
+  本番デプロイ時に開発用の値を上書きし忘れるとセキュリティ上のリスクになるため
+  （security-auditor 003監査 High/Medium指摘）、`.dev.vars`/`wrangler secret` 経由に
+  統一し、未設定なら起動時エラーで落ちる設計にした。`architecture.md` 8節はAが
+  この決定に合わせて更新済み
+- ネイティブ（Expo）のGoogleログインは今回対応しない。`futary://` を
+  `TRUSTED_ORIGINS` に含めないことで `@better-auth/expo` の認可プロキシ経路を
+  意図的に無効化した（Androidのカスタムスキーム衝突・セッショントークンの
+  URLクエリ露出という監査指摘があり、対応はネイティブ実装タスクに持ち越す）
+
+### 詰まった点
+- Better Auth のテーブルスキーマを手で書くと間違えるリスクがあったため、
+  `better-auth/db` の `getAuthTables()` を Node スクリプトで直接呼び出し、
+  実際のフィールド定義（`account.issuer` が必須フィールドとして存在する等）を
+  確認してから `drizzle` スキーマを書いた
+- `drizzleAdapter` の `schema` オプションに `@futary/db` の名前空間全体
+  （`createDb` 等を含む）を渡すと意味的に紛らわしかったため、
+  `packages/db/src/index.ts` で `export { schema }` として名前空間を分離した
+- `@better-auth/expo` は Expo クライアント側だけでなく `apps/api`（サーバー側）にも
+  必要だった。最初 `apps/app` にしか入れておらず、Vitest（`cloudflare:test`）で
+  `Cannot find package '@better-auth/expo'` エラーになって気づいた
+- CI環境には `.dev.vars` が無いため、`BETTER_AUTH_SECRET` の fail-fast検証を
+  入れた直後に「CIでテストが全滅する」ことに気づいた。`.dev.vars` を退避して
+  ローカルで再現させてから、CIワークフローにテスト用ダミー値を生成するステップを
+  追加して解決した
+- ブラウザペイン（このセッションのプレビュー機能）が途中から screenshot を
+  受け付けなくなった（ユーザー側でパネルを閉じたと推測）。ネットワークログと
+  `get_page_text` は動作したため、証跡はテキストベースに切り替えて対応した
+- security-auditor の運用フローが、Aから並行してのメッセージで修正された
+  （監査役はRead/Grep/Globのみで書き込めないのに元の指示は「追記して」と
+  矛盾していた）。実行中に内容を実ファイルで検証してから新フローを適用した
+- 作業中、gitのブランチが `main` のままだったことにAからの指摘で気づいた
+  （`git switch -c task/003-auth-google` で修正するまで、コミット前の変更は
+  すべて `main` の作業ツリーに乗っていた。conventions.md 7節違反になるところだった）

@@ -1,0 +1,113 @@
+┌─────────────────────┬────────────────────────────────────────────────────────┐
+│ high                │ image-size: ICNS parser allows denial of service       │
+│                     │ through an infinite loop                               │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Package             │ image-size                                             │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Vulnerable versions │ <=2.0.2                                                │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Patched versions    │ None                                                   │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Paths               │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/log-box>@expo/dom-webview>react-             │
+│                     │ native>@react-native/community-cli-plugin>@react-      │
+│                     │ native/metro-config>metro-config>metro>image-size      │
+│                     │                                                        │
+│                     │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/log-box>react-native>@react-native/          │
+│                     │ community-cli-plugin>@react-native/metro-config>metro- │
+│                     │ config>metro>image-size                                │
+│                     │                                                        │
+│                     │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/router-server>expo-font>react-native>@react- │
+│                     │ native/community-cli-plugin>@react-native/metro-       │
+│                     │ config>metro-config>metro>image-size                   │
+│                     │                                                        │
+│                     │ ... Found 100 paths, run `pnpm why image-size` for     │
+│                     │ more information                                       │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ More info           │ https://github.com/advisories/GHSA-w3rx-r6r6-pgpr      │
+└─────────────────────┴────────────────────────────────────────────────────────┘
+┌─────────────────────┬────────────────────────────────────────────────────────┐
+│ high                │ image-size: JXL and HEIF parsers allow denial of       │
+│                     │ service through infinite loops                         │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Package             │ image-size                                             │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Vulnerable versions │ <=2.0.2                                                │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Patched versions    │ None                                                   │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Paths               │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/log-box>@expo/dom-webview>react-             │
+│                     │ native>@react-native/community-cli-plugin>@react-      │
+│                     │ native/metro-config>metro-config>metro>image-size      │
+│                     │                                                        │
+│                     │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/log-box>react-native>@react-native/          │
+│                     │ community-cli-plugin>@react-native/metro-config>metro- │
+│                     │ config>metro>image-size                                │
+│                     │                                                        │
+│                     │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/router-server>expo-font>react-native>@react- │
+│                     │ native/community-cli-plugin>@react-native/metro-       │
+│                     │ config>metro-config>metro>image-size                   │
+│                     │                                                        │
+│                     │ ... Found 100 paths, run `pnpm why image-size` for     │
+│                     │ more information                                       │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ More info           │ https://github.com/advisories/GHSA-5p2g-fcmc-qvqq      │
+└─────────────────────┴────────────────────────────────────────────────────────┘
+┌─────────────────────┬────────────────────────────────────────────────────────┐
+│ moderate            │ esbuild enables any website to send any requests to    │
+│                     │ the development server and read the response           │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Package             │ esbuild                                                │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Vulnerable versions │ <=0.24.2                                               │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Patched versions    │ >=0.25.0                                               │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Paths               │ apps__api>@better-auth/expo>better-auth>drizzle-       │
+│                     │ kit>@esbuild-kit/esm-loader>@esbuild-kit/core-         │
+│                     │ utils>esbuild                                          │
+│                     │                                                        │
+│                     │ apps__api>better-auth>drizzle-kit>@esbuild-kit/esm-    │
+│                     │ loader>@esbuild-kit/core-utils>esbuild                 │
+│                     │                                                        │
+│                     │ apps__app>@better-auth/expo>better-auth>drizzle-       │
+│                     │ kit>@esbuild-kit/esm-loader>@esbuild-kit/core-         │
+│                     │ utils>esbuild                                          │
+│                     │                                                        │
+│                     │ ... Found 6 paths, run `pnpm why esbuild` for more     │
+│                     │ information                                            │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ More info           │ https://github.com/advisories/GHSA-67mh-4wv8-2f99      │
+└─────────────────────┴────────────────────────────────────────────────────────┘
+┌─────────────────────┬────────────────────────────────────────────────────────┐
+│ moderate            │ uuid: Missing buffer bounds check in v3/v5/v6 when buf │
+│                     │ is provided                                            │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Package             │ uuid                                                   │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Vulnerable versions │ <11.1.1                                                │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Patched versions    │ >=11.1.1                                               │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ Paths               │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/config>@expo/config-plugins>xcode>uuid       │
+│                     │                                                        │
+│                     │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/config-plugins>xcode>uuid                    │
+│                     │                                                        │
+│                     │ apps__api>@better-auth/expo>expo-constants>expo>@expo/ │
+│                     │ cli>@expo/inline-modules>@expo/config-                 │
+│                     │ plugins>xcode>uuid                                     │
+│                     │                                                        │
+│                     │ ... Found 100 paths, run `pnpm why uuid` for more      │
+│                     │ information                                            │
+├─────────────────────┼────────────────────────────────────────────────────────┤
+│ More info           │ https://github.com/advisories/GHSA-w5hq-g745-h8pq      │
+└─────────────────────┴────────────────────────────────────────────────────────┘
+4 vulnerabilities found
+Severity: 2 moderate | 2 high

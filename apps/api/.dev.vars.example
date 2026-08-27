@@ -1,0 +1,23 @@
+# このファイルをコピーして .dev.vars を作り、実際の値を入れる。
+# .dev.vars は .gitignore 済み。絶対にコミットしない
+#
+#   cp .dev.vars.example .dev.vars
+
+# Better Auth のセッション署名鍵。32バイト以上のランダム値。
+# 生成例: openssl rand -base64 32
+BETTER_AUTH_SECRET=
+
+# Google Cloud Console で発行した OAuth 2.0 クライアント。
+# 承認済みリダイレクトURIに http://localhost:8787/api/auth/callback/google を登録すること
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# API サーバー自身のURL（Google OAuth のコールバック先の組み立てに使う）。
+# 本番は wrangler secret put で実際の https ドメインを設定する
+# （[vars] に置かないのは、本番で上書きし忘れると Cookie の Secure 属性が
+#   落ちるため。security-auditor 003監査 High指摘）
+BETTER_AUTH_URL=http://localhost:8787
+
+# Cookie を使う認証リクエスト（credentials: true）を許可するオリジン。カンマ区切り。
+# 本番は同一オリジン配信のため空でよい（未設定なら CORS はすべて拒否＝fail-closed）
+TRUSTED_ORIGINS=http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006

@@ -12,3 +12,10 @@ migrations_dir = "../../packages/db/migrations"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "futary-images"
+
+# BETTER_AUTH_URL / TRUSTED_ORIGINS は [vars] に置かない。
+# ここに置くと本番デプロイ時に上書きし忘れた場合、Cookie の Secure 属性が
+# 落ちたり、開発用の localhost オリジンへの CORS が本番でも許可され続けるリスクがある
+# （security-auditor 003監査 High/Medium指摘）。
+# 値は .dev.vars（ローカル）と `wrangler secret put`（本番）で明示的に設定する運用にし、
+# 未設定なら Worker が起動時エラーで落ちる（fail-closed）ようにする。
