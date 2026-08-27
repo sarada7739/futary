@@ -66,8 +66,10 @@ couples
 couple_members
   couple_id  TEXT    NOT NULL -> couples.id
   user_id    TEXT    NOT NULL -> user.id   UNIQUE   -- 1人1ペアまで
+  slot       INTEGER NOT NULL CHECK (slot IN (1, 2))  -- 1ペア2人までをDBで担保
   joined_at  INTEGER NOT NULL
   PRIMARY KEY (couple_id, user_id)
+  UNIQUE (couple_id, slot)
 
 invites
   code        TEXT    PK                    -- 6桁。紛らわしい文字を除いた英数
@@ -107,13 +109,35 @@ events
   INDEX (couple_id, date)
 ```
 
+### D1 にインタラクティブなトランザクションは無い
+
+**`db.transaction()` を使わない。** D1 は明示的な `BEGIN` / `COMMIT` を受け付けない。
+`drizzle-orm/d1` の `transaction()` はそれらを生の SQL として発行する実装のため、
+実行時に失敗する（003 で Better Auth を `transaction: false` にしたのも同じ理由）。
+
+原子性が必要な箇所は、次の2つで表現する。
+
+| 手段 | 保証 |
+|---|---|
+| 単一の SQL 文 | それ自体が原子的 |
+| `batch()` | 含まれる全文が全部成功か全部失敗（暗黙のトランザクション） |
+
+したがって「読んでから判断して書く」という形にしない。
+**条件を書き込み文の WHERE に埋め込み、更新件数で結果を判定する。**
+複数文が必要なら `batch()` にまとめる。
+`batch()` は文の**エラー**でロールバックする。更新件数0はエラーではないため、
+「起きてはいけない状態」は宣言的制約（UNIQUE / CHECK）でエラーにする。
+
 ### 制約の担保箇所
 
 | 制約 | 担保方法 |
 |---|---|
 | 1人が所属できるペアは1つ | `couple_members.user_id` の UNIQUE 制約 |
-| 1ペアは最大2人 | 参加処理をトランザクションで包み、件数を検査してから INSERT |
+| 1ペアは最大2人 | `couple_members.slot` に `CHECK (slot IN (1,2))` と `UNIQUE (couple_id, slot)`。参加時は**空いている最小のスロット**を求め、空きが無ければ `NULL` になって NOT NULL 違反で失敗する（件数から `COUNT(*)+1` で計算しない。行の削除が起きると既存スロットと衝突する） |
 | 招待コードは1回だけ有効 | `used_at` を条件に含めた UPDATE の更新件数で判定 |
+
+3つとも**宣言的制約か、条件付き単一文の更新件数**で担保している。
+アプリケーション側で数えて判断する箇所は無い。
 
 ### 統計の算出（専用テーブルを持たない）
 
