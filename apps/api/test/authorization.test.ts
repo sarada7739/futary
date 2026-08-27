@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { call, isProcedure } from "@orpc/server";
 import { describe, expect, it } from "vitest";
 import { router } from "../src/router";
+import { authedProcedure, readProcedure, writeProcedure } from "../src/procedures/base";
 import type { Bindings } from "../src/index";
 import type { RpcContext } from "../src/context";
 
@@ -185,16 +186,24 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   // 機械的に検出する。.use() の書き忘れは型エラーにならないため、これが唯一の防御線
   // （security-auditor 005監査 Medium指摘: authedProcedure の追加だけでは
   // 「.use() を丸ごと忘れる」経路は塞げない。Rレビューで指摘され追加した）
-  it("許可リストに無い手続きは、ミドルウェアが1つ以上適用されている", () => {
+  it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
     expect(procedures.length).toBeGreaterThanOrEqual(7);
+
+    // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
+    // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの
+    // 関数が含まれているかを検査する（Rレビュー005 往復2回目の指摘）
+    const bases: readonly unknown[] = [readProcedure, writeProcedure, authedProcedure];
 
     for (const { path, procedure } of procedures) {
       if (ALLOWED_WITHOUT_BASE.has(path)) continue;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const middlewares = (procedure as any)["~orpc"].middlewares as readonly unknown[];
-      expect(middlewares.length, `${path} が認可の基底を経由していません`).toBeGreaterThan(0);
+      expect(
+        middlewares.some((m) => bases.includes(m)),
+        `${path} が認可の基底を経由していません`,
+      ).toBe(true);
     }
   });
 
