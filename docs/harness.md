@@ -113,6 +113,32 @@ git worktree add ../futary-R --detach main   # R（レビュー）
 これにより `conventions.md` 9節の「B に未コミットの作業がある間、A は
 設計ドキュメントを変更しない」という制約が不要になる。A はいつでも書ける。
 
+#### ブランチの後片付けは、切った worktree が行う
+
+**別の worktree がチェックアウト中のブランチは削除できない。**
+マージする側が `gh pr merge --delete-branch` を打っても、ローカルブランチの削除だけが失敗する
+（リモートのマージは成功するので実害は無いが、ローカルにゴミが残る）。
+
+自分の PR がマージされたら、**自分の worktree で**次を行う。
+
+```bash
+git fetch --prune
+git switch --detach origin/main            # ブランチから離れる
+git branch -D task/<名前>                   # ローカルを削除
+git push origin --delete task/<名前>        # リモートを削除
+```
+
+マージした側に片付けを頼まない。切った者が片付ける。
+
+- **`-d` ではなく `-D` を使う。** squash merge ではブランチ先端が `main` の祖先に
+  ならないため、`-d` は「未マージ」と判定して拒否する
+  （`git branch -r --merged origin/main` が `origin/main` 以外を返さないことで確認できる）。
+  **したがって `-D` は「マージ済みか確認せずに消している」ことを意味する。**
+  PR がマージ済みであることを自分で確認してから打つ
+- **`git branch -D` はローカルだけ。** リモートは別途 `git push origin --delete` が要る。
+  忘れると、ローカルには無いのに `origin` にだけ残る状態になり、
+  `git ls-remote --heads origin` を見るまで気づけない
+
 ---
 
 ## 4. 圧縮耐性
