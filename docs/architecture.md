@@ -133,7 +133,7 @@ events
 | 制約 | 担保方法 |
 |---|---|
 | 1人が所属できるペアは1つ | `couple_members.user_id` の UNIQUE 制約 |
-| 1ペアは最大2人 | `couple_members.slot` に `CHECK (slot IN (1,2))` と `UNIQUE (couple_id, slot)`。3人目は `slot = 3` を書こうとして CHECK 違反で失敗する |
+| 1ペアは最大2人 | `couple_members.slot` に `CHECK (slot IN (1,2))` と `UNIQUE (couple_id, slot)`。参加時は**空いている最小のスロット**を求め、空きが無ければ `NULL` になって NOT NULL 違反で失敗する（件数から `COUNT(*)+1` で計算しない。行の削除が起きると既存スロットと衝突する） |
 | 招待コードは1回だけ有効 | `used_at` を条件に含めた UPDATE の更新件数で判定 |
 
 3つとも**宣言的制約か、条件付き単一文の更新件数**で担保している。
