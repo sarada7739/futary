@@ -1,0 +1,47 @@
+$ pnpm -r --if-present run type-check
+Scope: 5 of 6 workspace projects
+packages/contract type-check$ tsc --noEmit
+packages/ui type-check$ tsc --noEmit
+packages/db type-check$ tsc --noEmit
+packages/contract type-check: Done
+packages/ui type-check: Done
+packages/db type-check: Done
+apps/api pretype-check$ wrangler types
+apps/app type-check$ tsc --noEmit
+apps/api pretype-check:  ⛅️ wrangler 4.126.0 (update available 4.127.0)
+apps/api pretype-check: ───────────────────────────────────────────────
+apps/api pretype-check: Generating project types...
+apps/api pretype-check: interface __BaseEnv_Env {
+apps/api pretype-check: 	BUCKET: R2Bucket;
+apps/api pretype-check: 	DB: D1Database;
+apps/api pretype-check: 	DEMO_COUPLE_ID: "";
+apps/api pretype-check: 	BETTER_AUTH_SECRET: string;
+apps/api pretype-check: 	GOOGLE_CLIENT_ID: string;
+apps/api pretype-check: 	GOOGLE_CLIENT_SECRET: string;
+apps/api pretype-check: 	BETTER_AUTH_URL: string;
+apps/api pretype-check: 	TRUSTED_ORIGINS: string;
+apps/api pretype-check: }
+apps/api pretype-check: declare namespace Cloudflare {
+apps/api pretype-check: 	interface GlobalProps {
+apps/api pretype-check: 		mainModule: typeof import("./src/index");
+apps/api pretype-check: 	}
+apps/api pretype-check: 	interface Env extends __BaseEnv_Env {}
+apps/api pretype-check: }
+apps/api pretype-check: interface Env extends __BaseEnv_Env {}
+apps/api pretype-check: type StringifyValues<EnvType extends Record<string, unknown>> = {
+apps/api pretype-check: 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
+apps/api pretype-check: };
+apps/api pretype-check: declare namespace NodeJS {
+apps/api pretype-check: 	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEMO_COUPLE_ID" | "BETTER_AUTH_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "BETTER_AUTH_URL" | "TRUSTED_ORIGINS">> {}
+apps/api pretype-check: }
+apps/api pretype-check: Generating runtime types...
+apps/api pretype-check: Runtime types generated.
+apps/api pretype-check: ✨ Types written to worker-configuration.d.ts
+apps/api pretype-check: 📖 Read about runtime types
+apps/api pretype-check: https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+apps/api pretype-check: 📣 Remember to rerun 'wrangler types' after you change your wrangler.toml file.
+apps/api pretype-check: Done
+apps/api type-check$ tsc --noEmit
+apps/app type-check: Done
+apps/api type-check: Done
+=== TYPE-CHECK: OK ===

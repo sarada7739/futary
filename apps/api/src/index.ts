@@ -15,6 +15,8 @@ export interface Bindings {
   // カンマ区切り。Cookie を使う認証で `credentials: true` を許可するオリジンを
   // 環境ごとに切り替える（本番は同一オリジン配信のため空でよい）
   TRUSTED_ORIGINS?: string;
+  // デモペアの couple_id。014 でデモペアを作るまでは空文字（architecture.md 8節）
+  DEMO_COUPLE_ID?: string;
 }
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -57,7 +59,9 @@ app.use("/api/*", async (c, next) => {
   // ローカル開発等で無い場合は null（IP条件を外し user_id 単独で判定する。
   // 固定の代用文字列に丸めると無関係な利用者を巻き込むため、そうしていない）
   const ip = c.req.header("cf-connecting-ip") ?? null;
-  const context: RpcContext = { db: c.env.DB, user, ip };
+  // 空文字も「未設定」として扱う（fail-closed。docs/tasks/005-authorization-middleware.md）
+  const demoCoupleId = c.env.DEMO_COUPLE_ID ? c.env.DEMO_COUPLE_ID : null;
+  const context: RpcContext = { db: c.env.DB, user, ip, demoCoupleId };
   const { matched, response } = await handler.handle(c.req.raw, {
     prefix: "/api",
     context,

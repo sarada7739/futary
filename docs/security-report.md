@@ -79,3 +79,32 @@ gitleaks はこの環境に無く未実行。CIへの導入は上表Lowの未解
 
 再監査後は追加のHigh/Mediumの指摘は無く、3回目の監査は実施していない
 （Low・Info項目のみ残存。上表の「未対応（記録のみ）」参照）。
+
+---
+
+## [2026-08-28] 005 認可ミドルウェア（couple_id 解決の集約、readProcedure/writeProcedure/authedProcedure）
+
+対象: `apps/api/src/{context,index}.ts`, `apps/api/wrangler.toml`,
+`apps/api/src/middleware/auth-context.ts`, `apps/api/src/procedures/{base,couple}.ts`,
+`apps/api/test/{authorization,couple,invite}.test.ts`
+
+生の返答（1回目・2回目とも）: [`artifacts/005/security-audit-raw.md`](../artifacts/005/security-audit-raw.md)
+
+### 1回目監査
+
+**High以上の指摘: ゼロ**（完了条件を満たす）。Medium 2件、Low 2件。
+
+| 重大度 | 箇所 | 内容 | 推奨対応 | 対応 |
+|---|---|---|---|---|
+| Medium | `auth-context.ts`（未認証分岐） | `DEMO_COUPLE_ID` の値をそのまま信用しており `is_demo` を検証していない。ADR-010/T4が定める「デモペアは `is_demo` で識別」が実装に存在せず、014でIDを貼り間違えると未認証の全世界に実在ペアが公開される形になり得る。005時点は空文字のため実害なしだが、014でこのまま値を設定するとHigh相当に昇格すると評価された | `SELECT id FROM couples WHERE id = ? AND is_demo = 1` を実行し、0件ならFORBIDDEN | **対応済み**。未認証分岐でis_demo=1を検証するSELECTを追加し、0件ならFORBIDDEN。`coupleId`もenvの値ではなくDBが返した値を使うよう変更（信頼の起点をenvからDBの実データに移した）。再監査で解消を確認 |
+| Medium | `procedures/couple.ts`（couple.create/invite.accept） | 認可が2系統に割れている。この2手続きはreadProcedure/writeProcedureを経由せず手書きの`if (!context.user) throw errors.FORBIDDEN()`に依存しており、「手続きごとに認可を書くと書き忘れる」という005が防ごうとしたリスクの構造自体が残っていた | 認証必須のみを課す第3の基底`authedProcedure`を追加し、この2手続きに適用する | **対応済み**。`base.ts`に`authedProcedure`（couple_id解決はせず、OutContextを`{user: NonNullable<...>}`にして未null絞り込みを型で保証）を追加し、couple.create/invite.acceptに適用。手書きのnullチェックは削除。couple配下の全5手続きが3基底のいずれかを経由する状態になった。再監査で解消を確認 |
+| Low | `test/authorization.test.ts`（項目2） | 「書き込み系の手続きが全てFORBIDDEN」の検証が手続きの手動列挙に依存しており、新しい書き込み手続きの追加漏れを検出できない | routerを再帰走査して write系を自動列挙する形にする | **未対応（記録のみ）**。005のスコープとしては大掛かりと判断し見送った。新しい書き込み手続きを追加する際にテストを追記すべき旨をコメントで明記。006で書き込み手続きが増えた時点で走査テスト化を再検討する |
+| Low | `procedures/couple.ts`（`throw new Error(...)`） | `DEMO_COUPLE_ID`が存在しないcoupleを指す設定ミス時に素の`Error`を投げており、クライアントへの漏洩はないが原因追跡が困難だった | is_demo検証を入れれば経路自体が消える | **対応済み**。Medium1の対応（is_demo検証）でこの分岐自体が到達不能になった |
+
+### 2回目監査（1回目の修正確認）
+
+Medium 2件とも解消、新たな問題なしと判定された。`is_demo`検証が正しくDBの実データを起点にしていること、`authedProcedure`のcontext積み直しが`mergeCurrentContext`の仕様と整合していること、couple配下5手続き全てが3基底のいずれかを経由することを確認済み。Low（テスト網羅の人手依存）のみ残存。
+
+### 5項目（`security-requirements.md` 3節）との突き合わせ
+
+1回目監査時点では項目3（デモペアのデータのみ）が「部分的」（is_demo未検証のため）と評価されたが、Medium1の対応により解消。他4項目は1回目から充足と評価されている。
