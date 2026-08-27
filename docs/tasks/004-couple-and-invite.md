@@ -129,12 +129,36 @@ UPDATE invites SET used_at = :now
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] スキーマ + マイグレーション
-- [ ] `couple.create` / `couple.get` / `couple.update`
-- [ ] 招待コード生成（暗号論的乱数）
-- [ ] `invite.issue`（有効期限・同時1件）
-- [ ] `invite.accept`（原子的な使用済み判定・人数検査・レート制限）
-- [ ] オンボーディング画面
-- [ ] 制約3つのテスト
-- [ ] security-auditor 実行
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] スキーマ + マイグレーション
+- [x] `couple.create` / `couple.get` / `couple.update`
+- [x] 招待コード生成（暗号論的乱数）
+- [x] `invite.issue`（有効期限・同時1件）
+- [x] `invite.accept`（原子的な使用済み判定・人数検査・レート制限）
+- [x] オンボーディング画面(実機でのGoogleログイン確認は保留。下記実装メモ参照)
+- [x] 制約3つのテスト
+- [x] security-auditor 実行
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+## 実装メモ(B)
+- `invite.accept` はタスク定義の実装方針通り、`couple_members` へのINSERT
+  (空きスロットへの `SELECT ... FROM invites`)と `invites.used_at` のUPDATEを
+  `batch()` にまとめ、`?N` 形式のプレースホルダで named parameter の並び順に
+  依存しない形にした
+- レート制限は `invite_failures` テーブル(user_id + IP + created_at)を新設し、
+  `invite.accept` の失敗時のみ記録する方式にした。Better Authの `rateLimit`
+  (`storage: "database"`)は流用していない(L10とは別の実装で対応)
+- **1回目のsecurity-auditorでHigh 1件・Medium 3件・Low 5件の指摘を受け、全て修正した。**
+  レート制限キーをIPのみからuser_id併用に変更(IPv6ローテーション対策)、
+  check→insertのTOCTOUを1文のSQLに統合、招待コードをWebのURLクエリに乗せない形に変更、
+  招待コード文字集合の32文字→31文字化バグ(`L`の欠落)を修正、他。
+  詳細は `artifacts/004/README.md` と `docs/security-report.md`
+- オンボーディング画面はルート `_layout.tsx` で `couple.get` の結果
+  (データあり→(tabs)、`NEEDS_ONBOARDING`→(onboarding)、未認証→(auth))で
+  振り分ける形にした。005(認可ミドルウェア)で `ctx.coupleId` が導入されても
+  この振り分けロジック自体は変わらない見込み
+- **Google OAuthクライアント未設定のため、オンボーディング画面の実機確認(実際の
+  ログイン→ペア作成→招待コード発行→別アカウントでの参加)は未実施。** 003のL14と
+  同じ制約。API層のテスト(45件)でロジックは検証済み。詳細は `artifacts/004/README.md`
+- 001の歩くスケルトンで作られた `packages/db/migrations/0000_init.sql` が
+  コメントのみで実行可能な文を持たず、`wrangler d1 migrations apply` 相当の処理が
+  失敗する実在のバグを発見・修正した(`artifacts/004/README.md` 参照)
