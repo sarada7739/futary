@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { RPCHandler } from "@orpc/server/fetch";
-import { router, type RpcContext } from "./router";
+import { router } from "./router";
+import type { RpcContext } from "./context";
 import { createAuth, parseTrustedOrigins } from "./auth";
 
 export interface Bindings {
@@ -52,7 +53,10 @@ app.use("/api/*", async (c, next) => {
         image: session.user.image ?? null,
       }
     : null;
-  const context: RpcContext = { db: c.env.DB, user };
+  // invite.accept のレート制限に使うIP。Cloudflare が付与するヘッダで、
+  // ローカル開発等で無い場合は null（同一バケットに丸められる）
+  const ip = c.req.header("cf-connecting-ip") ?? null;
+  const context: RpcContext = { db: c.env.DB, user, ip };
   const { matched, response } = await handler.handle(c.req.raw, {
     prefix: "/api",
     context,

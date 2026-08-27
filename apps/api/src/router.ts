@@ -1,12 +1,7 @@
-import { implement } from "@orpc/server";
-import { contract } from "@futary/contract";
+import { implementer } from "./implementer";
+import { coupleProcedures, inviteProcedures } from "./procedures/couple";
 
-export interface RpcContext {
-  db: D1Database;
-  user: { id: string; name: string; email: string; image: string | null } | null;
-}
-
-const implementer = implement(contract).$context<RpcContext>();
+export type { RpcContext } from "./context";
 
 const healthGet = implementer.health.get.handler(async ({ context }) => {
   // D1への疎通確認。失敗すればここで例外が飛び500になる
@@ -27,4 +22,6 @@ export const router = implementer.router({
   me: {
     get: meGet,
   },
+  couple: coupleProcedures,
+  invite: inviteProcedures,
 });
