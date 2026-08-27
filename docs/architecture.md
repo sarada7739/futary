@@ -234,7 +234,19 @@ memory.get          -> { post, label } | null
 | `radius.input` | 14 |
 | `radius.pill` | 999 |
 | `space` | 4 / 8 / 12 / 16 / 24 / 32 |
-| `shadow.card` | 極薄（不透明度 0.04、ぼかし 12、下方向 2） |
+| `shadow.card` | 極薄（不透明度 0.04、ぼかし 12、下方向 2、elevation 2） |
+| `shadow.fab` | FAB 用（不透明度 0.15、ぼかし 6、下方向 3、elevation 4） |
+
+`shadow.fab` はカードより濃い。FAB は背景の上に浮いている必要があり、
+`shadow.card` の濃度では画面に沈んで押せることが伝わらないため。
+
+### ボタンのバリアント
+
+| バリアント | 見た目 | 用途 |
+|---|---|---|
+| `primary` | `primary` 地に白文字 | 画面で最も進めたい操作。1画面に1つ |
+| `secondary` | `surface` 地 + `border` の枠線 | 主操作と並ぶが従属する操作 |
+| `ghost` | 地なし。押下時のみ `surface-tint` | 取り消し・戻るなど、目立たせない操作 |
 
 ### 文字
 
