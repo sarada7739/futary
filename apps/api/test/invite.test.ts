@@ -27,8 +27,9 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
 function contextFor(
   user: { id: string; name: string; email: string } | null,
   ip: string | null = "203.0.113.1",
+  demoCoupleId: string | null = null,
 ): RpcContext {
-  return { db, user: user ? { ...user, image: null } : null, ip };
+  return { db, user: user ? { ...user, image: null } : null, ip, demoCoupleId };
 }
 
 async function createCouple(user: { id: string; name: string; email: string }) {
@@ -47,6 +48,7 @@ describe("invite.issue", () => {
     expect(invite.expiresAt).toBeGreaterThanOrEqual(before + 24 * 60 * 60);
   });
 
+  // 005: writeProcedure が mode === 'readonly'（未認証）を一律 FORBIDDEN にする
   it("未認証なら FORBIDDEN", async () => {
     await expect(call(router.invite.issue, undefined, { context: contextFor(null) })).rejects.toMatchObject({
       code: "FORBIDDEN",

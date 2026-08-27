@@ -588,3 +588,85 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-28 / セッションB（005 実装）
+
+### やったこと
+- `docs/tasks/005-authorization-middleware.md` を実装した。ブランチ
+  `task/005-authorization-middleware`
+- `apps/api/src/middleware/auth-context.ts`（新規）: `resolveCoupleContext`。
+  認証済みなら `couple_members` から couple_id を解決（未所属なら
+  `NEEDS_ONBOARDING`）、未認証なら `DEMO_COUPLE_ID` を `is_demo=1` のDB実データと
+  突き合わせて解決（未設定・空文字・DB不一致は `FORBIDDEN`。fail-closed）
+- `apps/api/src/procedures/base.ts`（新規）: `readProcedure`（読み取り・未認証も
+  可）・`writeProcedure`（書き込み・readonlyはFORBIDDEN）に加え、タスク記述の
+  2種類から `authedProcedure`（認証必須のみ・couple_id解決なし）を追加した。
+  `implementer.use()` をルーター全体やcouple/inviteサブツリーに適用すると、
+  `health.get`/`me.get`/`couple.create`/`invite.accept` のように
+  `NEEDS_ONBOARDING` を持たないcontractが混在し型エラーになったため、
+  `ProcedureImplementer.use()` で個々のprocedureに適用する形にした
+- `apps/api/src/procedures/couple.ts`: `couple.get`/`update`・`invite.issue` を
+  readProcedure/writeProcedureに、`couple.create`/`invite.accept`
+  （まだペアに未所属なユーザーが呼ぶ操作のため readProcedure/writeProcedure には
+  NEEDS_ONBOARDINGで弾かれ載せられない）をauthedProcedureに載せ替えた
+- `apps/api/test/authorization.test.ts`（新規）: 認可テスト5件
+  （security-requirements.md 3節）
+- `apps/api/wrangler.toml`: `[vars] DEMO_COUPLE_ID = ""` を追加（014まで空文字）
+- security-auditorを2回実行した
+  - 1回目: Medium 2件を検出。①未認証分岐が `DEMO_COUPLE_ID` の値をそのまま
+    信用しており `is_demo` を検証していない（014でIDを貼り間違えると未認証の
+    全世界に実在ペアが公開される形になり得る。014でHigh相当に昇格すると評価）。
+    ②`couple.create`/`invite.accept` が基底手続きを経由せず手書きの認可チェックに
+    依存しており、認可が2系統に割れていた（couple_idを使わない将来の書き込み
+    手続きで`.use()`を書き忘れても型エラーにならず未認証で通るリスク）
+  - 対応: ①未認証分岐に `SELECT id FROM couples WHERE id = ?1 AND is_demo = 1`
+    を追加し、DBが返した値をcoupleIdに使う形に変更。②`authedProcedure`を新設し
+    couple.create/invite.acceptに適用
+  - 2回目（1回目の修正確認）: 両Medium指摘の解消を確認。新たな指摘なし。
+    Low1件（書き込み系の網羅テストが手動列挙）のみ残存
+  - 生ログは `artifacts/005/security-audit-raw.md`、対応記録は
+    `docs/security-report.md` に転記した
+- テスト全体62件緑（既存52件＋authorization.test.ts 10件）、型チェック・lint通過
+- `docs/tasks/005-authorization-middleware.md` の進捗チェックボックスと実装メモを更新
+- `docs/state.md` を005実装完了・Rレビュー待ちの状態に更新
+- PR #19（`task/005-authorization-middleware` → `main`）を作成した
+
+### 決定事項
+- 基底手続きをタスク記述の2種類（readProcedure/writeProcedure）から3種類に
+  変更し、`authedProcedure` を追加した（security-auditorの指摘を受けた対応。
+  詳細は `docs/tasks/005-authorization-middleware.md` 実装メモ参照）
+- `test/authorization.test.ts` の書き込み系網羅テストの自動化（router再帰走査）
+  は005のスコープとしては大掛かりと判断し見送った。006で書き込み手続きが
+  増えた時点で再検討する
+
+### 詰まった点
+- `implementer.use()` をルーター全体やサブツリーに適用すると、
+  `NEEDS_ONBOARDING` を持たないcontract（health.get等）が混在するため型エラーに
+  なった。個々のprocedureへ`.use()`で適用する形に変えて解決した
+
+## 2026-08-28 / セッションB（005 Rレビュー往復1回目対応）
+
+### やったこと
+- Rから005（PR #19）の条件付き受け入れ（必須修正1件）を受け取り、対応した
+  - 必須: security-auditor 1回目監査 Medium指摘の推奨は本来
+    「authedProcedureの追加」+「routerを再帰走査する回帰テスト」の2部構成
+    だったが、前半しか実装していなかった。2回目監査の「解消」は現状確認で
+    あり、抜け検出の仕組みの確認ではなかったとRから指摘を受けた。
+    `test/authorization.test.ts` に `isProcedure`（`@orpc/server`）で router を
+    再帰走査し、`health.get`/`me.get`（許可リストに明記）を除く全procedureが
+    ミドルウェアを1つ以上経由していることを検証するテストを追加した。
+    実際に `couple.get` から `.use(readProcedure)` を一時的に外し、このテストが
+    7件失敗することを手元で確認してから元に戻した
+  - 記録のみ: `base.ts` の `eslint-disable @typescript-eslint/no-explicit-any`
+    6箇所の理由（procedureごとに異なるTOutput/TMetaを1つの型に固定できない。
+    `unknown`では`.use()`側で型エラーになる）がコードにもドキュメントにも
+    残っていなかった。ファイル冒頭にコメントで理由を明記した
+- テスト全体64件緑（62件＋基底経由チェック2件）、型チェック・lint通過
+- `docs/tasks/005-authorization-middleware.md` の実装メモに対応内容を追記
+- 対応をRへ連絡した
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
