@@ -412,3 +412,79 @@
 ### 詰まった点
 - なし（このエントリの範囲では）。往復1回目〜2回目の詰まった点は
   「セッションB（003 実装）」のエントリを参照
+
+## 2026-08-27 / セッションB（PR #7・#8 マージ、004 実装）
+
+### やったこと
+- PR #7（マージ戦略の規定、Session行の限界の明記）と PR #8（D1にトランザクションが
+  無い前提への004タスク定義・architecture.md修正）を、conventions.md 7節の規定手順
+  （squash + `--body` でのトレーラー明示、マージ後の `git log` 確認）に従って
+  `main` へ squash merge した。両ブランチとも削除済み
+- `git log -1 --format='%(trailers:key=Session,valueonly)'` で `A` が正しく
+  取得できることを確認した
+- 004（ペア作成と招待コード）を実装
+  - `packages/db/src/schema/couple.ts`（couples/couple_members/invites/invite_failures）
+    と `packages/db/migrations/0002_couple.sql` を追加
+  - `apps/api/src/lib/invite-code.ts`（招待コード生成。crypto.getRandomValues使用）
+  - `apps/api/src/procedures/couple.ts`（couple.create/get/update、invite.issue/accept）。
+    D1にインタラクティブなトランザクションが無い前提（architecture.md 4節）に従い、
+    invite.acceptの原子性は単一SQL文と`batch()`で表現した
+  - `packages/contract/src/{couple,invite}.ts`（Zodスキーマ、oRPCエラー定義）
+  - `apps/app/app/(onboarding)/`（ペア作成・招待コード表示・コード入力の3画面）と
+    `apps/app/app/_layout.tsx`（couple.getの結果でオンボーディング/本編を振り分け）
+  - `apps/api/test/{couple,invite}.test.ts`（計52件）。`@orpc/server`の`call()`で
+    procedureを直接呼び出し、fabricatedなcontextでテストする方式にした
+  - 001の歩くスケルトンで作られた `packages/db/migrations/0000_init.sql` が
+    コメントのみで実行可能な文を持たず、`wrangler d1 migrations apply` が失敗する
+    実在のバグを発見し修正した（`SELECT 1;` を追加）
+  - `@cloudflare/vitest-plugin` がテスト用D1にマイグレーションを自動適用しない
+    ことが判明したため、`apps/api/vitest.config.ts` に `readD1Migrations` /
+    `applyD1Migrations` を使ったセットアップを追加した
+- security-auditor を2回実行した
+  - 1回目: High 1件（レート制限キーがIPのみでIPv6ローテーションに弱い）、
+    Medium 3件（レート制限のTOCTOU、招待コードのURL露出、招待コード文字集合の
+    実装バグ〈`L`の脱落で31文字〉）、Low 5件を検出。全て修正した
+  - 2回目（1回目の修正確認）: 1回目の8件は全て解消を確認。ただし修正の副作用として
+    Medium 1件（画面遷移だけで招待コードが自動発行され、既存の有効なコードが
+    無効化される。SameSite=Laxのためリンクを踏ませるだけで反復妨害できた）と
+    Low 2件（IP側レート制限の閾値が厳しすぎる、IP欠落時の列に固定文字列が残る）を
+    新規検出。全て修正した（発行を明示的なボタン操作に限定、user/IPで閾値を分離、
+    `ip_address` をnullableにしてNULLを書き込む形に変更）
+  - 生ログは `artifacts/004/security-audit-raw.md`、対応記録は
+    `docs/security-report.md` に転記した
+- `docs/tasks/004-couple-and-invite.md` の進捗チェックボックスと実装メモを更新
+- `docs/state.md` を004実装完了・Rレビュー待ちの状態に更新。未解決の論点を整理
+  （L10を解決済みに変更、L21〜L23を追加）
+- ブランチ `task/004-couple-and-invite` にコミットした
+
+### 決定事項
+- レート制限は Better Auth の `rateLimit`（storage: database）を流用せず、
+  `invite_failures` テーブルによる専用実装にした（L10の当初想定と異なる形での解決）
+- `invite.issue` 自体へのレート制限・`invites`行の定期削除は今回見送った（L21）。
+  「画面遷移だけで自動発行される」設計バグを直したことで実害は大きく下がったと判断
+- ユーザーの指示により、本エントリの内容をRへメッセージで報告することは省略した。
+  Rレビュー・PR作成は人間が手動で行う
+
+### 詰まった点
+- drizzle-kitのマイグレーション生成をやり直す際、`meta/_journal.json` と
+  `meta/NNNN_snapshot.json` の対応が崩れて意図しない連番（0003等）が生成される
+  トラブルが複数回発生した。`git show main:...` でコミット済みのjournalに戻して
+  からやり直すことで解消した
+- レート制限のテストで使ったプレースホルダコード（`NOEXST`, `EXPIRD`）に、
+  招待コードの許可文字集合から除外した `O` や `I` が含まれており、招待コード文字集合
+  バリデーションを追加した際に入力検証エラーで軒並み失敗した。許可文字集合内の
+  文字列（`ZZZZZZ`, `EXPRDX`）に置き換えて解消した
+
+## 2026-08-27 / セッションB（004 PR作成）
+
+### やったこと
+- 前回のエントリでPR作成を省略した結果、Rが差分を確認できずレビューできなかった
+  （報告省略の指示を、PR作成そのものの省略と拡大解釈してしまったのが原因）
+- `docs/tasks/004-couple-and-invite.md` の実装内容・テスト結果・security-auditor
+  2回分の指摘と対応をまとめ、PR #9（`task/004-couple-and-invite` → `main`）を作成した
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
