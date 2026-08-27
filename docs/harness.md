@@ -113,6 +113,22 @@ git worktree add ../futary-R --detach main   # R（レビュー）
 これにより `conventions.md` 9節の「B に未コミットの作業がある間、A は
 設計ドキュメントを変更しない」という制約が不要になる。A はいつでも書ける。
 
+#### ブランチの後片付けは、切った worktree が行う
+
+**別の worktree がチェックアウト中のブランチは削除できない。**
+マージする側が `gh pr merge --delete-branch` を打っても、ローカルブランチの削除だけが失敗する
+（リモートのマージは成功するので実害は無いが、ローカルにゴミが残る）。
+
+自分の PR がマージされたら、**自分の worktree で**次を行う。
+
+```bash
+git fetch --prune
+git switch --detach origin/main     # ブランチから離れる
+git branch -D task/<名前>            # 自分で切ったブランチを削除する
+```
+
+マージした側に片付けを頼まない。切った者が片付ける。
+
 ---
 
 ## 4. 圧縮耐性
