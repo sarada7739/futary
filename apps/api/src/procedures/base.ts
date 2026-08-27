@@ -2,6 +2,16 @@ import type { Middleware, ORPCErrorConstructorMap } from "@orpc/server";
 import { resolveCoupleContext, type CoupleContext } from "../middleware/auth-context";
 import type { RpcContext } from "../context";
 
+// このファイルの `any` について（conventions.md 2節: 通常は禁止）。
+// 各基底は複数の procedure に `.use()` で使い回す設計にしたため、
+// `Middleware<...>` の TOutput（procedure ごとの戻り値の型）と
+// TMeta（procedure ごとの oRPC メタ情報の型）を1つの変数の型として
+// 固定できない。ここで具体的な型を書くと、使う procedure ごとに
+// 異なるはずの型を無理やり単一の型に合わせることになり、実体と乖離する。
+// ミドルウェア本体は output/meta のどちらにも触れないため、実害はない
+// （Rレビュー005 往復1回目の指摘。unknown にすると `.use()` 側の代入で
+// 型エラーになるため、ここでは unknown ではなく any を使っている）
+
 // couple_id を必要とする手続きの contract は FORBIDDEN / NEEDS_ONBOARDING の
 // 両方を持つ必要がある（そうでない手続きにこの基底は使えない。型で強制される）
 type CoupleErrors = ORPCErrorConstructorMap<{

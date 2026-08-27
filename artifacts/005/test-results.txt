@@ -10,7 +10,7 @@ Using secrets defined in .dev.vars
 Using secrets defined in .dev.vars
 
  Test Files  7 passed (7)
-      Tests  62 passed (62)
-   Start at  07:39:08
-   Duration  7.57s (transform 17.62s, setup 34.17s, import 158ms, tests 478ms, environment 0ms)
+      Tests  64 passed (64)
+   Start at  07:54:08
+   Duration  7.64s (transform 17.85s, setup 34.59s, import 171ms, tests 476ms, environment 0ms)
 

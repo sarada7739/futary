@@ -127,3 +127,24 @@ env の値ではなく、この SELECT が返した値を使う（信頼の起�
 形にすれば追加漏れを防げるが、005のスコープとしては大掛かりと判断し見送った。
 新しい書き込み手続きを追加する際にテストへの追記が必要（コメントで明記済み）。
 006で書き込み手続きが増えた時点で走査テスト化を再検討する
+
+### Rレビュー往復1回目の対応
+
+**①「基底経由の機械的な検査」が抜けていた（必須修正）。**
+security-auditor 1回目監査 Medium指摘の推奨は本来2部構成
+（authedProcedureの追加 + routerを再帰走査する回帰テスト）だったが、前半
+（authedProcedure）しか実装していなかった。2回目監査の「解消」は「現状
+couple配下5手続きが3基底を経由することを確認した」という**現状確認**で
+あり、「将来 `.use()` を書き忘れても検出できる」という**抜け検出の仕組み**の
+確認ではなかった。Rの指摘で気づき、`test/authorization.test.ts` に
+`isProcedure`（`@orpc/server`）で router を再帰走査し、`health.get`/`me.get`
+（couple_idを必要としないため許可リストに明記）を除く全procedureの
+`['~orpc'].middlewares.length > 0` を検証するテストを追加した。
+実際にcouple.getから`.use(readProcedure)`を一時的に外してこのテストが
+検出することを手元で確認済み（元に戻して確認後コミット）
+
+**②`any` の使用理由が記録されていなかった（記録のみ、対応済み）。**
+`base.ts` の `eslint-disable @typescript-eslint/no-explicit-any` 6箇所について、
+理由（複数procedureに使い回すためTOutput/TMetaを1つの型に固定できない。
+`unknown` にすると `.use()` 側で型エラーになる）をファイル冒頭のコメントに
+明記した

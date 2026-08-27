@@ -1,8 +1,8 @@
 $ pnpm -r --if-present run type-check
 Scope: 5 of 6 workspace projects
 packages/contract type-check$ tsc --noEmit
-packages/ui type-check$ tsc --noEmit
 packages/db type-check$ tsc --noEmit
+packages/ui type-check$ tsc --noEmit
 packages/contract type-check: Done
 packages/ui type-check: Done
 packages/db type-check: Done

@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { call } from "@orpc/server";
+import { call, isProcedure } from "@orpc/server";
 import { describe, expect, it } from "vitest";
 import { router } from "../src/router";
 import type { Bindings } from "../src/index";
@@ -161,5 +161,47 @@ describe("5. DEMO_COUPLE_ID が未設定のとき、未認証アクセスが拒�
     await expect(call(router.couple.get, undefined, { context: contextFor(null, "") })).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
+  });
+});
+
+// health.get / me.get は couple_id を必要としない手続きなので、認可の基底
+// （readProcedure/writeProcedure/authedProcedure）を経由しない。これは意図的な
+// 例外であり、それ以外の全手続きは必ずいずれかの基底を経由していなければならない
+const ALLOWED_WITHOUT_BASE = new Set(["health.get", "me.get"]);
+
+// router を再帰的に辿り、leaf（procedure）を "couple.get" のようなパス付きで集める
+function collectProcedures(node: unknown, path: string[] = []): Array<{ path: string; procedure: unknown }> {
+  if (isProcedure(node)) {
+    return [{ path: path.join("."), procedure: node }];
+  }
+  if (node && typeof node === "object") {
+    return Object.entries(node).flatMap(([key, value]) => collectProcedures(value, [...path, key]));
+  }
+  return [];
+}
+
+describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を経由しない手続きが無い", () => {
+  // 「手続きごとに認可を書くと必ずどこかで書き忘れる」（security-requirements.md 3節）を
+  // 機械的に検出する。.use() の書き忘れは型エラーにならないため、これが唯一の防御線
+  // （security-auditor 005監査 Medium指摘: authedProcedure の追加だけでは
+  // 「.use() を丸ごと忘れる」経路は塞げない。Rレビューで指摘され追加した）
+  it("許可リストに無い手続きは、ミドルウェアが1つ以上適用されている", () => {
+    const procedures = collectProcedures(router);
+    // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
+    expect(procedures.length).toBeGreaterThanOrEqual(7);
+
+    for (const { path, procedure } of procedures) {
+      if (ALLOWED_WITHOUT_BASE.has(path)) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const middlewares = (procedure as any)["~orpc"].middlewares as readonly unknown[];
+      expect(middlewares.length, `${path} が認可の基底を経由していません`).toBeGreaterThan(0);
+    }
+  });
+
+  it("許可リストの手続きが実際に router 上に存在する（リネーム・削除で空文字チェックにならないように）", () => {
+    const paths = new Set(collectProcedures(router).map((p) => p.path));
+    for (const allowed of ALLOWED_WITHOUT_BASE) {
+      expect(paths.has(allowed), `${allowed} が router に存在しません`).toBe(true);
+    }
   });
 });

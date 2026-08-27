@@ -643,3 +643,30 @@
 - `implementer.use()` をルーター全体やサブツリーに適用すると、
   `NEEDS_ONBOARDING` を持たないcontract（health.get等）が混在するため型エラーに
   なった。個々のprocedureへ`.use()`で適用する形に変えて解決した
+
+## 2026-08-28 / セッションB（005 Rレビュー往復1回目対応）
+
+### やったこと
+- Rから005（PR #19）の条件付き受け入れ（必須修正1件）を受け取り、対応した
+  - 必須: security-auditor 1回目監査 Medium指摘の推奨は本来
+    「authedProcedureの追加」+「routerを再帰走査する回帰テスト」の2部構成
+    だったが、前半しか実装していなかった。2回目監査の「解消」は現状確認で
+    あり、抜け検出の仕組みの確認ではなかったとRから指摘を受けた。
+    `test/authorization.test.ts` に `isProcedure`（`@orpc/server`）で router を
+    再帰走査し、`health.get`/`me.get`（許可リストに明記）を除く全procedureが
+    ミドルウェアを1つ以上経由していることを検証するテストを追加した。
+    実際に `couple.get` から `.use(readProcedure)` を一時的に外し、このテストが
+    7件失敗することを手元で確認してから元に戻した
+  - 記録のみ: `base.ts` の `eslint-disable @typescript-eslint/no-explicit-any`
+    6箇所の理由（procedureごとに異なるTOutput/TMetaを1つの型に固定できない。
+    `unknown`では`.use()`側で型エラーになる）がコードにもドキュメントにも
+    残っていなかった。ファイル冒頭にコメントで理由を明記した
+- テスト全体64件緑（62件＋基底経由チェック2件）、型チェック・lint通過
+- `docs/tasks/005-authorization-middleware.md` の実装メモに対応内容を追記
+- 対応をRへ連絡した
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
