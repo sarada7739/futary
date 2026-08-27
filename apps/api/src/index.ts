@@ -54,7 +54,8 @@ app.use("/api/*", async (c, next) => {
       }
     : null;
   // invite.accept のレート制限に使うIP。Cloudflare が付与するヘッダで、
-  // ローカル開発等で無い場合は null（同一バケットに丸められる）
+  // ローカル開発等で無い場合は null（IP条件を外し user_id 単独で判定する。
+  // 固定の代用文字列に丸めると無関係な利用者を巻き込むため、そうしていない）
   const ip = c.req.header("cf-connecting-ip") ?? null;
   const context: RpcContext = { db: c.env.DB, user, ip };
   const { matched, response } = await handler.handle(c.req.raw, {
