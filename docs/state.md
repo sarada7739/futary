@@ -96,6 +96,10 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
   （52件緑）・security-auditor（2回）・Rレビューまで完了。オンボーディング画面の
   実機確認（実際のGoogleログイン）だけが未検証（003と同じ理由）。その確認が
   終わるまで「完了タスク」に移動せず、M1の人間受け入れ判定の項目として残す
+- 005-authorization-middleware（PR #19、`task/005-authorization-middleware`）:
+  実装・テスト（62件緑）・security-auditor（2回、Medium 2件検出→修正確認済み、
+  High以上ゼロ）まで完了。人間の指示により003・004の実機確認より先に着手した。
+  Rレビュー待ち。マージ後、M1完了として人間受け入れ判定を依頼する
 
 ## 環境
 
@@ -110,9 +114,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 次の一手
 
-1. 人間の指示により、実機確認（下記2）に先立って
-   `docs/tasks/005-authorization-middleware.md` に着手する（PR #16・#17マージ後、
-   このdocs更新に続けて実装する）
+1. 005（PR #19）のRレビューを受ける。往復対応後、`main` へsquash mergeする
 2. 005完了後、人間が Google Cloud Console で OAuth クライアントを作成し、
    `.dev.vars` の `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を実際の値に
    差し替えたら、`docs/tasks/003-auth-google.md` の「保留: 実際のGoogleログイン
