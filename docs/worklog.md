@@ -517,3 +517,25 @@
   チェックアウト先が一時的に切り替わった。コミット済みの作業は失われなかったが、
   post-merge docs更新の順序（PR #10とPR #9のどちらが先にmainへ入っているか）を
   都度確認しながら進める必要があった
+
+## 2026-08-27 / セッションB（PR #12 マージ）
+
+### やったこと
+- Aから連絡を受け、PR #12（設計ドキュメントを実装に追従させ、005にfail-closed
+  条件を追加。Session: A、ドキュメントのみ）をconventions.md 7節の手順で
+  squash mergeした（`Session: A`を確認）。ブランチも削除済み
+  - architecture.md 7節に `shadow.fab` とButtonのバリアント3種（primary/
+    secondary/ghost）を追記
+  - security-requirements.md 4節に、IP欠落時はuser_id単独で判定しip_addressに
+    NULLを入れる旨を追記
+  - docs/tasks/005-authorization-middleware.md に「DEMO_COUPLE_IDは014まで
+    存在しない。未設定・空文字ならfail-closedでFORBIDDENにする」を追加し、
+    テスト項目を4件→5件に、完了条件・確認観点・進捗も揃えた
+- マージ後のdocs更新として、Aの指示どおり `docs/state.md` のL8・L15・L25を
+  解決済みに変更した
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
