@@ -21,17 +21,47 @@ function assertValidSecret(secret: string | undefined): asserts secret is string
   }
 }
 
+// localhost / 127.0.0.1 / [::1] のみ http を許す。それ以外のホストに http を使うと
+// Cookie の Secure 属性が落ちる（＝本番でこの形になってはならない）。
+// 環境変数（NODE_ENV等）で分岐させず、ホスト名で判定する。環境変数分岐は
+// 本番に開発用の値が設定された場合に検証をすり抜けるため（architecture.md 8節）
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+function assertAllowedUrl(label: string, value: string): void {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${label} の形式が不正です（${value}）`);
+  }
+  if (url.protocol === "http:" && !LOCAL_HOSTNAMES.has(url.hostname)) {
+    throw new Error(
+      `${label} が http です（${value}）。localhost 以外では https 必須です`,
+    );
+  }
+}
+
 function assertBaseUrl(url: string | undefined): asserts url is string {
   if (!url) {
     throw new Error(
       "BETTER_AUTH_URL が未設定です。.dev.vars / wrangler secret を確認してください",
     );
   }
+  assertAllowedUrl("BETTER_AUTH_URL", url);
+}
+
+export function parseTrustedOrigins(value: string | undefined): string[] {
+  const origins = value?.split(",").map((origin) => origin.trim()).filter(Boolean) ?? [];
+  for (const origin of origins) {
+    assertAllowedUrl("TRUSTED_ORIGINS", origin);
+  }
+  return origins;
 }
 
 export function createAuth(env: Bindings) {
   assertValidSecret(env.BETTER_AUTH_SECRET);
   assertBaseUrl(env.BETTER_AUTH_URL);
+  const trustedOrigins = parseTrustedOrigins(env.TRUSTED_ORIGINS);
   const db = createDb(env.DB);
   const isHttps = env.BETTER_AUTH_URL.startsWith("https://");
 
@@ -45,7 +75,7 @@ export function createAuth(env: Bindings) {
       transaction: false,
     }),
     // Web (Expo Web) とネイティブ (カスタムスキーム) の双方からのコールバックを許可する
-    trustedOrigins: env.TRUSTED_ORIGINS?.split(",").filter(Boolean) ?? [],
+    trustedOrigins,
     socialProviders: {
       google: {
         clientId: env.GOOGLE_CLIENT_ID,
@@ -54,8 +84,9 @@ export function createAuth(env: Bindings) {
     },
     plugins: [expo()],
     advanced: {
-      // baseURL の綴り(http/https)だけに暗黙で依存させず、意図を明示する。
-      // ローカル(http)では意図的に false、本番(https)では true
+      // assertBaseUrl により、この時点で isHttps が false なのは
+      // localhost/127.0.0.1 のときだけに限定されている（本番相当のホストで
+      // http のまま Secure Cookie が落ちる、という経路は起動時エラーで塞がれている）
       useSecureCookies: isHttps,
     },
     rateLimit: {

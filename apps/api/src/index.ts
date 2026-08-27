@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { RPCHandler } from "@orpc/server/fetch";
 import { router, type RpcContext } from "./router";
-import { createAuth } from "./auth";
+import { createAuth, parseTrustedOrigins } from "./auth";
 
 export interface Bindings {
   DB: D1Database;
@@ -23,12 +23,8 @@ const handler = new RPCHandler(router);
 // 認証情報（Cookie）付きリクエストを許可するオリジンは環境変数で切り替える。
 // 本番は同一Workerから配信するため同一オリジンになり、そもそも越境しない
 app.use("/api/*", (c, next) => {
-  const allowedOrigins = (c.env.TRUSTED_ORIGINS ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
   return cors({
-    origin: allowedOrigins,
+    origin: parseTrustedOrigins(c.env.TRUSTED_ORIGINS),
     credentials: true,
   })(c, next);
 });
