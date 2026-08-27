@@ -123,11 +123,21 @@ git worktree add ../futary-R --detach main   # R（レビュー）
 
 ```bash
 git fetch --prune
-git switch --detach origin/main     # ブランチから離れる
-git branch -D task/<名前>            # 自分で切ったブランチを削除する
+git switch --detach origin/main            # ブランチから離れる
+git branch -D task/<名前>                   # ローカルを削除
+git push origin --delete task/<名前>        # リモートを削除
 ```
 
 マージした側に片付けを頼まない。切った者が片付ける。
+
+- **`-d` ではなく `-D` を使う。** squash merge ではブランチ先端が `main` の祖先に
+  ならないため、`-d` は「未マージ」と判定して拒否する
+  （`git branch -r --merged origin/main` が `origin/main` 以外を返さないことで確認できる）。
+  **したがって `-D` は「マージ済みか確認せずに消している」ことを意味する。**
+  PR がマージ済みであることを自分で確認してから打つ
+- **`git branch -D` はローカルだけ。** リモートは別途 `git push origin --delete` が要る。
+  忘れると、ローカルには無いのに `origin` にだけ残る状態になり、
+  `git ls-remote --heads origin` を見るまで気づけない
 
 ---
 
