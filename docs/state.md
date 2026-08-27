@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-27 / セッションB（PR #14 マージ後のdocs更新。作業ツリー分離済み）
+**最終更新**: 2026-08-28 / セッションB（PR #16・#17 マージ後のdocs更新。005着手直前）
 
 ---
 
@@ -40,6 +40,13 @@ R-18: fail-fast/CORS fail-closedのテスト追加）で受け入れを得て、
 
 PR #7・#8（`docs/conventions.md` のマージ戦略規定、D1にトランザクションが無い
 前提への004/architecture.md修正）を規定の手順でsquash mergeし、`main`へ取り込み済み。
+
+PR #16（worktreeのブランチ後片付け手順を`harness.md`に追加。squash mergeでは
+`-d`ではなく`-D`が必要な理由も明記）・PR #17（005タスクファイルにあった
+認可テストの5件目〈`DEMO_COUPLE_ID`未設定時のfail-closed〉を恒久側の
+`security-requirements.md` 3節へ反映）を、人間からの指示によりレビュー結果
+（いずれもコミット履歴上でRの指摘に対応済み）に従ってsquash mergeし、
+`main`へ取り込み済み（ブランチも削除済み）。詳細は各PR本文参照。
 
 004はペア作成と招待コードを実装した。`packages/db/src/schema/couple.ts`
 （couples/couple_members/invites/invite_failures）、`apps/api/src/procedures/couple.ts`
@@ -103,17 +110,18 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 次の一手
 
-1. 人間が Google Cloud Console で OAuth クライアントを作成し、`.dev.vars` の
-   `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を実際の値に差し替えたら、
-   `docs/tasks/003-auth-google.md` の「保留: 実際のGoogleログイン確認」節にある
-   4項目（ログイン成功・D1レコード作成・Cookie属性・ログアウト導線）と、
-   004のオンボーディング画面（ペア作成→招待コード発行→別アカウントでの参加）を
-   まとめて実機確認する
-2. 上記が済んだら 003・004 を「完了タスク」に移動する
-3. `docs/tasks/005-authorization-middleware.md` に着手（新しいセッションで、
-   `/clear` してから）。005はM1の山場（認可ミドルウェアの導入）で、完了後は
-   M1の区切りとして人間の受け入れ判定・Google OAuthクライアント作成・
-   実ログイン確認（L14）をまとめて行う予定（Aより）
+1. 人間の指示により、実機確認（下記2）に先立って
+   `docs/tasks/005-authorization-middleware.md` に着手する（PR #16・#17マージ後、
+   このdocs更新に続けて実装する）
+2. 005完了後、人間が Google Cloud Console で OAuth クライアントを作成し、
+   `.dev.vars` の `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を実際の値に
+   差し替えたら、`docs/tasks/003-auth-google.md` の「保留: 実際のGoogleログイン
+   確認」節にある4項目（ログイン成功・D1レコード作成・Cookie属性・ログアウト
+   導線）と、004のオンボーディング画面（ペア作成→招待コード発行→別アカウントでの
+   参加）をまとめて実機確認する
+3. 上記が済んだら 003・004 を「完了タスク」に移動する。005はM1の山場
+   （認可ミドルウェアの導入）で、完了後はM1の区切りとして人間の受け入れ判定・
+   Google OAuthクライアント作成・実ログイン確認（L14）をまとめて行う予定（Aより）
 
 ## 未解決の論点
 
