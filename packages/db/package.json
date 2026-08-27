@@ -10,9 +10,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "better-auth": "^1.7.2",
     "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260825.1",
     "drizzle-kit": "^0.31.10",
     "typescript": "^5.9.3"
   }
