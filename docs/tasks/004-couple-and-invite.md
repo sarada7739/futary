@@ -56,10 +56,21 @@ SELECT i.couple_id,
   FROM invites i
  WHERE i.code = :code AND i.used_at IS NULL AND i.expires_at > :now;
 
--- 文2: 招待を消費する
+-- 文2: 招待を消費する（条件は文1と揃える）
 UPDATE invites SET used_at = :now
- WHERE code = :code AND used_at IS NULL;
+ WHERE code = :code AND used_at IS NULL AND expires_at > :now;
 ```
+
+**文1と文2の WHERE 条件を揃えること。** 片方だけ期限を見ないと、
+期限切れのコードを投げたときに参加は起きないのに `used_at` だけが刻まれる。
+`used_at` の意味が「消費された」から「期限後に誰かが試した」に濁り、
+総当たりの失敗試行で行を書き換えられる余地も残る。
+
+**文1の結果を見て文2を止めることはできない。** `batch()` は2文をまとめて投げる。
+「文1が0件なら文2を実行しない」という書き方をすると `batch()` ではなくなり、
+2回の往復の間に隙間ができて原子性が失われる。
+**2文とも必ず実行し、判定は文1の挿入件数と例外の有無で後から行う。**
+だからこそ文2側にも条件を揃える必要がある。
 
 この2文を `batch()` に入れる。**順序が重要**で、参加の INSERT を先に置く。
 判定は次のとおり。
