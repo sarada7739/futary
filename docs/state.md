@@ -9,8 +9,9 @@
 
 ## 現在のフェーズ
 
-**001・002完了。003（認証基盤）は実装・テスト・監査まで完了し、Rのレビュー待ち。**
-ただし実際のGoogleログイン確認は保留中（下記参照）。
+**001・002完了。003（認証基盤）はRの受け入れを得て、PR #5をmainへsquash merge済み。**
+ただし実際のGoogleログイン確認が未検証のため、003は「進行中タスク」に残している
+（Rの指示。実ログイン確認は下記「次の一手」参照）。
 
 pnpm workspace / `packages/contract`（health.get）/ `apps/api`（Hono + oRPC + D1疎通）
 / `apps/app`（Expo Router + TanStack Query）/ CI を一通り繋いだ。
@@ -24,11 +25,14 @@ squash mergeで `main` に取り込み済み（ブランチも削除済み）。
 squash mergeで `main` に取り込み済み（ブランチも削除済み）。
 証跡は `artifacts/002/` を参照。
 
-003は `task/003-auth-google` ブランチで実装。Better Auth + Google OAuth + D1 + Expo SecureStore。
+003はBetter Auth + Google OAuth + D1 + Expo SecureStoreを実装した。
 `packages/db/src/schema/auth.ts`（user/session/account/verification）、
 `apps/api/src/auth.ts`（Better Auth初期化）、`me.get`、ログイン画面
 （`apps/app/app/(auth)/sign-in.tsx`）、`Stack.Protected` によるルーティングガード、
 ログアウトを実装。security-auditor で High 2件検出→修正済み、Medium一部対応。
+Rレビュー往復2回（R-17改: BETTER_AUTH_URL/TRUSTED_ORIGINSのホスト名検証、
+R-18: fail-fast/CORS fail-closedのテスト追加）で受け入れを得て、PR #5
+（ブランチ `task/003-auth-google`）を `main` へ squash merge 済み（ブランチも削除済み）。
 詳細は `docs/security-report.md` と `artifacts/003/`。
 **実際のGoogleアカウントでのログイン確認・Cookie属性の実地確認は未実施**
 （人間の判断で「Google OAuthクライアント作成は今は後回し」となったため。
@@ -43,7 +47,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 | M | タスク | 内容 | 状態 |
 |---|---|---|---|
-| M1 | 001〜005 | 足回り・デザイン基盤・認証・ペア成立・認可 | 進行中（001・002 完了、003 レビュー待ち） |
+| M1 | 001〜005 | 足回り・デザイン基盤・認証・ペア成立・認可 | 進行中（001・002 完了、003 マージ済み・実ログイン確認待ち） |
 | M2 | 006〜009 | 投稿・画像・タイムライン・リアクション | 未着手 |
 | M3 | 010〜013 | カレンダー・統計・思い出し | 未着手 |
 | M4 | 014〜016 | ゲストデモ・LP・仕上げと公開 | 未着手 |
@@ -57,11 +61,11 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 進行中タスク
 
-- 003-auth-google（`task/003-auth-google` ブランチ、PR #5）: 実装・テスト・監査完了。
-  Rレビュー1回目で条件付き受け入れ（必須2件: R-17 ドキュメントと実装の不一致、
-  R-18 High修正のテスト不足）→ 対応し再レビュー待ち。実ログイン確認は
-  Google OAuth クライアント入手後に別途行う（Rの指示により、その確認が終わるまで
-  「完了タスク」には移動しない）
+- 003-auth-google（PR #5、`main` へ squash merge 済み）: 実装・テスト・監査・
+  レビュー（往復2回）まで完了。実際のGoogleアカウントでのログイン確認・
+  D1レコード作成・Cookie属性実地確認だけが未検証（Google OAuthクライアント
+  入手後に別途行う）。Rの指示により、その確認が終わるまで「完了タスク」に
+  移動せず、M1の人間受け入れ判定の項目として残す
 
 ## 環境
 
@@ -76,13 +80,13 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 次の一手
 
-1. R が `task/003-auth-google` をレビューする（コード・テスト・監査結果が対象。
-   実ログイン確認は対象外であることをRにも伝える）
-2. 人間が Google Cloud Console で OAuth クライアントを作成し、`.dev.vars` の
+1. 人間が Google Cloud Console で OAuth クライアントを作成し、`.dev.vars` の
    `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` を実際の値に差し替えたら、
    `docs/tasks/003-auth-google.md` の「保留: 実際のGoogleログイン確認」節にある
    4項目（ログイン成功・D1レコード作成・Cookie属性・ログアウト導線）を追加確認する
-3. 003完了後、`docs/tasks/004-*` の有無を確認して次のタスクに着手
+2. 上記が済んだら 003 を「完了タスク」に移動する
+3. `docs/tasks/004-*` の有無を確認して次のタスクに着手（新しいセッションで、
+   `/clear` してから）
 
 ## 未解決の論点
 
