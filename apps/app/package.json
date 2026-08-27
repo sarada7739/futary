@@ -11,6 +11,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@better-auth/expo": "^1.7.2",
     "@expo/metro-runtime": "~57.0.13",
     "@futary/contract": "workspace:*",
     "@futary/ui": "workspace:*",
@@ -18,11 +19,14 @@
     "@orpc/contract": "1.15.0",
     "@orpc/tanstack-query": "1.15.0",
     "@tanstack/react-query": "^5.90.0",
+    "better-auth": "^1.7.2",
     "expo": "~57.0.16",
     "expo-constants": "~57.0.14",
     "expo-linking": "~57.0.7",
     "expo-router": "~57.0.16",
+    "expo-secure-store": "^57.0.1",
     "expo-status-bar": "~57.0.1",
+    "expo-web-browser": "^57.0.2",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",

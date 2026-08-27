@@ -1,0 +1,11 @@
+
+ RUN  v4.1.11 C:/Users/coco7/futary/apps/api
+
+Using secrets defined in .dev.vars
+Using secrets defined in .dev.vars
+
+ Test Files  2 passed (2)
+      Tests  5 passed (5)
+   Start at  09:25:29
+   Duration  4.63s (transform 3.95s, setup 0ms, import 6.75s, tests 41ms, environment 0ms)
+

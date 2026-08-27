@@ -230,9 +230,37 @@ MVP では **アルバム と 検索 は枠のみ**（「準備中」を表示�
 |---|---|---|
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth | ローカル `.dev.vars` / 本番 `wrangler secret` |
 | `BETTER_AUTH_SECRET` | セッション署名 | 同上 |
-| `BETTER_AUTH_URL` | コールバックURL | `wrangler.toml` の vars |
+| `BETTER_AUTH_URL` | コールバックURL | ローカル `.dev.vars` / 本番 `wrangler secret` |
+| `TRUSTED_ORIGINS` | CORS の許可オリジン | 同上 |
 | `DB` | D1 バインディング | `wrangler.toml` |
 | `BUCKET` | R2 バインディング | `wrangler.toml` |
 | `DEMO_COUPLE_ID` | デモペアの id | `wrangler.toml` の vars |
 
 `.dev.vars` は `.gitignore` に入れる。秘密情報をコードに書かない。
+
+### `BETTER_AUTH_URL` と `TRUSTED_ORIGINS` を vars に置かない理由
+
+当初この2つは `wrangler.toml` の `vars` に置く設計だった。003 の監査で
+以下の High 指摘が出たため、環境ごとの値として `.dev.vars` / `wrangler secret` に移した。
+
+- `BETTER_AUTH_URL` が `http` のままだと Cookie の `Secure` 属性が落ちる
+- `wrangler.toml` は**コミットされるファイル**であり、環境ごとに値を切り替えられない。
+  開発用の値が本番に混入する経路になる
+
+**この2つは機密データではない。** 移した理由は秘匿ではなく、
+「環境ごとに切り替わる値をコミット対象のファイルに焼き付けない」こと。
+
+### `BETTER_AUTH_URL` の検証規則
+
+起動時に検証し、不正なら即座に失敗させる（fail-fast）。判定はホスト名で行う。
+環境を示す変数（`NODE_ENV` 等）を新設しない。**環境変数で分岐させると、
+本番で開発用の値が設定された場合に検証をすり抜ける**からである。
+
+| ホスト | `http` | `https` |
+|---|---|---|
+| `localhost` / `127.0.0.1` / `[::1]` | 許可 | 許可 |
+| それ以外 | **拒否して起動失敗** | 許可 |
+
+ローカル開発は `http://localhost:8787` で通り、それ以外のホストでは
+`https` 以外を受け付けない。この規則はコードで実装し、テストで検証する。
+`TRUSTED_ORIGINS` にも同じ規則を適用する。
