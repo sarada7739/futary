@@ -539,3 +539,25 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-27 / セッションB（PR #14 マージ・作業ツリー分離）
+
+### やったこと
+- Aから連絡を受け、PR #14（役ごとにgit worktreeで作業ツリーを分離する。
+  Session: A、ドキュメントのみ）をconventions.md 7節の手順でsquash mergeした
+  （`Session: A`を確認）
+  - `futary/`（B・main）、`futary-A/`（A）、`futary-R/`（R）に分離
+  - CLAUDE.mdの役割表に作業ディレクトリ列を追加
+  - conventions.md 9節の「Bに未コミットの作業がある間、Aは設計ドキュメントを
+    変更しない」を削除し、「役ごとに作業ディレクトリを分ける」に置き換え
+- マージ後のdocs更新として、`docs/state.md`のL18（旧: 単一作業ツリー共有問題）
+  を解決済みに変更した
+
+### 決定事項
+- なし
+
+### 詰まった点
+- `gh pr merge --delete-branch` がローカルブランチ`task/worktree-separation`の
+  削除に失敗した（`futary-A`worktreeがそのブランチをチェックアウトしたまま
+  だったため）。リモートのマージ自体は成功しており実害は無いので、ブランチの
+  片付けはAが自分のworktreeを次のブランチへ移す際に任せることにした
