@@ -1,0 +1,58 @@
+$ pnpm -r --if-present run test
+Scope: 5 of 6 workspace projects
+packages/ui test$ vitest run
+packages/ui test:  RUN  v4.1.11 C:/Users/coco7/futary/packages/ui
+packages/ui test:  Test Files  2 passed (2)
+packages/ui test:       Tests  7 passed (7)
+packages/ui test:    Start at  01:54:52
+packages/ui test:    Duration  284ms (transform 54ms, setup 0ms, import 90ms, tests 6ms, environment 0ms)
+packages/ui test: Done
+apps/api pretest$ wrangler types
+apps/api pretest:  ⛅️ wrangler 4.126.0 (update available 4.127.1)
+apps/api pretest: ───────────────────────────────────────────────
+apps/api pretest: Generating project types...
+apps/api pretest: interface __BaseEnv_Env {
+apps/api pretest: 	BUCKET: R2Bucket;
+apps/api pretest: 	DB: D1Database;
+apps/api pretest: 	DEMO_COUPLE_ID: "";
+apps/api pretest: 	BETTER_AUTH_SECRET: string;
+apps/api pretest: 	GOOGLE_CLIENT_ID: string;
+apps/api pretest: 	GOOGLE_CLIENT_SECRET: string;
+apps/api pretest: 	BETTER_AUTH_URL: string;
+apps/api pretest: 	TRUSTED_ORIGINS: string;
+apps/api pretest: }
+apps/api pretest: declare namespace Cloudflare {
+apps/api pretest: 	interface GlobalProps {
+apps/api pretest: 		mainModule: typeof import("./src/index");
+apps/api pretest: 	}
+apps/api pretest: 	interface Env extends __BaseEnv_Env {}
+apps/api pretest: }
+apps/api pretest: interface Env extends __BaseEnv_Env {}
+apps/api pretest: type StringifyValues<EnvType extends Record<string, unknown>> = {
+apps/api pretest: 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
+apps/api pretest: };
+apps/api pretest: declare namespace NodeJS {
+apps/api pretest: 	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEMO_COUPLE_ID" | "BETTER_AUTH_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "BETTER_AUTH_URL" | "TRUSTED_ORIGINS">> {}
+apps/api pretest: }
+apps/api pretest: Generating runtime types...
+apps/api pretest: Runtime types generated.
+apps/api pretest: ✨ Types written to worker-configuration.d.ts
+apps/api pretest: 📖 Read about runtime types
+apps/api pretest: https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+apps/api pretest: 📣 Remember to rerun 'wrangler types' after you change your wrangler.toml file.
+apps/api pretest: Done
+apps/api test$ vitest run
+apps/api test:  RUN  v4.1.11 C:/Users/coco7/futary/apps/api
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test:  Test Files  7 passed (7)
+apps/api test:       Tests  64 passed (64)
+apps/api test:    Start at  01:54:54
+apps/api test:    Duration  14.00s (transform 33.20s, setup 64.17s, import 387ms, tests 1.05s, environment 1ms)
+apps/api test: Done
+=== TEST: OK ===

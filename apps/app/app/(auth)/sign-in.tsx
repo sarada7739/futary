@@ -1,9 +1,32 @@
 import { Button, Screen, Text, space } from "@futary/ui";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { signIn } from "../../lib/auth-client";
 
+// callbackURL は Better Auth サーバー（apps/api）のオリジンを起点に相対解決される。
+// ローカル開発では apps/app（Expo, 8081）と apps/api（wrangler dev, 8787）が
+// 別ポートで動くため、"/" のような相対パスを渡すと apps/api 側の "/" に
+// リダイレクトされ 404 になる（apps/api は /api/* しか公開していない）。
+// Web は自身のオリジンへの絶対URLを渡す。本番は同一Workerから配信されるため、
+// この絶対URL化はローカル開発時のみ意味を持つ
+function resolveCallbackURL(): string {
+  if (Platform.OS === "web" && typeof window !== "undefined") return window.location.origin;
+  return "/";
+}
+
+// react-native-web の Pressable は環境によって onPress が1クリックで2回発火する
+// （pointer系イベントと click イベントの両方が反応する既知の挙動）。
+// signIn.social は Better Auth 側に OAuth の state を新規発行させるため、
+// 2回呼ぶと2つの state が競合し、Google から戻ってきた時点で
+// "State not persisted correctly" として弾かれる（実機確認で発生を確認）。
+// 呼び出し中は再入しないようにガードする
+let isSigningIn = false;
+
 function handleGoogleSignIn() {
-  void signIn.social({ provider: "google", callbackURL: "/" });
+  if (isSigningIn) return;
+  isSigningIn = true;
+  void signIn.social({ provider: "google", callbackURL: resolveCallbackURL() }).finally(() => {
+    isSigningIn = false;
+  });
 }
 
 export default function SignInScreen() {

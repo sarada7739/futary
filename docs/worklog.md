@@ -699,3 +699,49 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-29 / セッションB（M1実機確認・バグ2件発見・修正）
+
+### やったこと
+- 人間から「動作確認したい」との依頼を受け、`pnpm --filter @futary/api run dev`
+  （:8787）・`pnpm --filter @futary/app run web`（:8081）をブラウザペインで起動
+- 人間が Google Cloud Console で OAuth クライアントを作成済み（`.dev.vars` の
+  `GOOGLE_CLIENT_ID` が既に実際の値になっていることを確認）だったため、
+  そのまま実機確認に進んだ
+- 実機確認で2件のバグを発見し、その場で修正した（`fix/oauth-callback-and-double-submit`
+  ブランチ）
+  1. ログイン後 `http://localhost:8787/`（APIサーバー側）で404になる。
+     `signIn.social({ callbackURL: "/" })` の `"/"` が Better Auth サーバーの
+     オリジンを起点に相対解決されるため。ローカル開発限定（apps/appとapps/apiが
+     別ポート）の問題で、本番は同一Workerのため顕在化しない。Webでは
+     `window.location.origin` を渡す形に修正
+  2. ボタンの1クリックで `sign-in/social` が2回呼ばれ、OAuthの `state` が競合し
+     `state_mismatch` になる。人間が「プライベートブラウザで開いて、ペアの
+     アカウント作ろうとしたらでた」と報告してくれたエラーから発覚。
+     `read_network_requests` で1クリックあたり2回リクエストが飛ぶことを実際に
+     確認してから、`sign-in.tsx` に再入防止のガードを追加して修正。
+     修正後、1クリックで1回だけになることを再度確認した
+- ローカルD1に004のマイグレーション（`0002_couple.sql`）が未適用だったことも発覚
+  （`couple.get`が500になっていた）。`wrangler d1 migrations apply DB --local`
+  で適用して解消（コードのバグではなく、このマシンでの開発環境セットアップ漏れ）
+- 人間の実機で、2つのGoogleアカウントによる003・004の導線を通しで確認できた:
+  実際のログイン成功、D1への`user`/`account`レコード作成、
+  `couple.create`→`invite.issue`→別アカウントで`invite.accept`が成功し
+  `couple_members`にスロット1・2で正しく登録されることをローカルD1で実査した
+- `artifacts/003/manual-check.md` に実機確認結果とバグ発見・修正の記録を追記。
+  `docs/tasks/003-auth-google.md` の進捗にも追記（完了条件・保留節はA領域のため
+  変更していない）
+- バグ修正の証跡を `artifacts/fix-oauth-callback/` に保存（型チェック・lint・
+  テスト全て緑）
+
+### 決定事項
+- Cookie属性実地確認・リロード後のログイン状態維持・ログアウトUI導線の3項目は
+  引き続き未確認のまま残す。人間に追加で確認してもらう予定
+
+### 詰まった点
+- ボタンの二重発火が `react-native-web` の `Pressable` の既知の挙動であることは
+  ドキュメントの推測に基づく判断で、根本原因の完全な特定はできていない。
+  `Button`/`Pressable` コンポーネント自体の一般修正ではなく、影響の大きい
+  認証フロー（`sign-in.tsx`）にピンポイントでガードを入れる対応にとどめた。
+  他のボタン（invite.issue等）で同様の問題が顕在化していないか、006以降で
+  書き込み系の手続きが増えたときに注意が必要
