@@ -4,8 +4,8 @@ packages/ui test$ vitest run
 packages/ui test:  RUN  v4.1.11 C:/Users/coco7/futary/packages/ui
 packages/ui test:  Test Files  2 passed (2)
 packages/ui test:       Tests  7 passed (7)
-packages/ui test:    Start at  01:54:52
-packages/ui test:    Duration  284ms (transform 54ms, setup 0ms, import 90ms, tests 6ms, environment 0ms)
+packages/ui test:    Start at  02:06:05
+packages/ui test:    Duration  185ms (transform 35ms, setup 0ms, import 61ms, tests 4ms, environment 0ms)
 packages/ui test: Done
 apps/api pretest$ wrangler types
 apps/api pretest:  ⛅️ wrangler 4.126.0 (update available 4.127.1)
@@ -51,8 +51,8 @@ apps/api test: Using secrets defined in .dev.vars
 apps/api test: Using secrets defined in .dev.vars
 apps/api test: Using secrets defined in .dev.vars
 apps/api test:  Test Files  7 passed (7)
-apps/api test:       Tests  64 passed (64)
-apps/api test:    Start at  01:54:54
-apps/api test:    Duration  14.00s (transform 33.20s, setup 64.17s, import 387ms, tests 1.05s, environment 1ms)
+apps/api test:       Tests  65 passed (65)
+apps/api test:    Start at  02:06:06
+apps/api test:    Duration  8.97s (transform 21.99s, setup 42.62s, import 191ms, tests 553ms, environment 0ms)
 apps/api test: Done
 === TEST: OK ===

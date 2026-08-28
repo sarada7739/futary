@@ -108,3 +108,22 @@ Medium 2件とも解消、新たな問題なしと判定された。`is_demo`検
 ### 5項目（`security-requirements.md` 3節）との突き合わせ
 
 1回目監査時点では項目3（デモペアのデータのみ）が「部分的」（is_demo未検証のため）と評価されたが、Medium1の対応により解消。他4項目は1回目から充足と評価されている。
+
+---
+
+## [2026-08-29] 実機ログイン確認バグ修正（callbackURL絶対URL化 / signIn.social再入防止）
+
+対象: `apps/app/app/(auth)/sign-in.tsx`
+
+生の返答: [`artifacts/fix-oauth-callback/security-audit-raw.md`](../artifacts/fix-oauth-callback/security-audit-raw.md)
+
+**High以上の指摘: ゼロ**（オープンリダイレクトは成立しないことをBetter Authのサーバ側検証コードを読んで確認済み）。Low 4件。
+
+| 重大度 | 箇所 | 内容 | 推奨対応 | 対応 |
+|---|---|---|---|---|
+| Low | `auth.ts`（TRUSTED_ORIGINSの検証） | `TRUSTED_ORIGINS`がCORS許可リストに加えてOAuthログイン後リダイレクト先の許可リストも兼ねるようになったが、ワイルドカード（`*.pages.dev`等）を弾いていない。現状悪用不能だが、将来CORSを緩めた際に認証リダイレクト面が静かに広がる構造だった | `parseTrustedOrigins`でワイルドカードを拒否する | **対応済み**。`assertAllowedUrl`にホスト名の`*`/`?`拒否チェックを追加し、テストも追加 |
+| Low | `sign-in.tsx`（再入ガードの解除タイミング） | `signIn.social`のPromiseはredirect開始直後にresolveするため、`.finally`で即座にフラグを戻すと遷移完了までの間にもう一度クリックされる余地が残る | 成功時はフラグを戻さずラッチする | **対応済み**。`result.error`が無い場合（成功）はフラグを戻さず、失敗時のみ戻す形に変更 |
+| Low | `sign-in.tsx`（モジュールスコープのガード） | ガード状態がUIに反映されず、Promiseがsettleしない場合フラグが残り続けアプリ再起動までログイン不能になりうる | `useState` + `Button`の`disabled`に置き換える | **対応済み**。useState化し、両ボタンの`disabled`と連動させた |
+| Low | `sign-in.tsx`（`void`で戻り値を捨てている） | 失敗が完全に無言で、利用者が異常に気づけない | 汎用の失敗メッセージを表示する | **未対応（記録のみ）**。専用のエラー表示UIコンポーネントが現状無く、今回のスコープを超えると判断。将来のUI実装タスクで対応する |
+
+補足: `@better-auth/expo`が`NODE_ENV === "development"`で`trustedOrigins`に`exp://`を注入する挙動を確認したが、Workerに`NODE_ENV`は設定されておらず現状無効。将来もWorkerの変数に`NODE_ENV`を足さないこと（記録のみ）。

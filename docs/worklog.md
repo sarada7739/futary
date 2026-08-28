@@ -745,3 +745,35 @@
   認証フロー（`sign-in.tsx`）にピンポイントでガードを入れる対応にとどめた。
   他のボタン（invite.issue等）で同様の問題が顕在化していないか、006以降で
   書き込み系の手続きが増えたときに注意が必要
+
+## 2026-08-29 / セッションB（バグ修正PR: security-auditor対応）
+
+### やったこと
+- `fix/oauth-callback-and-double-submit`（実機確認で発見したバグ2件の修正）を
+  security-auditorに監査してもらった。認証フローの変更（callbackURLの絶対URL化、
+  再入防止ガード）だったため
+- High以上の指摘はゼロ（オープンリダイレクトは成立しないことを、Better Authの
+  サーバ側検証コード〈`originCheckMiddleware`/`isTrustedOrigin`の完全一致判定〉を
+  実際に読んで確認したうえでの判定）。Low 4件の指摘を受けた
+  1. `TRUSTED_ORIGINS`がCORS許可リストに加えOAuthログイン後リダイレクト先の
+     許可リストも兼ねるようになったが、ワイルドカード（`*.pages.dev`等）を
+     弾いていない → `apps/api/src/auth.ts`の`assertAllowedUrl`にホスト名の
+     `*`/`?`拒否チェックを追加し、`apps/api/test/auth.test.ts`にテストも追加
+  2. 再入ガードの解除タイミングがナビゲーション前で、遷移完了までの間に
+     もう一度クリックされる余地が残っていた → `signIn.social`の結果に
+     `error`が無い場合（成功）はフラグを戻さない形に変更
+  3. モジュールスコープの`let`はUIに反映されず、Promiseがsettleしない場合
+     フラグが残り続ける → `useState` + `Button`の`disabled`に置き換え
+  4. `void`で戻り値を捨てており失敗が無言 → 未対応（記録のみ）。専用の
+     エラー表示UIコンポーネントが無く、今回のスコープを超えると判断
+- テスト全体65件緑（既存64件＋ワイルドカード拒否テスト1件）、型チェック・
+  lint通過。自分のブラウザペインで1クリック=1リクエストになることを再確認
+- 生ログは `artifacts/fix-oauth-callback/security-audit-raw.md`、対応記録は
+  `docs/security-report.md` に転記した
+
+### 決定事項
+- Low4（無言の失敗）は今回対応せず記録のみとした。エラー表示UIの整備は
+  別タスクのスコープと判断
+
+### 詰まった点
+- なし

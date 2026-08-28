@@ -39,6 +39,17 @@ function assertAllowedUrl(label: string, value: string): void {
       `${label} が http です（${value}）。localhost 以外では https 必須です`,
     );
   }
+  // TRUSTED_ORIGINS は Better Auth の trustedOrigins にもそのまま渡され、
+  // ワイルドカードマッチ（*.example.com 等）に使われる。*.pages.dev / *.workers.dev
+  // のような Cloudflare の共有ドメインを誤って許可すると、他人のデプロイ先が
+  // OAuth ログイン後のリダイレクト先として信頼されてしまう。ワイルドカード自体を
+  // 明示的に禁止し、完全一致のオリジンのみ許可する
+  // （security-auditor 実機確認バグ修正 Low指摘）
+  if (url.hostname.includes("*") || url.hostname.includes("?")) {
+    throw new Error(
+      `${label} にワイルドカードは使用できません（${value}）。完全一致のオリジンを指定してください`,
+    );
+  }
 }
 
 function assertBaseUrl(url: string | undefined): asserts url is string {

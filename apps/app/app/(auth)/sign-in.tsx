@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button, Screen, Text, space } from "@futary/ui";
 import { Platform, View } from "react-native";
 import { signIn } from "../../lib/auth-client";
@@ -13,23 +14,27 @@ function resolveCallbackURL(): string {
   return "/";
 }
 
-// react-native-web の Pressable は環境によって onPress が1クリックで2回発火する
-// （pointer系イベントと click イベントの両方が反応する既知の挙動）。
-// signIn.social は Better Auth 側に OAuth の state を新規発行させるため、
-// 2回呼ぶと2つの state が競合し、Google から戻ってきた時点で
-// "State not persisted correctly" として弾かれる（実機確認で発生を確認）。
-// 呼び出し中は再入しないようにガードする
-let isSigningIn = false;
-
-function handleGoogleSignIn() {
-  if (isSigningIn) return;
-  isSigningIn = true;
-  void signIn.social({ provider: "google", callbackURL: resolveCallbackURL() }).finally(() => {
-    isSigningIn = false;
-  });
-}
-
 export default function SignInScreen() {
+  // react-native-web の Pressable は環境によって onPress が1クリックで2回発火する
+  // （pointer系イベントと click イベントの両方が反応する既知の挙動）。
+  // signIn.social は Better Auth 側に OAuth の state を新規発行させるため、
+  // 2回呼ぶと2つの state が競合し、Google から戻ってきた時点で
+  // "State not persisted correctly" として弾かれる（実機確認で発生を確認）。
+  // state化してBoolean の disabled と連動させ、UI上も押せない状態を示す。
+  // 成功時はページ遷移が始まるまでボタンを無効のままにする（signIn.social の
+  // Promise は redirect 開始直後に resolve するため、finally で即座に戻すと
+  // 遷移完了までの間にもう一度クリックされる余地が残る。security-auditor指摘）。
+  // 失敗時のみ再試行できるよう戻す
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  function handleGoogleSignIn() {
+    if (isSigningIn) return;
+    setIsSigningIn(true);
+    void signIn.social({ provider: "google", callbackURL: resolveCallbackURL() }).then((result) => {
+      if (result?.error) setIsSigningIn(false);
+    });
+  }
+
   return (
     <Screen>
       <View
@@ -50,8 +55,10 @@ export default function SignInScreen() {
         </View>
 
         <View style={{ width: "100%", gap: space.md }}>
-          <Button onPress={handleGoogleSignIn}>ログイン</Button>
-          <Button variant="secondary" onPress={handleGoogleSignIn}>
+          <Button onPress={handleGoogleSignIn} disabled={isSigningIn}>
+            ログイン
+          </Button>
+          <Button variant="secondary" onPress={handleGoogleSignIn} disabled={isSigningIn}>
             新しくはじめる
           </Button>
           {/* ゲスト閲覧（未認証でのデモ表示）は014で実装する。それまでは無効表示 */}
