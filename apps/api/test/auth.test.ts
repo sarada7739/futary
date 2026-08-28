@@ -80,4 +80,12 @@ describe("parseTrustedOrigins の検証", () => {
   it("不正な形式の値は例外を投げる", () => {
     expect(() => parseTrustedOrigins("not-a-url")).toThrow(/形式が不正/);
   });
+
+  // TRUSTED_ORIGINS は Better Auth の trustedOrigins（ワイルドカードマッチ対応）に
+  // そのまま渡るため、*.pages.dev のような Cloudflare の共有ドメインを誤って
+  // 許可すると、他人のデプロイ先が OAuth ログイン後のリダイレクト先として
+  // 信頼されてしまう（実機ログイン確認バグ修正時のsecurity-auditor Low指摘）
+  it("ワイルドカードを含むホスト名は例外を投げる", () => {
+    expect(() => parseTrustedOrigins("https://*.pages.dev")).toThrow(/ワイルドカード/);
+  });
 });

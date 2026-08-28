@@ -699,3 +699,107 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-29 / セッションB（M1実機確認・バグ2件発見・修正）
+
+### やったこと
+- 人間から「動作確認したい」との依頼を受け、`pnpm --filter @futary/api run dev`
+  （:8787）・`pnpm --filter @futary/app run web`（:8081）をブラウザペインで起動
+- 人間が Google Cloud Console で OAuth クライアントを作成済み（`.dev.vars` の
+  `GOOGLE_CLIENT_ID` が既に実際の値になっていることを確認）だったため、
+  そのまま実機確認に進んだ
+- 実機確認で2件のバグを発見し、その場で修正した（`fix/oauth-callback-and-double-submit`
+  ブランチ）
+  1. ログイン後 `http://localhost:8787/`（APIサーバー側）で404になる。
+     `signIn.social({ callbackURL: "/" })` の `"/"` が Better Auth サーバーの
+     オリジンを起点に相対解決されるため。ローカル開発限定（apps/appとapps/apiが
+     別ポート）の問題で、本番は同一Workerのため顕在化しない。Webでは
+     `window.location.origin` を渡す形に修正
+  2. ボタンの1クリックで `sign-in/social` が2回呼ばれ、OAuthの `state` が競合し
+     `state_mismatch` になる。人間が「プライベートブラウザで開いて、ペアの
+     アカウント作ろうとしたらでた」と報告してくれたエラーから発覚。
+     `read_network_requests` で1クリックあたり2回リクエストが飛ぶことを実際に
+     確認してから、`sign-in.tsx` に再入防止のガードを追加して修正。
+     修正後、1クリックで1回だけになることを再度確認した
+- ローカルD1に004のマイグレーション（`0002_couple.sql`）が未適用だったことも発覚
+  （`couple.get`が500になっていた）。`wrangler d1 migrations apply DB --local`
+  で適用して解消（コードのバグではなく、このマシンでの開発環境セットアップ漏れ）
+- 人間の実機で、2つのGoogleアカウントによる003・004の導線を通しで確認できた:
+  実際のログイン成功、D1への`user`/`account`レコード作成、
+  `couple.create`→`invite.issue`→別アカウントで`invite.accept`が成功し
+  `couple_members`にスロット1・2で正しく登録されることをローカルD1で実査した
+- `artifacts/003/manual-check.md` に実機確認結果とバグ発見・修正の記録を追記。
+  `docs/tasks/003-auth-google.md` の進捗にも追記（完了条件・保留節はA領域のため
+  変更していない）
+- バグ修正の証跡を `artifacts/fix-oauth-callback/` に保存（型チェック・lint・
+  テスト全て緑）
+
+### 決定事項
+- Cookie属性実地確認・リロード後のログイン状態維持・ログアウトUI導線の3項目は
+  引き続き未確認のまま残す。人間に追加で確認してもらう予定
+
+### 詰まった点
+- ボタンの二重発火が `react-native-web` の `Pressable` の既知の挙動であることは
+  ドキュメントの推測に基づく判断で、根本原因の完全な特定はできていない。
+  `Button`/`Pressable` コンポーネント自体の一般修正ではなく、影響の大きい
+  認証フロー（`sign-in.tsx`）にピンポイントでガードを入れる対応にとどめた。
+  他のボタン（invite.issue等）で同様の問題が顕在化していないか、006以降で
+  書き込み系の手続きが増えたときに注意が必要
+
+## 2026-08-29 / セッションB（バグ修正PR: security-auditor対応）
+
+### やったこと
+- `fix/oauth-callback-and-double-submit`（実機確認で発見したバグ2件の修正）を
+  security-auditorに監査してもらった。認証フローの変更（callbackURLの絶対URL化、
+  再入防止ガード）だったため
+- High以上の指摘はゼロ（オープンリダイレクトは成立しないことを、Better Authの
+  サーバ側検証コード〈`originCheckMiddleware`/`isTrustedOrigin`の完全一致判定〉を
+  実際に読んで確認したうえでの判定）。Low 4件の指摘を受けた
+  1. `TRUSTED_ORIGINS`がCORS許可リストに加えOAuthログイン後リダイレクト先の
+     許可リストも兼ねるようになったが、ワイルドカード（`*.pages.dev`等）を
+     弾いていない → `apps/api/src/auth.ts`の`assertAllowedUrl`にホスト名の
+     `*`/`?`拒否チェックを追加し、`apps/api/test/auth.test.ts`にテストも追加
+  2. 再入ガードの解除タイミングがナビゲーション前で、遷移完了までの間に
+     もう一度クリックされる余地が残っていた → `signIn.social`の結果に
+     `error`が無い場合（成功）はフラグを戻さない形に変更
+  3. モジュールスコープの`let`はUIに反映されず、Promiseがsettleしない場合
+     フラグが残り続ける → `useState` + `Button`の`disabled`に置き換え
+  4. `void`で戻り値を捨てており失敗が無言 → 未対応（記録のみ）。専用の
+     エラー表示UIコンポーネントが無く、今回のスコープを超えると判断
+- テスト全体65件緑（既存64件＋ワイルドカード拒否テスト1件）、型チェック・
+  lint通過。自分のブラウザペインで1クリック=1リクエストになることを再確認
+- 生ログは `artifacts/fix-oauth-callback/security-audit-raw.md`、対応記録は
+  `docs/security-report.md` に転記した
+
+### 決定事項
+- Low4（無言の失敗）は今回対応せず記録のみとした。エラー表示UIの整備は
+  別タスクのスコープと判断
+
+### 詰まった点
+- なし
+
+## 2026-08-29 / セッションB（PR #22 Rレビュー対応・マージ）
+
+### やったこと
+- Rから PR #22 の受け入れ連絡を受けた。マージ前修正1点（推奨・再レビュー不要）:
+  再入ガードを `useState` から `useRef` に変更。`useState` の更新は非同期のため、
+  同一tickで2回`onPress`が発火した場合、2回目の判定時点でもまだ`false`のままで
+  両方通ってしまう可能性があるという指摘。UIの`disabled`表示は`useState`のまま
+  残し、ガード判定のみ`useRef`で同期的に行う形にした
+- 実機（ブラウザペイン）で再度1クリック=1リクエストになることを確認
+- テスト全体65件緑、型チェック・lint通過
+- Rから記録を依頼された2点を`docs/state.md`に追記した
+  - L26に判断時期を追記（`Button`コンポーネント自体への再入防止組み込みは
+    M2着手前が妥当というRの見立て）
+  - L27（新規）: `apps/app`にテスト基盤が一切無く、今回の2件のバグ修正は
+    実機確認でのみ検証できた。回帰しても誰も気づけない状態。M2着手前の
+    検討が妥当というRの見立て
+- `fix/` ブランチ命名が `conventions.md` 7節（`task/NNN-短い説明`）に規定が
+  無い形だとRから指摘を受けた。Aへの一報が必要とのことなのでSendMessageで連絡した
+
+### 決定事項
+- L26・L27とも判断時期は「M2着手前が妥当」とRの見立てを記録した。
+  最終判断はAに委ねる
+
+### 詰まった点
+- なし
