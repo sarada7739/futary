@@ -1,13 +1,13 @@
 $ pnpm -r --if-present run type-check
 Scope: 5 of 6 workspace projects
 packages/contract type-check$ tsc --noEmit
-packages/db type-check$ tsc --noEmit
 packages/ui type-check$ tsc --noEmit
+packages/db type-check$ tsc --noEmit
 packages/contract type-check: Done
 packages/ui type-check: Done
 packages/db type-check: Done
-apps/app type-check$ tsc --noEmit
 apps/api pretype-check$ wrangler types
+apps/app type-check$ tsc --noEmit
 apps/api pretype-check:  ⛅️ wrangler 4.126.0 (update available 4.127.1)
 apps/api pretype-check: ───────────────────────────────────────────────
 apps/api pretype-check: Generating project types...

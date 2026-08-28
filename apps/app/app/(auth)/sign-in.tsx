@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button, Screen, Text, space } from "@futary/ui";
 import { Platform, View } from "react-native";
 import { signIn } from "../../lib/auth-client";
@@ -20,18 +20,27 @@ export default function SignInScreen() {
   // signIn.social は Better Auth 側に OAuth の state を新規発行させるため、
   // 2回呼ぶと2つの state が競合し、Google から戻ってきた時点で
   // "State not persisted correctly" として弾かれる（実機確認で発生を確認）。
-  // state化してBoolean の disabled と連動させ、UI上も押せない状態を示す。
-  // 成功時はページ遷移が始まるまでボタンを無効のままにする（signIn.social の
-  // Promise は redirect 開始直後に resolve するため、finally で即座に戻すと
-  // 遷移完了までの間にもう一度クリックされる余地が残る。security-auditor指摘）。
-  // 失敗時のみ再試行できるよう戻す
+  //
+  // ガード判定は useRef で同期的に行う。useState の更新は非同期のため、
+  // 同一 tick で2回 onPress が発火すると2回目の判定時点でもまだ false のままで
+  // 両方通ってしまう可能性がある（Rレビュー指摘）。UI の disabled 表示だけは
+  // useState で持ち、両ボタンに反映する
+  const isSigningInRef = useRef(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
   function handleGoogleSignIn() {
-    if (isSigningIn) return;
+    if (isSigningInRef.current) return;
+    isSigningInRef.current = true;
     setIsSigningIn(true);
+    // 成功時はページ遷移が始まるまでボタンを無効のままにする（signIn.social の
+    // Promise は redirect 開始直後に resolve するため、即座に戻すと遷移完了までの
+    // 間にもう一度クリックされる余地が残る。security-auditor指摘）。
+    // 失敗時のみ再試行できるよう戻す
     void signIn.social({ provider: "google", callbackURL: resolveCallbackURL() }).then((result) => {
-      if (result?.error) setIsSigningIn(false);
+      if (result?.error) {
+        isSigningInRef.current = false;
+        setIsSigningIn(false);
+      }
     });
   }
 
