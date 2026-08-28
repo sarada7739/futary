@@ -91,5 +91,10 @@ redirect_uriの指定、CORS、Cookieの発行条件等）はコードレベル�
   実機確認で `callbackURL` の相対パス問題とボタンの二重発火問題（OAuth
   `state`競合）を発見し、`fix/oauth-callback-and-double-submit` ブランチで
   修正した（別PR、詳細は `artifacts/fix-oauth-callback/`）
-- [ ] リロード後のログイン状態維持・Cookie属性実地確認・ログアウトUI導線の
-  確認は引き続き未実施（下記「保留」節参照）
+- [x] リロード後のログイン状態維持・Cookie属性実地確認・ログアウトUI導線の
+  確認（2026-08-29、人間が実機で実施）: サーバ再起動後もセッションが維持される
+  ことをログで確認。DevToolsでセッションCookieの `HttpOnly` チェック済み・
+  `SameSite=Lax` を実地確認（`Secure` はローカルhttp環境のため未チェックが正常）。
+  ログアウト（`POST /api/auth/sign-out` 200 OK）→サインイン画面→別アカウントで
+  再ログイン成功をログで確認。これで「保留: 実際のGoogleログイン確認」節の
+  4項目が全て確認できた
