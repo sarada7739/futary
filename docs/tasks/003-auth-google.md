@@ -84,3 +84,12 @@ redirect_uriの指定、CORS、Cookieの発行条件等）はコードレベル�
 - [x] ログアウト
 - [x] security-auditor 実行（High2件検出→修正、Medium一部対応、残りは`state.md`に記録）
 - [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] 実際のGoogleアカウントでのログイン確認（2026-08-29、人間が実機で実施）:
+  実際のログイン成功（2アカウント）・D1への`user`/`account`レコード作成・
+  004のオンボーディング導線（ペア作成→招待コード発行→別アカウントで参加）を
+  通しで確認した。詳細は `artifacts/003/manual-check.md` の追記部分を参照。
+  実機確認で `callbackURL` の相対パス問題とボタンの二重発火問題（OAuth
+  `state`競合）を発見し、`fix/oauth-callback-and-double-submit` ブランチで
+  修正した（別PR、詳細は `artifacts/fix-oauth-callback/`）
+- [ ] リロード後のログイン状態維持・Cookie属性実地確認・ログアウトUI導線の
+  確認は引き続き未実施（下記「保留」節参照）

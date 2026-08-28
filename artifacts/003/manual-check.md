@@ -64,16 +64,60 @@ Google OAuth クライアントは未取得のため、`.dev.vars` にダミー�
 
 ### 未確認（実クライアント入手後に別途確認する）
 
-- 実際の Google アカウントでのログイン成功
-- D1 の `user` / `account` テーブルにレコードが作られること
-- ブラウザDevToolsでの Cookie 属性確認（`HttpOnly` / `Secure` / `SameSite=Lax`）
-  — コードレベルでは Better Auth のデフォルト挙動と `useSecureCookies` の実装を
-  確認済み（`docs/security-report.md` 参照）だが、実地確認ではない
-- ログイン → リロード → ログイン状態維持
-- ログアウト → `me.get` が `null` に戻ること（UIの導線としての確認。API単体は
-  自動テストで確認済み）
 - Expo SecureStore への保存（ネイティブ実機/シミュレータでの確認。この環境では
   ブラウザしか使えないため未実施）
+
+## 2026-08-29 追記: 実際の Google アカウントでの実機確認（M1受け入れ判定）
+
+人間が Google Cloud Console で OAuth クライアントを作成し、`.dev.vars` を実際の値に
+差し替えた後、人間の手元のブラウザ（2種類、通常ウィンドウ＋プライベートウィンドウ）で
+実際に確認した。003・004 双方の導線を通しで確認している。
+
+### 確認できたこと
+
+1. **実際の Google アカウントでのログイン成功**（2アカウントとも成功）
+2. **D1 への `user`/`account` レコード作成**を確認（ローカル `wrangler d1 execute` で実査）
+   - `user` テーブルに2アカウント分のレコードが作成されている
+   - `account` テーブルに `provider_id = "google"` のレコードが2アカウント分作成されている
+3. **004のオンボーディング導線が実際に機能する**: `couple.create` → `invite.issue` →
+   別アカウントで `invite.accept` の一連の流れが成功し、`couple_members` に
+   同一 `couple_id` でスロット1・2が正しく割り当てられていることを確認した
+
+### 実機確認で発見し、その場で修正したバグ2件
+
+いずれも `fix/oauth-callback-and-double-submit` ブランチで修正。003完了時点の
+テスト（ダミークライアントID・単一操作のみ）では踏まなかった経路。
+
+1. **`callbackURL` が相対パスだったため、ログイン後 404 になる（ローカル開発限定）**
+   `apps/app/app/(auth)/sign-in.tsx` の `signIn.social({ callbackURL: "/" })` の
+   `"/"` は、Better Auth サーバー（`apps/api`、`BETTER_AUTH_URL` のオリジン）を
+   起点に相対解決される。ローカル開発は `apps/app`（Expo, :8081）と
+   `apps/api`（wrangler dev, :8787）が別ポートで動くため、ログイン完了後に
+   `http://localhost:8787/` へリダイレクトされ、`apps/api` は `/api/*` しか
+   公開していないため 404 になっていた。本番は同一 Worker から配信されるため
+   この経路は顕在化しない。Web は `window.location.origin`
+   （自身のオリジンへの絶対URL）を渡すよう修正した
+2. **ボタンの1クリックで `sign-in/social` が2回呼ばれ、OAuthの `state` が競合する**
+   `packages/ui` の `Button`（`react-native-web` の `Pressable`）が、環境によっては
+   1クリックで `onPress` を2回発火させる。`signIn.social` は呼ぶたびに Better Auth
+   サーバー側で新しい OAuth `state` を発行するため、2回呼ばれると1回目の `state` が
+   2回目の発行で上書きされ、Google から戻ってきた時点で
+   `State mismatch: State not persisted correctly`（`state_security_mismatch`）に
+   なることを実機で確認した。`network requests` で実際に1クリックあたり
+   `POST /api/auth/sign-in/social` が2回発生することを検証した上で、
+   `apps/app/app/(auth)/sign-in.tsx` 側に再入防止のガードを追加して解決した
+   （`Button`/`Pressable` 側の一般修正ではなく、認証フローという影響の大きい
+   箇所にピンポイントで対応した）
+
+これらはコードのバグであり、`docs/tasks/003-auth-google.md` の完了条件と
+直接関わるため、別PRとしてレビューを依頼する
+（`artifacts/fix-oauth-callback/` 参照）。
+
+### 引き続き未確認
+
+- ブラウザDevToolsでの Cookie 属性実地確認（`HttpOnly`/`Secure`/`SameSite=Lax`）
+- ログイン → リロード → ログイン状態維持
+- ログアウト → サインイン画面へ戻るUI導線
 
 ## 静的解析
 
