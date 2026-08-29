@@ -2780,6 +2780,151 @@ R が PR #83 の `architecture.md` を読み、誤りを見つけた。**R が�
 
 実装は本文どおりループすれば問題ないので、B は返答を待たずに進めている。
 
+---
+
+## 2026-08-30 / セッションB（010 実装）
+
+### やったこと
+- `docs/tasks/010-calendar-api.md` を実装した。ブランチ `task/010-calendar-api`
+- `packages/db/src/schema/event.ts`（新規）: `events` テーブル。`kind` に
+  CHECK 制約（`reactions.kind` の0006と同じ理由）。`packages/db/migrations/0007_event.sql`
+  は `drizzle-kit generate` で生成し、他のマイグレーションと採番を揃えるため
+  ファイル名（`0007_graceful_riptide.sql`→`0007_event.sql`）と`meta/_journal.json`の
+  `tag`を手で直した
+- `apps/api/src/lib/date.ts`（新規）: JST 前提の日付ユーティリティを集約
+  （`todayJst`/`diffDays`/`isLeapYear`/`monthsBefore`/`yearsBefore`/`monthDayOf`/
+  `yearsBetween`/`projectMonthDay`）。実行時刻に依存する関数は `nowMs` を
+  引数で受け取れるようにし、日跨ぎの境界時刻をテストで直接指定できるようにした
+- `packages/contract/src/event.ts`（新規）: `event.list`/`create`/`update`/`delete`。
+  `update`は部分更新にせず`create`と同じ全項目を受け取って置き換える形にした。
+  日付の実在性チェック（`refine`）は入れていない（02-29の記念日は平年には
+  実在しない日付として登録されるため）
+- `apps/api/src/procedures/event.ts`（新規）: `readProcedure`/`writeProcedure`の上に実装。
+  `event.list`は`repeat_yearly=0`をSQLの`date BETWEEN`で絞り、`repeat_yearly=1`は
+  couple全件を取ってから`lib/date.ts`の関数で年ごとに射影する
+  （`architecture.md` 5節「繰り返し記念日の射影」。`year(from)`から`year(to)`を
+  必ず全てループし、決め打ちにしない。L「射影する年は最大2つ」の誤りを
+  踏まえ、3暦年に触れる窓で中間の年だけ返ることをテストで確認した）。
+  `update`/`delete`はWHERE句に`couple_id`を含めた1文（006の`post.delete`と同じ形）
+- `apps/api/test/date.test.ts`（新規、19件）・`apps/api/test/event.test.ts`
+  （新規、28件）を追加。タスクファイルの「テストで証明すること」を1項目ずつ
+  対応させた（年をまたぐ範囲・400日の重複・3暦年窓・401日でINVALID_INPUT・
+  うるう年02-29の射影の両方向）
+- `apps/api/test/authorization.test.ts`（変更）: `security-requirements.md` 3節の
+  5項目チェックリストに`event`系4手続きを追加。基底経由チェックの実在数を
+  12→16に更新
+- `apps/api/src/router.ts`に`event: eventProcedures`を追加
+- テスト全体218件緑（packages/ui 7・apps/app 36・apps/api 175）、
+  型チェック・lint通過。ローカルD1にもマイグレーションを適用済み
+- `artifacts/010/test-results.md`に証跡を保存
+
+### 決定事項
+- `security-requirements.md` 10節1（認証・招待・画像アップロード・認可
+  ミドルウェアを触ったタスク）に該当しないため、010単体でのsecurity-auditor
+  監査は必須ではないと判断した（006・008と同じ扱い）。ユーザーからも
+  「010が監査対象か分からないので任せる」との確認を受けた。M3の他タスク
+  （011〜013）と合わせてマイルストーン単位でまとめて監査する方針とした
+- `event.delete`は論理削除にしていない（`events`に`deleted_at`列を持たない。
+  `architecture.md` 4節のスキーマにも無い）。物理削除とした
+- `event.update`は部分更新にせず、`create`と同じ全項目を受け取って置き換える
+  形にした（部分更新はNULL上書き回避ロジックが必要で複雑さが増すだけと判断）
+
+### 詰まった点
+- `drizzle-kit generate`が生成するマイグレーションファイル名がランダムな
+  英単語（`0007_graceful_riptide.sql`）になり、他のタスクの採番規則
+  （`0007_event.sql`のような内容が分かる名前）と異なっていた。ファイル名と
+  `meta/_journal.json`の`tag`の両方を手で揃える必要があった
+
+---
+
+## 2026-08-30 / セッションB（010 Rレビュー往復1回目対応）
+
+### やったこと
+- PR #86に対するRからの必須修正1件・判断依頼1件を受け取り、対応した
+  - 必須: `apps/api/src/lib/date.ts`の`yearsBefore`が`monthsBefore(date, n*12)`
+    へ委譲していたため、`projectMonthDay`の規則（平年の02-29は02-28に寄せる。
+    03-01にしない）と矛盾していた（`yearsBefore("2024-02-29", 1)`が
+    `2023-03-01`を返していた）。Rが実行して発見。`yearsBefore`を
+    `projectMonthDay(month, day, year - n)`を直接呼ぶ実装に変更し解消した
+  - 判断依頼: `monthsBefore`の月末繰り上がり（`2026-03-31`の1ヶ月前が
+    `2026-03-03`になる。月末に寄せない）は013（`memory.get`）で実際に
+    使われる際に利用者の直感に反しうる仕様未決定の論点。Rの指示どおり
+    現状の挙動のままテストで固定し、`docs/state.md`にL61として起票して
+    Aへエスカレーションした
+  - `apps/api/test/date.test.ts`にテスト3件追加
+    （`yearsBefore`のうるう日ケース2件、`monthsBefore`の月末固定テスト1件〈2値〉）
+- テスト全体178件緑（175→178）、型チェック・lint通過
+- `artifacts/010/review.md`（新規）にRのレビュー結果を一字一句そのまま保存
+  （`conventions.md` 8節）。`artifacts/010/test-results.md`の件数を更新
+- `docs/tasks/010-calendar-api.md`の実装メモに対応内容を追記
+- `docs/state.md`を更新（L61を追加、進行中タスク・最終更新を対応後の状態に）
+
+### 決定事項
+- なし（判断が必要な点はL61としてAへ上げた。Bは決めていない）
+
+### 詰まった点
+- なし
+
+---
+
+## 2026-08-30 / セッションB（010 L61反映）
+
+### やったこと
+- AからL61（`monthsBefore`の月末繰り上がり）の判断を受け取った。
+  「**存在しない日付は、その月の末日に寄せる**」を一般則として決定し、
+  `architecture.md` 5節に新設（PR #87）。射影の02-29規則はその一例と
+  位置づけ直された。Aの指摘: 010のうるう日規則とは「別の問題」ではなく
+  **同じ問題**だった（`2028-02-29`の1年前が素の`Date`だと`2027-03-01`になり、
+  射影規則の`02-28`と正面から矛盾する。B自身が往復1回目で書いた
+  「別の問題」という判断は誤りだった）
+- `apps/api/src/lib/date.ts`を全面的に整理した
+  - `projectMonthDay`を02-29専用の特殊分岐から、`daysInMonth`（月の日数。
+    `Date.UTC(year, month, 0)`の「day 0 = 前月末日」を利用）で`day`を
+    クランプする一般実装に変更
+  - `monthsBefore`を素の`Date`の月末繰り上がりに任せる実装から、
+    `normalizeYearMonth`（月の繰り上がり・繰り下がりの正規化）+
+    `projectMonthDay`を使う実装に変更。`2026-03-31`の1ヶ月前は
+    `2026-02-28`になる
+  - `yearsBefore`を`projectMonthDay`を直接呼ぶ実装（往復1回目対応）から
+    `monthsBefore(date, n*12)`への委譲に一本化。個別実装を残すと規則が
+    2箇所に分かれて食い違う経路が再び生まれるため（Aの指摘どおり）
+- `apps/api/test/date.test.ts`のテストを更新
+  - 「暫定」としていた月末繰り上がり固定テストをAの決定後の期待値に更新
+  - `projectMonthDay`の一般化を確認するテスト（31日を持たない月への射影）を追加
+  - `architecture.md` 5節の実例（`2028-02-29`の1年前は`2027-02-28`）を追加
+  - テスト3件追加（178→181件）
+- テスト全体181件緑、型チェック・lint通過
+- `artifacts/010/review.md`にAの判断を一字一句そのまま追記し、対応内容も追記
+- `docs/tasks/010-calendar-api.md`の実装メモに対応内容を追記
+- `docs/state.md`を更新（L61を解決済みに変更、進行中タスク・最終更新を対応後の状態に）
+- PR #86に追加コミットしてpush
+
+### 決定事項
+- なし（Aの決定〈L61〉をそのまま反映した）
+
+### 詰まった点
+- なし
+
+---
+
+## 2026-08-30 / セッションB（PR #87 マージ）
+
+### やったこと
+- Aから「PR #87（L61の一般則を`architecture.md`/`013-memory.md`へ反映。
+  Session: A、ドキュメントのみ）をマージしてほしい」との依頼を受けた
+  （Aが誤って一度クローズ・ブランチ削除してしまったものを復元・再オープン済み）
+- CIが実行中だったため完了を待ち、成功（`success`）を確認してから
+  conventions.md 7節の手順（squash + `--body`でのSession行明示）で
+  `main`へマージした（`00b660c`）
+- `git log origin/main -1 --format='%(trailers:key=Session,valueonly)'`で
+  `A`が正しく取得できることを確認した
+- Aへうるう年射影テストの存在確認（`date.test.ts`に既存）とマージ完了を報告した
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
 ## 2026-08-30 A: 存在しない日付は月末に寄せる（L61）
 
 R が 010 のレビューで `monthsBefore("2026-03-31", 1) === "2026-03-03"` を見つけ、
