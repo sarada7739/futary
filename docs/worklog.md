@@ -2904,3 +2904,24 @@ R が PR #83 の `architecture.md` を読み、誤りを見つけた。**R が�
 
 ### 詰まった点
 - なし
+
+---
+
+## 2026-08-30 / セッションB（PR #87 マージ）
+
+### やったこと
+- Aから「PR #87（L61の一般則を`architecture.md`/`013-memory.md`へ反映。
+  Session: A、ドキュメントのみ）をマージしてほしい」との依頼を受けた
+  （Aが誤って一度クローズ・ブランチ削除してしまったものを復元・再オープン済み）
+- CIが実行中だったため完了を待ち、成功（`success`）を確認してから
+  conventions.md 7節の手順（squash + `--body`でのSession行明示）で
+  `main`へマージした（`00b660c`）
+- `git log origin/main -1 --format='%(trailers:key=Session,valueonly)'`で
+  `A`が正しく取得できることを確認した
+- Aへうるう年射影テストの存在確認（`date.test.ts`に既存）とマージ完了を報告した
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
