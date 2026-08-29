@@ -19,6 +19,11 @@
 
 ### CI / CD
 - `main` へのマージで Cloudflare へデプロイする
+- **deploy の前に `db:migrate:remote` を実行する。**ローカルのエミュレータと
+  リモートの D1 は別物で、`db:migrate:local` だけでは本番に反映されない
+  （L34 で実際にログインが全滅した。`architecture.md` 6節）
+- **R2 バケットの CORS に本番オリジンを追加する。**忘れると画像アップロード
+  だけが本番で失敗する（`architecture.md` 6節）
 - ~~CI に gitleaks と `pnpm audit` を追加する。Dependabot を有効化する~~
   → **L11 として前倒しで実施済み**（`fix/ci-security-checks`）。016 では
   以下の**再評価**だけを行う
@@ -71,6 +76,7 @@ M2（008 タイムライン・009 リアクション）は、**R が視覚的な
 
 ## 完了条件
 - [ ] 本番URLでアプリとデモが動く
+- [ ] **本番で画像付きの投稿ができる**（R2 の CORS に本番オリジンが入っていること）
 - [ ] E2E 通しテストが緑
 - [ ] gitleaks と `pnpm audit` が緑
 - [ ] **gitleaks を履歴全体に対して実行し、検出ゼロである**
