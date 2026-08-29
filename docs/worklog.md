@@ -1057,3 +1057,25 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-29 / セッションB（旧L29対応: writeProcedureの型絞り込み）
+
+### やったこと
+- AがPR #35で「旧L29はBの判断（fix/対応）を支持する」と回答したのを受け、
+  `apps/api/src/procedures/base.ts` の `writeProcedure` を修正した
+  - `Middleware<RpcContext, CoupleContext, ...>` → 
+    `Middleware<RpcContext, Extract<CoupleContext, {mode: "member"}>, ...>`
+  - `apps/api/src/procedures/post.ts` の `post.create` にあった到達不能な
+    `if (userId === null) throw new Error(...)` を削除した
+- `couple.update`/`invite.issue`（既存の`writeProcedure`利用箇所）を確認し、
+  `mode`フィールドを参照するコードが無いことを確認（型が狭まったことによる副作用なし）
+- `pnpm type-check`/`pnpm test`（90件）/`pnpm lint`が全て緑であることを確認
+- `fix/write-procedure-narrow-member`ブランチでPR #37を作成し、conventions.md 7節の
+  fix/受け入れ基準（観測した事象・原因・再発を防ぐ手段・影響範囲）をPR本文に記載した
+- Rへレビューを依頼（過去のfix/PR #22の前例に倣い、Rレビューを経てからマージする）
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
