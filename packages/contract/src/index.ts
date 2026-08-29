@@ -3,8 +3,10 @@ import { meGetContract } from "./me";
 import { coupleCreateContract, coupleGetContract, coupleUpdateContract } from "./couple";
 import { inviteAcceptContract, inviteIssueContract } from "./invite";
 import { postCreateContract, postDeleteContract, postListContract, postUploadUrlContract } from "./post";
+import { reactionToggleContract } from "./reaction";
 
 export type { Post } from "./post";
+export { REACTION_KINDS } from "./reaction";
 
 export const contract = {
   health: {
@@ -27,6 +29,9 @@ export const contract = {
     create: postCreateContract,
     delete: postDeleteContract,
     uploadUrl: postUploadUrlContract,
+  },
+  reaction: {
+    toggle: reactionToggleContract,
   },
 };
 

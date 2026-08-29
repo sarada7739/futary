@@ -45,10 +45,29 @@
   まとめて回収する**（`conventions.md` 8節・`state.md` L38）
 
 ## 進捗
-- [ ] スキーマ + マイグレーション
-- [ ] `reaction.toggle`
-- [ ] `post.list` への集計の組み込み（N+1 回避）
-- [ ] UI（楽観的更新）
-- [ ] テスト
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
-- [ ] 人間へ M2 受け入れ判定を依頼（008 の未取得スクリーンショットもここで回収）
+- [x] スキーマ + マイグレーション（`packages/db/src/schema/reaction.ts`、`0005_reaction.sql`）
+- [x] `reaction.toggle`（`apps/api/src/procedures/reaction.ts`）
+- [x] `post.list` への集計の組み込み（N+1 回避。`fetchReactionSummaries`）
+- [x] UI（楽観的更新。`apps/app/lib/reaction.ts` + `app/(tabs)/index.tsx` + `post-card.tsx`）
+- [x] テスト（apps/api 128件・apps/app 27件・packages/ui 7件、すべて緑。詳細は `artifacts/009/test-results.md`）
+- [x] security-auditor 実施（M2まとめ監査。006・008・009対象。009固有の指摘はゼロ。
+      API全体に及ぶHigh 1件〈GET経由の書き込み実行〉は `fix/reject-get-writes` で対応、
+      009固有のLow 4件は本タスク内で対応。詳細は `docs/security-report.md`）
+- [x] 証跡保存（`artifacts/009/test-results.md`・`artifacts/009/security-audit-raw.md`）
+      → `state.md` 更新 → `worklog.md` 追記
+- [ ] 人間へ M2 受け入れ判定を依頼（008 の未取得スクリーンショット・009 のUI実機確認は
+      いずれも Google OAuth ログインが必要なため未実施。M2受け入れ判定でまとめて回収する）
+
+### 実装メモ
+
+詳細は `artifacts/009/test-results.md` の「実装メモ」節を参照。要点:
+
+- `reaction.toggle` は `reactions` テーブルが `couple_id` を持たないため、
+  DELETE/INSERT 双方の WHERE 句に `EXISTS (SELECT 1 FROM posts WHERE id=?1 AND couple_id=?4 ...)`
+  を含める形で他ペアの投稿への到達を防いだ（006の `post.delete` と同じ「WHERE 句で保証する」方針の応用）
+- `post.list` のリアクション集計は投稿ID一覧をまとめて1クエリで取得し、N+1にしていない
+  （証跡: `apps/api/test/reaction.test.ts` で `D1Database#prepare` の呼び出し回数を検証）
+- リアクションの種類は heart の1種のみで実装した（論点L4。B は増やしていない）
+- M2まとめ監査対応で `post.delete` を `batch()` 化し `reactions` も同時削除するようにした際、
+  推奨実装をそのまま入れると「他ペアの投稿を指定した削除でリアクションだけ消せる」新しい穴を
+  自分で作ってしまい、追加した回帰テストで検出して修正した（詳細は `security-report.md`）
