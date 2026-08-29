@@ -114,17 +114,64 @@ Playwright による E2E はこのタスクで入れない。
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] `post.create` の「本文か画像のどちらかは必須」（旧 L30）
-- [ ] `apps/app` のテスト基盤導入（Vitest + RNTL、CI 連携）
-- [ ] `Button` の二重発火ガードと回帰テスト
-- [ ] R2 バインディング設定
-- [ ] `packages/contract` の `post.create` から `imageKey` を外し `imageId` にする
-- [ ] `post.uploadUrl`（`imageId` をサーバ生成・署名付きPUT・5分・contentType検証）
-- [ ] クライアント側の圧縮（1600px / 0.8）
-- [ ] `post.list` に署名付きGET URL（1時間）
-- [ ] `posts.image_key` の UNIQUE 制約（マイグレーション）
-- [ ] `post.create` の実体確認（R2 head）
-- [ ] `post.delete` の削除順序（D1 → R2、失敗を握りつぶす、`image_key` を残す）
-- [ ] 署名なしアクセスの拒否確認
-- [ ] security-auditor 実行
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] `post.create` の「本文か画像のどちらかは必須」（旧 L30）
+- [x] `apps/app` のテスト基盤導入（Vitest、CI 連携）
+- [x] `Button` の二重発火ガードと回帰テスト
+- [x] R2 バインディング設定（`wrangler.toml` に既存。今回追加したのは署名用の
+      S3互換API認証情報 `R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`）
+- [x] `packages/contract` の `post.create` から `imageKey` を外し `imageId` にする
+- [x] `post.uploadUrl`（`imageId` をサーバ生成・署名付きPUT・5分・contentType検証）
+- [x] クライアント側の圧縮（1600px / 0.8）
+- [x] `post.list` に署名付きGET URL（1時間）
+- [x] `posts.image_key` の UNIQUE 制約（マイグレーション）
+- [x] `post.create` の実体確認（R2 head）
+- [x] `post.delete` の削除順序（D1 → R2、失敗を握りつぶす、`image_key` を残す）
+- [ ] 署名なしアクセスの拒否確認（実機。下記「実装メモ」参照。未実施）
+- [x] security-auditor 実行（High以上ゼロ。Medium 4件中3件・Low 1件中1件を対応。
+      詳細は `docs/security-report.md` と `artifacts/007/security-audit-raw.md`）
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+## 実装メモ（B）
+
+- **テストライブラリは React Native Testing Library ではなく `@testing-library/react`
+  （DOM版）+ `react-native-web` エイリアス + jsdom にした。** react-native 0.86 +
+  React 19 の組み合わせで `@testing-library/react-native`（react-test-renderer 経由）を
+  試したが、react-native 本体のソースが Flow 構文を含み Vitest（esbuild/rolldown）で
+  変換できず断念した（`Flow is not supported` エラー）。アプリ本体が RN Web で
+  単一コードベースになっている（architecture.md 1節）のと同じ考え方で、
+  `resolve.alias` で `react-native` を `react-native-web` に差し替えて jsdom 上で
+  レンダーする方式に切り替えた。同じ理由で `react-native-safe-area-context`
+  （ネイティブモジュール）もテスト用の最小モックに差し替えている
+  （`apps/app/test/mocks/react-native-safe-area-context.tsx`）。挙動としては
+  「Button を素早く2回押しても onPress が1回しか走らないこと」を実際に検証できており、
+  タスクの意図（退行に気づけること）は満たしている
+- R2 の署名付きURL発行には、`env.BUCKET` の Workers バインディングとは別に、
+  R2 の S3互換API を SigV4 で自前署名する必要がある（Cloudflare 公式の presigned URL の
+  作り方）。軽量ライブラリ `aws4fetch` を使った（`apps/api/src/lib/r2-signed-url.ts`）。
+  署名計算自体はネットワーク不要な純粋計算のため、テストは実際の R2 API トークン
+  （`.dev.vars` の `R2_ACCOUNT_ID` 等）の設定有無に依存しないダミー値で行っている
+- 署名付き PUT URL（クエリ文字列署名）自体には body サイズを制約する仕組みが無い
+  （content-length-range を課せるのは presigned POST policy だが実装が重くなる）。
+  そのため **サイズ上限（8MB）は `post.create` が `env.BUCKET.head()` で
+  アップロード後に照合し、超過していれば R2 から削除して `INVALID_INPUT` にする**、
+  という事後の防御線にした。クライアント側の圧縮（1600px/品質0.8）が正常系の主防御
+- `imageId`（ULID）は `ulid` 等の外部パッケージを追加せず、`apps/api/src/lib/ulid.ts`
+  に自前実装した。招待コード生成（`invite-code.ts`）と同じく `crypto.getRandomValues`
+  を使い、文字集合を32文字にすることでバイト値の剰余に偏りが出ないようにしている
+- `postSchema`（`packages/contract`）は `imageKey` を返さず `imageUrl`
+  （署名付き GET URL）を返す形にした。`post.list` だけでなく `post.create` の
+  レスポンスにも同じ `postSchema` を使っているため、`post.create` も画像があれば
+  作成直後に GET URL を発行して返す（変更対象ファイルには `post.list` のみ
+  挙がっていたが、型を1つに保つため両方に適用した）
+- `apps/api/src/procedures/couple.ts` の `isConstraintViolation` を export に変更し、
+  `post.ts` の image_key UNIQUE 制約違反判定でも再利用した（元々あった判定ロジックの再利用）
+- `sign-in.tsx` の自前の二重発火ガード（`isSigningInRef`）は残してある。
+  Button 標準のガードは「Promise が解決するまで無効化」だが、この画面は
+  「signIn.social 成功後もページ遷移が始まるまで意図的に無効のままにする」
+  という Button の標準機構では表現できない要件を持つため（コード内コメント参照）。
+  二重ガードになるが実害はない
+- **署名なしアクセスの拒否確認・実際のアップロード/削除の実機確認は未実施。**
+  R2 の S3互換API認証情報（`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`）が
+  ローカルの `.dev.vars` に未設定のため（Cloudflareダッシュボード「R2 > Manage R2 API
+  Tokens」での発行が必要。003のGoogle OAuthクライアントと同じ制約）。
+  `.dev.vars.example` に必要な変数とコメントを追記済み

@@ -127,3 +127,31 @@ Medium 2件とも解消、新たな問題なしと判定された。`is_demo`検
 | Low | `sign-in.tsx`（`void`で戻り値を捨てている） | 失敗が完全に無言で、利用者が異常に気づけない | 汎用の失敗メッセージを表示する | **未対応（記録のみ）**。専用のエラー表示UIコンポーネントが現状無く、今回のスコープを超えると判断。将来のUI実装タスクで対応する |
 
 補足: `@better-auth/expo`が`NODE_ENV === "development"`で`trustedOrigins`に`exp://`を注入する挙動を確認したが、Workerに`NODE_ENV`は設定されておらず現状無効。将来もWorkerの変数に`NODE_ENV`を足さないこと（記録のみ）。
+
+---
+
+## [2026-08-29] 007 画像アップロード（R2署名付きURL、post.uploadUrl/post.create/post.delete/post.list、Button二重発火ガード）
+
+対象: `apps/api/src/lib/{r2-signed-url,ulid}.ts`, `apps/api/src/procedures/{post,upload,couple}.ts`,
+`apps/api/src/{context,index,router}.ts`, `packages/contract/src/post.ts`,
+`packages/db/src/schema/post.ts`, `packages/db/migrations/0004_post_image_key_unique.sql`,
+`apps/app/lib/image.ts`, `packages/ui/src/components/button.tsx`,
+`apps/api/.dev.vars.example`, `.github/workflows/ci.yml`
+
+生の返答: [`artifacts/007/security-audit-raw.md`](../artifacts/007/security-audit-raw.md)
+
+**High以上の指摘: ゼロ**（完了条件を満たす）。Medium 4件、Low 2件、Info 3件。
+
+| 重大度 | 箇所 | 内容 | 推奨対応 | 対応 |
+|---|---|---|---|---|
+| Medium | `r2-signed-url.ts`（署名付きPUT URL） | presigned PUT URLに Content-Type が実は束縛されていなかった（aws4fetchはcontent-typeをUNSIGNABLE_HEADERSとして扱う）。コードのコメントが事実と異なっていた | `post.create`のR2実体確認時にContent-Typeも検証する。誤ったコメントを修正する | **対応済み**。`post.create`が`head.httpMetadata?.contentType`を検証し、不一致ならR2から削除して`INVALID_INPUT`（サイズ検証と同じ事後防御線に統一）。コメントも修正。テスト追加 |
+| Medium | `packages/contract/src/post.ts`（imageId） | `imageId`に形式検証が無く、理論上パス区切り文字等が鍵の組み立てに混入する余地があった（現状は`bucket.head`の存在確認で実害には至らない） | ULID形式の正規表現で絞る | **対応済み**。`z.string().regex(/^[0-9A-HJKMNPQRSTVWXYZ]{26}$/)`を追加。テスト追加 |
+| Medium | `upload.ts`/`r2-signed-url.ts`（8MB上限がpost.create時の事後チェックのみ） | presigned PUTにサイズ制約が無く、`post.uploadUrl`にレート制限も無いため、認証済みユーザーが巨大オブジェクトのアップロード＋未参照放置を反復してコスト/ストレージを消費させられる（機密性には影響しない） | uploadUrlへのレート制限、無参照オブジェクトの回収ジョブ | **未対応（記録のみ）**。MVPの完了条件外・設計判断の色が強いため、`docs/state.md`未解決の論点に起票してAへ引き継いだ |
+| Medium | `post.test.ts`/`authorization.test.ts`（他ペアimageIdのテスト欠落） | 完了条件にある「他ペアのimageIdを送っても到達しない」ことの専用テストが無かった | ペアBの実体をペアAが指定してINVALID_INPUTになるテストを追加 | **対応済み**。`post.test.ts`に追加 |
+| Low | `packages/ui/src/components/button.tsx` | 同期`onPress`が例外を投げるとガードが固着（ボタンが永久に無反応）。非同期側は`.finally`のみで reject が unhandled rejection になる | try/catchでガード解除してrethrow。`.then(reset, reset)`に変更 | **対応済み**。修正し回帰テスト2件追加 |
+| Low | `docs/tasks/007-image-upload.md`（実装メモ） | R2バケット非公開・署名なしアクセス拒否・期限切れ失効が実機未検証 | R2 APIトークン発行後に確認し証跡を残す | **未対応**。R2 APIトークンが`.dev.vars`未設定のため（003のGoogle OAuthクライアントと同じ制約）。`docs/state.md`次の一手に記録 |
+| Info | コメントの実態不一致（「鍵を渡さない」） | 返す署名付きURLのパスには鍵自体が含まれる。安全性は「鍵を入力として受け取らない」ことに依存 | コメント修正 | **対応済み**（apps/api側のみ。architecture.mdはA所有のためstate.md経由でAに申し送り） |
+| Info | 既存D1データの鍵形式未検証 | 006の無検証な`imageKey`で作られた既存行の形が未検査 | デプロイ前にSELECTで確認 | 対応不要（未デプロイ前提） |
+| Info | pnpm audit/gitleaks未実施 | 依存の脆弱性確認が今回の監査に含まれていない | 016でCI導入時に確認 | 対応不要（016スコープ、既存Low記録済み） |
+
+対応後、apps/api 109件・apps/app 14件・packages/ui 7件のテストが全て緑。型チェック・lintも通過を確認済み。

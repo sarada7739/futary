@@ -2,7 +2,7 @@ import { healthGetContract } from "./health";
 import { meGetContract } from "./me";
 import { coupleCreateContract, coupleGetContract, coupleUpdateContract } from "./couple";
 import { inviteAcceptContract, inviteIssueContract } from "./invite";
-import { postCreateContract, postDeleteContract, postListContract } from "./post";
+import { postCreateContract, postDeleteContract, postListContract, postUploadUrlContract } from "./post";
 
 export const contract = {
   health: {
@@ -24,6 +24,7 @@ export const contract = {
     list: postListContract,
     create: postCreateContract,
     delete: postDeleteContract,
+    uploadUrl: postUploadUrlContract,
   },
 };
 
