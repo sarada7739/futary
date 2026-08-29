@@ -1591,3 +1591,36 @@ B が挙げた「特定の advisory を無視リストに載せる」案を採�
   （ただし要約行に`(N ignored)`と件数は表示される）。「無視したものが
   見えなくなる状態を作らない」というAの意図は、CIログではなく
   `pnpm-workspace.yaml`のコメントで満たす形にした
+
+## 2026-08-29 セッションB（L11のPR #51マージ、Rの記録2件を起票）
+
+### やったこと
+- L11のPR #51をRレビュー往復1回・必須修正なしで受け入れられ、mainへsquash
+  merge済み（ブランチも削除済み）
+- Rからの記録2件をL48・L49として`docs/state.md`に起票した
+  - R-30: `gitleaks-action`は差分（その回のコミット）しか見ない。履歴全体の
+    走査は`schedule`/`workflow_dispatch`のときだけ。016完了条件の
+    「gitleaksが緑」は履歴全体に秘密が無いことの証明にはならない
+  - R-31: Dependabotのセキュリティ更新のみ有効化はリポジトリ設定のAPI経由で
+    行っており、`dependabot.yml`を作らなかったため設定がリポジトリ内に
+    痕跡を残さない。Rが実測（`gh api .../vulnerability-alerts`→204、
+    `.../automated-security-fixes`→`{"enabled":true}`）し、現在有効で
+    あることを確認済み
+- 009着手可否についてAに再確認した。Aは当初「Rが008をまだ見ていない」ことを
+  理由に009を保留するよう指示していたが、実際にはこの時点で008・L11とも
+  Rの受け入れ・マージが完了していた。Aの認識が古かったため状況を再連絡した
+- 並行してAからPR #52（達成できない要求の撤回・無視リストの陳腐化検出の
+  追加）が来たが、私の#47・#51マージでdocs系ファイルが動いた影響で
+  mainと競合しマージできなかった。ブランチがAの`futary-A`worktreeで
+  チェックアウトされたままのため、こちらでは競合解決ができず、Aに
+  worktree側での`git merge origin/main`を依頼した
+
+### 決定事項
+- なし（このエントリの範囲では。Aの再確認待ち）
+
+### 詰まった点
+- `gh pr merge`が「the merge commit cannot be cleanly created」で失敗した
+  PRを`gh pr checkout`しようとしたところ、そのブランチが別セッション
+  （A）のworktreeで既にチェックアウトされていたため`fatal: already used by
+  worktree`で失敗した。worktree分離下では競合解決は基本的にブランチの
+  持ち主（この場合A）が自分のworktreeで行う必要があると分かった
