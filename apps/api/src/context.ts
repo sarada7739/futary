@@ -1,5 +1,11 @@
+import type { R2SignConfig } from "./lib/r2-signed-url";
+
 export interface RpcContext {
   db: D1Database;
+  // 画像本体は Worker を経由しない。post.uploadUrl/post.list が
+  // 署名付きURLを発行するためだけに使う（apps/api/src/lib/r2-signed-url.ts）
+  bucket: R2Bucket;
+  r2Sign: R2SignConfig;
   user: { id: string; name: string; email: string; image: string | null } | null;
   // レート制限用。Cloudflare が付与する CF-Connecting-IP。ローカル開発等で
   // 取得できない場合は null（invite.accept のレート制限は IP 条件を外し、

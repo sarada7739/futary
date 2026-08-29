@@ -1,0 +1,44 @@
+### [2026-08-29] 監査対象: タスク007「画像アップロード（R2）」— `post.uploadUrl` / `post.create` / `post.delete` / `post.list`、R2署名付きURL、`Button` 二重発火ガード
+
+| 重大度 | 箇所 | 内容 | 推奨対応 |
+|---|---|---|---|
+| Medium | `apps/api/src/lib/r2-signed-url.ts:51-60`（根拠: `node_modules/.pnpm/aws4fetch@1.0.20/node_modules/aws4fetch/dist/aws4fetch.esm.js:18-28,109-111`） | **presigned PUT URL に Content-Type が束縛されていない。** aws4fetch は `UNSIGNABLE_HEADERS` に `content-type` を含み、`allHeaders` 未指定だと `signableHeaders` から除外するため、`X-Amz-SignedHeaders` は `host` のみになる。したがって `headers: { "content-type": contentType }` は署名に影響せず、50行目のコメント「Content-Type を署名対象に含めるため…署名が一致せず拒否される」は**事実と異なる**。結果、契約の `z.literal("image/jpeg")`（`packages/contract/src/post.ts:68`）は R2 側で一切強制されず、発行された URL で任意の Content-Type・任意のバイト列を置ける。`security-requirements.md` 5節「発行時に `contentType` とサイズ上限を検証する」を実質満たしていない。悪用容易さ=高（PUT のヘッダを変えるだけ）／影響=自ペアのプレフィクス内に限られ他ペアのデータには及ばないため Medium | `sign()` に `aws: { signQuery: true, allHeaders: true }` を渡して content-type を署名対象にする。あわせて `post.create` の実体確認時に `head.httpMetadata?.contentType !== "image/jpeg"` なら `bucket.delete` + `INVALID_INPUT`（サイズ検証と同じ事後防御線に揃える）。最低でも誤ったコメントは削除する |
+| Medium | `packages/contract/src/post.ts:38` ＋ `apps/api/src/procedures/post.ts:122`（`imageKeyFor` は `apps/api/src/lib/r2-signed-url.ts:45-47`） | **`imageId` に形式検証が無く、クライアント文字列がそのまま R2 オブジェクトキーへ連結される。** `endpointFor`（同 25-27行）は `new URL()` を通すため、`../` を含むキーはパス正規化され `couples/{自ペア}/posts/../../{他ペア}/posts/X.jpg` → `couples/{他ペア}/posts/X.jpg` に潰れる。**現時点では悪用に至らない**（`post.ts:126` の `bucket.head(未正規化キー)` が先に走り、`..` を含むリテラルキーのオブジェクトは存在しないため `INVALID_INPUT`）。しかし水平権限昇格を止めているのが「head の存在確認」1枚だけになっており、`architecture.md` 5節の「構造上経路が生まれない」という主張より弱い。悪用容易さ=現状不可／影響=他ペア画像の閲覧（最高機密）のため、防御の薄さを見て Medium | `imageId: z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/)`（`apps/api/src/lib/ulid.ts:5` の文字集合・長さと一致）に絞る。`imageKeyFor` 側でも同じ検証を行い、鍵に入りうる文字を構造的に閉じる |
+| Medium | `apps/api/src/procedures/upload.ts:10-16` ＋ `apps/api/src/lib/r2-signed-url.ts:23` | **観点3（8MB の事後チェック設計）の評価: 機密性の観点では妥当だが、コスト/DoS の穴が開いている。** presigned PUT にサイズ制約が無く、`post.uploadUrl` にレート制限も無い。認証済みユーザーは「URL発行 → 巨大オブジェクトを PUT → `post.create` を呼ばない」を無限に反復でき、8MB 判定（`post.ts:128-133`）は永久に走らない。無参照オブジェクトの回収処理も存在しない（MVP 外と明示）。到達には Google アカウント作成＋`couple.create` のみで、`couple.create` は `authedProcedure` のみ（`couple.ts:41-42`）＝誰でも到達可能。悪用容易さ=高（自動化容易）／影響=金銭コストとストレージ増大で機密性には及ばないため Medium | (a) `post.uploadUrl` に user_id 単位のレート制限（`couple.ts` の招待失敗レート制限の仕組みを流用可能）、(b) R2 のライフサイクルルール、または cron で `posts.image_key` に存在しない実体を掃除するジョブ、(c) 少なくとも `docs/state.md` の未解決論点に「無参照オブジェクトの回収」「uploadUrl のレート制限」を明記して 016 へ引き継ぐ |
+| Medium | `apps/api/test/post.test.ts`（`他ペア` を含むのは 220行・312行の2件のみ）／`apps/api/test/authorization.test.ts`（`imageId` の出現ゼロ） | **007 の完了条件「他ペアの `imageId` を送っても他ペアの画像に到達しないことがテストで証明されている」に対応するテストが存在しない。** 未アップロード（`post.test.ts:123`）とサイズ超過（同148行）はあるが、ペアBが置いた `imageId` をペアAが送るケースが無い。性質自体は成立しているが、上記2件目の防御が薄いこととあわせ、退行を検知できない。影響=水平権限昇格の回帰検知の欠落のため Medium | ペアBで `imageKeyFor(coupleB, id)` に実体を置き、その `imageId` をペアAが `post.create` に送ると `INVALID_INPUT` になること、および `imageId: "../../<coupleB>/posts/<id>"` でも `INVALID_INPUT` になることをテストで固定する |
+| Low | `packages/ui/src/components/button.tsx:30-48` | **観点7。同期 `onPress` が例外を投げると `queueMicrotask` に到達せず `isPendingRef.current` が `true` のまま残り、以後そのボタンが永久に無反応になる**（`isPending` state は false のままなので見た目では気づけない）。また非同期側は `void result.finally(...)` のため、`onPress` が reject すると `finally` の派生 Promise が未処理となり unhandled rejection になる。二重発火の防止そのもの（ref による同期判定、Promise 解決までの無効化）に競合は無く、`disabled`/`onPress` は分割代入で取り出してから `{...rest}` を展開しているため呼び出し側からの上書きも起きない。影響=UI の可用性のみで機密性に及ばないため Low | `try { const result = onPress(); … } catch { isPendingRef.current = false; throw; }` にする。非同期側は `result.then(reset, reset)`、または `.finally(...).catch(() => {})` にして未処理 reject を消す |
+| Low | `docs/tasks/007-image-upload.md:129,172-176`（実装メモ） | **T3 の主防御にあたる「R2 バケットが非公開であること」「署名なしアクセスが拒否されること」「期限切れ後にアクセスできないこと」が未検証。** これらはコードでは担保できずダッシュボード設定（Public Development URL / カスタムドメインの無効）に依存する。R2 の既定は非公開のため現時点の実害可能性は低いが、証跡が無い | R2 API トークン発行後に、(1) 署名なし GET が 401/403 になること、(2) `X-Amz-Expires` 経過後に失効すること、(3) ダッシュボードで公開URL・カスタムドメインが未設定であることのスクリーンショット/ログを `artifacts/007/` に残す。016 の全体監査前に必須 |
+| Info | `apps/api/src/procedures/upload.ts:8` ／ `apps/api/src/lib/r2-signed-url.ts:44`（実測は `apps/api/test/post.test.ts:418`） | コメントは「クライアントに鍵そのものは渡さない」と書いているが、返す署名付きURLのパスには `couples/{coupleId}/posts/{imageId}.jpg` がそのまま含まれる（テストがまさにそれを assert している）。安全性は鍵の秘匿ではなく「鍵をサーバだけが組み立て、入力として受け取らない」ことに依存しているので実害は無いが、記述が実態とずれていると将来の設計判断を誤らせる | コメントを「鍵を**入力として**受け取らない」に修正する。`architecture.md` 6節の「クライアントに鍵を渡さない」も同様 |
+| Info | `packages/db/migrations/0004_post_image_key_unique.sql:1` | 0004 は UNIQUE 索引を張るだけで、006 の契約（`imageKey` を無検証で INSERT していた）で作られた既存行の鍵の形は検査していない。未デプロイ前提なら実害は無いが、開発用 D1 に残っている場合 `post.list` がその鍵に署名する | デプロイ前に `SELECT id FROM posts WHERE image_key IS NOT NULL AND image_key NOT LIKE 'couples/' || couple_id || '/posts/%'` が0件であることを確認する |
+| Info | `.github/workflows/ci.yml` 全体 | 今回の監査に `pnpm audit` / gitleaks の出力は渡されていないため、依存の既知脆弱性は未確認。CI 未導入の件は既に `docs/security-report.md:26` に Low として記録済み・016 スコープのため再指摘しない。新規依存 `aws4fetch@1.0.20`（`apps/api/package.json:23`）は依存ゼロの単一ファイル実装で、実行時コードパスに入るのはこの1件のみ | 016 で `pnpm audit` と gitleaks を CI に入れる際、`aws4fetch` を含めて再確認する |
+
+**High 以上の指摘: なし。** 完了条件「security-auditor の指摘で High 以上がゼロ」は満たしている。
+
+### 監査済み・問題なしと確認した点（観点への回答）
+
+- **観点1（`coupleId` / `imageKey` が引数に現れないか）— 問題なし。** `grep` の結果、手続きの入力に `imageKey` は一切無く、契約の入力は `post.uploadUrl: { contentType }`、`post.create: { body, imageId, imageWidth, imageHeight }`、`post.delete: { id }`、`post.list: { cursor }` のみ（`packages/contract/src/post.ts:20-73`）。鍵は `imageKeyFor(ctx.coupleId, …)` でサーバのみが組み立てている（`upload.ts:13`、`post.ts:122`）。旧設計の `imageKey` 引数は完全に廃止されている。全クエリに `couple_id = ?` があり（`post.ts:84,93,181`）、`post.delete` は WHERE 句＋`RETURNING` の1文で、SELECT→UPDATE の2段階になっていない。
+- **観点2（署名生成ロジック）— 上記 Medium 1件以外は問題なし。** 鍵未設定なら署名せず例外を投げる fail-closed（`r2-signed-url.ts:32-34`）。例外メッセージは oRPC の `toORPCError` が `Internal server error` に丸めるためクライアントへは漏れない（`@orpc/client/dist/shared/client.CZlviB0y.mjs:167-172`）。`X-Amz-Expires` は署名前にセットされており（PUT 300秒／GET 3600秒）、aws4fetch は既存値を上書きせず（同 esm.js:117-120）、全クエリパラメータが `encodedSearch` として署名対象に入る（同 139-151）ため、**有効期限をクライアントが改ざんできない**。無期限URLは発生しない。`service: "s3"` / `region: "auto"` は R2 に対して正しく、presigned では `UNSIGNED-PAYLOAD` が使われる（同 208）。秘密鍵はリクエスト毎の context にのみ載り、レスポンスにもログにも出ない。
+- **観点4（`post.delete` の握りつぶしでのログ漏洩）— 問題なし。** `post.ts:190-196` の catch はコメントのみで一切ログ出力しない。`apps/api` / `apps/app` のソースに `console.*` の呼び出しは存在しない（ヒットは `worker-configuration.d.ts` の型定義のみ）。`image_key` は D1 に残され、孤児の回収可能性は保たれている（`post.test.ts:377,401` で検証済み）。
+- **観点5（R2署名鍵の扱い）— 問題なし。** `wrangler.toml:26-27` の `[vars]` は `DEMO_COUPLE_ID` のみで R2 の値は無い。`.dev.vars.example:30-32` は変数名とコメントのみで実値は空。`.gitignore:15-16` が `.dev.vars` / `.dev.vars.*` を除外し `!.dev.vars.example` のみ許可。CI は `ci-test-*` のダミー値を実行時に生成している（`ci.yml:30-41`）。`Bindings` では全て optional で、未設定時は空文字→署名前に例外（fail-closed）。
+- **観点6（デモ経路からの `post.uploadUrl`）— 問題なし。** `upload.ts:10` は `writeProcedure` 上にあり、`base.ts:72-76` が `mode === "readonly"` を `FORBIDDEN` にする。`authorization.test.ts:164-170`（`DEMO_COUPLE_ID` 設定済みでも FORBIDDEN）、`post.test.ts:441-452`（未認証 FORBIDDEN / 未所属 NEEDS_ONBOARDING）で証明されている。`security-requirements.md` 3節のテスト5件（`authorization.test.ts`）も `post.uploadUrl` を含む形で維持されている。
+- **乱数**: `imageId` は `crypto.getRandomValues` ベース（`ulid.ts:20-28`）、文字集合32でモジュロ偏り無し、`Math.random()` 不使用。連番性は先頭10文字の時刻部のみで、後続80bitが暗号論的乱数のため推測不可。`couples.id` は `crypto.randomUUID()`（`couple.ts:45`）。
+- **入力検証**: 全手続きが Zod 検証を通り、SQL は全て `prepare` + `bind` のプレースホルダで文字列連結が無い。`post.list` の cursor は `try/catch` で `INVALID_INPUT` に丸められ内部例外が漏れない（`post.ts:73-77`）。
+
+---
+
+## B による対応（監査後）
+
+上記 Medium 4件・Low 1件のうち、実装コストが低く即時に閉じられるものを対応した（High以上はゼロだったため必須ではないが、多くが低コストで直せる実質的な穴だったため対応した）。
+
+| 指摘 | 対応 |
+|---|---|
+| Medium: Content-Type が署名で強制されない | `post.create` の R2 head 確認時に `head.httpMetadata?.contentType !== "image/jpeg"` を追加検証し、不一致なら削除＋`INVALID_INPUT`（サイズ検証と同じ事後防御線に統一）。誤りだったコメントも修正。テスト追加済み |
+| Medium: `imageId` に形式検証が無い | `packages/contract/src/post.ts` の `imageId` に ULID 形式の正規表現 `.regex()` を追加。テスト追加済み |
+| Medium: `post.uploadUrl` にレート制限が無く無参照オブジェクトを量産できる（DoS/コスト） | MVPの完了条件には無く、`invite.accept` のような専用レート制限テーブルの新設は設計判断の色が強いため、今回のタスクでは実装せず `docs/state.md` の未解決の論点に起票して A へ引き継いだ |
+| Medium: 他ペアの `imageId` を使った水平権限昇格のテストが無い | `post.test.ts` に「他ペアが置いた imageId を送っても届かない」テストを追加済み |
+| Low: `Button` の例外時のガード固着・unhandled rejection | `try/catch` でガード解除してから rethrow、`.then(reset, reset)` に変更。回帰テスト2件追加済み |
+| Low: 署名なしアクセス等の実機未検証 | 対応不可（R2 API トークン未発行のため）。`docs/state.md` の次の一手に記録済み |
+| Info: コメントの実態不一致（鍵を「渡さない」） | `apps/api` 側のコメントを「入力として受け取らない」に修正（`architecture.md` はA所有のため対象外。Aへの申し送りは state.md 経由） |
+| Info: 既存D1データの鍵形式未検証 / pnpm audit・gitleaks | 対応不要（未デプロイ前提・既存の別課題としてスコープ外） |
+
+対応後、apps/api 109件・apps/app 14件・packages/ui 7件のテストが全て緑であることを確認済み（型チェック・lintも通過）。

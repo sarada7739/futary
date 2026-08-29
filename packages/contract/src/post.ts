@@ -3,11 +3,20 @@ import { z } from "zod";
 
 const MAX_BODY_LENGTH = 2000;
 
+// imageId は post.uploadUrl がサーバ側で生成する ULID（apps/api/src/lib/ulid.ts と
+// 同じ文字集合・長さ）。形式を絞ることで、鍵の組み立て（couples/{coupleId}/posts/
+// {imageId}.jpg）に混入しうる文字（パス区切り等）を構造的に閉じる
+// （007 security-auditor 指摘: 検証が無いと理論上 imageId 経由でキーのパスを
+// 操作できてしまう余地があった）
+const IMAGE_ID_PATTERN = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;
+
 export const postSchema = z.object({
   id: z.string(),
   authorId: z.string(),
   body: z.string(),
-  imageKey: z.string().nullable(),
+  // 画像が無い投稿は null。imageUrl は署名付き GET URL（有効期限1時間。architecture.md 6節）
+  // であり、post.list/post.create のたびに毎回新しく発行し直す
+  imageUrl: z.string().nullable(),
   imageWidth: z.number().nullable(),
   imageHeight: z.number().nullable(),
   createdAt: z.number(),
@@ -25,13 +34,15 @@ export const postListContract = oc
     INVALID_INPUT: { status: 400 },
   });
 
-// post.create: 画像は 007 でアップロードを実装するまでの間、
-// imageKey/imageWidth/imageHeight を受け取って保存するだけ（architecture.md 6節）
+// post.create: imageKey ではなく imageId を受け取る（architecture.md 5節）。
+// 鍵は couples/{coupleId}/... という形をしており、これを受け取ることは
+// coupleId を受け取ることと同じになるため、クライアントからは受け取らない。
+// imageId は post.uploadUrl がサーバ側で生成して返したものだけが有効
 export const postCreateContract = oc
   .input(
     z.object({
       body: z.string().max(MAX_BODY_LENGTH, `本文は${MAX_BODY_LENGTH}文字以内で入力してください`),
-      imageKey: z.string().optional(),
+      imageId: z.string().regex(IMAGE_ID_PATTERN).optional(),
       imageWidth: z.number().int().positive().optional(),
       imageHeight: z.number().int().positive().optional(),
     }),
@@ -40,6 +51,9 @@ export const postCreateContract = oc
   .errors({
     FORBIDDEN: {},
     NEEDS_ONBOARDING: { status: 409 },
+    // 本文（trim後）と imageId が両方空、または imageId に対応する R2 の実体が無い、
+    // または同じ imageId が既に別の投稿に使われている場合
+    INVALID_INPUT: { status: 400 },
   });
 
 // post.delete: 論理削除。WHERE 句に couple_id を含めた1文で行うため、
@@ -51,4 +65,16 @@ export const postDeleteContract = oc
     FORBIDDEN: {},
     NEEDS_ONBOARDING: { status: 409 },
     NOT_FOUND: {},
+  });
+
+const CONTENT_TYPE = "image/jpeg";
+
+// post.uploadUrl: imageId（ULID）はサーバが生成する。鍵もサーバだけが組み立てる
+// （architecture.md 5節・6節）。writeProcedure の上に載せるためデモ（未認証）からは呼べない
+export const postUploadUrlContract = oc
+  .input(z.object({ contentType: z.literal(CONTENT_TYPE) }))
+  .output(z.object({ imageId: z.string(), url: z.string() }))
+  .errors({
+    FORBIDDEN: {},
+    NEEDS_ONBOARDING: { status: 409 },
   });

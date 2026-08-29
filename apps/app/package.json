@@ -8,7 +8,8 @@
     "web": "expo start --web",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.2",
@@ -22,6 +23,8 @@
     "better-auth": "^1.7.2",
     "expo": "~57.0.16",
     "expo-constants": "~57.0.14",
+    "expo-image-manipulator": "~57.0.14",
+    "expo-image-picker": "~57.0.14",
     "expo-linking": "~57.0.7",
     "expo-router": "~57.0.16",
     "expo-secure-store": "^57.0.1",
@@ -36,7 +39,11 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "~19.2.2",
-    "typescript": "^5.9.3"
+    "jsdom": "^30.0.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11"
   }
 }

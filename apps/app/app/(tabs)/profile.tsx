@@ -18,7 +18,12 @@ export default function ProfileScreen() {
         </Text>
         <Text color="muted">{session?.user.email}</Text>
         <View style={{ marginTop: space.xl, width: 200 }}>
-          <Button variant="secondary" onPress={() => signOut()}>
+          <Button
+            variant="secondary"
+            onPress={async () => {
+              await signOut();
+            }}
+          >
             ログアウト
           </Button>
         </View>

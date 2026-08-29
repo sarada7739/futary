@@ -12,6 +12,15 @@ import type { RpcContext } from "../src/context";
 // 5項目を確認する
 
 const db = (env as unknown as Bindings).DB;
+const bucket = (env as unknown as Bindings).BUCKET;
+
+// post.test.ts と同じ理由（実際の R2 API トークンの設定有無に依存させない）
+const r2Sign: RpcContext["r2Sign"] = {
+  accountId: "test-account",
+  accessKeyId: "test-access-key-id",
+  secretAccessKey: "test-secret-access-key",
+  bucketName: "test-bucket",
+};
 
 let userSeq = 0;
 
@@ -34,7 +43,7 @@ function contextFor(
   user: { id: string; name: string; email: string } | null,
   demoCoupleId: string | null = null,
 ): RpcContext {
-  return { db, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId };
+  return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId };
 }
 
 async function createCouple(
@@ -151,6 +160,14 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
       call(router.post.delete, { id: crypto.randomUUID() }, { context: contextFor(null, demoCoupleId) }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("post.uploadUrl は DEMO_COUPLE_ID が設定されていても FORBIDDEN（007）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.post.uploadUrl, { contentType: "image/jpeg" }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });
 
 describe("3. 未認証アクセスで読み取れるのがデモペアのデータのみである", () => {
@@ -227,6 +244,13 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
       call(router.post.delete, { id: crypto.randomUUID() }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
+
+  it("post.uploadUrl（007）", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.post.uploadUrl, { contentType: "image/jpeg" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
 });
 
 describe("5. DEMO_COUPLE_ID が未設定のとき、未認証アクセスが拒否される（fail-closed）", () => {
@@ -267,8 +291,8 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （006時点: health.get/me.get + couple 3 + invite 2 + post 3 = 10）
-    expect(procedures.length).toBeGreaterThanOrEqual(10);
+    // （007時点: health.get/me.get + couple 3 + invite 2 + post 4 = 11）
+    expect(procedures.length).toBeGreaterThanOrEqual(11);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの

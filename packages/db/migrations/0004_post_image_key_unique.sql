@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `posts_image_key_unique` ON `posts` (`image_key`);

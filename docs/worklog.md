@@ -1109,3 +1109,93 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-29 / セッションB（007 実装）
+
+### やったこと
+- `docs/tasks/007-image-upload.md`（画像アップロード）を実装した。ブランチ
+  `task/007-image-upload`
+- サーバ側:
+  - `apps/api/src/lib/ulid.ts`（新規）: `imageId`生成。`invite-code.ts`と同じ
+    技法（`crypto.getRandomValues`、文字集合32でモジュロ偏りなし）で自前実装
+  - `apps/api/src/lib/r2-signed-url.ts`（新規）: R2の署名付きPUT/GET URL発行。
+    Workersバインディング（`env.BUCKET`）ではS3互換APIの署名は作れないため、
+    軽量ライブラリ`aws4fetch`を新規導入した
+  - `apps/api/src/procedures/upload.ts`（新規）: `post.uploadUrl`。
+    `writeProcedure`の上に載せ、`imageId`をサーバ生成、鍵は`ctx.coupleId`から
+    組み立てる
+  - `apps/api/src/procedures/post.ts`: `post.create`に画像対応（R2実体確認・
+    サイズ上限8MB・本文か画像どちらか必須のバリデーション）、`post.list`に
+    署名付きGET URL発行、`post.delete`の削除順序（D1→R2、失敗を握りつぶす、
+    `image_key`は残す）を実装
+  - `packages/contract/src/post.ts`: `imageKey`を廃止し`imageId`のみを受け取る
+    形に変更。`postUploadUrlContract`を新設
+  - `packages/db/src/schema/post.ts` + `0004_post_image_key_unique.sql`:
+    `image_key`にUNIQUE制約
+  - `apps/api/src/context.ts`/`index.ts`: `RpcContext`に`bucket`/`r2Sign`を追加。
+    R2署名用のシークレット（`R2_ACCOUNT_ID`等）を新設
+- クライアント側:
+  - `apps/app/lib/image.ts`（新規）: 画像圧縮（長辺1600px/JPEG品質0.8、
+    `expo-image-manipulator`の新API `ImageManipulator.manipulate().resize().
+    renderAsync()`を使用）とアップロード（署名付きURLへ直接PUT）
+  - `packages/ui/src/components/button.tsx`: 二重発火防止ガードを組み込んだ
+    （旧L26）。`useRef`で同期判定、`onPress`がPromiseを返せば解決まで無効化
+  - `apps/app`にVitestベースのテスト基盤を初導入（旧L27）。当初
+    `@testing-library/react-native`（react-test-renderer経由）を試したが、
+    react-native 0.86 + React 19の組み合わせでreact-native本体のFlow構文が
+    Vitestで変換できず断念。`react-native-web`エイリアス+jsdom+
+    `@testing-library/react`（DOM版）に切り替えた。同じ理由で
+    `react-native-safe-area-context`もテスト用モックに差し替えている
+  - `apps/app/app/(tabs)/profile.tsx`: `Button`の型変更（`onPress`が
+    `() => void | Promise<void>`に）に伴い、`signOut()`の呼び出しを
+    `async () => { await signOut(); }`に修正
+- security-auditorを実行。High以上ゼロ（完了条件を満たす）。Medium 4件・
+  Low 2件・Info 3件を受け、実装コストの低いもの（Content-Type検証の追加、
+  imageIdのULID形式検証、他ペアimageIdのテスト追加、Buttonの例外時ガード
+  固着修正）をその場で対応した。詳細は`docs/security-report.md`・
+  `artifacts/007/security-audit-raw.md`参照
+- テストは apps/api 109件・apps/app 14件・packages/ui 7件すべて緑。
+  型チェック・lint通過
+- `docs/tasks/007-image-upload.md`の進捗チェックボックスと実装メモを更新。
+  `docs/state.md`を007実装完了・PR/レビュー待ちの状態に更新（L31・L32を追加）
+
+### 決定事項
+- `postSchema`（`packages/contract`）は`imageKey`ではなく`imageUrl`（署名付き
+  GET URL）を返す形にした。`post.list`だけでなく`post.create`のレスポンスにも
+  同じスキーマを使っているため、`post.create`も画像があれば作成直後にGET URLを
+  発行して返す（タスクの「変更対象ファイル」には`post.list`のみ挙がっていたが、
+  型を1つに保つため両方に適用した）
+- サイズ上限（8MB）とContent-Typeは、署名付きPUT URL自体では強制できないため
+  （SigV4のクエリ文字列署名はcontent-lengthやcontent-typeを署名対象に含められ
+  ない）、`post.create`が`env.BUCKET.head()`で実体を確認するタイミングでの
+  事後チェックにした。超過・不一致ならR2から削除して`INVALID_INPUT`
+- `post.uploadUrl`のレート制限・無参照R2オブジェクトの回収は、007の完了条件
+  には無く設計判断の色が強いため実装せず、`docs/state.md`のL31としてAへ
+  引き継いだ
+- `sign-in.tsx`の自前の二重発火ガード（`isSigningInRef`）はそのまま残した。
+  「signIn.social成功後もページ遷移が始まるまで意図的に無効のままにする」
+  という、Button標準のガード機構（Promise解決で自動解除）では表現できない
+  要件を持つため。二重ガードになるが実害はない
+
+### 詰まった点
+- Vitestでreact-native/react-native-webをテストする環境構築に最も時間を要した。
+  `resolve.alias`で`react-native`を`react-native-web`に向けても、相対パス
+  指定だと`packages/ui`（node_modulesを持たないworkspaceパッケージ）からの
+  解決に失敗した。`apps/app`の`node_modules`への絶対パスを明示して解決した
+- `@testing-library/react`はJestでは`afterEach`を自動登録するが、Vitestでは
+  明示的に`afterEach(() => cleanup())`を呼ぶ必要があった。無いと前のテストの
+  `render()`結果がDOMに残り続け、`getByText`が複数要素にマッチしてエラーに
+  なった
+- Buttonの回帰テストで、非同期`onPress`のPromise解決後に再度クリック可能に
+  なったことを検証する際、`waitFor`で`toBeDisabled()`を使ったが、
+  react-native-webの`Pressable`はWeb上で`div`にレンダーされるため
+  ネイティブの`disabled`属性を持たず、常にfalse判定になってしまった。
+  `act()`でPromiseの解決とReactの再レンダリングを明示的に待つ形に変更して解決
+- 同様に、同期`onPress`が例外を投げるケースのテストで、React 19の新しい
+  イベントディスパッチはハンドラ内の例外を`fireEvent.click`の呼び出し元へ
+  同期的に伝播させず、`window`の`error`イベントとして非同期に報告する
+  仕様だった。`expect(() => fireEvent.click(...)).toThrow()`は機能せず、
+  `window.addEventListener("error", ...)`で伝播経路を握りつぶす形に変更した
+- expo-image-manipulatorが13系でcontext-based API（`ImageManipulator.
+  manipulate(uri).resize().renderAsync()`）に刷新されており、旧来の
+  `manipulateAsync`は非推奨になっていた。型定義から新APIの形を確認して実装した
