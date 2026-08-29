@@ -1,10 +1,10 @@
 import { isDefinedError } from "@orpc/client";
 import { Screen } from "@futary/ui";
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Stack } from "expo-router";
-import { useState } from "react";
 import { useSession } from "../lib/auth-client";
 import { orpc } from "../lib/orpc";
+import { queryClient } from "../lib/query";
 
 function RootNavigator() {
   const { data: session, isPending: isSessionPending } = useSession();
@@ -30,6 +30,10 @@ function RootNavigator() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Protected guard={hasCouple}>
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="compose"
+          options={{ presentation: "modal", headerShown: true, title: "投稿する" }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={needsOnboarding}>
         <Stack.Screen name="(onboarding)" />
@@ -45,8 +49,6 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient());
-
   return (
     <QueryClientProvider client={queryClient}>
       <RootNavigator />

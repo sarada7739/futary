@@ -11,6 +11,8 @@ const UPLOAD_CONTENT_TYPE = "image/jpeg";
 interface PostRow {
   id: string;
   author_id: string;
+  author_name: string | null;
+  author_image: string | null;
   body: string;
   image_key: string | null;
   image_width: number | null;
@@ -18,9 +20,15 @@ interface PostRow {
   created_at: number;
 }
 
+// 投稿カードに投稿者名・アバターを出すため user テーブルを LEFT JOIN する
+// （008・architecture.md 5節。理由と到達可能性の注記も同節参照）。
+// posts を couple_id で絞った結果に対して行い、user 側を起点に引かない
+// （認可の範囲を JOIN で広げない）
 const POST_COLUMNS =
-  "id AS id, author_id AS author_id, body AS body, image_key AS image_key, " +
-  "image_width AS image_width, image_height AS image_height, created_at AS created_at";
+  "posts.id AS id, posts.author_id AS author_id, user.name AS author_name, " +
+  "user.image AS author_image, posts.body AS body, posts.image_key AS image_key, " +
+  "posts.image_width AS image_width, posts.image_height AS image_height, posts.created_at AS created_at";
+const POST_FROM = "posts LEFT JOIN user ON user.id = posts.author_id";
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -33,6 +41,8 @@ async function toPost(row: PostRow, r2Sign: R2SignConfig) {
   return {
     id: row.id,
     authorId: row.author_id,
+    authorName: row.author_name,
+    authorImage: row.author_image,
     body: row.body,
     imageUrl,
     imageWidth: row.image_width,
@@ -83,18 +93,18 @@ const postList = implementer.post.list.use(readProcedure).handler(async ({ conte
   const stmt = cursor
     ? db
         .prepare(
-          `SELECT ${POST_COLUMNS} FROM posts
-            WHERE couple_id = ?1 AND deleted_at IS NULL
-              AND (created_at < ?2 OR (created_at = ?2 AND id < ?3))
-            ORDER BY created_at DESC, id DESC
+          `SELECT ${POST_COLUMNS} FROM ${POST_FROM}
+            WHERE posts.couple_id = ?1 AND posts.deleted_at IS NULL
+              AND (posts.created_at < ?2 OR (posts.created_at = ?2 AND posts.id < ?3))
+            ORDER BY posts.created_at DESC, posts.id DESC
             LIMIT ?4`,
         )
         .bind(coupleId, cursor.createdAt, cursor.id, PAGE_SIZE + 1)
     : db
         .prepare(
-          `SELECT ${POST_COLUMNS} FROM posts
-            WHERE couple_id = ?1 AND deleted_at IS NULL
-            ORDER BY created_at DESC, id DESC
+          `SELECT ${POST_COLUMNS} FROM ${POST_FROM}
+            WHERE posts.couple_id = ?1 AND posts.deleted_at IS NULL
+            ORDER BY posts.created_at DESC, posts.id DESC
             LIMIT ?2`,
         )
         .bind(coupleId, PAGE_SIZE + 1);
@@ -143,6 +153,12 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
   const now = nowSeconds();
   const imageWidth = input.imageWidth ?? null;
   const imageHeight = input.imageHeight ?? null;
+  // context.user は resolveCoupleContext が mode="member" を返した時点で必ず
+  // 非null（auth-context.ts: member分岐はcontext.userがtruthyのときだけ発生する）。
+  // CoupleContext の型は user と mode の対応関係を表現できないため、
+  // ここではアサーションで通す（base.ts 冒頭コメントと同種の型システムの限界）
+  const authorName = context.user!.name;
+  const authorImage = context.user!.image;
 
   try {
     await db
@@ -162,6 +178,8 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
     {
       id,
       author_id: userId,
+      author_name: authorName,
+      author_image: authorImage,
       body: input.body,
       image_key: imageKey,
       image_width: imageWidth,

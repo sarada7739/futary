@@ -1,0 +1,71 @@
+$ pnpm -r --if-present run test
+Scope: 5 of 6 workspace projects
+packages/ui test$ vitest run
+packages/ui test:  RUN  v4.1.11 C:/Users/coco7/futary/packages/ui
+packages/ui test:  Test Files  2 passed (2)
+packages/ui test:       Tests  7 passed (7)
+packages/ui test:    Start at  18:03:37
+packages/ui test:    Duration  180ms (transform 30ms, setup 0ms, import 54ms, tests 4ms, environment 0ms)
+packages/ui test: Done
+apps/api pretest$ wrangler types
+apps/app test$ vitest run
+apps/app test: [33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+apps/app test:   - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+apps/app test: Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+apps/app test:  RUN  v4.1.11 C:/Users/coco7/futary/apps/app
+apps/api pretest:  ⛅️ wrangler 4.126.0 (update available 4.127.1)
+apps/api pretest: ───────────────────────────────────────────────
+apps/api pretest: Generating project types...
+apps/api pretest: interface __BaseEnv_Env {
+apps/api pretest: 	BUCKET: R2Bucket;
+apps/api pretest: 	DB: D1Database;
+apps/api pretest: 	DEMO_COUPLE_ID: "";
+apps/api pretest: 	BETTER_AUTH_SECRET: string;
+apps/api pretest: 	GOOGLE_CLIENT_ID: string;
+apps/api pretest: 	GOOGLE_CLIENT_SECRET: string;
+apps/api pretest: 	BETTER_AUTH_URL: string;
+apps/api pretest: 	TRUSTED_ORIGINS: string;
+apps/api pretest: 	R2_ACCOUNT_ID: string;
+apps/api pretest: 	R2_ACCESS_KEY_ID: string;
+apps/api pretest: 	R2_SECRET_ACCESS_KEY: string;
+apps/api pretest: }
+apps/api pretest: declare namespace Cloudflare {
+apps/api pretest: 	interface GlobalProps {
+apps/api pretest: 		mainModule: typeof import("./src/index");
+apps/api pretest: 	}
+apps/api pretest: 	interface Env extends __BaseEnv_Env {}
+apps/api pretest: }
+apps/api pretest: interface Env extends __BaseEnv_Env {}
+apps/api pretest: type StringifyValues<EnvType extends Record<string, unknown>> = {
+apps/api pretest: 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
+apps/api pretest: };
+apps/api pretest: declare namespace NodeJS {
+apps/api pretest: 	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "DEMO_COUPLE_ID" | "BETTER_AUTH_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "BETTER_AUTH_URL" | "TRUSTED_ORIGINS" | "R2_ACCOUNT_ID" | "R2_ACCESS_KEY_ID" | "R2_SECRET_ACCESS_KEY">> {}
+apps/api pretest: }
+apps/api pretest: Generating runtime types...
+apps/api pretest: Runtime types generated.
+apps/api pretest: ✨ Types written to worker-configuration.d.ts
+apps/api pretest: 📖 Read about runtime types
+apps/api pretest: https://developers.cloudflare.com/workers/languages/typescript/#generate-types
+apps/api pretest: 📣 Remember to rerun 'wrangler types' after you change your wrangler.toml file.
+apps/api pretest: Done
+apps/api test$ vitest run
+apps/api test:  RUN  v4.1.11 C:/Users/coco7/futary/apps/api
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/api test: Using secrets defined in .dev.vars
+apps/app test:  Test Files  3 passed (3)
+apps/app test:       Tests  17 passed (17)
+apps/app test:    Start at  18:03:38
+apps/app test:    Duration  2.10s (transform 171ms, setup 802ms, import 1.20s, tests 178ms, environment 2.81s)
+apps/app test: Done
+apps/api test:  Test Files  8 passed (8)
+apps/api test:       Tests  110 passed (110)
+apps/api test:    Start at  18:03:39
+apps/api test:    Duration  8.49s (transform 21.26s, setup 43.17s, import 232ms, tests 883ms, environment 0ms)
+apps/api test: Done

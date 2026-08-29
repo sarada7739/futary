@@ -95,11 +95,73 @@ oRPC クライアントをモック）である。007 で導入したテスト�
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] デザイン素材の切り出しと差し替え（タブアイコン・FAB・ロゴ）
-- [ ] TanStack Query 設定 + ポーリング
-- [ ] 投稿カード
-- [ ] ホーム画面（無限スクロール）
-- [ ] 投稿作成画面
-- [ ] 4状態の実装
-- [ ] 画面結合テスト
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] デザイン素材の切り出しと差し替え（タブアイコン・FAB・ロゴ）
+- [x] TanStack Query 設定 + ポーリング
+- [x] 投稿カード
+- [x] ホーム画面（無限スクロール）
+- [x] 投稿作成画面
+- [x] 4状態の実装
+- [x] 画面結合テスト
+- [ ] 証跡保存（スクリーンショットは実機確認待ち） → `state.md` 更新 → `worklog.md` 追記
+
+## 実装メモ（B）
+
+- **契約変更（`authorName`/`authorImage`）とE2E方針の食い違いは、着手前にAへ報告し
+  PR #44・#45で解決した。** 経緯は `docs/state.md` L35〜L37 参照。特にL37は
+  `architecture.md` 5節の当初の理由付け（`author_id`はFKを持たない）が実際の
+  スキーマと違うことをBの実測で発見し、Aが根拠を訂正したもの
+- `apps/api/src/procedures/post.ts`: `post.list`は`user`への`LEFT JOIN`、
+  `post.create`は`context.user`（`resolveCoupleContext`を通っても元の
+  `RpcContext.user`はマージされて残っている）からそのまま埋める。後者は
+  `context.user!`という非null表明を使っている（`mode:"member"`の時点で
+  必ず非nullだが、`CoupleContext`の型が`user`とのつながりを表現できないため。
+  `base.ts`冒頭コメントと同種の型システムの限界）
+- **`packages/ui`にPNG画像アセットを初めて追加した際、`assets.ts`と同じ
+  ベース名の`assets.d.ts`（`declare module "*.png"`）をtscが読み込まない
+  事象に遭遇した。** TypeScriptは同じディレクトリに`foo.ts`と`foo.d.ts`が
+  並ぶと後者を前者の宣言スロットとして扱い、独立したグローバル環境宣言としては
+  コンパイル対象に含めない。ベース名を`png.d.ts`に変えて解決した
+- タブアイコン・FAB・ロゴは`docs/sample/透過素材/`のスプライトシートを
+  Pillow（`python -m pip install pillow`で導入済みの環境）でalphaチャンネルの
+  空白を検出して自動分割するスクリプトを一時的に書いて切り出した
+  （`docs/sample/README.md`の指示どおり原本は加工せず、切り出し先だけを
+  `packages/ui/assets/`に残し、スクリプト自体は使い捨てなので削除済み）。
+  タブアイコンは単色の線画のため色を変えず、`Image`の`tintColor`で
+  アクティブ/非アクティブを塗り分ける方式にした（`docs/sample/README.md`の
+  「単色のものはtintColorで着色できる形に加工する」を採用）。FABの円+プラスは
+  2色（円のピンク+白のプラス）のため`tintColor`が使えず、円のピクセルだけを
+  トークンの`primary`（`#F5868D`）に寄せて再着色した（素材の色が実測で
+  `(254,123,128)`とトークンからわずかにずれていたため）
+- FABは`packages/ui`の`Button`ではなく`(tabs)/_layout.tsx`内の専用コンポーネント
+  のままにした（タブバー内の特殊な配置・浮き出し〈`marginTop:-20`〉が
+  `Button`の責務と合わないため）。ただし押下時の見た目のフィードバックは
+  影の下に沈める形ではなく`opacity`に変更した（画像アセット自体が円を
+  含むため、背景色を変える方式が使えなくなったため）
+- FABタップで投稿作成画面を開く実装は、タブ自体を切り替えず
+  `Tabs.Screen`の`listeners.tabPress`で`e.preventDefault()`した上で
+  `router.push("/compose")`する形にした（React Navigationの定番パターン）。
+  `(tabs)/post.tsx`のプレースホルダー画面はこのリスナーで常に遷移が
+  打ち消されるため実際には表示されない。削除せず残してある（ファイルベース
+  ルーティング上`Tabs.Screen name="post"`に対応するファイルが必要なため）
+- `compose.tsx`はタブ配下ではなく`app/_layout.tsx`のルートStackに
+  `presentation: "modal"`で追加した。`hasCouple`のガード配下（`(tabs)`と同じ
+  `Stack.Protected`）に置き、ペア未成立では開けない
+- 投稿カードの削除は「…」を押すと確認用の「キャンセル」「削除」ボタンが
+  現れる形にした（誤タップでの削除を防ぐ）。「削除」自体は`packages/ui`の
+  `Button`を通すことで二重発火防止の恩恵をそのまま受ける
+- ホーム画面の無限スクロール・pull-to-refresh・ポーリング（60秒）は
+  `useInfiniteQuery`の`refetchInterval`と`lib/query.ts`の`focusManager`
+  配線（ネイティブは`AppState`、Webはブラウザ標準のvisibilitychangeに
+  TanStack Queryが対応済み）の組み合わせで実現した。既定の
+  `refetchIntervalInBackground: false`により背景では自動的に止まる
+- 画面結合テスト（`test/home-timeline.test.tsx`）は、oRPCの生クライアント
+  （`client`）だけをモックし、`createTanstackQueryUtils`は本物を使う方式にした。
+  `queryOptions`/`infiniteOptions`/`mutationOptions`の実装自体はモックしないため、
+  TanStack Queryの実際のキャッシュ・無効化・再取得の挙動を検証できる。
+  `expo-router`・`expo-image-picker`・`expo-image-manipulator`は、
+  Vitest（jsdom）環境で`__DEV__`未定義によりクラッシュするため最小スタブに
+  差し替えている（`expo-image-manipulator`は`image.test.ts`と同じ形）
+- **`artifacts/008/`のスクリーンショットは実機確認待ち。** タイムライン・
+  投稿作成画面はGoogleログイン+ペア成立済みでないと表示できず、
+  デモ未認証モード（`DEMO_COUPLE_ID`）は014まで空文字のためこの段階では
+  代替にならない。人間にログインを依頼し、確認後に追記する
