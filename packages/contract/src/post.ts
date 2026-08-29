@@ -1,7 +1,17 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
+import { REACTION_KINDS } from "./reaction";
 
 const MAX_BODY_LENGTH = 2000;
+
+// 投稿ごとの「種別ごとの件数」と「自分が付けたかどうか」（タスク009・
+// architecture.md 4節）。種類が heart の1種だけの間も配列にしておくことで、
+// 種類が増えたときに postSchema 自体は変えずに済む
+export const reactionSummarySchema = z.object({
+  kind: z.enum(REACTION_KINDS),
+  count: z.number().int().nonnegative(),
+  reactedByMe: z.boolean(),
+});
 
 // imageId は post.uploadUrl がサーバ側で生成する ULID（apps/api/src/lib/ulid.ts と
 // 同じ文字集合・長さ）。形式を絞ることで、鍵の組み立て（couples/{coupleId}/posts/
@@ -24,6 +34,8 @@ export const postSchema = z.object({
   imageWidth: z.number().nullable(),
   imageHeight: z.number().nullable(),
   createdAt: z.number(),
+  // 009: 投稿ごとのリアクション集計。件数0のkindも含めてよい（UI側でcount>0のみ表示する）
+  reactions: z.array(reactionSummarySchema),
 });
 
 export type Post = z.infer<typeof postSchema>;

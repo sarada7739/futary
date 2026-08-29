@@ -6,9 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // （007の決定。conventions.md 6節）ため、oRPC クライアントをモックして
 // react-native-web + jsdom 上でTanStack Queryの実挙動と組み合わせて検証する。
 // モックする以上サーバとの契約自体は検証していない（実機確認で見る）
-const { listMock, createMock, pushMock, backMock } = vi.hoisted(() => ({
+const { listMock, createMock, toggleReactionMock, pushMock, backMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
+  toggleReactionMock: vi.fn(),
   pushMock: vi.fn(),
   backMock: vi.fn(),
 }));
@@ -51,6 +52,9 @@ vi.mock("../lib/orpc", async () => {
       delete: vi.fn(),
       uploadUrl: vi.fn(),
     },
+    reaction: {
+      toggle: toggleReactionMock,
+    },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
@@ -70,6 +74,7 @@ function makePost(overrides: Partial<Record<string, unknown>> = {}) {
     imageWidth: null,
     imageHeight: null,
     createdAt: Math.floor(Date.now() / 1000),
+    reactions: [],
     ...overrides,
   };
 }
@@ -145,5 +150,73 @@ describe("投稿作成 → 一覧反映", () => {
     );
 
     expect(await screen.findByText("新しい投稿")).toBeTruthy();
+  });
+});
+
+describe("リアクション（楽観的更新）", () => {
+  it("サーバの応答を待たずタップした瞬間に反映される", async () => {
+    const post = makePost({ reactions: [] });
+    listMock.mockResolvedValue({ items: [post], nextCursor: null });
+    // toggle をわざと未解決のままにし、応答前に見た目が変わっているかを確認する
+    let resolveToggle: (value: unknown) => void = () => {};
+    toggleReactionMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveToggle = resolve;
+      }),
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <HomeScreen />
+      </QueryClientProvider>,
+    );
+    const button = await screen.findByTestId("post-card-reaction-heart");
+    expect(button.textContent).toBe("🤍");
+
+    await act(async () => {
+      fireEvent.click(button);
+      await Promise.resolve();
+    });
+
+    // toggleReactionMock はまだ resolve していないが、見た目は既に反応済み
+    // （onMutate 自身が非同期のため、反映まで数マイクロタスクかかる）
+    await waitFor(() => expect(button.textContent).toBe("❤️ 1"));
+
+    await act(async () => {
+      resolveToggle({ postId: post.id, kind: "heart", reacted: true });
+      await Promise.resolve();
+    });
+  });
+
+  it("失敗したら楽観的更新前の見た目に戻る", async () => {
+    const post = makePost({ reactions: [] });
+    listMock.mockResolvedValue({ items: [post], nextCursor: null });
+    let rejectToggle: (error: unknown) => void = () => {};
+    toggleReactionMock.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectToggle = reject;
+      }),
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <HomeScreen />
+      </QueryClientProvider>,
+    );
+    const button = await screen.findByTestId("post-card-reaction-heart");
+    expect(button.textContent).toBe("🤍");
+
+    await act(async () => {
+      fireEvent.click(button);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(button.textContent).toBe("❤️ 1"));
+
+    await act(async () => {
+      rejectToggle(new Error("toggle失敗（テスト用）"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(button.textContent).toBe("🤍"));
   });
 });

@@ -1776,3 +1776,102 @@ CI を確認したところ、ゲート（`pnpm audit --audit-level=high`）に�
 
 ### 詰まった点
 - なし（このエントリの範囲では）
+
+## 2026-08-29 セッションB（009: リアクション実装、M2まとめ監査、Highを発見しfix/へ切り出し）
+
+### やったこと
+- 009（リアクション）を実装した。`packages/db/src/schema/reaction.ts`（`reactions`テーブル。
+  主キー`(post_id, user_id, kind)`、`kind`にCHECK制約）、`apps/api/src/procedures/reaction.ts`
+  （`reaction.toggle`）、`apps/api/src/procedures/post.ts`（`fetchReactionSummaries`による
+  N+1回避のリアクション集計。1〜2クエリで解決）、`apps/app/lib/reaction.ts`（楽観的更新の
+  純粋関数）、`post-card.tsx`・`app/(tabs)/index.tsx`（リアクションボタンと配線）
+- `reaction.toggle`は`reactions`テーブルが`couple_id`を持たないため、DELETE/INSERT双方の
+  WHERE句に`EXISTS (SELECT 1 FROM posts WHERE id=?1 AND couple_id=?N ...)`を含める形で
+  他ペアの投稿への到達を防いだ（006の`post.delete`と同じ方針の応用）
+- リアクションの種類はheartの1種のみで実装（論点L4。Bは増やしていない）
+- テストはapps/api 128件・apps/app 27件・packages/ui 7件すべて緑、型チェック・lint通過
+- `security-requirements.md`10節の方針に従い、009着手のタイミングでM2まとめ監査
+  （006・008・009対象）をsecurity-auditorで実施した。009固有の認可設計は4点とも指摘なし
+- Low 4件を検出しすべてタスク内で対応した。特に(4)「post.delete後もreactions行が残留する」の
+  対応中、推奨実装（`DELETE FROM reactions WHERE post_id = ?`をbatchに足すだけ）をそのまま
+  適用すると、**他ペアの投稿IDを指定した削除でリアクションだけ消せてしまう新しい穴を
+  自分で作った**。追加した回帰テストが実際にこれを検出し、DELETE文にも`couple_id`条件を
+  EXISTSで追加して修正した
+- **High 1件を検出**: oRPCのRPCHandlerがHTTPメソッドを見ないため、全ての書き込み手続きが
+  GETで実行できる（CSRF。`security-requirements.md`7節の前提が実装で成立していなかった）。
+  009固有の変更ではなくAPI全体に及ぶため、`conventions.md`7節の判定基準に従い
+  `fix/reject-get-writes`ブランチで別途対応する方針にした（このエントリの時点では未着手）
+- ブランチ`task/009-reactions`を切った。squash mergeの前提上、作業当初mainブランチ上で
+  直接編集を進めてしまっていたことに気づき、コミット前にブランチを作り直した
+  （まだ`main`に何もコミットしていない段階だったため実害なし）
+
+### 決定事項
+- Highの指摘（L52）は009のPRとは別に`fix/reject-get-writes`で対応する。009固有ではなく
+  couple/invite/post/reaction全ての書き込み手続きに及ぶ範囲のため
+
+### 詰まった点
+- なし（自己発見した問題はいずれもテストで検出し、その場で修正できた）
+
+### 未確認（人間の実機確認待ち）
+- Google OAuthログインが要るため、実際のブラウザでのリアクションボタンのタップ・見た目・
+  楽観的更新の体感速度はこのセッションでは確認できていない。008の`artifacts/008/`
+  スクリーンショット未取得（L38）とあわせて、M2受け入れ判定でまとめて回収する
+
+## 2026-08-30 セッションB（009: 人間の実機確認完了、ちらつき不具合を発見・修正）
+
+### やったこと
+- `wrangler dev --remote`環境（`fix/reject-get-writes`関連の対応で構築）を使い、
+  人間が実機でログイン・タイムライン表示・画像付き投稿・リアクションのタップを確認
+- リアクションをタップすると投稿一覧の**画像が点滅する**不具合を発見した。原因は
+  `app/(tabs)/index.tsx`の`useMutation`の`onSettled`で無条件に`invalidateQueries`していた
+  こと。`post.list`は呼ぶたびに画像の署名付きGET URLを再発行する仕様（architecture.md 6節）
+  のため、リアクションのたびに一覧全体の画像URLが変わり`<Image>`が再読み込みされていた
+- `onSettled`を削除し、楽観的更新（`onMutate`）の結果をそのまま信頼する形に変更。
+  相手の操作との同期は60秒ごとのポーリング（ADR-008）に任せる設計にした
+- 修正後、人間が実機で再確認し「なおった」との回答を得た
+- 人間から「動作確認問題なし」の回答を得て、009のM2受け入れ判定（人間による受け入れ）が
+  実質完了した。`artifacts/009/test-results.md`・`docs/tasks/009-reactions.md`・
+  `docs/state.md`に反映した
+- 実機確認は`task/009-reactions`ブランチに一度切り替えた状態で行った。途中で
+  `fix/compose-image-preview-layout`ブランチに切り替えた際、reaction機能を含まない
+  APIサーバーで確認が進んでしまうリスクに気づき、`task/009-reactions`へ切り戻して
+  `reaction.toggle`エンドポイントの疎通を確認してから再確認を依頼した
+
+### 決定事項
+- 楽観的更新後のサーバとの同期は`onSettled`での即時再フェッチではなく、既存の
+  ポーリング間隔に任せる。画像URLの毎回再発行という既存仕様と相性が悪いため
+
+### 詰まった点
+- ブランチを切り替えるとAPIサーバー（wrangler dev）がホットリロードでコードを
+  差し替えるため、「今どのブランチのコードで確認しているか」を都度確認しないと、
+  存在しない機能を確認したことにしてしまうリスクがあった
+
+## 2026-08-30 セッションB（Rレビューでfix/reject-get-writesの前提が誤りと判明、L52・L53を訂正）
+
+### やったこと
+- Rが3件のPR（#59・#60・#61）をレビューし、#59・#61は受け入れ、#60は「対応対象の
+  High指摘そのものが誤りだった」と指摘してきた。`@orpc/server`の`RPCHandler`は既定で
+  `StrictGetMethodPlugin`を自動登録しており、GET経由の書き込み手続き実行は元々
+  拒否されていた（`fix/reject-get-writes`の手動確認で貼った実測`405`が当時から
+  正しく、直後の解釈「修正前は200だった」の方が誤りだった）
+- `fix/reject-get-writes`ブランチに切り替え、`@orpc/server/dist/adapters/fetch/
+  index.mjs`のソースを実際に読んで指摘の正しさを検証し、記述を訂正した
+  （`apps/api/src/index.ts`のコメント、`docs/security-report.md`〈このブランチに
+  エントリ自体が漏れていたことにも気づき新規追加〉、`docs/state.md`、
+  `artifacts/fix-reject-get-writes/manual-check.md`）
+- `task/009-reactions`ブランチに戻り、こちら側にも同じ前提で書かれていたL52・L53と
+  M2まとめ監査のsecurity-report.mdエントリを訂正した
+- コードと回帰テストはRの判断でそのまま残した（ライブラリの既定に依存しない防御として
+  妥当）。`StrictGetMethodPlugin`が既定の自動登録と明示登録で2重になる点を
+  コメントで明記した
+
+### 決定事項
+- 「脆弱性を修正した」という表現は誤り。「既定で塞がれていることを確認し、回帰テストで
+  固定した」に統一する
+- security-auditorを使う際は、ライブラリの挙動を前提にする指摘が出たら、そのライブラリの
+  ソースで確認する。自分の実測結果が指摘と矛盾していないか必ず突き合わせる
+
+### 詰まった点
+- なし。ただし自分の実測（405という結果）が既に正解を示していたのに、監査の指摘を
+  優先して誤った解釈で記録してしまっていた。今後は実測と指摘が食い違ったら実測を
+  疑い、次に指摘を疑う順序を徹底する

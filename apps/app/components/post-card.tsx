@@ -3,12 +3,16 @@ import { Image, Pressable, View } from "react-native";
 import { Avatar, Button, Card, colors, radius, space, Text } from "@futary/ui";
 import type { Post } from "@futary/contract";
 
+type ReactionKind = Post["reactions"][number]["kind"];
+
 export type PostCardProps = {
   post: Post;
   isOwn: boolean;
   // 削除は副作用のある操作。ボタン側の二重発火防止（conventions.md 4節）に乗せるため
   // 呼び出し側では await せず Button にそのまま渡す
   onDelete?: () => void | Promise<void>;
+  // リアクションも同様に副作用のある操作（タスク009）
+  onToggleReaction?: (kind: ReactionKind) => void | Promise<void>;
 };
 
 const MINUTE = 60;
@@ -51,13 +55,19 @@ function DeleteMenu({ onDelete }: { onDelete: () => void | Promise<void> }) {
   );
 }
 
-export function PostCard({ post, isOwn, onDelete }: PostCardProps) {
+export function PostCard({ post, isOwn, onDelete, onToggleReaction }: PostCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   // architecture.md 5節: authorName は user 行が無いと null。代替表示に落とし、
   // 投稿本文は必ず読める状態を保つ
   const authorName = post.authorName ?? "（削除されたユーザー）";
   const hasBody = post.body.trim().length > 0;
   const aspectRatio = post.imageWidth && post.imageHeight ? post.imageWidth / post.imageHeight : 1;
+  // まず heart の1種だけ（state.md 論点L4）
+  const heart = post.reactions.find((r) => r.kind === "heart") ?? {
+    kind: "heart" as const,
+    count: 0,
+    reactedByMe: false,
+  };
 
   return (
     <Card>
@@ -97,6 +107,18 @@ export function PostCard({ post, isOwn, onDelete }: PostCardProps) {
               onError={() => setImageFailed(true)}
             />
           ))}
+
+        {onToggleReaction && (
+          <View style={{ flexDirection: "row" }}>
+            <Button
+              variant="ghost"
+              onPress={() => onToggleReaction("heart")}
+              testID="post-card-reaction-heart"
+            >
+              {`${heart.reactedByMe ? "❤️" : "🤍"}${heart.count > 0 ? ` ${heart.count}` : ""}`}
+            </Button>
+          </View>
+        )}
       </View>
     </Card>
   );
