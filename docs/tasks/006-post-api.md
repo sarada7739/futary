@@ -38,9 +38,25 @@
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] スキーマ + マイグレーション
-- [ ] `post.list`（複合カーソル）
-- [ ] `post.create`
-- [ ] `post.delete`（論理削除）
-- [ ] ページングのテスト
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] スキーマ + マイグレーション（`packages/db/src/schema/post.ts`、`packages/db/migrations/0003_post.sql`）
+- [x] `post.list`（複合カーソル）
+- [x] `post.create`
+- [x] `post.delete`（論理削除）
+- [x] ページングのテスト
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+## 実装メモ
+
+- `apps/api/src/procedures/post.ts` に実装。`readProcedure`/`writeProcedure` の上に載せ、
+  005 の認可基底を経由しない手続きが無いことの機械チェック（`authorization.test.ts`）を通過している
+- カーソルは `{ createdAt, id }` を base64 エンコードした不透明な文字列。同一秒の投稿が
+  ページ境界をまたぐケースをテストで再現し、重複・欠落しないことを確認した
+  （`apps/api/test/post.test.ts`）
+- `post.list` の `limit` はクライアントから受け取らず、サーバ側で20件固定にした
+  （`architecture.md` 5節のシグネチャとの関係は `artifacts/006/test-results.md` の
+  「実装メモ」を参照。過大な一括取得を避けるための特殊化と判断した）
+- `security-requirements.md` 3節の5項目チェックリストに `post.list`/`post.create`/`post.delete`
+  を追加し、`authorization.test.ts` に反映した（couple/invite 由来の既存テストは維持）
+- security-auditor は起動していない。`security-requirements.md` 10節1の対象
+  （認証・招待・画像アップロード・認可ミドルウェア）に本タスクは該当せず、
+  2「その他のタスクはマイルストーン単位でまとめて」に従い M2 完了時にまとめて実施する方針とした
