@@ -158,10 +158,11 @@ couple.update       { anniversaryDate }
 invite.issue        -> { code, expiresAt }
 invite.accept       { code }
 post.list           { cursor?, limit } -> { items, nextCursor }
-post.create         { body, imageKey?, imageWidth?, imageHeight? }
-                    body を trim した結果と imageKey が両方空なら INVALID_INPUT
+post.create         { body, imageId?, imageWidth?, imageHeight? }
+                    body を trim した結果と imageId が両方空なら INVALID_INPUT
 post.delete         { id }
-post.uploadUrl      { contentType } -> { key, url }   署名付きPUT・有効期限5分
+post.uploadUrl      { contentType } -> { imageId, url }  署名付きPUT・有効期限5分
+                    imageId はサーバが生成する（ULID）
 reaction.toggle     { postId, kind }
 event.list          { from, to }
 event.create        { date, title, kind, repeatYearly }
@@ -190,6 +191,24 @@ memory.get          -> { post, label } | null
 「他ペアのIDを送りつける」攻撃の経路自体が存在しなくなる。
 この性質はテストで明示的に証明する（タスク005）。
 
+#### `coupleId` を**含む値**も受け取らない
+
+**R2 のオブジェクトキーは `couples/{coupleId}/posts/{imageId}.jpg` という形をしている。**
+これをクライアントから受け取ることは、`coupleId` を受け取ることと同じである。
+
+受け取ってから前綴りを検証する形にはしない。**受け取らない。**
+
+| 受け取るもの | 誰が作るか |
+|---|---|
+| `imageId` | **サーバ**（`post.uploadUrl` が生成して返す） |
+| `image_key` | **サーバ**が `ctx.coupleId` と `imageId` から組み立てる |
+
+クライアントが他ペアの `imageId` を送っても、鍵は `ctx.coupleId` で組み立てられるため
+存在しないオブジェクトを指すだけになる。**他ペアの画像に到達する経路が構造上生まれない。**
+
+同じ判断基準を以降の設計にも適用する。
+**`ctx.coupleId` から導ける値を、クライアントから受け取らない。**
+
 ### `memory.get` の探索順
 
 1. ちょうど1ヶ月前の投稿
@@ -201,11 +220,33 @@ memory.get          -> { post, label } | null
 ## 6. 画像の扱い
 
 - R2 バケットは**非公開**。公開URLを発行しない
-- オブジェクトキー: `couples/{coupleId}/posts/{postId}.jpg`
-- アップロード: Worker が署名付き PUT URL（5分）を発行し、クライアントが R2 へ直接送る。画像本体は Worker を経由しない
-- 表示: `post.list` のレスポンスに署名付き GET URL（1時間）を含める
+- オブジェクトキー: `couples/{coupleId}/posts/{imageId}.jpg`。
+  **鍵はサーバだけが組み立てる。クライアントに鍵を渡さないし、受け取らない**（5節）
+- アップロード: `post.uploadUrl` が `imageId`（ULID）を生成し、その鍵に対する
+  署名付き PUT URL（5分）を返す。クライアントは R2 へ直接送る。
+  **画像本体は Worker を経由しない**
+- 表示: `post.list` のレスポンスに署名付き GET URL（1時間）を含める。
+  鍵は行の `couple_id` と `image_key` から作る
 - クライアント側で長辺 1600px / JPEG 品質 0.8 に圧縮してから送る
-- 投稿削除時は R2 オブジェクトも削除する
+
+### 削除の順序と孤児オブジェクト
+
+**D1 と R2 にまたがる原子性は作れない。** 別サービスであり、トランザクションを張れない。
+どちらを先にしても片方が失敗する形が残る。
+
+| 順序 | 失敗したときに起きること |
+|---|---|
+| R2 → D1 | 投稿は残るのに画像が消える。**一覧に壊れた表示が出る** |
+| **D1 → R2** | 孤児オブジェクトが残る。**利用者からは見えない** |
+
+**D1 を先にする。** 利用者から見える壊れ方が無い方を選ぶ。
+
+- `post.delete` は `deleted_at` を立てたあと R2 の削除を試みる
+- **R2 の削除に失敗しても `post.delete` は成功として返す。**
+  利用者の操作を、掃除の失敗で失敗させない
+- **`image_key` を消さない。** 論理削除した行に鍵を残すことで、
+  孤児を後から回収できる状態を保つ
+- 定期的な回収は MVP では実装しない。**回収可能であることだけを設計として担保する**
 
 ## 7. デザイントークン
 
