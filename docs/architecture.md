@@ -83,7 +83,8 @@ posts
   couple_id    TEXT    NOT NULL
   author_id    TEXT    NOT NULL
   body         TEXT    NOT NULL DEFAULT ''
-  image_key    TEXT                          -- R2 オブジェクトキー
+  image_key    TEXT    UNIQUE                -- R2 オブジェクトキー。サーバが組み立てる
+                                            -- UNIQUE: 同じ画像を複数の投稿から参照させない
   image_width  INTEGER
   image_height INTEGER
   created_at   INTEGER NOT NULL
@@ -228,6 +229,22 @@ memory.get          -> { post, label } | null
 - 表示: `post.list` のレスポンスに署名付き GET URL（1時間）を含める。
   鍵は行の `couple_id` と `image_key` から作る
 - クライアント側で長辺 1600px / JPEG 品質 0.8 に圧縮してから送る
+
+### 画像の実体と行の対応を1対1に保つ
+
+`image_key` が非NULLなら **R2 に実体がある**、という不変条件を保つ。
+保たないと、`post.list` が存在しないオブジェクトに署名して壊れた画像が出る。
+
+| 崩れ方 | 塞ぎ方 |
+|---|---|
+| 未アップロードの `imageId` で投稿が作れる | `post.create` で **R2 に実体があることを確認**してから書く。無ければ `INVALID_INPUT` |
+| 同じ `imageId` を複数の投稿が参照する | `posts.image_key` の **UNIQUE 制約**。片方を消すともう片方が壊れるため |
+
+2つ目はアプリケーション側で数えて判断しない。**宣言的制約でエラーにする**（4節の方針と同じ）。
+論理削除した行も `image_key` を残すため、削除済みの `imageId` は再利用できない。
+実体が孤児として残っている可能性があるので、これは正しい振る舞いになる。
+
+どちらも自ペア内に閉じており、安全上の問題ではない。**表示が壊れることを防ぐための制約。**
 
 ### 削除の順序と孤児オブジェクト
 

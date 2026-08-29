@@ -60,6 +60,12 @@ Playwright による E2E はこのタスクで入れない。
   - サイズ上限を設定する（例: 8MB）
   - `writeProcedure` の上に載せる（デモからは呼べない）
 - `post.create` は `imageId` を受け取り、**サーバが `image_key` を組み立てて保存する**
+- **`image_key` が非NULLなら R2 に実体がある**、という不変条件を保つ（`architecture.md` 6節）
+  - `post.create` で **R2 に実体があることを確認**してから書く（`env.BUCKET.head(key)`）。
+    無ければ `INVALID_INPUT`。**未アップロードの `imageId` で投稿を作らせない**
+  - `posts.image_key` に **UNIQUE 制約**を付ける（マイグレーションが要る）。
+    同じ `imageId` を複数の投稿が参照すると、片方を消したときもう片方が壊れる
+  - どちらも自ペア内に閉じており安全上の問題ではない。**表示が壊れることを防ぐ**
 - クライアント側で圧縮してからアップロードする
   - 長辺 **1600px**、JPEG 品質 **0.8**
   - 圧縮後に署名付き PUT URL へ直接送る。Worker を経由しない
@@ -89,6 +95,8 @@ Playwright による E2E はこのタスクで入れない。
 - **他ペアの `imageId` を送っても他ペアの画像に到達しないこと**
   （鍵は `ctx.coupleId` で組み立てられるため、存在しないオブジェクトを指すだけになる）
 - R2 の削除に失敗しても `post.delete` が成功すること
+- **未アップロードの `imageId` で `post.create` が拒否されること**
+- **同じ `imageId` を2つの投稿で使えないこと**（UNIQUE 制約で落ちること）
 
 ## 完了条件
 - [ ] `apps/app` にテスト基盤があり、CI で実行される
@@ -114,6 +122,8 @@ Playwright による E2E はこのタスクで入れない。
 - [ ] `post.uploadUrl`（`imageId` をサーバ生成・署名付きPUT・5分・contentType検証）
 - [ ] クライアント側の圧縮（1600px / 0.8）
 - [ ] `post.list` に署名付きGET URL（1時間）
+- [ ] `posts.image_key` の UNIQUE 制約（マイグレーション）
+- [ ] `post.create` の実体確認（R2 head）
 - [ ] `post.delete` の削除順序（D1 → R2、失敗を握りつぶす、`image_key` を残す）
 - [ ] 署名なしアクセスの拒否確認
 - [ ] security-auditor 実行
