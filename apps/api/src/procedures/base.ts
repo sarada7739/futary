@@ -55,10 +55,14 @@ export const readProcedure: Middleware<
   any
 > = async ({ context, next, errors }) => next({ context: await resolveCoupleContext(context, errors) });
 
-// 書き込み。readonly（未認証のデモ）は FORBIDDEN
+// 書き込み。readonly（未認証のデモ）は FORBIDDEN。
+// OutContext を Extract<CoupleContext, { mode: "member" }> にすることで、
+// readonly を弾いた後の userId が呼び出し側で string として絞り込まれる
+// （006 Rレビュー指摘: CoupleContext のまま宣言すると userId が string | null の
+// ままになり、呼び出し側で到達不能な null チェックが必要になっていた）
 export const writeProcedure: Middleware<
   RpcContext,
-  CoupleContext,
+  Extract<CoupleContext, { mode: "member" }>,
   unknown,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
