@@ -14,7 +14,15 @@ export type ImageViewerProps = {
 // animationTypeは指定しない（既定none）。react-native-webのModalはフェード等の
 // アニメーション終了をCSSのanimationendイベントで検知するため、closeが
 // 「アニメーション完了後」まで実際にDOMへ反映されず、閉じる導線の画面結合
-// テストが書けなくなる（jsdomはCSSアニメーションを実行しない）
+// テストが書けなくなる（jsdomはCSSアニメーションを実行しない）。
+// 閉じるのは「どこをタップしても」（画像の上も含む）。当初は「画像の外側」の
+// みを閉じる導線にしていたが、contain指定で画像が実際に表示されない余白
+// （レターボックス）の当たり判定を画像側のPressableが覆ってしまい、その部分を
+// タップしても閉じない不具合をRのレビューで指摘された。当たり判定を実表示領域に
+// 合わせる案（onLayoutでの計算）は、jsdomでonLayoutが発火せず画面結合テストで
+// 検証できない。ピンチズームを入れない以上、画像タップを特別扱いする機能的な
+// 理由も無いため、当たり判定という概念自体を無くす方針にした
+// （docs/tasks/017-image-lightbox.md参照）
 export function ImageViewer({ visible, imageUrl, onClose }: ImageViewerProps) {
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
 
@@ -25,7 +33,7 @@ export function ImageViewer({ visible, imageUrl, onClose }: ImageViewerProps) {
 
   return (
     <Modal visible={visible} transparent onRequestClose={onClose}>
-      {/* 画像の外側タップで閉じる。画像自体のタップは下のPressableで止める */}
+      {/* どこをタップしても閉じる（画像の上も含む） */}
       <Pressable
         onPress={onClose}
         accessibilityRole="button"
@@ -36,10 +44,7 @@ export function ImageViewer({ visible, imageUrl, onClose }: ImageViewerProps) {
         {status === "error" ? (
           <Text color="inverse">画像を読み込めませんでした</Text>
         ) : (
-          <Pressable
-            onPress={(event) => event.stopPropagation()}
-            style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}
-          >
+          <View style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
             <Image
               source={{ uri: imageUrl }}
               style={{ width: "100%", height: "100%" }}
@@ -53,7 +58,7 @@ export function ImageViewer({ visible, imageUrl, onClose }: ImageViewerProps) {
                 <ActivityIndicator color={colors.surface} size="large" testID="image-viewer-loading" />
               </View>
             )}
-          </Pressable>
+          </View>
         )}
 
         <Pressable

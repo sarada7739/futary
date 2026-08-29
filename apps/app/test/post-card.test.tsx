@@ -89,13 +89,18 @@ describe("PostCard の画像タップ（017: 全画面表示）", () => {
     expect(screen.queryByTestId("image-viewer-backdrop")).toBeNull();
   });
 
-  it("画像自体のタップでは閉じない（外側のみが閉じる導線）", () => {
+  // 017: 当初「画像の外側のみ」を閉じる導線にしていたが、containによる
+  // レターボックス部分の当たり判定を画像側のPressableが覆ってしまい閉じない
+  // 不具合をRのレビューで指摘された。当たり判定という概念自体を無くし
+  // 「どこでも閉じる」に変更した（画像タップでバックドロップのonPressへ
+  // 自然にバブリングすることを確認する）
+  it("画像自体をタップしても閉じる（どこでも閉じる仕様）", () => {
     render(<PostCard post={makePostWithImage()} isOwn={false} />);
     fireEvent.click(screen.getByLabelText("画像を全画面表示"));
 
     fireEvent.click(screen.getByTestId("image-viewer-image"));
 
-    expect(screen.getByTestId("image-viewer-backdrop")).toBeTruthy();
+    expect(screen.queryByTestId("image-viewer-backdrop")).toBeNull();
   });
 
   it("画像が無い投稿では全画面表示の入口が無い", () => {
