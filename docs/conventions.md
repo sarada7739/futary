@@ -187,7 +187,7 @@ git log -1 --format='%(trailers:key=Session,valueonly)'
 | ファイル | 書き換えられる役 |
 |---|---|
 | `docs/requirements.md` / `architecture.md` / `decisions.md` / `security-requirements.md` / `conventions.md` | **A のみ** |
-| `docs/harness.md` / `CLAUDE.md` / `.claude/agents/*` | **A のみ** |
+| `docs/harness.md` / `CLAUDE.md` / `AGENTS.md` / `docs/security-audit-prompt.md` / `.claude/agents/*` | **A のみ** |
 | `docs/tasks/NNN-*.md` の **目的 / 実装内容 / 確認観点 / 完了条件 / 停止条件** | **A のみ** |
 | `docs/tasks/NNN-*.md` の **進捗チェックボックス / 実装メモ節** | B |
 | `docs/state.md` / `docs/worklog.md` | A / R / B すべて |
@@ -329,6 +329,27 @@ A は自分の PR を出し、B は自分の PR を出す。
 **ただし新しいセッションは別。** `/clear` した B はメッセージを引き継がない。
 タスクファイル・`state.md` のみを読む。
 **新セッションが着手する前に反映が必要な変更は、着手前に main へマージする。**
+
+### `CLAUDE.md` と `AGENTS.md` を食い違わせない
+
+役が異なるモデルで動くため、指示書が2つある（ADR-012）。
+
+| ファイル | 読む役 |
+|---|---|
+| `CLAUDE.md` | A（設計）・R（レビュー） |
+| `AGENTS.md` | **B（実装・Codex）** |
+
+**片方だけ直すと、実装役とレビュー役が別の基準で動く。**
+R はタスクファイルの確認観点を採点表にするが、B が別の規約に従っていれば
+指摘が噛み合わない。
+
+- 規約・不変条件を変えたら、**両方を確認する**
+- **同じ内容を2箇所に書かない。** 詳細は `docs/` の該当ファイルに置き、
+  両方からそこを指す。指示書には「どこを読むか」と役固有の手順だけを書く
+- 監査基準は `docs/security-audit-prompt.md` が唯一の出典。
+  `.claude/agents/security-auditor.md` はそれを参照するだけで、内容を再掲しない
+
+これは異種モデル構成で新しく増える失敗モードである。
 
 ### 引用先と引用元の食い違いをどう判定するか
 
