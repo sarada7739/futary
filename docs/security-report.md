@@ -174,7 +174,7 @@ Highは後日Rレビューで誤指摘と判明した（下記参照）。** 009
 
 | 重大度 | 箇所 | 内容 | 推奨対応 | 対応 |
 |---|---|---|---|---|
-| ~~High~~ | `apps/api/src/index.ts`（oRPC RPCHandlerの全手続き） | oRPCのRPCHandlerがHTTPメソッドを見ないため、全ての書き込み手続き（`couple.update`/`invite.issue`/`post.create`/`reaction.toggle`等）がGETで実行できる、という指摘 | ~~`@orpc/server/plugins`の`StrictGetMethodPlugin`を適用する~~ | **【訂正・誤指摘と判明】**。`@orpc/server`の`RPCHandler`は既定で`StrictGetMethodPlugin`を自動登録しており、GETは元々拒否されていた（`@orpc/server/dist/adapters/fetch/index.mjs`で確認）。**脆弱性は存在しなかった。** Rレビューで指摘され、`fix/reject-get-writes`側のsecurity-report.mdエントリを訂正済み。詳細は下記エントリ参照 |
+| ~~High~~ | `apps/api/src/index.ts`（oRPC RPCHandlerの全手続き） | oRPCのRPCHandlerがHTTPメソッドを見ないため、全ての書き込み手続き（`couple.update`/`invite.issue`/`post.create`/`reaction.toggle`等）がGETで実行できる、という指摘 | ~~`@orpc/server/plugins`の`StrictGetMethodPlugin`を適用する~~ | **【訂正・誤指摘と判明】**。`@orpc/server`の`RPCHandler`は既定（`strictGetMethodPluginEnabled`を渡さない場合）で`StrictGetMethodPlugin`を自動登録しており、GETは元々拒否されていた（`@orpc/server/dist/adapters/fetch/index.mjs`で確認）。**脆弱性は存在しなかった。** `fix/reject-get-writes`（PR #60）でこの指摘への対応として`StrictGetMethodPlugin`を明示適用していたが、その際に貼った実測（`GET /api/couple/get (no data): 405`）は修正前から一貫して正しかったにもかかわらず、直後の散文で「修正前は`200`になっていた」と誤って解釈・記録していた。実測と指摘が矛盾していたのに、指摘をそのまま信じて記録してしまっていたことをRレビューで指摘され判明した。コードと回帰テスト（`apps/api/test/method-restriction.test.ts`）はRの判断でそのまま残している（ライブラリの既定に依存しない防御として妥当。既定の自動登録と合わせて`StrictGetMethodPlugin`が2重登録されるが実害は無く、`index.ts`のコメントで意図的な重複であることを明記した） |
 | Low | `apps/api/src/procedures/reaction.ts` | `isConstraintViolation`の判定（`/constraint failed/i`）がUNIQUE以外（FK/NOT NULL）にも一致し、該当時に書き込みが起きていないのに`reacted: true`を返してしまう。認可の境界自体は破れていない（INSERT側のEXISTS条件が偽なら制約検査に到達しないため） | UNIQUE違反だけに絞る正規表現に変更する | **対応済み**。`reaction.ts`に`isUniqueConstraintViolation`をローカル定義し置き換えた |
 | Low | `apps/api/src/procedures/post.ts`（`row.kind as ...`）＋`0005_reaction.sql` | `reactions.kind`に宣言的制約（CHECK）が無く、未知の`kind`が1件でも入るとoRPCの出力検証で`post.list`全体が500になる | マイグレーションで`CHECK (kind IN ('heart'))`を追加する | **対応済み**。`0006_reaction_kind_check.sql`でCHECK制約を追加 |
 | Low | `apps/app/app/(tabs)/index.tsx`＋`post-card.tsx` | 未認証（デモ閲覧）でもリアクションボタンが押せ、サーバのFORBIDDENで黙って巻き戻る。境界は破れていないが失敗が無言 | デモではボタンを出さない | **対応済み**。`myId`が無い（未認証）場合は`onToggleReaction`を渡さないよう変更 |
@@ -188,24 +188,7 @@ Highは後日Rレビューで誤指摘と判明した（下記参照）。** 009
 1文で完結していること、カーソル偽造耐性、本文の長さ上限とXSS対策、ログへの機密情報の非出力、
 `authorization.test.ts`の機械的網羅性チェックなど。詳細は生の返答を参照。
 
----
-
-## [2026-08-29→08-30] fix/reject-get-writes（訂正あり: 指摘された脆弱性は存在しなかった）
-
-対象: `apps/api/src/index.ts`
-
-上記M2まとめ監査のHigh指摘（CSRF: 書き込み手続きがGETで実行できる）への対応として
-`@orpc/server/plugins`の`StrictGetMethodPlugin`を`RPCHandler`に明示適用したが、
-**Rレビューでこの指摘自体が誤りだったと判明した。** `@orpc/server`の`RPCHandler`は
-既定（`strictGetMethodPluginEnabled`を渡さない場合）で`StrictGetMethodPlugin`を
-自動登録しており、GET経由での手続き実行は元々拒否されていた。**CSRFの経路は
-存在しなかった。**
-
-このとき貼った実測（`GET /api/couple/get (no data): 405`）は修正前から一貫して
-正しかったが、直後の散文で「修正前は`200`になっていた」と誤って解釈・記録していた。
-実測と指摘が矛盾していたのに、指摘をそのまま信じて記録してしまっていた。
-
-コードと回帰テスト（`apps/api/test/method-restriction.test.ts`）はRの判断でそのまま
-残した（ライブラリの既定に依存しない防御として妥当）。詳細・訂正の経緯は
-`fix/reject-get-writes`ブランチの`docs/security-report.md`エントリ
-（本エントリより後に追加。マージ後は本エントリの直後に並ぶ）を参照。
+`fix/reject-get-writes`（PR #60）の対応・訂正の詳細は上表のHigh行に統合した
+（独立エントリは作らない。訂正は元の指摘の行に書く方が、その行だけを読んだ人が
+実在しない脆弱性を追ったり誤解したりしないため。以前は独立エントリを別途作っていたが、
+Rレビューで同じ事実の重複記録になっていると指摘され統合した）。
