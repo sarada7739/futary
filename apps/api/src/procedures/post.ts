@@ -103,10 +103,6 @@ const postList = implementer.post.list.use(readProcedure).handler(async ({ conte
 
 const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ context, input }) => {
   const { db, coupleId, userId } = context;
-  // writeProcedure が mode === 'readonly'（userId: null）を FORBIDDEN で弾いた後なので、
-  // ここには到達しない。型上は CoupleContext の union のままのため、
-  // 戻り値の authorId を string として返せるように絞り込む
-  if (userId === null) throw new Error("writeProcedure を経由していれば到達しないはずの分岐です");
   const id = crypto.randomUUID();
   const now = nowSeconds();
   const imageKey = input.imageKey ?? null;
