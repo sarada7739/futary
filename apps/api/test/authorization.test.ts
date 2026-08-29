@@ -87,6 +87,28 @@ describe("1. ペアAのユーザーがペアBのレコードを取得・更新�
     expect(bAfter.anniversaryDate).toBe(coupleB.anniversaryDate);
     expect(bAfter.anniversaryDate).not.toBe("2022-02-02");
   });
+
+  // 006: post.list/post.delete も ctx.coupleId のみを使う（引数に coupleId を
+  // 持たない）ため、他ペアのレコードには経路自体が存在しない
+  it("post.list は自分の所属ペアの投稿だけを返し、post.delete は他ペアの投稿IDを指定しても消せない", async () => {
+    const userA = await createUser();
+    await createCouple(userA, "2020-01-01");
+    const postA = await call(router.post.create, { body: "Aの投稿" }, { context: contextFor(userA) });
+    const userB = await createUser();
+    await createCouple(userB, "2021-01-01");
+    const postB = await call(router.post.create, { body: "Bの投稿" }, { context: contextFor(userB) });
+
+    const listA = await call(router.post.list, {}, { context: contextFor(userA) });
+    expect(listA.items.map((p) => p.id)).toEqual([postA.id]);
+
+    await expect(
+      call(router.post.delete, { id: postB.id }, { context: contextFor(userA) }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    // 削除に失敗した Bの投稿は残っている
+    const listB = await call(router.post.list, {}, { context: contextFor(userB) });
+    expect(listB.items.map((p) => p.id)).toEqual([postB.id]);
+  });
 });
 
 // 網羅性は人手のリスト更新に依存する（router を再帰走査して自動検出する仕組みは
@@ -113,6 +135,22 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
       call(router.invite.issue, undefined, { context: contextFor(null, demoCoupleId) }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("post.create は DEMO_COUPLE_ID が設定されていても FORBIDDEN", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.post.create, { body: "デモから投稿" }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("post.delete は DEMO_COUPLE_ID が設定されていても FORBIDDEN", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.post.delete, { id: crypto.randomUUID() }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });
 
 describe("3. 未認証アクセスで読み取れるのがデモペアのデータのみである", () => {
@@ -125,6 +163,25 @@ describe("3. 未認証アクセスで読み取れるのがデモペアのデー�
 
     expect(result.id).toBe(demoCoupleId);
     expect(result.anniversaryDate).toBe("2019-01-01");
+  });
+
+  it("post.list は DEMO_COUPLE_ID のペアの投稿だけを返す。他ペアの投稿は混ざらない", async () => {
+    const demoCoupleId = await createDemoCouple();
+    const demoAuthor = await createUser();
+    await db
+      .prepare("INSERT INTO posts (id, couple_id, author_id, body, created_at) VALUES (?1, ?2, ?3, ?4, ?5)")
+      .bind(crypto.randomUUID(), demoCoupleId, demoAuthor.id, "デモの投稿", Math.floor(Date.now() / 1000))
+      .run();
+
+    const owner = await createUser();
+    await createCouple(owner, "2020-01-01");
+    await call(router.post.create, { body: "他ペアの投稿" }, { context: contextFor(owner) });
+
+    const result = await call(router.post.list, {}, { context: contextFor(null, demoCoupleId) });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.body).toBe("デモの投稿");
+    expect(result.items.map((p) => p.body)).not.toContain("他ペアの投稿");
   });
 });
 
@@ -148,6 +205,27 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
     await expect(call(router.invite.issue, undefined, { context: contextFor(user) })).rejects.toMatchObject({
       code: "NEEDS_ONBOARDING",
     });
+  });
+
+  it("post.list", async () => {
+    const user = await createUser();
+    await expect(call(router.post.list, {}, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+  });
+
+  it("post.create", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.post.create, { body: "こんにちは" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
+
+  it("post.delete", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.post.delete, { id: crypto.randomUUID() }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 });
 
@@ -189,7 +267,8 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    expect(procedures.length).toBeGreaterThanOrEqual(7);
+    // （006時点: health.get/me.get + couple 3 + invite 2 + post 3 = 10）
+    expect(procedures.length).toBeGreaterThanOrEqual(10);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの
