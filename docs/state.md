@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-29 / セッションB（L29対応 PR #37 作成。Rレビュー待ち）
+**最終更新**: 2026-08-29 / セッションB（PR #37・#38 マージ完了。007着手前）
 
 ---
 
@@ -13,8 +13,9 @@
 M2（006〜009: 投稿・画像・タイムライン・リアクション）着手済み。
 006（投稿スキーマとAPI）はPR #33がRレビュー往復1回（必須修正なし）で受け入れられ、
 mainへsquash merge済み。Rからの記録3件のうち旧L28・L30はAがPR #35で解決、
-旧L29は`fix/write-procedure-narrow-member`（PR #37）としてBが対応しRレビュー待ち。
-PR #37マージ後、次は007（画像圧縮・アップロード）。
+旧L29は`fix/write-procedure-narrow-member`（PR #37）としてBが対応しRの受け入れを得て
+マージ済み。さらにAがRの先読み指摘2件（imageKeyをクライアントから受け取らない・
+D1/R2の削除順序）をPR #38で反映済み。次は007（画像アップロード）着手。
 以下は001〜006それぞれの実装経緯（過去の記録として残す）。
 
 pnpm workspace / `packages/contract`（health.get）/ `apps/api`（Hono + oRPC + D1疎通）
@@ -139,7 +140,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 進行中タスク
 
-- fix/write-procedure-narrow-member（旧L29対応。PR #37作成済み。Rレビュー待ち）
+（現在なし。007着手前）
 
 ## 環境
 
@@ -154,10 +155,16 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 次の一手
 
-1. `docs/tasks/007-*.md`（画像圧縮・アップロード）を読み、実装に着手する
+1. `docs/tasks/007-image-upload.md`（PR #38でRの先読み指摘2件を反映済み。
+   最新版を必ず読むこと）を読み、実装に着手する
+   - `imageKey`をクライアントから受け取らない（`imageId`をサーバ生成、鍵はサーバが組み立てる）
+   - `post.delete`はD1を先に更新し、R2削除の失敗を握りつぶす。`image_key`は消さない
+   - 空投稿の禁止（旧L30）もこのタスクで実装する
 2. `Button`の二重発火防止（旧L26）・`apps/app`のテスト基盤導入（旧L27）は
    007で実装する方針が決定済み（`docs/tasks/007-image-upload.md`参照）
-3. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
+3. security-requirements.md 10節1の必須対象（画像アップロード）に該当するため、
+   007完了時はsecurity-auditorの起動が必須
+4. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
    サンプルとして使うかどうかはAの判断待ち
 4. L28・L30はPR #35でAが解決済み（L30の実装は007に組み込み済み）。
    L29（writeProcedureの型絞り込み）は`fix/`でBが対応中
@@ -194,7 +201,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | ~~L26~~ | ~~`packages/ui` の `Button` が環境によっては1クリックで `onPress` を2回発火させる。呼び出し側（画面ごと）にガードを書く運用では、005で潰した「手続きごとに認可を書くと書き忘れる」と同じ構造になる~~ → **解決**（PR #27）。`conventions.md` 4節に、ガードは`Button`コンポーネント自身が持つ（呼び出し側に書かせない）・`useRef`で持つ（`useState`は同一tick内の2回目を取りこぼす）・副作用のある操作に生の`Pressable`を直接使わない、を追記した。実装（`Button`への組み込み、004の既存ボタンへの適用）は007以降で行う | | 規約解決済み（PR #27）。実装は007以降 |
 | ~~L27~~ | ~~`apps/app` にテスト基盤が一切無い。UIバグが実機確認でしか検証できず退行しても気づけない~~ → **解決**（PR #27）。新しいタスク番号は作らず、クライアント側ロジックが最初に出る007（画像圧縮）でVitest + React Native Testing Libraryを導入する方針に決定。最低2件（画像圧縮ユーティリティ、`Button`の二重押下でonPressが1回しか走らないこと）を書く。`docs/tasks/007-image-upload.md`に前提節・完了条件・進捗を追記済み。PlaywrightのE2Eは認証が重いため014のデモ経路（未認証）で導入する方針 | | 解決済み（PR #27） |
 | ~~L28~~ | ~~`docs/tasks/006-post-api.md` の完了条件が「005 の認可テスト**4件**」を指しているが、恒久基準（`security-requirements.md` 3節、PR #17で5件に更新済み）は**5件**~~ → **解決**（PR #35）。全タスクファイルを走査した結果、件数を書いていたのは006だけだったと判明。006の記述を件数抜き（`security-requirements.md` 3節を指すだけ）に訂正し、`conventions.md` 9節に「件数・項目数は出典側にだけ置く。引用側に書かない」を規約として追加した | | 解決済み（PR #35） |
-| L29 | `apps/api/src/procedures/base.ts` の `writeProcedure` の戻り値型 `CoupleContext` が union のままで、readonly を実行時に弾いた後も `userId` が型上 `string \| null` のまま絞り込まれない（006 R-2指摘）。`post.create`（`apps/api/src/procedures/post.ts`）で到達不能な `if (userId === null) throw ...` を書く回避策が必要になった | 007以降の全書き込み手続きで同じ回避コードが繰り返される見込み。設計ドキュメントの変更を伴わない型定義の修正（`Extract<CoupleContext, {mode: "member"}>` 等）で解消できるため、Aの判断を待たずBが`fix/`で対応可能と判断 | AがB案を支持（PR #35）。`fix/write-procedure-narrow-member`（PR #37）で対応済み、Rレビュー待ち |
+| ~~L29~~ | ~~`apps/api/src/procedures/base.ts` の `writeProcedure` の戻り値型 `CoupleContext` が union のままで、readonly を実行時に弾いた後も `userId` が型上 `string \| null` のまま絞り込まれない~~ → **解決**（PR #37）。`writeProcedure` の OutContext を `Extract<CoupleContext, {mode: "member"}>` に変更し、`post.create` にあった到達不能な `if (userId === null) throw ...` を削除した。AがB案（`fix/`対応）を支持し、Rの受け入れを得てmainへマージ済み | | 解決済み（PR #37） |
 | ~~L30~~ | ~~投稿の本文・画像がどちらも空の投稿を作成できてしまう（`post.create` に下限が無い）~~ → **解決**（PR #35）。「本文か画像のどちらかは必須」を要件化（`requirements.md` 4節）。006の時点では画像が無く下限を置けなかったため、画像が入る007で弾く形に揃える（`architecture.md` 5節・`docs/tasks/007-image-upload.md`に実装項目を追加済み。空白のみの本文も空として扱い、両方空・空白のみの2ケースをテストする） | | 解決済み（PR #35。実装は007） |
 
 ## 決まっていることの要約
