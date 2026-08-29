@@ -877,3 +877,31 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-29 / セッションB（PR #21・#27 マージ）
+
+### やったこと
+- 人間の指示により、Aが作成した2つの設計ドキュメントPRをconventions.md 7節の
+  手順でsquash mergeした
+  - PR #21（引用先と引用元の食い違いをどう判定するかを規約化する。
+    Session: A、`conventions.md`のみ）: 「Session: A」を確認。ローカル・
+    リモート両方のブランチが自動で削除された
+  - PR #27（M2着手前の2論点を判断する。Session: A、`conventions.md`と
+    `docs/tasks/007-image-upload.md`）: 「Session: A」を確認。
+    `gh pr merge --delete-branch`がローカルブランチ`docs/pre-m2-decisions`の
+    削除に失敗した（`futary-A`worktreeがチェックアウトしたままだったため。
+    既知パターン）。リモートブランチの削除も未実行のまま止まっていたため、
+    `git push origin --delete`で手動削除した
+- PR #27の内容（旧L26・旧L27への判断）を`docs/state.md`に反映した
+  - L26: ガードは`Button`コンポーネント自身が持つ（呼び出し側に書かせない）・
+    `useRef`で持つ・副作用のある操作に生の`Pressable`を使わない、と規約化。
+    実装は007以降で行う方針
+  - L27: 新しいタスク番号は作らず、007（画像圧縮）でVitest +
+    React Native Testing Libraryを導入する方針に決定。`Button`の二重発火
+    ガードのテストも007に含める
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
