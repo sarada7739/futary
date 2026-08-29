@@ -2574,3 +2574,71 @@ B は案2（どこをタップしても閉じる）を推した。**採用する
 
 今日これで3件目になる。R-7（ロゴの背景色）、L59（画面の最大幅）、そして今回。
 **いずれも自動テストが緑のまま通り、R が見つけている。**
+## 2026-08-30 B: 017（画像の全画面表示）を実装した
+
+L59に続けて、M3の実行順どおり017に着手した。
+
+### やったこと
+
+- `apps/app/components/image-viewer.tsx`を新規作成。`react-native`の`Modal`
+  （`transparent`、`onRequestClose`）を使い、`post.list`が既に返している
+  署名付きGET URLをそのまま受け取る形にした。新しいAPI手続きは作っていない
+  （`pnpm run test`で005の認可テストに変化が無いことを確認）
+- `post-card.tsx`の画像を`Pressable`で包み、タップで`ImageViewer`を開く形にした。
+  画像が無い投稿には入口を出さない
+- 閉じる導線3つ: ×ボタン、画像外側（バックドロップ）のタップ、`onRequestClose`
+  （Web版はEscキー、Androidは戻るボタンが同じハンドラを通る）。画像自体のタップは
+  バックドロップへの伝播を`stopPropagation`で止め、閉じない仕様にした
+  （要望が「外側タップ」だったため）
+- `packages/ui/src/tokens.ts`に`colors.overlay`を追加（全画面表示の暗い背景。
+  ブランドカラーとは無関係な機能色と位置づけ、`architecture.md`7節にも反映）
+- `Text`コンポーネントに既に`color="inverse"`（白文字、暗い背景向け）が
+  002由来で用意されていたので、そのまま流用した
+
+### 詰まった点
+
+- 当初`animationType="fade"`を指定していたが、`apps/app/test/post-card.test.tsx`
+  で閉じる導線のテストが2件失敗した。react-native-webの`Modal`はアニメーション
+  終了を実際のCSS `animationend`イベントで検知しており、jsdomはCSSアニメーションを
+  実行しないため、`visible=false`にしても要素がDOMに残り続けていた
+  （`ModalAnimation.js`のソースを読んで確認）。`animationType`を指定しない
+  （既定`none`）ことで、アニメーション判定の分岐が同期的に閉じる方に倒れ、
+  テストが通るようになった。副作用として実機でのフェード演出は無くなったが、
+  機能要件ではないため実害は無いと判断した
+- Escキーで閉じることも自動テストで固定できた
+  （`fireEvent.keyUp(document, { key: "Escape" })`）。react-native-webの
+  `ModalContent`がdocumentレベルで`keyup`を見て`onRequestClose`を呼ぶ実装に
+  なっていることをソースで確認して分かった。Androidの戻るボタンも同じ
+  `onRequestClose`を通るため、Web側の自動テストがある程度その配線も担保する
+
+### 次
+
+017の完了条件のうち残っているのは人間の実機確認のみ（`artifacts/017/
+manual-check.md`参照）。L59（画面最大幅）とまとめて、PC幅でのホーム画面
+（タブバーとの同居）・縦長写真での破綻の有無・Android実機の戻るボタンを
+確認してもらう。
+
+## 2026-08-30 B: 017の当たり判定バグを修正した（Rレビュー対応）
+
+Rの指摘（PR #80）を受け、Aが決めた「どこでも閉じる」方針（PR #81で仕様を先に
+更新）に沿ってコードを直した。
+
+### やったこと
+
+- `image-viewer.tsx`から、画像タップの伝播を止めていた内側の`Pressable`
+  （`width:"100%", height:"100%"`でバックドロップ全体を覆っていたもの）を削除し、
+  ただの`View`に変更した。画像タップがバックドロップの`onPress`へ自然に
+  バブリングし、どこをタップしても閉じる形になった
+- `post-card.test.tsx`の「画像自体のタップでは閉じない」テストを
+  「画像自体をタップしても閉じる」に反転させた。バブリングを実際に検証する
+  意味のあるテストになっている（`fireEvent`は当たり判定を経由しないが、
+  DOMのイベントバブリング自体はjsdomでも忠実に再現されるため、
+  「stopPropagationを誤って足し戻していないか」を検出できる）
+- テスト全10件・型チェック・lint・全体テスト（apps/app 36件・apps/api 131件）
+  すべて緑を再確認
+- `artifacts/017/manual-check.md`・`docs/tasks/017-image-lightbox.md`の記述を
+  「どこでも閉じる」に揃えた
+
+### 次
+
+Rに再レビューを依頼する。
