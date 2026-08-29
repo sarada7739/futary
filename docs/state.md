@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-29 / セッションA（無視リストの陳腐化検出を規定。L40・L47 を処理）
+**最終更新**: 2026-08-29 / セッションA（無視リストの陳腐化検出を規定。L40 を追加、L47 を解決）
 
 ---
 
@@ -178,7 +178,9 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
   squash merge済み、ブランチも削除済み。**「完了タスク」へはまだ移動しない**
   ——`artifacts/008/`のスクリーンショットが未取得のため。L38参照。
   009完了時のM2受け入れ判定でまとめて回収する）
-- 009-reactions（次に着手する）
+- 009-reactions（次に着手する。着手可否をAに確認中——Aは当初「Rが008を
+  まだ見ていない」ことを理由に保留を指示していたが、実際には008・L11とも
+  Rの受け入れ・マージが完了済みのため、状況をAへ再連絡した）
 
 ## 環境
 
@@ -256,6 +258,8 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | L46 | `post.list` の署名付きGET URL（有効期限1時間）が期限切れのまま表示される事故は、`refetchInterval: 60秒` と TanStack Query の既定 `staleTime: 0` の組み合わせでたまたま防がれている。**意図して置いた保証ではない**（008 Rレビュー R-28） | 将来 `apps/app/lib/query.ts` の `staleTime` を伸ばす変更をすると、期限切れURLでの画像読み込み失敗が起きうる | 記録のみ。`lib/query.ts` に注意コメントを足すと親切（急ぎではない） |
 | ~~L47~~ | ~~squash merge で生成される `main` 上のマージコミット自体に `Session:` トレーラーが付かない（008 Rレビュー R-29）~~ → **前提が誤っていた。** A が確認したところ、指摘された `f7bcea2`（「Merge branch 'main' into task/008-timeline-ui」）は**`main` に載っていない**。squash merge が作業ブランチ側のマージコミットを畳んでいるため。`main` の全コミットは単一親で `Session:` を持つ（`git log origin/main --format='%h %(trailers:key=Session,valueonly)' \| awk 'NF<2'` が空であることを確認）。ただし規約の文言が「全てのコミットメッセージ」で対象が曖昧だったのは事実なので、`conventions.md` 9節を「`main` に載る全てのコミット」に限定し、作業ブランチ途中のコミット・git が自動生成するマージコミット・Dependabot には求めないことを明記した。検証コマンドも添えた | | 解決済み（PR #52） |
 | L40 | `pnpm audit --ignore-unfixable` は**フィルタではなく `pnpm-workspace.yaml` を書き換えるコマンド**である（pnpm 11.24.0 で A が実測。`auditConfig.ignoreGhsas` に理由コメント無しで自動追記され、2回目以降は静かになる） | 「修正版が無いものは赤にしない」をフラグ1つで表現できるように見えるが、実際には無視リストを無言で自動生成する。CI で使えば実行のたびに作業ツリーが書き換わる | **対応済み（記録のみ）。** `security-requirements.md` 9節に「CI・スクリプト・手元の確認、いずれでも使わない」と明記した |
+| L48 | `gitleaks-action@v2` は `push`/`pull_request` イベントでは**その回のコミットだけ**を走査する。`fetch-depth: 0` は差分計算用で、全履歴の走査ではない。リポジトリ全体を見るのは `schedule`/`workflow_dispatch` のときだけ（L11 Rレビュー R-30） | 016完了条件の「gitleaksが緑」は差分走査が緑という意味でしかなく、「履歴のどこにも秘密が無い」ことは証明しない。003監査時にも同じ穴（`git log --all` の走査ができない）が指摘されていた | `security-requirements.md` 9節に既に「公開前に履歴全体を1度走査する」規定はあるが、実行方法（`workflow_dispatch`か`schedule`を1本足す）は未実装。016の前に対応 |
+| L49 | Dependabotのセキュリティ更新のみ有効化（`vulnerability-alerts`・`automated-security-fixes`）はリポジトリ設定のAPI経由で行い、`dependabot.yml`を作らなかったため、**設定がリポジトリ内に痕跡を残さず、レビューやCIでは検証できない**（L11 Rレビュー R-31。実測: `gh api repos/{owner}/{repo}/vulnerability-alerts`→204、`gh api repos/{owner}/{repo}/automated-security-fixes`→`{"enabled":true,"paused":false}`で現在は有効と確認済み） | 誰かが無効化しても誰も気づけない | 016の確認手順に上記2つの`gh api`コマンドでの実測確認を追加する |
 
 ## 決まっていることの要約
 
