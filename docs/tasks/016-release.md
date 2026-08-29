@@ -19,8 +19,9 @@
 
 ### CI / CD
 - `main` へのマージで Cloudflare へデプロイする
-- CI に **gitleaks**（シークレット混入検査）と **`pnpm audit`** を追加する
-- Dependabot を有効化する
+- ~~CI に gitleaks と `pnpm audit` を追加する。Dependabot を有効化する~~
+  → **L11 として前倒しで実施済み**（`fix/ci-security-checks`）。016 では
+  以下の**再評価**だけを行う
 
 ### README
 - セットアップ手順（`pnpm install` から起動まで）
@@ -31,6 +32,14 @@
 
 ### 全体セキュリティ監査
 1. `pnpm audit` と gitleaks を実行する
+   - **`pnpm audit` は全重大度で実行する。** CI のゲートは high 以上だが、
+     ここでは moderate 以下も人間が読む
+   - **`pnpm.auditConfig.ignoreGhsas` の全項目を1件ずつ再評価する。**
+     修正版が出ていれば消して依存を上げる。到達可能性の評価が今も正しいかを見る。
+     **1件も残さずに済むならそれが最善**（`security-requirements.md` 9節。根本原因は L39）
+   - **gitleaks は履歴全体に対して1度走らせる。** CI は差分しか見ておらず、
+     検査を導入する前に混入したものを見つけられない。
+     Public に切り替えた時点で履歴は全て読まれる
 2. **その出力を security-auditor に読ませる**
 3. 結果を `docs/security-report.md` に追記する
 4. `docs/security-requirements.md` 9節の脅威 T1〜T8 について、
@@ -54,6 +63,8 @@
 - [ ] 本番URLでアプリとデモが動く
 - [ ] E2E 通しテストが緑
 - [ ] gitleaks と `pnpm audit` が緑
+- [ ] **gitleaks を履歴全体に対して実行し、検出ゼロである**
+- [ ] **`pnpm.auditConfig.ignoreGhsas` の全項目を再評価し、結果を記録した**
 - [ ] **security-auditor の全体監査で High 以上がゼロ**
 - [ ] `docs/security-report.md` に監査結果が記録されている（指摘ゼロでも記録する）
 - [ ] README が完成している
@@ -69,7 +80,8 @@
 - [ ] 3状態の通し確認と補完
 - [ ] エラー処理の統一
 - [ ] デプロイワークフロー
-- [ ] gitleaks / `pnpm audit` / Dependabot
+- [ ] 無視リストの再評価 / 履歴全体の gitleaks
+      （gitleaks・`pnpm audit`・Dependabot の導入自体は L11 で完了済み）
 - [ ] README
 - [ ] E2E 通しテスト
 - [ ] 全体セキュリティ監査（T1〜T8 の確認を含む）
