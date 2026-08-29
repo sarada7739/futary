@@ -26,15 +26,15 @@ packages/ui test:       Tests  7 passed (7)
 apps/app test:  Test Files  6 passed (6)
 apps/app test:       Tests  36 passed (36)
 apps/api test:  Test Files  12 passed (12)
-apps/api test:       Tests  178 passed (178)
+apps/api test:       Tests  181 passed (181)
 ```
 
-（Rレビュー往復1回目対応後の最終値。当初は175件。`date.test.ts`にRレビュー
-指摘の回帰テスト3件を追加した。詳細は`docs/tasks/010-calendar-api.md`実装メモ
-と`artifacts/010/review.md`参照）
+（Aの判断〈L61。存在しない日付は月末に寄せる〉反映後の最終値。175→178
+〈Rレビュー往復1回目〉→181〈L61反映〉と推移した。詳細は
+`docs/tasks/010-calendar-api.md`実装メモと`artifacts/010/review.md`参照）
 
 apps/app・packages/ui は本タスクでは無変更（既存の緑を維持）。増えたのは apps/api のみ
-（009時点128件 → 178件。内訳は下記）。
+（009時点128件 → 181件。内訳は下記）。
 
 ## 内訳（新規/変更ファイル）
 

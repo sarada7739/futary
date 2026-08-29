@@ -53,32 +53,40 @@ export function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
-// date から n ヶ月前の日付文字列を返す（n が負なら n ヶ月後になる）。
-// 日が月末を超える場合（例: 3/31 の1ヶ月前 → 2月に31日は無い）は
-// JS の Date が UTC 月末を自動で繰り上げる挙動にそのまま従う（例:
-// 2026-03-31 の1ヶ月前は 2026-03-03 になる。2/28 に寄せる案とどちらが
-// 正しいかは未決定。013（memory.get の「ちょうど1ヶ月前」）で実際に
-// 使うときに A が判断する。決まるまでこの挙動のまま固定する
-// （テストで固定済み。R レビュー指摘）
-export function monthsBefore(date: string, n: number): string {
-  const { year, month, day } = parseDate(date);
-  const shifted = new Date(Date.UTC(year, month - 1 - n, day));
-  return formatDate({
-    year: shifted.getUTCFullYear(),
-    month: shifted.getUTCMonth() + 1,
-    day: shifted.getUTCDate(),
-  });
+// 1-indexed の month（1〜12。年をまたいだ範囲でも可）が持つ日数。
+// Date.UTC の「day 0 = 前月末日」という挙動を利用する（1-indexed の
+// month をそのまま zero-indexed 引数に渡すと、その1つ前の月＝求めたい月の
+// 末日になる）
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
-// date から n 年前の日付文字列を返す。年を引くだけなら月・日は変わらないため
-// `monthsBefore` の汎用の月末繰り上がりには任せず、`projectMonthDay` と同じ
-// 規則（平年の 02-29 は 02-28 に寄せる）を通す。`monthsBefore(date, n*12)` に
-// 委譲すると、2024-02-29 の1年前が `projectMonthDay` の規則と矛盾する
-// 2023-03-01 になってしまう（同じファイル内で同じ問いに2つの答えが出る。
-// R レビュー指摘で発覚）
-export function yearsBefore(date: string, n: number): string {
+// month（1-indexed。1〜12の範囲外でもよい）を年の繰り上がり・繰り下がりを
+// 考慮して正規化する
+function normalizeYearMonth(year: number, month: number): { year: number; month: number } {
+  const totalMonths = year * 12 + (month - 1);
+  const normalizedYear = Math.floor(totalMonths / 12);
+  const normalizedMonth = totalMonths - normalizedYear * 12 + 1;
+  return { year: normalizedYear, month: normalizedMonth };
+}
+
+// date から n ヶ月前の日付文字列を返す（n が負なら n ヶ月後になる）。
+// 日が月末を超える場合（例: 3/31 の1ヶ月前 → 2月に31日は無い）は、
+// 「存在しない日付は、その月の末日に寄せる」という一般則
+// （architecture.md 5節）に従う。素の Date の自動繰り上げ（3/31 の
+// 1ヶ月前が3/3になる）には任せない
+export function monthsBefore(date: string, n: number): string {
   const { year, month, day } = parseDate(date);
-  return projectMonthDay(month, day, year - n);
+  const target = normalizeYearMonth(year, month - n);
+  return projectMonthDay(target.month, day, target.year);
+}
+
+// date から n 年前の日付文字列を返す。年だけを引く操作は
+// 「nヶ月前」の特殊形（n*12ヶ月前）として同じ規則に乗せる。
+// 個別に実装すると、うるう日を平年へ寄せる規則が2箇所に分かれて
+// 食い違う経路が生まれる（R レビュー指摘で実際に発生した）
+export function yearsBefore(date: string, n: number): string {
+  return monthsBefore(date, n * 12);
 }
 
 // date（YYYY-MM-DD）の月・日部分だけを取り出す
@@ -98,14 +106,13 @@ export function yearsBetween(from: string, to: string): number[] {
 }
 
 // month/day をある年に射影した日付文字列を返す。
-// 平年の 02-29 は 02-28 に寄せる（03-01 にはしない）。
-// 理由は2つ（architecture.md 5節）:
+// 「存在しない日付は、その月の末日に寄せる」（architecture.md 5節）。
+// 平年の 02-29 は 02-28 に寄せる（03-01 にはしない）のはこの一般則の一例。
+// 理由は2つ:
 //   1. 2024-02-29 + 365日 = 2025-02-28（平年の365日後がちょうどそこに当たる）
 //   2. カレンダーは月単位。03-01 に寄せると2月の記念日が平年の2月の表示から消える
 // 保存されている date 自体は呼び出し側で変更しない。ここでは射影結果だけを返す
 export function projectMonthDay(month: number, day: number, year: number): string {
-  if (month === 2 && day === 29 && !isLeapYear(year)) {
-    return formatDate({ year, month: 2, day: 28 });
-  }
-  return formatDate({ year, month, day });
+  const clampedDay = Math.min(day, daysInMonth(year, month));
+  return formatDate({ year, month, day: clampedDay });
 }
