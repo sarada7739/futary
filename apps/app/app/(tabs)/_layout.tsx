@@ -1,25 +1,28 @@
-import { colors, radius, shadow, space, Text } from "@futary/ui";
-import { Tabs } from "expo-router";
+import { colors, iconFabPlus, iconTabAlbum, iconTabHome, iconTabProfile, iconTabSearch, shadow, space } from "@futary/ui";
+import { Tabs, useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { Pressable, View } from "react-native";
+import { Image, type ImageSourcePropType, Pressable, View } from "react-native";
 
-/** タブアイコン代わりの絵文字。トークンに定義がないため文字列のまま扱う */
-const tabIcons: Record<string, string> = {
-  index: "🏠",
-  album: "🖼️",
-  search: "🔍",
-  profile: "👤",
+// 002 の絵文字代用を、docs/sample/透過素材/dnUunrHG.png から切り出したアイコンに
+// 差し替え（008）。単色の線画のため tintColor でアクティブ/非アクティブを塗り分ける
+const tabIcons: Record<string, ImageSourcePropType> = {
+  index: iconTabHome,
+  album: iconTabAlbum,
+  search: iconTabSearch,
+  profile: iconTabProfile,
 };
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   return (
-    <Text size="lg" color={focused ? "brand" : "muted"}>
-      {tabIcons[name]}
-    </Text>
+    <Image
+      source={tabIcons[name]}
+      style={{ width: 24, height: 24, tintColor: focused ? colors.primary : colors.textMuted }}
+      resizeMode="contain"
+    />
   );
 }
 
-/** 中央の「＋投稿」タブ。丸いFABとして浮かせる */
+/** 中央の「＋投稿」タブ。丸いFABとして浮かせる。押すと投稿作成モーダルを開く */
 function FabTabButton({
   children,
   onPress,
@@ -31,20 +34,9 @@ function FabTabButton({
     <View style={{ flex: 1, alignItems: "center" }}>
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => ({
-          width: 56,
-          height: 56,
-          borderRadius: radius.pill,
-          backgroundColor: pressed ? colors.primaryPressed : colors.primary,
-          alignItems: "center",
-          justifyContent: "center",
-          marginTop: -20,
-          ...shadow.fab,
-        })}
+        style={({ pressed }) => ({ marginTop: -20, opacity: pressed ? 0.85 : 1, ...shadow.fab })}
       >
-        <Text size="xl" weight="bold" color="inverse">
-          ＋
-        </Text>
+        <Image source={iconFabPlus} style={{ width: 56, height: 56 }} resizeMode="contain" />
       </Pressable>
       {children}
     </View>
@@ -52,6 +44,8 @@ function FabTabButton({
 }
 
 export default function TabsLayout() {
+  const router = useRouter();
+
   return (
     <Tabs
       screenOptions={{
@@ -86,9 +80,15 @@ export default function TabsLayout() {
         name="post"
         options={{
           title: "",
-          tabBarButton: (props) => (
-            <FabTabButton onPress={props.onPress as () => void} />
-          ),
+          tabBarButton: (props) => <FabTabButton onPress={props.onPress as () => void} />,
+        }}
+        listeners={{
+          // タブ切り替えではなく /compose をモーダルで開く。post.tsx は
+          // このリスナーで常に preventDefault されるため実際には表示されない
+          tabPress: (e) => {
+            e.preventDefault();
+            router.push("/compose");
+          },
         }}
       />
       <Tabs.Screen
