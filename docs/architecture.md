@@ -159,6 +159,7 @@ couple.update       { anniversaryDate }
 invite.issue        -> { code, expiresAt }
 invite.accept       { code }
 post.list           { cursor?, limit } -> { items, nextCursor }
+                    items の各要素は投稿者の表示名・プロフィール画像を含む（下記）
 post.create         { body, imageId?, imageWidth?, imageHeight? }
                     body を trim した結果と imageId が両方空なら INVALID_INPUT
 post.delete         { id }
@@ -209,6 +210,40 @@ memory.get          -> { post, label } | null
 
 同じ判断基準を以降の設計にも適用する。
 **`ctx.coupleId` から導ける値を、クライアントから受け取らない。**
+
+### 投稿のレスポンスに投稿者情報を含める
+
+`post.list` / `post.create` は、投稿者の表示名とプロフィール画像URLを含めて返す。
+タイムラインの投稿カードが投稿者を出すために必要で、投稿1件ごとに別の手続きを
+呼ばせない。
+
+| 項目 | 型 | 出どころ |
+|---|---|---|
+| `authorId` | `string` | `posts.author_id` |
+| `authorName` | `string \| null` | `user.name` |
+| `authorImage` | `string \| null` | `user.image`（未設定なら `null`） |
+
+- 取得は `user` への **LEFT JOIN** にする。`posts.author_id` は `user` への外部キーを
+  持っておらず、INNER JOIN にすると `user` 行が消えた投稿が一覧から**黙って消える**。
+  投稿が消えるより、投稿者名が欠けて表示される方が損失が小さい
+- そのため `authorName` は `user.name` が NOT NULL であっても**レスポンス上は
+  null 許容**にする。UI は代替表示（「削除されたユーザー」等）に落とし、
+  **投稿本文は必ず読める状態を保つ**
+- `post.create` は `ctx` のユーザーからそのまま埋める（`post.list` と同じ値になる）
+- この JOIN は `posts` を `couple_id` で絞った結果に対して行う。
+  `user` 側を起点に引かない（認可の範囲を JOIN で広げない）
+
+**`authorImage` は Google のホストを指す外部URLである。**
+R2 の署名付きURL（6節）とは別物で、有効期限も無い。この結果として:
+
+- Web で表示するには CSP の `img-src` にこのホストを許可する必要がある
+  （`state.md` L13 のセキュリティヘッダ対応時に忘れない）
+- 画像の取得リクエストが Google に飛ぶ。利用者は Google でログインしている以上
+  新たに渡る情報はほぼ無いが、自前でホストしていないことは意識しておく
+
+R2 に取り込んで自前配信する案は取らない。プロフィール画像は「最高」区分のデータでは
+なく（`security-requirements.md` 1節）、取り込みは同期・失効・容量の管理を新たに
+抱え込む。割に合わない。
 
 ### `memory.get` の探索順
 
