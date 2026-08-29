@@ -952,3 +952,51 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-29 / セッションB（006: 投稿スキーマとAPI）
+
+### やったこと
+- `packages/db/src/schema/post.ts` に `posts` テーブルを実装（architecture.md 4節）。
+  `(couple_id, created_at)` の複合インデックスを張った
+- `pnpm db:generate` でマイグレーションを生成し、命名規則に合わせて
+  `0003_post.sql` にリネーム（`_journal.json` のタグも合わせた）
+- `packages/contract/src/post.ts` に `post.list`/`post.create`/`post.delete` の
+  Zod スキーマとエラー定義を追加し、`packages/contract/src/index.ts` に接続した
+- `apps/api/src/procedures/post.ts` を実装
+  - `post.list`: `readProcedure` の上に載せ、`{ createdAt, id }` を base64 エンコードした
+    不透明カーソルでページング。1回20件固定、`limit + 1` 件フェッチして次ページ有無を判定
+  - `post.create`: `writeProcedure` の上に載せ、本文2000文字上限。画像情報
+    （imageKey/imageWidth/imageHeight）は受け取って保存するだけ（アップロードは007）
+  - `post.delete`: `writeProcedure` の上に載せ、`WHERE id = ? AND couple_id = ctx.coupleId
+    AND deleted_at IS NULL` の1文で論理削除。0件なら `NOT_FOUND`
+  - `apps/api/src/router.ts` に `post: postProcedures` を接続
+- `apps/api/test/post.test.ts`（新規）を作成。作成・一覧・削除の基本動作、画像情報の
+  保存、本文長さ上限、論理削除の反映、他ペアの混入防止に加え、**同一秒の投稿が
+  ページ境界をまたぐケース**（19件の異なる秒 + 20〜22位を同一秒のタイにする）で
+  複合カーソルが重複・欠落なく全件を辿れることを確認するテストを書いた
+- `apps/api/test/authorization.test.ts` を更新し、`security-requirements.md` 3節の
+  5項目チェックリストに `post.list`/`post.create`/`post.delete` を追加（他ペアの
+  投稿取得・削除不可、未認証書き込みFORBIDDEN、未認証読み取りはデモペアのみ、
+  未所属NEEDS_ONBOARDING）。基底経由チェックの実在数下限を7→10に更新
+- `pnpm type-check` / `pnpm lint` / `pnpm test`（apps/api: 90件、packages/ui: 7件）が
+  すべて緑であることを確認。証跡は `artifacts/006/test-results.md`
+- `docs/tasks/006-post-api.md` の進捗チェックボックスと実装メモを更新（B所有の節のみ）
+
+### 決定事項
+- `post.list` の `limit` はクライアントから受け取らず、サーバ側で20件固定にした。
+  `architecture.md` 5節のシグネチャ `post.list { cursor?, limit }` は `limit` を
+  クライアント入力として書いているが、タスク006の実装内容は「1回20件」とだけ
+  指定しており、任意件数の一括取得を許すと過大取得の経路になるため固定にした
+  （`conventions.md` 9節の「引用側が広い」特殊化と判断。Aへの確認は求めず、
+  実装メモとして記録するに留めた）
+- security-auditor は起動しなかった。`security-requirements.md` 10節1の必須対象
+  （認証・招待・画像アップロード・認可ミドルウェア）に本タスクは該当せず、
+  2「その他のタスクはマイルストーン単位でまとめて」に従いM2完了時にまとめる方針とした
+
+### 詰まった点
+- `writeProcedure` の戻り値型 `CoupleContext` が union 型のままのため、
+  `context.userId` が `string | null`型になり `post.create` の戻り値
+  `authorId: string` と型が合わなかった。`couple.ts`/`invite.ts` は `userId` を
+  SQLバインドにしか使わず戻り値に含めていなかったため顕在化していなかった問題。
+  `userId === null` を実行時にチェックして早期に例外を投げる形で型を絞り込んだ
+  （`writeProcedure` が readonly を弾いた後なので実際には到達しない分岐）

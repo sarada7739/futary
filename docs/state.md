@@ -3,15 +3,16 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-29 / セッションB（M1完了。人間の受け入れ確認済み。M2着手準備）
+**最終更新**: 2026-08-29 / セッションB（006: 投稿スキーマとAPI 完了。PR未作成）
 
 ---
 
 ## 現在のフェーズ
 
 **M1（001〜005）完了。2026-08-29、人間の明示的な受け入れ確認を得た。**
-次はM2（006〜009: 投稿・画像・タイムライン・リアクション）着手。
-以下は001〜005それぞれの実装経緯（過去の記録として残す）。
+M2（006〜009: 投稿・画像・タイムライン・リアクション）着手済み。
+006（投稿スキーマとAPI）の実装が完了し、テストは全て緑。PRはこれから作成する。
+以下は001〜006それぞれの実装経緯（過去の記録として残す）。
 
 pnpm workspace / `packages/contract`（health.get）/ `apps/api`（Hono + oRPC + D1疎通）
 / `apps/app`（Expo Router + TanStack Query）/ CI を一通り繋いだ。
@@ -80,6 +81,20 @@ couple.create/invite.acceptが基底を経由せず認可が2系統に割れて�
 得て、PR #19を`main`へsquash merge済み（ブランチも削除済み）。
 詳細は `docs/security-report.md` と `artifacts/005/`。
 
+006は投稿の永続化と取得を実装した。`packages/db/src/schema/post.ts`（`posts`テーブル。
+`(couple_id, created_at)`複合インデックス）、`packages/contract/src/post.ts`
+（`post.list`/`post.create`/`post.delete`）、`apps/api/src/procedures/post.ts`を実装。
+`post.list`は`readProcedure`の上に載せ、`{createdAt, id}`をbase64エンコードした
+不透明カーソルで1回20件固定のページングを行う（同一秒の投稿がページ境界を
+またいでも重複・欠落しないことをテストで確認）。`post.create`/`post.delete`は
+`writeProcedure`の上に載せ、画像情報は受け取って保存するだけ（アップロードは007）、
+削除は`WHERE id=? AND couple_id=ctx.coupleId AND deleted_at IS NULL`の1文で論理削除する。
+`security-requirements.md`3節の5項目チェックリストに投稿系3手続きを追加し
+`authorization.test.ts`に反映。テスト90件（apps/api）緑、型チェック・lint通過。
+security-auditorは起動していない（10節1の必須対象に該当せず、M2完了時にまとめる方針）。
+詳細は`artifacts/006/test-results.md`と`docs/tasks/006-post-api.md`の実装メモ。
+PR #33（ブランチ`task/006-post-api`）を作成済み。Rレビュー待ち。
+
 **2026-08-29、人間が実機でM1の残り確認項目をすべて実施した。**
 実際のGoogleアカウントでのログイン成功（2アカウント）・D1への`user`/`account`
 レコード作成・リロード後のログイン状態維持・Cookie属性（`HttpOnly`チェック済み・
@@ -118,7 +133,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 進行中タスク
 
-（現在なし。M2着手前）
+- 006-post-api（実装完了・テスト緑。PR #33（ブランチ`task/006-post-api`）作成済み。Rレビュー待ち）
 
 ## 環境
 
@@ -133,16 +148,12 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 次の一手
 
-**M1（001〜005）は2026-08-29に人間の受け入れ確認を得て完了した。**
-デザイン素材（`docs/sample/プロフィール画像/`・`docs/sample/透過素材/`）の
-受け入れ（PR #29）も完了し、008以降で使う準備が整っている。
-
-1. `docs/tasks/006-*.md`（投稿）を読み、M2に着手する。新しいセッションで
-   `/clear` してから始めること
-2. `Button`の二重発火防止（旧L26）・`apps/app`のテスト基盤導入（旧L27）は
+1. 006（PR #33）のRレビューを受ける（タスクファイルの完了条件・確認観点を参照して受け入れ判定すること）
+2. Rの受け入れが得られたら、規約通りsquash mergeし`docs/state.md`の完了タスクへ移動する
+3. `Button`の二重発火防止（旧L26）・`apps/app`のテスト基盤導入（旧L27）は
    007（画像圧縮）で実装する方針が決定済み（`docs/tasks/007-image-upload.md`参照）。
-   006の時点ではまだ対応しない
-3. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（006/007）で
+   006では対応していない
+4. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
    サンプルとして使うかどうかはAの判断待ち
 
 ## 未解決の論点
