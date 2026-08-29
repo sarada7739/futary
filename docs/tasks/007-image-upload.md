@@ -186,9 +186,16 @@ Playwright による E2E はこのタスクで入れない。
     削除後は`404`**という一連の流れを確認できた。手続き
     （`post.uploadUrl`/`post.list`）が使う署名生成ロジックそのものを直接
     叩いているため、署名の正しさ・R2側の拒否挙動はこの確認で担保できる
+  - **Rレビュー指摘を受けて追加確認**: 署名付きPUT URLはContent-Typeを
+    署名で強制できない（`r2-signed-url.ts`のコメント参照）ため、
+    `post.create`の`head.httpMetadata?.contentType`検証が機能するには
+    「クライアントがヘッダを送る」「R2がそれを保持する」の両方が揃う必要がある。
+    `apps/app/lib/image.ts`と同じ形（`headers: {"content-type": "image/jpeg"}`）
+    でPUTし、署名付きGETのレスポンスヘッダで`content-type: image/jpeg`が
+    返ることを確認し、両方揃っていることを実証した
   - **未確認のまま残るのは、`post.create`のR2実体確認（`env.BUCKET.head()`）と
     `post.delete`のR2バインディング経由削除（`env.BUCKET.delete()`）が
     実クラウドでも同様に動くこと。** これはMiniflareのローカルシミュレーション
     での単体テスト（`apps/api/test/post.test.ts`）でのみ検証済み。
-    `workers.dev`サブドメイン登録後に`wrangler dev --remote`で再検証できる
-    （`docs/state.md` L32参照）
+    `workers.dev`サブドメイン登録後（016の前までに必要。`docs/state.md` L34）に
+    `wrangler dev --remote`で再検証できる

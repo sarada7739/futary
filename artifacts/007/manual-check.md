@@ -36,6 +36,7 @@
 | 3 | 署名付きGET URLでアクセス | `200`、`content-length: 54321`（**アップロードしたサイズと一致**） |
 | 4 | 有効期限を意図的に1秒に短縮した署名付きURLで、2秒待ってからGET | `403 ExpiredRequest: Request has expired`（拒否） |
 | 5 | オブジェクトを削除後、同じ署名付きGET URLでアクセス | `404`（**実際に削除されている**） |
+| 6 | `apps/app/lib/image.ts`と同じ形（`headers: {"content-type": "image/jpeg"}`）でPUTし、署名付きGETのレスポンスヘッダで`content-type`を確認 | PUT `200`、GET `200`かつ`content-type: image/jpeg`（**R2がContent-Typeを実際に保持することを確認**。Rレビュー指摘: 署名付きPUT URLはContent-Typeを署名で強制できないため、`post.create`の`head.httpMetadata?.contentType`検証が機能するには「クライアントがヘッダを送る」「R2がそれを保持する」の両方が必要。#6でその両方を実機で確認した） |
 
 生ログ: `artifacts/007/manual-check-raw.txt`
 
