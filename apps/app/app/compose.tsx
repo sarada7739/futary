@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image, TextInput, View } from "react-native";
+import { Image, ScrollView, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useMutation } from "@tanstack/react-query";
@@ -75,52 +75,60 @@ export default function ComposeScreen() {
 
   return (
     <Screen>
-      <View style={{ flex: 1, padding: space.lg, gap: space.md }}>
-        <TextInput
-          value={body}
-          onChangeText={setBody}
-          placeholder="今日の出来事を書く"
-          placeholderTextColor={colors.textMuted}
-          multiline
-          maxLength={MAX_BODY_LENGTH}
-          style={{
-            minHeight: 120,
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: radius.input,
-            padding: space.md,
-            fontSize: 16,
-            color: colors.text,
-            textAlignVertical: "top",
-          }}
-        />
+      <View style={{ flex: 1 }}>
+        {/* 画像プレビュー（特に縦長写真）が画面の高さを超えると、下の投稿ボタンが
+            画面外に押し出されて押せなくなっていた。スクロール可能にし、
+            投稿ボタンは常に押せる位置（画面下部固定）に分離する */}
+        <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+          <TextInput
+            value={body}
+            onChangeText={setBody}
+            placeholder="今日の出来事を書く"
+            placeholderTextColor={colors.textMuted}
+            multiline
+            maxLength={MAX_BODY_LENGTH}
+            style={{
+              minHeight: 120,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: radius.input,
+              padding: space.md,
+              fontSize: 16,
+              color: colors.text,
+              textAlignVertical: "top",
+            }}
+          />
 
-        {image ? (
-          <View style={{ gap: space.sm }}>
-            <Image
-              source={{ uri: image.uri }}
-              style={{
-                width: "100%",
-                aspectRatio: image.width && image.height ? image.width / image.height : 1,
-                borderRadius: radius.input,
-              }}
-              resizeMode="cover"
-            />
-            <Button variant="ghost" onPress={() => setImage(null)}>
-              画像を外す
+          {image ? (
+            <View style={{ gap: space.sm }}>
+              <Image
+                source={{ uri: image.uri }}
+                style={{
+                  width: "100%",
+                  aspectRatio: image.width && image.height ? image.width / image.height : 1,
+                  maxHeight: 400,
+                  borderRadius: radius.input,
+                }}
+                resizeMode="contain"
+              />
+              <Button variant="ghost" onPress={() => setImage(null)}>
+                画像を外す
+              </Button>
+            </View>
+          ) : (
+            <Button variant="secondary" onPress={pickImage}>
+              画像を選ぶ
             </Button>
-          </View>
-        ) : (
-          <Button variant="secondary" onPress={pickImage}>
-            画像を選ぶ
+          )}
+
+          {errorMessage && <Text color="muted">{errorMessage}</Text>}
+        </ScrollView>
+
+        <View style={{ padding: space.lg }}>
+          <Button onPress={handleSubmit} disabled={!canSubmit}>
+            {isSubmitting ? "投稿中…" : "投稿する"}
           </Button>
-        )}
-
-        {errorMessage && <Text color="muted">{errorMessage}</Text>}
-
-        <Button onPress={handleSubmit} disabled={!canSubmit}>
-          {isSubmitting ? "投稿中…" : "投稿する"}
-        </Button>
+        </View>
       </View>
     </Screen>
   );
