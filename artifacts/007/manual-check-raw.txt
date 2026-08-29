@@ -1,0 +1,26 @@
+
+ RUN  v4.1.11 C:/Users/coco7/futary/apps/api
+
+Using secrets defined in .dev.vars
+stdout | test/manual-r2-check.test.ts > 007 実機確認（手動実行） > 署名付きPUT → 署名なしGETは拒否 → 署名付きGETは成功 → サイズ一致 → 削除
+[1] PUT status: 200
+
+stdout | test/manual-r2-check.test.ts > 007 実機確認（手動実行） > 署名付きPUT → 署名なしGETは拒否 → 署名付きGETは成功 → サイズ一致 → 削除
+[2] 署名なしGET status: 400 body: <?xml version="1.0" encoding="UTF-8"?><Error><Code>InvalidArgument</Code><Message>Authorization</Message></Error>
+
+stdout | test/manual-r2-check.test.ts > 007 実機確認（手動実行） > 署名付きPUT → 署名なしGETは拒否 → 署名付きGETは成功 → サイズ一致 → 削除
+[3] 署名付きGET status: 200 content-length: 54321
+
+stdout | test/manual-r2-check.test.ts > 007 実機確認（手動実行） > 署名付きPUT → 署名なしGETは拒否 → 署名付きGETは成功 → サイズ一致 → 削除
+[4] 期限切れGET status: 403 body: <?xml version="1.0" encoding="UTF-8"?><Error><Code>ExpiredRequest</Code><Message>Request has expired</Message></Error>
+
+stdout | test/manual-r2-check.test.ts > 007 実機確認（手動実行） > 署名付きPUT → 署名なしGETは拒否 → 署名付きGETは成功 → サイズ一致 → 削除
+[5] 削除後の署名付きGET status: 404
+
+ ✓ test/manual-r2-check.test.ts > 007 実機確認（手動実行） > 署名付きPUT → 署名なしGETは拒否 → 署名付きGETは成功 → サイズ一致 → 削除 2827ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  16:52:33
+   Duration  7.41s (transform 2.07s, setup 3.51s, import 9ms, tests 2.83s, environment 0ms)
+
