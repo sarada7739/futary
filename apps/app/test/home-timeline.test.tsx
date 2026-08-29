@@ -6,9 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // （007の決定。conventions.md 6節）ため、oRPC クライアントをモックして
 // react-native-web + jsdom 上でTanStack Queryの実挙動と組み合わせて検証する。
 // モックする以上サーバとの契約自体は検証していない（実機確認で見る）
-const { listMock, createMock, toggleReactionMock, pushMock, backMock } = vi.hoisted(() => ({
+const { listMock, createMock, deleteMock, toggleReactionMock, pushMock, backMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
+  deleteMock: vi.fn(),
   toggleReactionMock: vi.fn(),
   pushMock: vi.fn(),
   backMock: vi.fn(),
@@ -49,7 +50,7 @@ vi.mock("../lib/orpc", async () => {
     post: {
       list: listMock,
       create: createMock,
-      delete: vi.fn(),
+      delete: deleteMock,
       uploadUrl: vi.fn(),
     },
     reaction: {
@@ -150,6 +151,39 @@ describe("投稿作成 → 一覧反映", () => {
     );
 
     expect(await screen.findByText("新しい投稿")).toBeTruthy();
+  });
+});
+
+describe("投稿の削除", () => {
+  // 008 完了条件「自分の投稿を削除できる」の唯一の自動検証。Rレビュー指摘:
+  // artifacts/008/manual-check.md が「UIからの削除操作は未確認」と正直に書いた
+  // ことで、削除メニュー押下 → post.delete 呼び出し → 一覧から消える、という
+  // 一連の流れを検証するテストが1件も無いことが判明した（スクリーンショット
+  // 要件の撤回〈conventions.md 8節〉により、UIの担保は自動テストに寄せる
+  // 方針になったため、この穴は埋める必要がある）
+  it("「…」→「削除」の操作で post.delete が呼ばれ、一覧から消える", async () => {
+    const post = makePost({ id: "post-to-delete", body: "消される投稿" });
+    listMock.mockResolvedValueOnce({ items: [post], nextCursor: null });
+    deleteMock.mockResolvedValue({ id: post.id });
+    // onSuccess の invalidateQueries による再取得では、削除済みの投稿を含まない
+    listMock.mockResolvedValueOnce({ items: [], nextCursor: null });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <HomeScreen />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("消される投稿")).toBeTruthy();
+
+    // 「…」を押すと確認用の「削除」ボタンが現れる（誤タップ防止。post-card.tsx）
+    fireEvent.click(screen.getByTestId("post-card-menu"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("削除"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(deleteMock).toHaveBeenCalledWith({ id: post.id }, expect.anything()));
+    await waitFor(() => expect(screen.queryByText("消される投稿")).toBeNull());
   });
 });
 
