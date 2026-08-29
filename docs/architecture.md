@@ -159,6 +159,7 @@ invite.issue        -> { code, expiresAt }
 invite.accept       { code }
 post.list           { cursor?, limit } -> { items, nextCursor }
 post.create         { body, imageKey?, imageWidth?, imageHeight? }
+                    body を trim した結果と imageKey が両方空なら INVALID_INPUT
 post.delete         { id }
 post.uploadUrl      { contentType } -> { key, url }   署名付きPUT・有効期限5分
 reaction.toggle     { postId, kind }
