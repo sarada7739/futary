@@ -63,8 +63,12 @@ export default function HomeScreen() {
       onError: (_error, _input, context) => {
         context?.previousQueries.forEach(([key, data]) => queryClient.setQueryData(key, data));
       },
-      // 成功・失敗どちらでもサーバの実際の値で最終的に上書きする
-      onSettled: () => queryClient.invalidateQueries({ queryKey: orpc.post.list.key() }),
+      // 成功時は再フェッチしない。post.list は呼ぶたびに画像の署名付きURLを
+      // 発行し直すため（architecture.md 6節）、ここで invalidateQueries すると
+      // 自分の投稿以外も含めて画像URLが変わり、<Image> が再読み込みされて
+      // 一覧全体がちらつく（人間の実機確認で発見）。相手の操作との同期は
+      // 60秒ごとのポーリング（refetchInterval・ADR-008）に任せ、楽観的更新の
+      // 結果をそのまま信頼する
     }),
   );
 

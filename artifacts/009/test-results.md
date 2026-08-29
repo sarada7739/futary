@@ -1,6 +1,6 @@
 # 009: リアクション — テスト結果
 
-実行日: 2026-08-29 / セッションB
+実行日: 2026-08-29〜2026-08-30 / セッションB
 
 ## `pnpm type-check`
 
@@ -96,9 +96,11 @@ apps/api test:       Tests  128 passed (128)
   間も配列にしておくことで、種類が増えたときに `postSchema` 自体を変えずに済むようにした
   （B の設計判断。種類を増やすかどうかの判断自体はレビュー時に R が行う。state.md 論点L4）
 - UI の楽観的更新は `apps/app/lib/reaction.ts` の純粋関数 `toggleReactionOptimistically` に
-  切り出した。`app/(tabs)/index.tsx` の `useMutation` の `onMutate`/`onError`/`onSettled` から
-  呼び出す（`onMutate` でキャッシュを直接書き換え、失敗したら `onMutate` が保存したスナップショットに
-  戻す。成功・失敗どちらでも `onSettled` でサーバの実際の値に最終的に上書きする）
+  切り出した。`app/(tabs)/index.tsx` の `useMutation` の `onMutate`/`onError` から呼び出す
+  （`onMutate` でキャッシュを直接書き換え、失敗したら `onMutate` が保存したスナップショットに
+  戻す）。**当初は成功・失敗どちらでも `onSettled` で `invalidateQueries` していたが、
+  人間の実機確認で「タップすると画像が点滅する」不具合が見つかり削除した**
+  （後述「実機確認で見つかった不具合」参照）
 - リアクションボタンは既存の `packages/ui` の `Button`（`variant="ghost"`）をそのまま再利用した。
   二重発火防止ガード（conventions.md 4節）を個別実装せずに済み、「副作用のある操作に生の
   `Pressable` を使わない」規約にも従える。表示は `🤍`/`❤️` の絵文字 + 件数（0件のときは件数を隠す）
@@ -120,10 +122,29 @@ apps/api test:       Tests  128 passed (128)
   `EXISTS (SELECT 1 FROM posts WHERE id = ?1 AND couple_id = ?2)` を追加して塞いだ
   （詳細は `docs/security-report.md` の当該エントリ参照）
 
-## 未確認（人間の実機確認待ち）
+## 実機確認（2026-08-30・`wrangler dev --remote`）
 
-Google OAuth ログインが要るため、実際のブラウザでのリアクションボタンのタップ・見た目・
-楽観的更新の体感速度はこのセッションでは確認できていない（003・007・008と同じ制約。
-`conventions.md` 8節の手順に従い、条件を満たしたことにはせず `docs/state.md` に未達として
-記録した）。009はM2の最後のタスクのため、008で取れなかったスクリーンショット
-（`state.md` L38）とあわせて、M2受け入れ判定でまとめて回収する。
+L34（`workers.dev`サブドメイン未登録）の解消（実際は既に登録済みだった）と、
+リモートD1へのマイグレーション適用・R2バケットへのCORS設定追加を経て、
+人間が実クラウド接続（`wrangler dev --remote`）でGoogle OAuthログインし、
+以下を確認した。
+
+- ログイン・タイムライン表示・画像付き投稿ができること
+- リアクション（ハートボタン）のタップで付与・取り消しができること
+- 「動作確認問題なし」の回答を得た
+
+### 実機確認で見つかった不具合（本タスク内で修正）
+
+**リアクションをタップすると投稿一覧の画像が点滅する。** 原因は
+`app/(tabs)/index.tsx` の `useMutation` の `onSettled` で無条件に
+`invalidateQueries({ queryKey: orpc.post.list.key() })` していたこと。
+`post.list` は呼ぶたびに画像の署名付きGET URLを発行し直す仕様
+（architecture.md 6節）のため、再フェッチのたびに一覧全体の画像URLが変わり、
+`<Image>` が再読み込みされてちらついていた。`onSettled` を削除し、
+楽観的更新（`onMutate`）の結果をそのまま信頼する形に変更した。相手の操作
+との同期は60秒ごとのポーリング（`refetchInterval`・ADR-008）に任せる。
+修正後、人間が実機で「なおった」ことを確認済み。
+
+以上により、確認観点「楽観的更新が失敗時に正しく巻き戻るか」に加え、
+実機での見た目（ちらつき無し）も満たしたことを確認した。
+008で未取得のスクリーンショット（`state.md` L38）は別途回収予定。
