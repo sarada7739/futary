@@ -59,7 +59,7 @@ docs/
   architecture.md               # 技術選定、構成、データモデル、API設計
   conventions.md                # コーディング規約、テスト方針、Git運用
   security-requirements.md      # 機密データ、認証方式、想定脅威
-  decisions.md                  # ADR: なぜその設計にしたか
+  decisions.md                  # ADR: なぜその設計にしたか（後述）
   state.md                      # 現在地（最重要・圧縮からの復帰起点）
   worklog.md                    # 追記専用の作業ログ
   security-report.md            # 監査結果（追記）
@@ -71,6 +71,19 @@ artifacts/
 .claude/
   agents/security-auditor.md
 ```
+
+### なぜ「理由」を書くのか
+
+ADR と設計ドキュメントの理由書きは、記録のためだけではない。
+**R が原則違反に気づけるのは、理由が書いてあるからである。**
+
+007 で R は「`imageKey` をクライアントから受け取るのは
+`coupleId` を受け取るのと同じでは」と着手前に指摘した。
+これは 005 の「引数に `coupleId` を持たせない」**理由**が
+`architecture.md` に書かれていたから成立している。
+「そうする」とだけ書いてあれば、別の名前の値がその原則に反することには気づけない。
+
+**理由を書くコストは、レビューが機能するための費用である。**
 
 ### state.md の項目
 - 現在のフェーズ / 完了タスク / 進行中タスク / 次の一手 / 未解決の論点
