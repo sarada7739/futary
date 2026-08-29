@@ -48,5 +48,11 @@ export const shadow = {
   },
 } as const;
 
+// architecture.md 7節「レイアウト」。640の根拠は画像の保存解像度（長辺1600px。
+// 表示640 CSS pxはRetina〈2倍〉でも1280 device pxで元画像の内側に収まる）
+export const layout = {
+  maxWidth: 640,
+} as const;
+
 export type ColorToken = keyof typeof colors;
 export type SpaceToken = keyof typeof space;
