@@ -12,3 +12,11 @@
 *.otf binary
 *.woff binary
 *.woff2 binary
+
+# 追記専用のログは union マージにする。
+# 3つの役が同じファイルの末尾に追記するため、内容が衝突していなくても
+# git が止まる。union は両方の追記を残すので、競合そのものが起きない。
+# 適用してよいのは「既存行を編集しない」ファイルだけ。
+# docs/state.md には適用しない（既存行を書き換えるため、union だと
+# 最終更新行やマイルストーン表が二重に残る）。詳細は docs/conventions.md 9節。
+docs/worklog.md merge=union
