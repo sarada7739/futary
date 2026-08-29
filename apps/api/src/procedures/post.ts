@@ -1,3 +1,4 @@
+import { REACTION_KINDS } from "@futary/contract";
 import { implementer } from "../implementer";
 import { isConstraintViolation } from "./couple";
 import { createGetUrl, imageKeyFor, MAX_IMAGE_BYTES, type R2SignConfig } from "../lib/r2-signed-url";
@@ -34,9 +35,59 @@ function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+interface ReactionSummary {
+  kind: (typeof REACTION_KINDS)[number];
+  count: number;
+  reactedByMe: boolean;
+}
+
+interface ReactionSummaryRow {
+  post_id: string;
+  kind: string;
+  count: number;
+  reacted_by_me: number;
+}
+
+// 投稿一覧の取得と合わせて1〜2クエリで解決する（タスク009。N+1にしない）。
+// pageRows の投稿IDをまとめて1クエリで集計し、Map にして返す。
+// postIds が空なら SQL を投げずに空 Map を返す（IN () は不正なSQLになるため）
+async function fetchReactionSummaries(
+  db: D1Database,
+  postIds: readonly string[],
+  userId: string | null,
+): Promise<Map<string, ReactionSummary[]>> {
+  const summaries = new Map<string, ReactionSummary[]>();
+  if (postIds.length === 0) return summaries;
+
+  // userId が null（未認証のデモ閲覧）のときは reacted_by_me が常に false になる。
+  // SQLite の `user_id = NULL` は常に偽と評価されるため、明示的な分岐は不要
+  const placeholders = postIds.map((_, i) => `?${i + 2}`).join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT post_id AS post_id, kind AS kind, COUNT(*) AS count,
+              MAX(CASE WHEN user_id = ?1 THEN 1 ELSE 0 END) AS reacted_by_me
+         FROM reactions
+        WHERE post_id IN (${placeholders})
+        GROUP BY post_id, kind`,
+    )
+    .bind(userId, ...postIds)
+    .all<ReactionSummaryRow>();
+
+  for (const row of results) {
+    const list = summaries.get(row.post_id) ?? [];
+    list.push({
+      kind: row.kind as ReactionSummary["kind"],
+      count: row.count,
+      reactedByMe: row.reacted_by_me === 1,
+    });
+    summaries.set(row.post_id, list);
+  }
+  return summaries;
+}
+
 // image_key が非NULLなら署名付き GET URL を発行する（有効期限1時間。architecture.md 6節）。
 // 鍵そのものはクライアントに渡さず、都度発行し直す短命URLだけを渡す
-async function toPost(row: PostRow, r2Sign: R2SignConfig) {
+async function toPost(row: PostRow, r2Sign: R2SignConfig, reactions: ReactionSummary[] = []) {
   const imageUrl = row.image_key ? await createGetUrl(r2Sign, row.image_key) : null;
   return {
     id: row.id,
@@ -48,6 +99,7 @@ async function toPost(row: PostRow, r2Sign: R2SignConfig) {
     imageWidth: row.image_width,
     imageHeight: row.image_height,
     createdAt: row.created_at,
+    reactions,
   };
 }
 
@@ -116,7 +168,15 @@ const postList = implementer.post.list.use(readProcedure).handler(async ({ conte
   const lastRow = pageRows[pageRows.length - 1];
   const nextCursor = hasMore && lastRow ? encodeCursor({ createdAt: lastRow.created_at, id: lastRow.id }) : null;
 
-  const items = await Promise.all(pageRows.map((row) => toPost(row, r2Sign)));
+  // 投稿一覧クエリ1回 + リアクション集計クエリ1回の計2クエリで解決する（タスク009）
+  const reactionSummaries = await fetchReactionSummaries(
+    db,
+    pageRows.map((row) => row.id),
+    context.userId,
+  );
+  const items = await Promise.all(
+    pageRows.map((row) => toPost(row, r2Sign, reactionSummaries.get(row.id) ?? [])),
+  );
   return { items, nextCursor };
 });
 
@@ -198,16 +258,31 @@ const postDelete = implementer.post.delete.use(writeProcedure).handler(async ({ 
 
   // D1 を先に更新し、そのあと R2 の削除を試みる（architecture.md 6節）。
   // 逆順にすると「投稿は残るのに画像が消える」壊れ方が利用者から見えてしまう。
-  // RETURNING で image_key を受け取り、削除対象を再度 SELECT しない
-  const row = await db
-    .prepare(
-      `UPDATE posts SET deleted_at = ?1
-        WHERE id = ?2 AND couple_id = ?3 AND deleted_at IS NULL
-       RETURNING image_key AS image_key`,
-    )
-    .bind(nowSeconds(), input.id, coupleId)
-    .first<{ image_key: string | null }>();
+  // RETURNING で image_key を受け取り、削除対象を再度 SELECT しない。
+  // reactions の削除を同じ batch に含める（M2まとめ監査 Low指摘: 論理削除後も
+  // リアクション行が永久に残留していた）。DELETE 文にも couple_id 条件を
+  // EXISTS で含める必要がある。含めないと、他ペアの投稿IDを指定した場合
+  // UPDATE は0件で NOT_FOUND になる一方 DELETE だけが無条件で成立してしまい、
+  // 「投稿は消せないがリアクションだけ消せる」経路が生まれる
+  // （実装時に post.test.ts 相当のテストで実際に検出した）
+  const batchResults = await db.batch<{ image_key: string | null }>([
+    db
+      .prepare(
+        `UPDATE posts SET deleted_at = ?1
+          WHERE id = ?2 AND couple_id = ?3 AND deleted_at IS NULL
+         RETURNING image_key AS image_key`,
+      )
+      .bind(nowSeconds(), input.id, coupleId),
+    db
+      .prepare(
+        `DELETE FROM reactions
+          WHERE post_id = ?1
+            AND EXISTS (SELECT 1 FROM posts WHERE id = ?1 AND couple_id = ?2)`,
+      )
+      .bind(input.id, coupleId),
+  ]);
 
+  const row = batchResults[0]?.results[0];
   if (!row) throw errors.NOT_FOUND();
 
   if (row.image_key) {

@@ -168,6 +168,18 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
       call(router.post.uploadUrl, { contentType: "image/jpeg" }, { context: contextFor(null, demoCoupleId) }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("reaction.toggle は DEMO_COUPLE_ID が設定されていても FORBIDDEN（009）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(
+        router.reaction.toggle,
+        { postId: crypto.randomUUID(), kind: "heart" },
+        { context: contextFor(null, demoCoupleId) },
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });
 
 describe("3. 未認証アクセスで読み取れるのがデモペアのデータのみである", () => {
@@ -251,6 +263,13 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
       call(router.post.uploadUrl, { contentType: "image/jpeg" }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
+
+  it("reaction.toggle（009）", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.reaction.toggle, { postId: crypto.randomUUID(), kind: "heart" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
 });
 
 describe("5. DEMO_COUPLE_ID が未設定のとき、未認証アクセスが拒否される（fail-closed）", () => {
@@ -291,8 +310,8 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （007時点: health.get/me.get + couple 3 + invite 2 + post 4 = 11）
-    expect(procedures.length).toBeGreaterThanOrEqual(11);
+    // （009時点: health.get/me.get + couple 3 + invite 2 + post 4 + reaction 1 = 12）
+    expect(procedures.length).toBeGreaterThanOrEqual(12);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの

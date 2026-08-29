@@ -36,6 +36,20 @@
       "when": 1787976819602,
       "tag": "0004_post_image_key_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787999548235,
+      "tag": "0005_reaction",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788000902243,
+      "tag": "0006_reaction_kind_check",
+      "breakpoints": true
     }
   ]
 }
