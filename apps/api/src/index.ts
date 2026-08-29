@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { RPCHandler } from "@orpc/server/fetch";
+import { StrictGetMethodPlugin } from "@orpc/server/plugins";
 import { router } from "./router";
 import type { RpcContext } from "./context";
 import { createAuth, parseTrustedOrigins } from "./auth";
@@ -31,7 +32,18 @@ const R2_BUCKET_NAME = "futary-images";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-const handler = new RPCHandler(router);
+// @orpc/server の RPCHandler は既定（`strictGetMethodPluginEnabled` を渡さない場合）で
+// StrictGetMethodPlugin を自動登録しており、GET経由での手続き実行は元々拒否されている
+// （@orpc/server/dist/adapters/fetch/index.mjs で実装を確認済み）。
+// 009 の M2まとめ監査時、この既定値を確認せずに「GETが通ってしまう」という誤った
+// High指摘が出て一時 CSRF 脆弱性ありと記録したが、実測（curlでのGET確認）は
+// 既にこの時点で 405 を返しており、指摘そのものが誤りだった（fix/reject-get-writes・
+// Rレビューで判明。security-requirements.md 7節「状態変更をGETで行わない」は
+// 元々満たされていた）。ここで明示的に登録しているのは「ライブラリの既定に依存しない」
+// ためで、上のコンストラクタ内の自動登録と合わせて StrictGetMethodPlugin が2つ
+// 登録される（意図的な重複。両方とも同じ検査をするだけで実害は無い）。
+// 回帰テスト（apps/api/test/method-restriction.test.ts）はこの動作を固定する
+const handler = new RPCHandler(router, { plugins: [new StrictGetMethodPlugin()] });
 
 // 認証情報（Cookie）付きリクエストを許可するオリジンは環境変数で切り替える。
 // 本番は同一Workerから配信するため同一オリジンになり、そもそも越境しない

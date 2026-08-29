@@ -1,11 +1,15 @@
 import { Button, colors, logoMark, Screen, space, Text } from "@futary/ui";
-import { useInfiniteQuery, useMutation } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, type InfiniteData } from "@tanstack/react-query";
+import type { Post } from "@futary/contract";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, FlatList, Image, RefreshControl, View } from "react-native";
 import { PostCard } from "../../components/post-card";
 import { useSession } from "../../lib/auth-client";
 import { orpc } from "../../lib/orpc";
 import { POST_LIST_REFETCH_INTERVAL_MS, queryClient } from "../../lib/query";
+import { toggleReactionOptimistically } from "../../lib/reaction";
+
+type PostListPage = { items: Post[]; nextCursor: string | null };
 
 const LOGO_WIDTH = 96;
 const LOGO_HEIGHT = 34;
@@ -28,6 +32,43 @@ export default function HomeScreen() {
   const deletePost = useMutation(
     orpc.post.delete.mutationOptions({
       onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.post.list.key() }),
+    }),
+  );
+
+  // タップした瞬間に反映し、失敗したら戻す（タスク009・楽観的更新）。
+  // onMutate でキャッシュを直接書き換え、サーバ応答を待たない
+  const toggleReaction = useMutation(
+    orpc.reaction.toggle.mutationOptions({
+      onMutate: async (input) => {
+        await queryClient.cancelQueries({ queryKey: orpc.post.list.key() });
+        const previousQueries = queryClient.getQueriesData<InfiniteData<PostListPage>>({
+          queryKey: orpc.post.list.key(),
+        });
+        queryClient.setQueriesData<InfiniteData<PostListPage>>(
+          { queryKey: orpc.post.list.key() },
+          (old) =>
+            old && {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                items: page.items.map((item) =>
+                  item.id === input.postId ? toggleReactionOptimistically(item, input.kind) : item,
+                ),
+              })),
+            },
+        );
+        return { previousQueries };
+      },
+      // 失敗したら onMutate で保存した以前の状態に戻す
+      onError: (_error, _input, context) => {
+        context?.previousQueries.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      },
+      // 成功時は再フェッチしない。post.list は呼ぶたびに画像の署名付きURLを
+      // 発行し直すため（architecture.md 6節）、ここで invalidateQueries すると
+      // 自分の投稿以外も含めて画像URLが変わり、<Image> が再読み込みされて
+      // 一覧全体がちらつく（人間の実機確認で発見）。相手の操作との同期は
+      // 60秒ごとのポーリング（refetchInterval・ADR-008）に任せ、楽観的更新の
+      // 結果をそのまま信頼する
     }),
   );
 
@@ -85,6 +126,16 @@ export default function HomeScreen() {
               post={item}
               isOwn={isOwn}
               onDelete={isOwn ? async () => { await deletePost.mutateAsync({ id: item.id }); } : undefined}
+              // 未認証（デモ閲覧）ではサーバが FORBIDDEN を返すだけで境界は破れないが、
+              // 押しても黙って巻き戻るだけの体験を避けるためボタン自体を出さない
+              // （M2まとめ監査 Low指摘）
+              onToggleReaction={
+                myId
+                  ? async (kind) => {
+                      await toggleReaction.mutateAsync({ postId: item.id, kind });
+                    }
+                  : undefined
+              }
             />
           );
         }}
