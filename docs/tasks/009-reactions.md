@@ -51,8 +51,10 @@
 - [x] UI（楽観的更新。`apps/app/lib/reaction.ts` + `app/(tabs)/index.tsx` + `post-card.tsx`）
 - [x] テスト（apps/api 128件・apps/app 27件・packages/ui 7件、すべて緑。詳細は `artifacts/009/test-results.md`）
 - [x] security-auditor 実施（M2まとめ監査。006・008・009対象。009固有の指摘はゼロ。
-      API全体に及ぶHigh 1件〈GET経由の書き込み実行〉は `fix/reject-get-writes` で対応、
-      009固有のLow 4件は本タスク内で対応。詳細は `docs/security-report.md`）
+      当初API全体に及ぶHigh 1件〈GET経由の書き込み実行〉を検出し `fix/reject-get-writes`
+      で対応したが、**Rレビューでこの指摘は誤りと判明**（`@orpc/server` の `RPCHandler`
+      は既定でGETを拒否しており脆弱性は無かった。記述は訂正済み）。009固有のLow 4件は
+      本タスク内で対応。詳細は `docs/security-report.md`）
 - [x] 証跡保存（`artifacts/009/test-results.md`・`artifacts/009/security-audit-raw.md`）
       → `state.md` 更新 → `worklog.md` 追記
 - [x] 人間へ M2 受け入れ判定を依頼。**2026-08-30、人間が実機

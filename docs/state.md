@@ -7,7 +7,8 @@
 人間が実機（`wrangler dev --remote`）でログイン・投稿・リアクションを確認し
 「動作確認問題なし」の回答を得た。実機確認中に見つかったリアクションタップ時の
 画像ちらつき不具合を本ブランチで修正済み。M2受け入れ判定は実質完了、残るは
-L38（008のスクリーンショット回収）のみ）
+L38（008のスクリーンショット回収）のみ。**さらにRレビューを受け、L52
+（GET経由CSRFのHigh指摘）が誤指摘だったと判明し記述を訂正した**。詳細はL52参照）
 
 ---
 
@@ -170,13 +171,13 @@ packages/ui 7件すべて緑、型チェック・lint通過。
 消せる」新しい穴を自分で作ってしまったが、追加した回帰テストで実行時に検出し、
 DELETE文にも`couple_id`条件をEXISTSで追加して修正した**（詳細は`docs/security-report.md`）。
 
-**High 1件を検出**（`apps/api/src/index.ts`。oRPCのRPCHandlerがHTTPメソッドを見ないため、
-全ての書き込み手続きがGETで実行できる。セッションCookieが`SameSite=Lax`のため外部サイトの
-`<a href>`一つでCSRFが成立する。`security-requirements.md`7節の「状態変更をGETで行わない」
-という前提が実装で成立していなかった）。009固有の変更ではなくAPI全体（couple/invite/post/
-reaction全ての書き込み手続き）に及ぶため、`conventions.md`7節の判定基準に従い
-`fix/reject-get-writes`ブランチで別途対応する（`@orpc/server/plugins`の
-`StrictGetMethodPlugin`を適用する方針。下記L52参照）。
+**当初High 1件を検出**（`apps/api/src/index.ts`。oRPCのRPCHandlerがHTTPメソッドを見ないため
+全ての書き込み手続きがGETで実行できる、という指摘）。009固有の変更ではなくAPI全体に
+及ぶと判断し`fix/reject-get-writes`ブランチで別途対応したが、**この指摘自体が誤りだった
+とRレビューで判明した。** `@orpc/server`の`RPCHandler`は既定で`StrictGetMethodPlugin`を
+自動登録しており、GETは元々拒否されていた。**CSRFの脆弱性は存在しなかった。**
+コード・回帰テストはそのまま残し（ライブラリの既定に依存しない防御）、記述をすべて
+訂正した（下記L52参照。詳細は`docs/security-report.md`）。
 
 詳細は`artifacts/009/test-results.md`・`artifacts/009/security-audit-raw.md`・
 `docs/security-report.md`・`docs/tasks/009-reactions.md`の実装メモ。
@@ -236,8 +237,10 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
   修正済み。**「完了タスク」へはまだ移動しない**——PRがマージされていないため。
   **M2の最後のタスク。** 停止条件のうち人間の受け入れ判定は完了、L38
   （008のスクリーンショット）の回収のみ残っている）
-- fix/reject-get-writes（未着手。009のM2まとめ監査で検出したHigh指摘
-  〈GET経由での書き込み手続き実行=CSRF〉への対応。下記L52参照）
+- fix/reject-get-writes（PR #60提出済み・レビュー待ち。**Rレビューで、対応対象と
+  していたHigh指摘〈GET経由での書き込み手続き実行=CSRF〉が誤指摘だったと判明**。
+  コード・回帰テストは残し記述を訂正済み。下記L52参照）
+- fix/compose-image-preview-layout（PR #61提出済み・レビュー待ち）
 
 ## 環境
 
@@ -247,23 +250,20 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | リポジトリ | `sarada7739/futary`（**Private**。016 で Public に切り替える。ADR-011） |
 | 既定ブランチ | `main` |
 | gh CLI | 2.98.0 認証済み（スコープ: repo / workflow / gist / read:org） |
-| Cloudflare | 設定済み。D1 `futary-db`（`database_id: 37d32e5d-80a9-4bc9-bae4-e7019bebd883`）、R2 `futary-images`。**`workers.dev`サブドメイン未登録**（L34） |
+| Cloudflare | 設定済み。D1 `futary-db`（`database_id: 37d32e5d-80a9-4bc9-bae4-e7019bebd883`。**リモートにも全マイグレーション適用済み**）、R2 `futary-images`（**CORS設定済み**、`http://localhost:8081`のPUT/GET許可）。`workers.dev`サブドメイン登録済み（`coco7739yahoo.workers.dev`）。`wrangler dev --remote`使用可能（L34解決済み） |
 | R2 APIトークン | **設定済み**（2026-08-29）。`.dev.vars`の`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`に実際の値が入っている（コミットしていない） |
 | Google OAuth | **設定済み**（2026-08-29）。`.dev.vars` に実際のクライアントID/シークレットが入っている（コミットしていない） |
 
 ## 次の一手
 
-1. `task/009-reactions`のPRを作成し、Rレビューへ出す
-2. `fix/reject-get-writes`（L52・M2まとめ監査のHigh指摘対応）に着手する。
-   `@orpc/server/plugins`の`StrictGetMethodPlugin`を`RPCHandler`に適用し、
-   GETメソッドでの書き込み手続き呼び出しを拒否する。回帰テストを追加すること
-3. **人間の対応が必要**: 009（とfix/reject-get-writes）の完了後、M2受け入れ判定で
-   実機確認を行う。008の`artifacts/008/`スクリーンショット（L38）と、009の
-   リアクションボタンのタップ・見た目・楽観的更新の体感速度をこのタイミングで
-   まとめて確認する
-4. **人間の対応が必要（任意・016の前までに）**: `workers.dev`サブドメインを
-   Cloudflareダッシュボードで登録する。登録後、`env.BUCKET`バインディング経由の
-   実クラウド確認ができるようになる（L34参照。急ぎではないが016では必須）
+1. `task/009-reactions`（PR #59）・`fix/reject-get-writes`（PR #60）・
+   `fix/compose-image-preview-layout`（PR #61）はいずれも提出済み。Rレビュー対応中
+   （`fix/reject-get-writes`はL52の誤指摘訂正を反映済み。再レビュー待ち）
+2. ~~`fix/reject-get-writes`に着手する~~ → 完了（PR #60。ただし対応対象のHigh指摘が
+   誤指摘だったとRレビューで判明し、記述を訂正した。L52参照）
+3. **人間の対応**: 2026-08-30、実機確認（008・009）が完了し「動作確認問題なし」の
+   回答を得た。残るは008の`artifacts/008/`スクリーンショット（L38）の回収のみ
+4. ~~`workers.dev`サブドメインを登録する~~ → 解決済み（L34。実は既に登録済みだった）
 5. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
    サンプルとして使うかどうかはAの判断待ち
 
@@ -319,8 +319,8 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | L49 | Dependabotのセキュリティ更新のみ有効化（`vulnerability-alerts`・`automated-security-fixes`）はリポジトリ設定のAPI経由で行い、`dependabot.yml`を作らなかったため、**設定がリポジトリ内に痕跡を残さず、レビューやCIでは検証できない**（L11 Rレビュー R-31。実測: `gh api repos/{owner}/{repo}/vulnerability-alerts`→204、`gh api repos/{owner}/{repo}/automated-security-fixes`→`{"enabled":true,"paused":false}`で現在は有効と確認済み） | 誰かが無効化しても誰も気づけない | 016の確認手順に上記2つの`gh api`コマンドでの実測確認を追加する |
 | L50 | `scripts/check-audit-ignore-staleness.mjs`の「判定を見送る」分岐（`metadata.vulnerabilities`が想定した形でないとき）は、将来pnpmのJSON出力形式が変わると恒久的に見送り続け、CIは緑のまま固定される可能性がある（L11 Rレビュー R-34）。「放置すると赤くなる」ために作った陳腐化検出に、静かに緑で居座れる経路がある | ログには「判定を見送ります」と出るが、Aが陳腐化検出に切り替えた理由自体が「誰もCIログを読まないから」だったため、この経路もログだけでは気づかれない | 016の再評価項目に「陳腐化検出が実際に判定を行っているか（見送りが常態化していないか）」の確認を追加する |
 | L51 | 008のPR #47受け入れ・マージ後、B自身が「009-reactions（次に着手する。着手可否をAに確認中——Aは当初『Rが008をまだ見ていない』ことを理由に保留を指示していたが、実際には008・L11ともRの受け入れ・マージが完了済みのため、状況をAへ再連絡した）」とworklogに書いた際、L11のPR #54の`process.exit(0)`修正を「バグ発見」と報告したが、Rの確認では当該箇所はバックアップ作成より前にあり、その時点では復元をスキップする経路は成立していなかった（L11 Rレビュー R-35） | 「潜在的な危険パターンを先に潰した」が正確な表現で、「バグを発見した」は少し強い。満たせないものを満たしたことにしないのと同じ精度で、自己申告が過小な方向に外れるのも避けるべき | 記録のみ。今後同種の報告をする際の表現の精度に活かす |
-| L52 | oRPCの`RPCHandler`がHTTPメソッドを見ないため、全ての書き込み手続き（`couple.update`/`invite.issue`/`post.create`/`reaction.toggle`等）が`GET`で実行できる（009 M2まとめ監査 High指摘）。セッションCookieが`SameSite=Lax`のため、外部サイトの`<a href="...GET URL...">`を踏むだけでログイン中の利用者のペアに対して書き込みが実行される（CSRF）。`security-requirements.md`7節の「状態変更をGETで行わない」という前提が実装で成立していなかった | 単一のリンククリックで成立し、2人の私的タイムラインへの不正な書き込み・招待コードの無効化に繋がる。読み取りの越境やペア外への漏洩は起きない（書き込み専用の影響） | **`fix/reject-get-writes`で対応中。** `@orpc/server/plugins`の`StrictGetMethodPlugin`を`RPCHandler`に適用する。009固有の変更ではなくAPI全体に及ぶため`fix/`ブランチで別途対応する（`conventions.md`7節の判定基準） |
-| L53 | oRPCの`encode`が`Cache-Control: no-store`等のレスポンスヘッダを付けない（009 M2まとめ監査 Info指摘）。L52（GETが通る）と組み合わさると、私的な投稿本文を含む`post.list`応答がブラウザのディスクキャッシュに載る余地が生まれる | L52の修正で主因（GET経由の到達）は消えるが、二重の防御として`/api/*`に`Cache-Control: no-store`を明示するのが望ましい | L52対応時にあわせて検討。急ぎではない |
+| ~~L52~~ | ~~oRPCの`RPCHandler`がHTTPメソッドを見ないため、全ての書き込み手続きが`GET`で実行できる（009 M2まとめ監査 High指摘）~~ → **【訂正・誤指摘と判明】**。Rレビューで、`@orpc/server`の`RPCHandler`が既定で`StrictGetMethodPlugin`を自動登録しており、GET経由の手続き実行は元々拒否されていたと判明した（`@orpc/server/dist/adapters/fetch/index.mjs`で確認）。**CSRFの脆弱性は存在しなかった。** `fix/reject-get-writes`で貼った実測（`GET .../couple/get: 405`）は修正前から一貫して正しく、誤っていたのはその解釈の方だった。コード・回帰テストはライブラリの既定に依存しない防御としてそのまま残す（Rの判断）。詳細は`docs/security-report.md`の該当エントリ参照 | | 解決済み（誤指摘と判明・記述訂正済み。`fix/reject-get-writes`PR #60で対応） |
+| ~~L53~~ | ~~oRPCの`encode`が`Cache-Control: no-store`等のレスポンスヘッダを付けない（009 M2まとめ監査 Info指摘）。L52（GETが通る）と組み合わさると…~~ → **前提のL52が誤指摘だったため、この指摘も成立しない**（GET経由の到達自体が元々無い）。`Cache-Control: no-store`自体の要否は本件と切り離した話であり、緊急性はない | | 前提が崩れたため対応不要（記録のみ）。`Cache-Control`自体を足すかは016前に任意で検討 |
 
 ## 決まっていることの要約
 
