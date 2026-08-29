@@ -2834,3 +2834,33 @@ R が PR #83 の `architecture.md` を読み、誤りを見つけた。**R が�
   英単語（`0007_graceful_riptide.sql`）になり、他のタスクの採番規則
   （`0007_event.sql`のような内容が分かる名前）と異なっていた。ファイル名と
   `meta/_journal.json`の`tag`の両方を手で揃える必要があった
+
+---
+
+## 2026-08-30 / セッションB（010 Rレビュー往復1回目対応）
+
+### やったこと
+- PR #86に対するRからの必須修正1件・判断依頼1件を受け取り、対応した
+  - 必須: `apps/api/src/lib/date.ts`の`yearsBefore`が`monthsBefore(date, n*12)`
+    へ委譲していたため、`projectMonthDay`の規則（平年の02-29は02-28に寄せる。
+    03-01にしない）と矛盾していた（`yearsBefore("2024-02-29", 1)`が
+    `2023-03-01`を返していた）。Rが実行して発見。`yearsBefore`を
+    `projectMonthDay(month, day, year - n)`を直接呼ぶ実装に変更し解消した
+  - 判断依頼: `monthsBefore`の月末繰り上がり（`2026-03-31`の1ヶ月前が
+    `2026-03-03`になる。月末に寄せない）は013（`memory.get`）で実際に
+    使われる際に利用者の直感に反しうる仕様未決定の論点。Rの指示どおり
+    現状の挙動のままテストで固定し、`docs/state.md`にL61として起票して
+    Aへエスカレーションした
+  - `apps/api/test/date.test.ts`にテスト3件追加
+    （`yearsBefore`のうるう日ケース2件、`monthsBefore`の月末固定テスト1件〈2値〉）
+- テスト全体178件緑（175→178）、型チェック・lint通過
+- `artifacts/010/review.md`（新規）にRのレビュー結果を一字一句そのまま保存
+  （`conventions.md` 8節）。`artifacts/010/test-results.md`の件数を更新
+- `docs/tasks/010-calendar-api.md`の実装メモに対応内容を追記
+- `docs/state.md`を更新（L61を追加、進行中タスク・最終更新を対応後の状態に）
+
+### 決定事項
+- なし（判断が必要な点はL61としてAへ上げた。Bは決めていない）
+
+### 詰まった点
+- なし

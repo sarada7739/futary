@@ -54,8 +54,12 @@ export function isLeapYear(year: number): boolean {
 }
 
 // date から n ヶ月前の日付文字列を返す（n が負なら n ヶ月後になる）。
-// 日が繰り上がる場合（例: 1/31 の1ヶ月前）は JS の Date が UTC 月末を
-// 自動で繰り上げる挙動にそのまま従う
+// 日が月末を超える場合（例: 3/31 の1ヶ月前 → 2月に31日は無い）は
+// JS の Date が UTC 月末を自動で繰り上げる挙動にそのまま従う（例:
+// 2026-03-31 の1ヶ月前は 2026-03-03 になる。2/28 に寄せる案とどちらが
+// 正しいかは未決定。013（memory.get の「ちょうど1ヶ月前」）で実際に
+// 使うときに A が判断する。決まるまでこの挙動のまま固定する
+// （テストで固定済み。R レビュー指摘）
 export function monthsBefore(date: string, n: number): string {
   const { year, month, day } = parseDate(date);
   const shifted = new Date(Date.UTC(year, month - 1 - n, day));
@@ -66,9 +70,15 @@ export function monthsBefore(date: string, n: number): string {
   });
 }
 
-// date から n 年前の日付文字列を返す
+// date から n 年前の日付文字列を返す。年を引くだけなら月・日は変わらないため
+// `monthsBefore` の汎用の月末繰り上がりには任せず、`projectMonthDay` と同じ
+// 規則（平年の 02-29 は 02-28 に寄せる）を通す。`monthsBefore(date, n*12)` に
+// 委譲すると、2024-02-29 の1年前が `projectMonthDay` の規則と矛盾する
+// 2023-03-01 になってしまう（同じファイル内で同じ問いに2つの答えが出る。
+// R レビュー指摘で発覚）
 export function yearsBefore(date: string, n: number): string {
-  return monthsBefore(date, n * 12);
+  const { year, month, day } = parseDate(date);
+  return projectMonthDay(month, day, year - n);
 }
 
 // date（YYYY-MM-DD）の月・日部分だけを取り出す

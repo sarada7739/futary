@@ -76,8 +76,26 @@ describe("monthsBefore / yearsBefore", () => {
     expect(monthsBefore("2026-01-15", 1)).toBe("2025-12-15");
   });
 
+  // 月末を月末に寄せるか（3/31→2/28）は未決定（013で再検討。Rレビュー指摘）。
+  // 決まるまでは現状の挙動（JS Date の自動繰り上げ）をテストで固定する
+  it("【暫定】月末を超える日は翌月へ繰り上がる（月末に寄せない）", () => {
+    expect(monthsBefore("2026-03-31", 1)).toBe("2026-03-03");
+    expect(monthsBefore("2026-03-30", 1)).toBe("2026-03-02");
+  });
+
   it("n年前の日付を返す", () => {
     expect(yearsBefore("2026-03-15", 1)).toBe("2025-03-15");
+  });
+
+  // yearsBefore は projectMonthDay と同じ規則（平年の02-29は02-28に寄せる）を通す。
+  // monthsBefore(date, n*12) に委譲すると、JS Date の月末繰り上げにより
+  // 2023-03-01 になり architecture.md 5節の規則と矛盾していた（Rレビュー指摘）
+  it("うるう日から平年への1年前は02-28に寄せる（projectMonthDayと矛盾しない）", () => {
+    expect(yearsBefore("2024-02-29", 1)).toBe("2023-02-28");
+  });
+
+  it("うるう日からうるう年への年前は02-29のまま", () => {
+    expect(yearsBefore("2024-02-29", 4)).toBe("2020-02-29");
   });
 });
 
