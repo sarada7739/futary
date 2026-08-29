@@ -6,6 +6,16 @@ import type { Bindings } from "../src/index";
 import type { RpcContext } from "../src/context";
 
 const db = (env as unknown as Bindings).DB;
+const bucket = (env as unknown as Bindings).BUCKET;
+
+// 実際の R2 API トークンの設定有無にテストの合否が左右されないよう、
+// 署名鍵はテスト固有の固定値を使う（post.test.ts と同じ理由）
+const r2Sign: RpcContext["r2Sign"] = {
+  accountId: "test-account",
+  accessKeyId: "test-access-key-id",
+  secretAccessKey: "test-secret-access-key",
+  bucketName: "test-bucket",
+};
 
 let userSeq = 0;
 
@@ -29,7 +39,7 @@ function contextFor(
   ip: string | null = "203.0.113.1",
   demoCoupleId: string | null = null,
 ): RpcContext {
-  return { db, user: user ? { ...user, image: null } : null, ip, demoCoupleId };
+  return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip, demoCoupleId };
 }
 
 async function createCouple(user: { id: string; name: string; email: string }) {

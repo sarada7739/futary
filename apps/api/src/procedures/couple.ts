@@ -28,8 +28,9 @@ function toCouple(row: CoupleRow) {
 
 // D1 は batch() を文のエラーでロールバックする（architecture.md 4節）。
 // couple_members の CHECK/NOT NULL/UNIQUE 違反はすべてここに来るため、
-// 種別を区別せず一律 FORBIDDEN として扱う（invite.accept の判定表と同じ）
-function isConstraintViolation(error: unknown): boolean {
+// 種別を区別せず一律 FORBIDDEN として扱う（invite.accept の判定表と同じ）。
+// post.ts の image_key UNIQUE 制約違反判定でも同じ形を使うため export する
+export function isConstraintViolation(error: unknown): boolean {
   return error instanceof Error && /constraint failed/i.test(error.message);
 }
 

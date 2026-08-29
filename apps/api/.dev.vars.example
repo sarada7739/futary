@@ -21,3 +21,12 @@ BETTER_AUTH_URL=http://localhost:8787
 # Cookie を使う認証リクエスト（credentials: true）を許可するオリジン。カンマ区切り。
 # 本番は同一オリジン配信のため空でよい（未設定なら CORS はすべて拒否＝fail-closed）
 TRUSTED_ORIGINS=http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006
+
+# R2 の S3互換API を署名するための認証情報（画像の署名付きURL発行用）。
+# Cloudflareダッシュボード「R2 > Manage R2 API Tokens」で、
+# futary-images バケットに対する Object Read & Write 権限のトークンを発行して入れる。
+# env.BUCKET のバインディング（wrangler.toml）とは別物（未設定だと post.uploadUrl/
+# post.list の画像URL発行がエラーになる。fail-closed）
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=

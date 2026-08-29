@@ -17,7 +17,17 @@ export interface Bindings {
   TRUSTED_ORIGINS?: string;
   // デモペアの couple_id。014 でデモペアを作るまでは空文字（architecture.md 8節）
   DEMO_COUPLE_ID?: string;
+  // R2 の S3互換API を署名するための認証情報（Cloudflareダッシュボードの
+  // 「R2 > Manage R2 API Tokens」で発行する。env.BUCKET のバインディングとは別物で、
+  // バインディングは Worker 内から直接オブジェクトを操作するためのもの、
+  // こちらはクライアントに渡す署名付きURLを組み立てるための鍵）
+  R2_ACCOUNT_ID?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
 }
+
+// wrangler.toml の [[r2_buckets]] bucket_name と一致させる
+const R2_BUCKET_NAME = "futary-images";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -61,7 +71,13 @@ app.use("/api/*", async (c, next) => {
   const ip = c.req.header("cf-connecting-ip") ?? null;
   // 空文字も「未設定」として扱う（fail-closed。docs/tasks/005-authorization-middleware.md）
   const demoCoupleId = c.env.DEMO_COUPLE_ID ? c.env.DEMO_COUPLE_ID : null;
-  const context: RpcContext = { db: c.env.DB, user, ip, demoCoupleId };
+  const r2Sign = {
+    accountId: c.env.R2_ACCOUNT_ID ?? "",
+    accessKeyId: c.env.R2_ACCESS_KEY_ID ?? "",
+    secretAccessKey: c.env.R2_SECRET_ACCESS_KEY ?? "",
+    bucketName: R2_BUCKET_NAME,
+  };
+  const context: RpcContext = { db: c.env.DB, bucket: c.env.BUCKET, r2Sign, user, ip, demoCoupleId };
   const { matched, response } = await handler.handle(c.req.raw, {
     prefix: "/api",
     context,

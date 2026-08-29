@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-29 / セッションB（PR #37・#38 マージ完了。007着手前）
+**最終更新**: 2026-08-29 / セッションB（007実装完了。PR作成・Rレビュー依頼待ち）
 
 ---
 
@@ -111,6 +111,28 @@ L28〜L30を参照。
 よるOAuth state競合）はPR #22で修正・マージ済み。詳細は
 `artifacts/003/manual-check.md` と `docs/tasks/003-auth-google.md` の進捗節。
 
+007は画像アップロード（R2）を実装した。`post.uploadUrl`（`imageId`をULIDでサーバ生成し、
+R2の署名付きPUT URLを発行。有効期限5分）、`post.create`（画像はR2の実体確認
+〈存在・サイズ8MB以内・Content-Type一致〉を経てから保存。本文か画像どちらか必須で
+空投稿を拒否。旧L30）、`post.list`（署名付きGET URL・有効期限1時間を発行）、
+`post.delete`（D1を先に更新しR2削除は失敗を握りつぶす。`image_key`は残す）を実装。
+`packages/contract`の`post.create`は`imageKey`を廃止し`imageId`のみを受け取る形にした
+（`coupleId`を含む鍵はクライアントから一切受け取らない）。R2の署名付きURL発行は
+Workersバインディングでは不可能なため、S3互換APIをSigV4署名する`aws4fetch`を導入した
+（`apps/api/src/lib/r2-signed-url.ts`）。`posts.image_key`にUNIQUE制約を追加
+（`0004_post_image_key_unique.sql`）。`apps/app`にVitestベースのテスト基盤を初導入し
+（React Native Testing Libraryは react-native 0.86 + React 19の組み合わせで動かず、
+react-native-webエイリアス+jsdom+`@testing-library/react`に切り替えた。詳細は
+タスクファイルの実装メモ）、`packages/ui`の`Button`に二重発火防止ガードを組み込んだ
+（旧L26）。security-auditorを実行しHigh以上ゼロ。Medium 4件中3件・Low 1件中1件を
+その場で対応済み（Content-Type検証の追加、imageIdのULID形式検証、他ペアimageIdの
+テスト追加、Buttonの例外時ガード固着修正）。テストはapps/api 109件・apps/app 14件・
+packages/ui 7件すべて緑、型チェック・lint通過。詳細は`docs/security-report.md`・
+`artifacts/007/`・`docs/tasks/007-image-upload.md`の実装メモ。
+**R2のS3互換API認証情報が`.dev.vars`に未設定のため、署名なしアクセスの拒否確認・
+実際のアップロード実機確認は未実施**（003のGoogle OAuthクライアントと同じ制約。
+下記「次の一手」参照）。ブランチ`task/007-image-upload`、PR未作成。
+
 ## プロダクト概要
 
 futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。」
@@ -121,7 +143,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | M | タスク | 内容 | 状態 |
 |---|---|---|---|
 | M1 | 001〜005 | 足回り・デザイン基盤・認証・ペア成立・認可 | **完了**（2026-08-29、人間の受け入れ確認済み） |
-| M2 | 006〜009 | 投稿・画像・タイムライン・リアクション | 着手中（006完了） |
+| M2 | 006〜009 | 投稿・画像・タイムライン・リアクション | 着手中（006完了、007実装完了・PR/レビュー待ち） |
 | M3 | 010〜013 | カレンダー・統計・思い出し | 未着手 |
 | M4 | 014〜016 | ゲストデモ・LP・仕上げと公開 | 未着手 |
 
@@ -140,7 +162,8 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 進行中タスク
 
-（現在なし。007着手前）
+- 007-image-upload（実装完了。security-auditor実行済み・High以上ゼロ。
+  PR作成 → Rへレビュー依頼が次。ブランチ`task/007-image-upload`）
 
 ## 環境
 
@@ -155,19 +178,14 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 次の一手
 
-1. `docs/tasks/007-image-upload.md`（PR #38でRの先読み指摘2件を反映済み。
-   最新版を必ず読むこと）を読み、実装に着手する
-   - `imageKey`をクライアントから受け取らない（`imageId`をサーバ生成、鍵はサーバが組み立てる）
-   - `post.delete`はD1を先に更新し、R2削除の失敗を握りつぶす。`image_key`は消さない
-   - 空投稿の禁止（旧L30）もこのタスクで実装する
-2. `Button`の二重発火防止（旧L26）・`apps/app`のテスト基盤導入（旧L27）は
-   007で実装する方針が決定済み（`docs/tasks/007-image-upload.md`参照）
-3. security-requirements.md 10節1の必須対象（画像アップロード）に該当するため、
-   007完了時はsecurity-auditorの起動が必須
-4. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
+1. 007のPRを作成し、Rへレビュー依頼を出す（実装・テスト・security-auditor完了済み）
+2. **人間の対応が必要**: R2のS3互換API認証情報をCloudflareダッシュボード
+   「R2 > Manage R2 API Tokens」で発行し、`.dev.vars`の`R2_ACCOUNT_ID`/
+   `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`に設定する（003のGoogle OAuthクライアントと
+   同じ制約）。設定後、署名なしアクセスの拒否確認・実際のアップロード実機確認を行う
+   （`docs/tasks/007-image-upload.md`の確認観点・完了条件を参照）
+3. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
    サンプルとして使うかどうかはAの判断待ち
-4. L28・L30はPR #35でAが解決済み（L30の実装は007に組み込み済み）。
-   L29（writeProcedureの型絞り込み）は`fix/`でBが対応中
 
 ## 未解決の論点
 
@@ -203,6 +221,8 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | ~~L28~~ | ~~`docs/tasks/006-post-api.md` の完了条件が「005 の認可テスト**4件**」を指しているが、恒久基準（`security-requirements.md` 3節、PR #17で5件に更新済み）は**5件**~~ → **解決**（PR #35）。全タスクファイルを走査した結果、件数を書いていたのは006だけだったと判明。006の記述を件数抜き（`security-requirements.md` 3節を指すだけ）に訂正し、`conventions.md` 9節に「件数・項目数は出典側にだけ置く。引用側に書かない」を規約として追加した | | 解決済み（PR #35） |
 | ~~L29~~ | ~~`apps/api/src/procedures/base.ts` の `writeProcedure` の戻り値型 `CoupleContext` が union のままで、readonly を実行時に弾いた後も `userId` が型上 `string \| null` のまま絞り込まれない~~ → **解決**（PR #37）。`writeProcedure` の OutContext を `Extract<CoupleContext, {mode: "member"}>` に変更し、`post.create` にあった到達不能な `if (userId === null) throw ...` を削除した。AがB案（`fix/`対応）を支持し、Rの受け入れを得てmainへマージ済み | | 解決済み（PR #37） |
 | ~~L30~~ | ~~投稿の本文・画像がどちらも空の投稿を作成できてしまう（`post.create` に下限が無い）~~ → **解決**（PR #35）。「本文か画像のどちらかは必須」を要件化（`requirements.md` 4節）。006の時点では画像が無く下限を置けなかったため、画像が入る007で弾く形に揃える（`architecture.md` 5節・`docs/tasks/007-image-upload.md`に実装項目を追加済み。空白のみの本文も空として扱い、両方空・空白のみの2ケースをテストする） | | 解決済み（PR #35。実装は007） |
+| L31 | `post.uploadUrl`にレート制限が無く、`post.create`を呼ばずにR2へアップロードだけを繰り返すと無参照オブジェクトが際限なく作れる（007 security-auditor Medium指摘）。誰でも到達可能（`couple.create`は`authedProcedure`のみ）で、金銭コスト・ストレージ増大につながる。機密性には影響しない | 016前のコスト管理・運用面。放置するとR2の課金が投稿数に対して不自然に増える | 016の前、またはトラフィックが増えた時点で再検討。`invite.accept`のレート制限の仕組み（`invite_failures`と同型）を流用できる。無参照オブジェクトの定期回収ジョブも未実装（`architecture.md`6節でMVP外と明記済み） |
+| L32 | 007でR2のS3互換API認証情報（`R2_ACCOUNT_ID`等）が未設定のため、署名なしアクセスの拒否確認・実際のアップロード実機確認が未実施（003のGoogle OAuthクライアントと同じ制約） | 007の完了条件「署名なしアクセスが拒否されることを確認済み」が未達のまま | 人間がCloudflareダッシュボードでR2 APIトークンを発行し`.dev.vars`に設定した後、次のセッションで実機確認する。`docs/tasks/007-image-upload.md`参照 |
 
 ## 決まっていることの要約
 

@@ -2,10 +2,23 @@ import { env } from "cloudflare:test";
 import { call } from "@orpc/server";
 import { describe, expect, it } from "vitest";
 import { router } from "../src/router";
+import { imageKeyFor, MAX_IMAGE_BYTES } from "../src/lib/r2-signed-url";
+import { generateImageId } from "../src/lib/ulid";
 import type { Bindings } from "../src/index";
 import type { RpcContext } from "../src/context";
 
 const db = (env as unknown as Bindings).DB;
+const bucket = (env as unknown as Bindings).BUCKET;
+
+// 実際の R2 API トークン（.dev.vars の R2_ACCOUNT_ID 等）の設定有無に
+// テストの合否が左右されないよう、署名鍵はテスト固有の固定値を使う。
+// 署名の生成自体はネットワークを伴わない計算のため、実在のキーでなくても動く
+const r2Sign: RpcContext["r2Sign"] = {
+  accountId: "test-account",
+  accessKeyId: "test-access-key-id",
+  secretAccessKey: "test-secret-access-key",
+  bucketName: "test-bucket",
+};
 
 let userSeq = 0;
 
@@ -28,7 +41,7 @@ function contextFor(
   user: { id: string; name: string; email: string } | null,
   demoCoupleId: string | null = null,
 ): RpcContext {
-  return { db, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId };
+  return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId };
 }
 
 async function createCouple(user: { id: string; name: string; email: string }) {
@@ -46,6 +59,17 @@ async function insertPost(coupleId: string, authorId: string, createdAt: number,
   return id;
 }
 
+// post.uploadUrl を経由せず R2 に直接オブジェクトを置く。「アップロード済み」を模擬する。
+// post.create は Content-Type も検証する（007 security-auditor 指摘）ため、
+// 正規のアップロードと同じ image/jpeg を付与する
+async function uploadTestImage(coupleId: string, sizeBytes = 100, contentType = "image/jpeg"): Promise<string> {
+  const imageId = generateImageId();
+  await bucket.put(imageKeyFor(coupleId, imageId), new Uint8Array(sizeBytes), {
+    httpMetadata: { contentType },
+  });
+  return imageId;
+}
+
 describe("post.create", () => {
   it("認証済みメンバーが投稿を作成できる", async () => {
     const user = await createUser();
@@ -55,22 +79,131 @@ describe("post.create", () => {
 
     expect(post.body).toBe("こんにちは");
     expect(post.authorId).toBe(user.id);
-    expect(post.imageKey).toBeNull();
+    expect(post.imageUrl).toBeNull();
   });
 
-  it("画像情報を受け取って保存する（アップロード自体は007で実装）", async () => {
+  it("アップロード済みの imageId を指定すると画像付きで保存され、署名付きURLが返る", async () => {
     const user = await createUser();
-    await createCouple(user);
+    const couple = await createCouple(user);
+    const imageId = await uploadTestImage(couple.id);
 
     const post = await call(
       router.post.create,
-      { body: "写真つき", imageKey: "couples/x/posts/1.jpg", imageWidth: 800, imageHeight: 600 },
+      { body: "写真つき", imageId, imageWidth: 800, imageHeight: 600 },
       { context: contextFor(user) },
     );
 
-    expect(post.imageKey).toBe("couples/x/posts/1.jpg");
+    expect(post.imageUrl).not.toBeNull();
     expect(post.imageWidth).toBe(800);
     expect(post.imageHeight).toBe(600);
+  });
+
+  it("本文が空でも画像があれば作成できる", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const imageId = await uploadTestImage(couple.id);
+
+    const post = await call(router.post.create, { body: "", imageId }, { context: contextFor(user) });
+    expect(post.imageUrl).not.toBeNull();
+  });
+
+  it("本文と画像がどちらも空だと INVALID_INPUT（旧L30）", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(router.post.create, { body: "" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("本文が空白のみだと画像が無ければ INVALID_INPUT（空白のみも空として扱う）", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(router.post.create, { body: "   " }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("未アップロードの imageId を指定すると INVALID_INPUT（R2に実体が無い）", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.post.create,
+        { body: "", imageId: generateImageId() },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("imageId が ULID の形式でない場合は入力バリデーションで弾かれる（007 security-auditor 指摘）", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.post.create,
+        { body: "", imageId: "../../other-couple/posts/x" },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("同じ imageId を2つの投稿で使うと2回目は INVALID_INPUT（UNIQUE制約）", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const imageId = await uploadTestImage(couple.id);
+
+    await call(router.post.create, { body: "1件目", imageId }, { context: contextFor(user) });
+
+    await expect(
+      call(router.post.create, { body: "2件目", imageId }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("サイズ上限を超える画像は INVALID_INPUT になり、R2からも削除される", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const imageId = await uploadTestImage(couple.id, MAX_IMAGE_BYTES + 1);
+    const key = imageKeyFor(couple.id, imageId);
+
+    await expect(
+      call(router.post.create, { body: "", imageId }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+
+    expect(await bucket.head(key)).toBeNull();
+  });
+
+  it("Content-Type が image/jpeg 以外の実体は INVALID_INPUT になり、R2からも削除される（007 security-auditor 指摘）", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const imageId = await uploadTestImage(couple.id, 100, "image/png");
+    const key = imageKeyFor(couple.id, imageId);
+
+    await expect(
+      call(router.post.create, { body: "", imageId }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+
+    expect(await bucket.head(key)).toBeNull();
+  });
+
+  it("他ペアが置いた imageId を送っても、鍵が ctx.coupleId で組み立てられるため存在しないオブジェクトを指すだけになり INVALID_INPUT（他ペアの画像に到達しない）", async () => {
+    const userA = await createUser();
+    const coupleA = await createCouple(userA);
+    const userB = await createUser();
+    const coupleB = await createCouple(userB);
+    const imageIdOfB = await uploadTestImage(coupleB.id);
+
+    await expect(
+      call(router.post.create, { body: "", imageId: imageIdOfB }, { context: contextFor(userA) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+
+    // Bの実体自体は無事（Aの操作でBのオブジェクトが消えたりしない）
+    expect(await bucket.head(imageKeyFor(coupleB.id, imageIdOfB))).not.toBeNull();
+    // coupleA 側には何も作られていない
+    expect(await bucket.head(imageKeyFor(coupleA.id, imageIdOfB))).toBeNull();
   });
 
   it("本文が2000文字を超えると入力バリデーションで弾かれる", async () => {
@@ -196,6 +329,16 @@ describe("post.list", () => {
       code: "NEEDS_ONBOARDING",
     });
   });
+
+  it("画像付きの投稿は署名付きGET URLを含む", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const imageId = await uploadTestImage(couple.id);
+    await call(router.post.create, { body: "", imageId }, { context: contextFor(user) });
+
+    const result = await call(router.post.list, {}, { context: contextFor(user) });
+    expect(result.items[0]?.imageUrl).not.toBeNull();
+  });
 });
 
 describe("post.delete", () => {
@@ -262,6 +405,97 @@ describe("post.delete", () => {
     const user = await createUser();
     await expect(
       call(router.post.delete, { id: crypto.randomUUID() }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
+
+  it("画像付きの投稿を削除すると R2 からもオブジェクトが消え、image_key は DB に残る", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const imageId = await uploadTestImage(couple.id);
+    const key = imageKeyFor(couple.id, imageId);
+    const post = await call(router.post.create, { body: "", imageId }, { context: contextFor(user) });
+
+    await call(router.post.delete, { id: post.id }, { context: contextFor(user) });
+
+    expect(await bucket.head(key)).toBeNull();
+    const row = await db
+      .prepare("SELECT image_key FROM posts WHERE id = ?1")
+      .bind(post.id)
+      .first<{ image_key: string | null }>();
+    expect(row?.image_key).toBe(key);
+  });
+
+  it("R2の削除に失敗しても post.delete は成功として返る（image_key は残る）", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const imageId = await uploadTestImage(couple.id);
+    const key = imageKeyFor(couple.id, imageId);
+    const post = await call(router.post.create, { body: "", imageId }, { context: contextFor(user) });
+
+    const failingBucket = {
+      ...bucket,
+      delete: () => Promise.reject(new Error("R2削除失敗（テスト用）")),
+    } as unknown as R2Bucket;
+
+    const result = await call(router.post.delete, { id: post.id }, { context: { ...contextFor(user), bucket: failingBucket } });
+    expect(result.id).toBe(post.id);
+
+    // 実際には削除を試みていない（failingBucket）ため実体は残っている。
+    // image_key が DB から消されていないことのほうが本題
+    const row = await db
+      .prepare("SELECT image_key, deleted_at FROM posts WHERE id = ?1")
+      .bind(post.id)
+      .first<{ image_key: string | null; deleted_at: number | null }>();
+    expect(row?.image_key).toBe(key);
+    expect(row?.deleted_at).not.toBeNull();
+  });
+});
+
+describe("post.uploadUrl", () => {
+  it("認証済みメンバーが呼べる。imageId はサーバが生成し、鍵は ctx.coupleId から組み立てられる", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+
+    const result = await call(
+      router.post.uploadUrl,
+      { contentType: "image/jpeg" },
+      { context: contextFor(user) },
+    );
+
+    expect(result.imageId).toBeTruthy();
+    expect(result.url).toContain(`couples/${couple.id}/posts/${result.imageId}.jpg`);
+  });
+
+  it("呼ぶたびに異なる imageId が発行される", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    const first = await call(router.post.uploadUrl, { contentType: "image/jpeg" }, { context: contextFor(user) });
+    const second = await call(router.post.uploadUrl, { contentType: "image/jpeg" }, { context: contextFor(user) });
+
+    expect(first.imageId).not.toBe(second.imageId);
+  });
+
+  it("image/jpeg 以外の contentType は入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      // @ts-expect-error 契約は "image/jpeg" 固定（z.literal）。不正な値をわざと渡す
+      call(router.post.uploadUrl, { contentType: "image/png" }, { context: contextFor(user) }),
+    ).rejects.toThrow();
+  });
+
+  it("未認証なら FORBIDDEN（デモから呼べない）", async () => {
+    await expect(
+      call(router.post.uploadUrl, { contentType: "image/jpeg" }, { context: contextFor(null) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("ペアに未所属なら NEEDS_ONBOARDING", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.post.uploadUrl, { contentType: "image/jpeg" }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 });

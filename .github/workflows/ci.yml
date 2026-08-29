@@ -24,8 +24,9 @@ jobs:
 
       - run: pnpm run lint
 
-      # CI にはローカル用の .dev.vars が無い。テストでは実際の Google 認証は
-      # 行わないため、Better Auth の初期化が通る程度のダミー値でよい
+      # CI にはローカル用の .dev.vars が無い。テストでは実際の Google 認証も
+      # 実際の R2 への通信も行わない（署名付きURLの生成自体はネットワーク不要な
+      # 計算のみ）ため、Better Auth・R2署名の初期化が通る程度のダミー値でよい
       - name: create test .dev.vars
         run: |
           cat > apps/api/.dev.vars << 'EOF'
@@ -34,6 +35,9 @@ jobs:
           GOOGLE_CLIENT_SECRET=ci-test-client-secret
           BETTER_AUTH_URL=http://localhost:8787
           TRUSTED_ORIGINS=http://localhost:8081
+          R2_ACCOUNT_ID=ci-test-account-id
+          R2_ACCESS_KEY_ID=ci-test-access-key-id
+          R2_SECRET_ACCESS_KEY=ci-test-secret-access-key
           EOF
 
       - run: pnpm run test
