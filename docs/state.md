@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-29 / セッションA（人間の操作が要る証跡が取れないときの手順を規約化。L38 を追加）
+**最終更新**: 2026-08-29 / セッションA（L11 の CI 合否基準を決定。公開前の履歴全体走査を規定）
 
 ---
 
@@ -215,7 +215,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | ~~L8~~ | ~~`packages/ui` の `shadow.fab` が `architecture.md` 7節に無い新規トークン~~ → **解決**（PR #12）。`shadow.fab` を7節の表に追記した | | 解決済み（PR #12） |
 | L9 | ネイティブの Google ログイン未対応。`futary://` を `TRUSTED_ORIGINS` に含めていないため経路自体が無効（fail-closed）。`@better-auth/expo` はセッショントークンをURLクエリに載せる実装で、Androidはカスタムスキームの衝突リスクがある（003監査 Medium指摘） | ネイティブ対応（実機ログイン）を始める前に、検証済みディープリンク（Universal Links/App Links）への切替か、リスク受容のADR化が必要 | ネイティブ対応タスクの前 |
 | ~~L10~~ | ~~Better Authの`rateLimit`がmemoryストレージのまま~~ → **解決（004）**。招待コード用には Better Auth の `rateLimit` を流用せず、`invite_failures` テーブル（user_id + IP + created_at）による専用の実装にした。Better Auth自体のOAuthエンドポイント向けrateLimitは003のまま未変更（別の課題として残る） | | 解決済み（004。Better Auth側のmemory storageは別課題） |
-| L11 | CI に `pnpm audit` / gitleaks / Dependabot が無い（003監査 Low指摘） | T6/T7 の対策が手動実行に依存 | 次のタスクで着手可能。急ぎではない |
+| L11 | CI に `pnpm audit` / gitleaks / Dependabot が無い（003監査 Low指摘）。**`security-requirements.md` 9節は T6/T7 の対策として「CI で実行する」と書いており、恒久ドキュメントが実在しない統制を主張していた** | T6/T7 の対策が手動実行に依存 | **着手中（008 のレビュー待ちの間に B が対応）。** 合否基準は A が決定済み（`security-requirements.md` 9節「CI の合否基準」）。gitleaks は1件で赤、`pnpm audit` は high 以上で赤、Dependabot はセキュリティ更新のみ。`fix/` で扱う（設計判断は A が済ませたため） |
 | L12 | `apps/api/src/index.ts` に `app.onError` が無く、サーバ内部エラーに一意なIDが振られていない（003監査 Low指摘）。クライアントへの漏洩は無いことは確認済み | 障害追跡ができない | posts等、複雑な処理が増えるタスクで対応 |
 | L13 | セキュリティヘッダ（CSP等）が未設定（003監査 Low指摘） | 要件7節未達 | Web配信・LP実装タスクで対応 |
 | ~~L14~~ | ~~003で実際のGoogleログインが未検証（クライアント未入手のため人間判断で保留）~~ → **解決（2026-08-29）**。人間がクライアントを作成し、実機で全項目を確認した。実際のログイン成功（2アカウント）・D1への`user`/`account`レコード作成・リロード後のログイン状態維持・Cookie属性（`HttpOnly`/`SameSite=Lax`）・ログアウト導線・004のオンボーディング導線（ペア作成→招待コード発行→別アカウントで参加）を全て確認済み。実機確認中に発見したバグ2件はPR #22で修正済み。詳細は`artifacts/003/manual-check.md`の追記部分参照 | | 解決済み（2026-08-29） |
