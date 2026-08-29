@@ -14,6 +14,9 @@ export const colors = {
   text: "#4A3733",
   textMuted: "#A08C87",
   border: "#F2E0DC",
+  // 画像の全画面表示（017）の背景。ブランドの暖色とは無関係な機能色のため、
+  // パレットから離れた黒系の半透明にしている
+  overlay: "rgba(20, 15, 14, 0.92)",
 } as const;
 
 export const radius = {

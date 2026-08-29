@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import { Avatar, Button, Card, colors, radius, space, Text } from "@futary/ui";
 import type { Post } from "@futary/contract";
+import { ImageViewer } from "./image-viewer";
 
 type ReactionKind = Post["reactions"][number]["kind"];
 
@@ -57,6 +58,7 @@ function DeleteMenu({ onDelete }: { onDelete: () => void | Promise<void> }) {
 
 export function PostCard({ post, isOwn, onDelete, onToggleReaction }: PostCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   // architecture.md 5節: authorName は user 行が無いと null。代替表示に落とし、
   // 投稿本文は必ず読める状態を保つ
   const authorName = post.authorName ?? "（削除されたユーザー）";
@@ -100,13 +102,21 @@ export function PostCard({ post, isOwn, onDelete, onToggleReaction }: PostCardPr
               </Text>
             </View>
           ) : (
-            <Image
-              source={{ uri: post.imageUrl }}
-              style={{ width: "100%", aspectRatio, borderRadius: radius.input }}
-              resizeMode="cover"
-              onError={() => setImageFailed(true)}
-            />
+            // 開く操作に副作用は無いため二重発火ガードは不要（conventions.md 4節。
+            // 017の確認観点）。生のPressableでよい
+            <Pressable onPress={() => setViewerOpen(true)} accessibilityRole="button" accessibilityLabel="画像を全画面表示">
+              <Image
+                source={{ uri: post.imageUrl }}
+                style={{ width: "100%", aspectRatio, borderRadius: radius.input }}
+                resizeMode="cover"
+                onError={() => setImageFailed(true)}
+              />
+            </Pressable>
           ))}
+
+        {post.imageUrl && (
+          <ImageViewer visible={viewerOpen} imageUrl={post.imageUrl} onClose={() => setViewerOpen(false)} />
+        )}
 
         {onToggleReaction && (
           <View style={{ flexDirection: "row" }}>
