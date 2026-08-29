@@ -1875,3 +1875,95 @@ CI を確認したところ、ゲート（`pnpm audit --audit-level=high`）に�
 - なし。ただし自分の実測（405という結果）が既に正解を示していたのに、監査の指摘を
   優先して誤った解釈で記録してしまっていた。今後は実測と指摘が食い違ったら実測を
   疑い、次に指摘を疑う順序を徹底する
+
+## 2026-08-29 セッションB（fix/reject-get-writes: GET経由の書き込み実行=CSRFを修正）
+
+### やったこと
+- 009（リアクション）のM2まとめ監査で見つかったHigh指摘（oRPCのRPCHandlerがHTTP
+  メソッドを見ないため、全ての書き込み手続きがGETで実行できる）に対応した
+- `apps/api/src/index.ts`で`@orpc/server/plugins`の`StrictGetMethodPlugin`を
+  `RPCHandler`に適用し、GETメソッドでの手続き呼び出しを一律で拒否するようにした
+- 回帰テスト（`apps/api/test/method-restriction.test.ts`）を追加。Honoの`app.fetch`を
+  直接叩き、GET経由での`couple.update`/`invite.issue`が405（METHOD_NOT_SUPPORTED）で
+  拒否され、POSTでは通常どおり動作すること（未認証403に到達すること）を確認した
+- ローカル`wrangler dev`に対するcurlで、修正前後の挙動差を実測した
+  （`artifacts/fix-reject-get-writes/manual-check.md`）
+- 副作用として`health.get`もGETでは405になることに気づいた。oRPCの手続きは明示的に
+  GETを許可しない限り既定でPOST専用のため。クライアント（`apps/app/lib/orpc.ts`）は
+  全リクエストをPOSTで送るため実害はないことを`health.test.ts`が緑のままであることで
+  確認した
+- テストはapps/api 113件すべて緑、型チェック・lint通過
+
+### 決定事項
+- 009固有の変更ではなくAPI全体（couple/invite/post/reaction全ての書き込み手続き）に
+  及ぶため、`task/009-reactions`（PR #59）とは別ブランチ・別PRで対応する
+  （`conventions.md`7節の判定基準）
+- `docs/state.md`の論点L52・L53は`task/009-reactions`のPRに書かれており、このfix/の
+  ブランチはmainから分岐したためL52・L53を含まない。番号の重複を避けるため、
+  このブランチのstate.md更新では論点テーブルに新規追加せず、「現在のフェーズ」節に
+  対応内容を書いた。009のPRがマージされる際にRがL52・L53を「解決済み」に更新すること
+
+### 詰まった点
+- なし
+
+## 2026-08-30 セッションB（Rレビューを受け、fix/reject-get-writesの前提が誤りだったと訂正）
+
+### やったこと
+- Rレビューで、「oRPCのRPCHandlerがHTTPメソッドを見ないためGETで書き込み手続きが
+  実行できる」というHigh指摘（009 M2まとめ監査由来）が**誤りだった**ことを指摘された。
+  `@orpc/server`の`RPCHandler`は既定（`strictGetMethodPluginEnabled`を渡さない場合）で
+  `StrictGetMethodPlugin`を自動登録しており、GET経由の手続き実行は元々拒否されていた
+- `@orpc/server/dist/adapters/fetch/index.mjs`のソースを実際に読み、
+  `options.strictGetMethodPluginEnabled ?? true`という既定値を確認して訂正が正しいことを
+  検証した
+- Rの指摘どおり、`artifacts/fix-reject-get-writes/manual-check.md`に貼っていた実測
+  （`GET /api/couple/get (no data): 405`）は修正前から一貫して405であり、直後の散文
+  「修正前は`200`になっていた」の方が誤っていたことに気づいた。実測と指摘が矛盾していた
+  のに、指摘（監査結果）をそのまま信じて記録してしまっていた
+- 以下を訂正した: `apps/api/src/index.ts`のコメント、
+  `docs/security-report.md`（fix/reject-get-writesのエントリを新規に訂正済みの内容で
+  追加。前回このエントリ自体をtask/009-reactionsブランチ側にのみ書いてしまっており、
+  fix/reject-get-writesブランチには存在していなかったことにも気づいた）、`docs/state.md`
+  「現在のフェーズ」節、`artifacts/fix-reject-get-writes/manual-check.md`
+- コードと回帰テスト（`method-restriction.test.ts`）はRの判断で残した。
+  `StrictGetMethodPlugin`が既定の自動登録と明示登録で2重になる点をコメントで明記した
+
+### 決定事項
+- 「脆弱性を修正した」という表現をすべて「既定で塞がれていることを確認し、回帰テストで
+  固定した」に訂正する
+- `task/009-reactions`側のL52・L53、`docs/security-report.md`のM2まとめ監査エントリの
+  訂正は別途そちらのブランチで対応する
+
+### 詰まった点
+- なし。ただし今回の件で、監査結果を実装に反映する前に「ライブラリの既定値をソースで
+  確認する」「自分の実測と指摘が矛盾していないか確認する」の2点を徹底する必要があると
+  痛感した
+
+## 2026-08-30 セッションB（#59先行マージを受け、#60をリベースしてsecurity-report.mdの重複を解消）
+
+### やったこと
+- Rが#59・#60・#61の3件を受け入れ、Aが「同じ事実の別表現は1つにする」規則をconventions.md
+  に反映した（PR #65）。R提案どおり#59を先にマージし、#60はリベースする方針で進めた
+- #59をsquash mergeでmainに取り込み、`task/009-reactions`ブランチを削除した
+- `fix/reject-get-writes`ブランチをmainに対してリベースしようとしたところ、
+  `docs/state.md`・`docs/worklog.md`でコンフリクトが発生した。これは「別々の事実」なので
+  両方残すのが正解（Rの整理どおり）だが、`docs/security-report.md`は#59マージで既に
+  訂正済みのHigh行と、#60が持っていた独立エントリが両方存在すると重複してしまう
+  （Aの指摘: 訂正は元の指摘の行に書く。独立エントリを追加しない）
+- `git rebase`は複雑になりすぎると判断し、mainから新しいブランチ
+  （`fix/reject-get-writes-v2`）を作り、必要な差分（コード変更・証跡・ドキュメントの
+  純粋な追記分）だけを個別に移植する形でやり直した
+- `docs/security-report.md`は独立エントリを削除し、M2まとめ監査表のHigh行に
+  実測の矛盾に気づかなかった経緯・コードとテストを残す理由を統合した
+- `docs/worklog.md`は「別々の事実」として、#60ブランチの2件のセッションログを
+  そのまま追記した（マージ済みmainのworklog.mdは末尾が変わっておりパッチが
+  当たらなかったため、手動で追記した）
+
+### 決定事項
+- security-report.mdのような「記録」ファイルは、state.mdの論点テーブルのような
+  「リスト」ファイルと違い、同じ事実の重複記録を作らないよう1箇所に統合する
+  （Aの一般則: 別々の事実は両方残す、同じ事実の別表現は1つにする）
+
+### 詰まった点
+- ブランチのリベースでコンフリクトが起きたとき、機械的に`git rebase --continue`で
+  済ませず、ファイルの性質（リストか記録か）によって解消方針を変える必要があった
