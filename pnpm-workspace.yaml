@@ -18,3 +18,17 @@ minimumReleaseAgeExclude:
   - '@better-auth/telemetry@1.7.2'
   - better-auth@1.7.2
   - '@better-auth/expo@1.7.2'
+# L11・security-requirements.md 9節「修正版の無い勧告の扱い（無視リスト）」。
+# 登録できるのは A だけ。B は自分を通すために足さない（塞がれたら A に上げる）。
+# 無視リストとは別に、全重大度の pnpm audit を出力専用で必ずCIに走らせる
+# （無視したものが見えなくなる状態を作らない）。016のリリース前に全項目を再評価する
+auditConfig:
+  ignoreGhsas:
+    # image-size（経路: @better-auth/expo -> expo -> @expo/cli -> react-native
+    # -> metro -> image-size）。ICNSパーサのDoS。修正版なし。Metro（開発時の
+    # バンドラ）経由のみで、デプロイ後のWorkerと配信アセットには含まれない。
+    # 修正版が出たら消すこと
+    - GHSA-w3rx-r6r6-pgpr
+    # image-size（同上の経路）。JXL/HEIFパーサのDoS。修正版なし。到達可能性・
+    # 削除条件は上と同じ
+    - GHSA-5p2g-fcmc-qvqq

@@ -1544,3 +1544,50 @@ B が挙げた「特定の advisory を無視リストに載せる」案を採�
   `tail`自身の終了コードを見てしまい、一度「exit 0（脆弱性なし）」と誤判定
   しかけた。パイプを外して実行し直し、実際は`exit 1`（high 2件検出）だったと
   訂正した
+
+## 2026-08-29 セッションB（L11完了: CIにセキュリティ検査を導入）
+
+### やったこと
+- `fix/ci-security-checks`でL11（CIへのgitleaks/pnpm audit/Dependabot導入）を
+  完了した
+- gitleaks: `gitleaks/gitleaks-action@v2`を追加。個人アカウントのリポジトリ
+  （組織ではない）のため無料枠でPrivateリポジトリでも利用できる。差分
+  （PRのbase..head／pushのbefore..after）を計算できるよう`actions/checkout`に
+  `fetch-depth: 0`を追加した
+- pnpm audit: 2本立てにした
+  1. 出力専用（`pnpm audit || true`。全重大度、失敗させない）
+  2. ゲート（`pnpm audit --audit-level=high`。high以上で赤）
+  実装前に手元で実行したところ、導入した瞬間にhigh重大度の勧告2件
+  （`image-size`。修正版なし、`@better-auth/expo`経由でMetroに到達不能）が
+  存在し、ゲートを追加すると全PRのCIが即座に赤くなることを発見。Aへ報告した
+  ところ、Aが独立に同じ問題をL39として起票し、PR #49で無視リスト方式
+  （`pnpm.auditConfig.ignoreGhsas`。登録できるのはAのみ・到達不能な理由を
+  明記・出力専用auditを別に必ず走らせる・016前に再評価、の4つの縛り付き）を
+  規定していた
+- **Aは「root の package.json に置く」と指示していたが、実際に試したところ
+  `pnpm-workspace.yaml`の`auditConfig.ignoreGhsas`でも同じように機能することを
+  実測で確認した。** package.jsonは標準JSONでコメントを書けず、A自身が
+  求めていた「各項目にGHSA ID・パッケージ・到達不能な理由・修正版が出たら
+  消すことをコメントで書く」を満たせない。`pnpm-workspace.yaml`（YAML）なら
+  コメントが書けるうえ、このリポジトリは既に`minimumReleaseAgeExclude`等の
+  pnpm設定をpackage.jsonではなく`pnpm-workspace.yaml`に置く方針だったため、
+  そちらに実装した
+- Dependabot: `dependabot.yml`（バージョン更新用）は作らず、GitHub APIで
+  リポジトリ設定を直接有効化した（`vulnerability-alerts`と
+  `automated-security-fixes`）。これによりセキュリティ更新のみが有効になり、
+  通常のバージョン更新PRは開かれない
+- テスト全体・型チェック・lintすべて緑を再確認
+
+### 決定事項
+- 無視リストの置き場所を`package.json`ではなく`pnpm-workspace.yaml`にした
+  （Aの指示から変更。理由は上記。Aへ報告済み）
+- Dependabotの「セキュリティ更新のみ」は`dependabot.yml`を作らず、リポジトリの
+  Vulnerability alerts / Automated security fixes 設定を直接有効化する形で
+  実現した
+
+### 詰まった点
+- `pnpm audit`にはCLIオプションとして無視リストを一時的に無効化する手段が
+  無いため、「出力専用」ステップも実際には無視リストの影響を受ける
+  （ただし要約行に`(N ignored)`と件数は表示される）。「無視したものが
+  見えなくなる状態を作らない」というAの意図は、CIログではなく
+  `pnpm-workspace.yaml`のコメントで満たす形にした
