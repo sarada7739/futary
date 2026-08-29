@@ -155,3 +155,57 @@ Medium 2件とも解消、新たな問題なしと判定された。`is_demo`検
 | Info | pnpm audit/gitleaks未実施 | 依存の脆弱性確認が今回の監査に含まれていない | 016でCI導入時に確認 | 対応不要（016スコープ、既存Low記録済み） |
 
 対応後、apps/api 109件・apps/app 14件・packages/ui 7件のテストが全て緑。型チェック・lintも通過を確認済み。
+
+---
+
+## [2026-08-29] M2 まとめ監査（006 投稿API / 008 タイムラインUI / 009 リアクション）
+
+`security-requirements.md` 10節の方針により、006・008 は必須監査対象（認証・招待・画像・認可
+ミドルウェア）に該当せず見送り、マイルストーン単位でまとめて実施した（007は画像アップロード
+のため個別監査済み）。対象は006の`post.list`/`post.create`/`post.delete`、008のタイムラインUI、
+009のリアクション機能全体。
+
+生の返答: [`artifacts/009/security-audit-raw.md`](../artifacts/009/security-audit-raw.md)
+
+**当初High 1件（009固有ではなくAPI全体に及ぶ）、Low 4件、Info 2件と判定されたが、
+Highは後日Rレビューで誤指摘と判明した（下記参照）。** 009固有の認可設計
+（`reaction.toggle`の他ペア到達防止・レース時の扱い・`post.list`集計の範囲・デモ閲覧時の
+`reactedByMe`）は4点とも**指摘なし**と判定された（こちらは訂正なし）。
+
+| 重大度 | 箇所 | 内容 | 推奨対応 | 対応 |
+|---|---|---|---|---|
+| ~~High~~ | `apps/api/src/index.ts`（oRPC RPCHandlerの全手続き） | oRPCのRPCHandlerがHTTPメソッドを見ないため、全ての書き込み手続き（`couple.update`/`invite.issue`/`post.create`/`reaction.toggle`等）がGETで実行できる、という指摘 | ~~`@orpc/server/plugins`の`StrictGetMethodPlugin`を適用する~~ | **【訂正・誤指摘と判明】**。`@orpc/server`の`RPCHandler`は既定で`StrictGetMethodPlugin`を自動登録しており、GETは元々拒否されていた（`@orpc/server/dist/adapters/fetch/index.mjs`で確認）。**脆弱性は存在しなかった。** Rレビューで指摘され、`fix/reject-get-writes`側のsecurity-report.mdエントリを訂正済み。詳細は下記エントリ参照 |
+| Low | `apps/api/src/procedures/reaction.ts` | `isConstraintViolation`の判定（`/constraint failed/i`）がUNIQUE以外（FK/NOT NULL）にも一致し、該当時に書き込みが起きていないのに`reacted: true`を返してしまう。認可の境界自体は破れていない（INSERT側のEXISTS条件が偽なら制約検査に到達しないため） | UNIQUE違反だけに絞る正規表現に変更する | **対応済み**。`reaction.ts`に`isUniqueConstraintViolation`をローカル定義し置き換えた |
+| Low | `apps/api/src/procedures/post.ts`（`row.kind as ...`）＋`0005_reaction.sql` | `reactions.kind`に宣言的制約（CHECK）が無く、未知の`kind`が1件でも入るとoRPCの出力検証で`post.list`全体が500になる | マイグレーションで`CHECK (kind IN ('heart'))`を追加する | **対応済み**。`0006_reaction_kind_check.sql`でCHECK制約を追加 |
+| Low | `apps/app/app/(tabs)/index.tsx`＋`post-card.tsx` | 未認証（デモ閲覧）でもリアクションボタンが押せ、サーバのFORBIDDENで黙って巻き戻る。境界は破れていないが失敗が無言 | デモではボタンを出さない | **対応済み**。`myId`が無い（未認証）場合は`onToggleReaction`を渡さないよう変更 |
+| Low | `apps/api/src/procedures/post.ts`（`post.delete`）＋`reaction.ts` | 投稿を論理削除しても`reactions`行が残留し、削除後は外す経路が無いため永久に残る | `post.delete`の`batch()`に`DELETE FROM reactions WHERE post_id = ?`を含める | **対応済み**。`postDelete`をbatch化し、リアクションも同時に削除するよう変更。**対応中に新たな問題を自己発見**: 推奨どおり`DELETE FROM reactions WHERE post_id = ?`だけを足すと、`couple_id`条件が無いため他ペアの投稿IDを指定した削除で`UPDATE`は0件（`NOT_FOUND`）でも`DELETE`だけが無条件で成立し、「投稿は消せないがリアクションだけ消せる」経路が生まれた。回帰テスト（`他ペアの投稿IDを指定した削除がNOT_FOUNDのとき、対象と無関係なreactionsは消えない`）で実際に検出し、`DELETE`側にも`EXISTS (SELECT 1 FROM posts WHERE id=?1 AND couple_id=?2)`を追加して塞いだ |
+| Info | `apps/api/src/index.ts`（レスポンスヘッダ） | ~~`/api/*`に`Cache-Control: no-store`が無い。High（GETが通る）と組み合わさると私的な投稿本文のキャッシュ残留リスクが生まれる~~ | 対応不要 | **【訂正】前提のHighが誤指摘だったため、この指摘も成立しない**（GET経由での到達自体が元々無い）。`Cache-Control: no-store`自体の要否は本件と切り離して016前に再検討する価値はあるが、緊急性はない |
+| Info | `apps/api/src/procedures/reaction.ts` | `reaction.toggle`にレート制限が無い。ただし自ペアのメンバーのみが呼べ、影響は自分たちのデータに閉じる | 016前に再評価 | 対応不要（007監査で記録済みのL31と同じ論点として統合） |
+
+### 006 / 008 について確認し、指摘に至らなかった点
+
+投稿の全クエリが`couple_id`で絞られていること、`post.delete`がSELECTしてからUPDATEではなく
+1文で完結していること、カーソル偽造耐性、本文の長さ上限とXSS対策、ログへの機密情報の非出力、
+`authorization.test.ts`の機械的網羅性チェックなど。詳細は生の返答を参照。
+
+---
+
+## [2026-08-29→08-30] fix/reject-get-writes（訂正あり: 指摘された脆弱性は存在しなかった）
+
+対象: `apps/api/src/index.ts`
+
+上記M2まとめ監査のHigh指摘（CSRF: 書き込み手続きがGETで実行できる）への対応として
+`@orpc/server/plugins`の`StrictGetMethodPlugin`を`RPCHandler`に明示適用したが、
+**Rレビューでこの指摘自体が誤りだったと判明した。** `@orpc/server`の`RPCHandler`は
+既定（`strictGetMethodPluginEnabled`を渡さない場合）で`StrictGetMethodPlugin`を
+自動登録しており、GET経由での手続き実行は元々拒否されていた。**CSRFの経路は
+存在しなかった。**
+
+このとき貼った実測（`GET /api/couple/get (no data): 405`）は修正前から一貫して
+正しかったが、直後の散文で「修正前は`200`になっていた」と誤って解釈・記録していた。
+実測と指摘が矛盾していたのに、指摘をそのまま信じて記録してしまっていた。
+
+コードと回帰テスト（`apps/api/test/method-restriction.test.ts`）はRの判断でそのまま
+残した（ライブラリの既定に依存しない防御として妥当）。詳細・訂正の経緯は
+`fix/reject-get-writes`ブランチの`docs/security-report.md`エントリ
+（本エントリより後に追加。マージ後は本エントリの直後に並ぶ）を参照。

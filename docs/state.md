@@ -3,7 +3,12 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-29 / セッションB（L11関連の最後のPR #56をRレビュー往復1回・必須修正なしで受け入れ、mainへマージ。Rの記録2件をL50・L51に起票。L11は#51・#54・#56の3往復で完了。次は009に着手）
+**最終更新**: 2026-08-30 / セッションB（009（リアクション）実装完了。PR #59提出済み。
+人間が実機（`wrangler dev --remote`）でログイン・投稿・リアクションを確認し
+「動作確認問題なし」の回答を得た。実機確認中に見つかったリアクションタップ時の
+画像ちらつき不具合を本ブランチで修正済み。M2受け入れ判定は実質完了、残るは
+L38（008のスクリーンショット回収）のみ。**さらにRレビューを受け、L52
+（GET経由CSRFのHigh指摘）が誤指摘だったと判明し記述を訂正した**。詳細はL52参照）
 
 ---
 
@@ -142,6 +147,55 @@ Rからの記録依頼1件: R2のS3互換API認証情報が未設定の状態で
 デプロイ時の設定漏れにも気づきやすいため対応不要と判断されたが、記録のみ
 残す（L33参照）。
 
+009はリアクション機能を実装した。`packages/db/src/schema/reaction.ts`（`reactions`テーブル。
+主キー`(post_id, user_id, kind)`、`kind`にCHECK制約）、`apps/api/src/procedures/reaction.ts`
+（`reaction.toggle`）、`apps/api/src/procedures/post.ts`（`fetchReactionSummaries`による
+N+1回避のリアクション集計）、`apps/app/lib/reaction.ts`（楽観的更新の純粋関数）、
+`post-card.tsx`・`app/(tabs)/index.tsx`（リアクションボタンと`useMutation`の配線）を実装した。
+`reaction.toggle`は`reactions`テーブルが`couple_id`を持たないため、DELETE/INSERT双方の
+WHERE句に`EXISTS (SELECT 1 FROM posts WHERE id=?1 AND couple_id=?N ...)`を含める形で
+他ペアの投稿への到達を防いだ（006の`post.delete`と同じ方針の応用）。リアクションの種類は
+heartの1種のみで実装（論点L4。Bは増やしていない）。テストはapps/api 128件・apps/app 27件・
+packages/ui 7件すべて緑、型チェック・lint通過。
+
+`security-requirements.md`10節の方針（006・008は必須監査対象に非該当のためマイルストーン単位で
+まとめる）に従い、009着手時にM2まとめ監査（006・008・009対象）をsecurity-auditorで実施した。
+009固有の認可設計（`reaction.toggle`の他ペア到達防止・レース時の扱い・`post.list`集計の範囲・
+デモ閲覧時の`reactedByMe`）は4点とも**指摘なし**。ただしLow 4件を検出し、いずれもタスク内で
+対応済み: (1) `isConstraintViolation`の判定がUNIQUE以外にも一致していた問題→UNIQUE限定の
+判定関数に変更、(2) `reactions.kind`に宣言的制約が無く未知の値で`post.list`全体が500になりうる
+問題→CHECK制約を追加（`0006_reaction_kind_check.sql`）、(3) 未認証（デモ閲覧）でもリアクション
+ボタンが押せてしまう問題→未認証時はボタン自体を出さないよう変更、(4) `post.delete`後も
+`reactions`行が永久に残留する問題→`batch()`化してリアクションも同時削除するよう変更。
+**(4)の対応中、推奨実装をそのまま適用すると「他ペアの投稿を指定した削除でリアクションだけ
+消せる」新しい穴を自分で作ってしまったが、追加した回帰テストで実行時に検出し、
+DELETE文にも`couple_id`条件をEXISTSで追加して修正した**（詳細は`docs/security-report.md`）。
+
+**当初High 1件を検出**（`apps/api/src/index.ts`。oRPCのRPCHandlerがHTTPメソッドを見ないため
+全ての書き込み手続きがGETで実行できる、という指摘）。009固有の変更ではなくAPI全体に
+及ぶと判断し`fix/reject-get-writes`ブランチで別途対応したが、**この指摘自体が誤りだった
+とRレビューで判明した。** `@orpc/server`の`RPCHandler`は既定で`StrictGetMethodPlugin`を
+自動登録しており、GETは元々拒否されていた。**CSRFの脆弱性は存在しなかった。**
+コード・回帰テストはそのまま残し（ライブラリの既定に依存しない防御）、記述をすべて
+訂正した（下記L52参照。詳細は`docs/security-report.md`）。
+
+詳細は`artifacts/009/test-results.md`・`artifacts/009/security-audit-raw.md`・
+`docs/security-report.md`・`docs/tasks/009-reactions.md`の実装メモ。
+
+**2026-08-30、人間が実機（`wrangler dev --remote`、Google OAuthログイン）で
+008・009の動作確認を行い、「動作確認問題なし」の回答を得た。** 確認過程で
+`workers.dev`サブドメインが実は登録済みだったことが判明し、リモートD1への
+マイグレーション未適用・R2バケットのCORS未設定という2つの環境不備が
+連鎖して発覚・解消した（詳細はL34参照。fix/compose-image-preview-layout側の
+worklogに詳細あり）。あわせて、投稿作成画面で画像プレビューにより投稿ボタンが
+押せなくなるUIバグを発見し`fix/compose-image-preview-layout`（PR #61）で
+修正した。**さらに実機確認中、リアクションをタップすると投稿一覧の画像が
+点滅する不具合が見つかった。** 原因は`onSettled`での無条件`invalidateQueries`
+（`post.list`が呼ぶたびに画像の署名付きURLを再発行するため）。`onSettled`を
+削除し楽観的更新の結果をそのまま信頼する形に変更して解消し、人間が実機で
+再確認済み（本ブランチで対応。詳細は`artifacts/009/test-results.md`の
+「実機確認」節）。
+
 ## プロダクト概要
 
 futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。」
@@ -152,7 +206,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | M | タスク | 内容 | 状態 |
 |---|---|---|---|
 | M1 | 001〜005 | 足回り・デザイン基盤・認証・ペア成立・認可 | **完了**（2026-08-29、人間の受け入れ確認済み） |
-| M2 | 006〜009 | 投稿・画像・タイムライン・リアクション | 着手中（006完了、007はmainへマージ済み・実機確認待ちのため完了タスク未移動） |
+| M2 | 006〜009 | 投稿・画像・タイムライン・リアクション | 着手中（006完了、007・008はmainへマージ済み・実機確認待ちのため完了タスク未移動。009は実装完了・PR未作成。fix/reject-get-writes対応中） |
 | M3 | 010〜013 | カレンダー・統計・思い出し | 未着手 |
 | M4 | 014〜016 | ゲストデモ・LP・仕上げと公開 | 未着手 |
 
@@ -178,9 +232,15 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
   squash merge済み、ブランチも削除済み。**「完了タスク」へはまだ移動しない**
   ——`artifacts/008/`のスクリーンショットが未取得のため。L38参照。
   009完了時のM2受け入れ判定でまとめて回収する）
-- 009-reactions（Aの了承を得て、これから着手する。**M2の最後のタスク。**
-  停止条件に人間の受け入れ判定とL38（008のスクリーンショット）の回収が
-  入っている）
+- 009-reactions（実装・テスト・M2まとめ監査対応・**人間による実機確認**まで完了。
+  PR #59提出済み・レビュー待ち。実機確認で見つかったちらつき不具合も本ブランチで
+  修正済み。**「完了タスク」へはまだ移動しない**——PRがマージされていないため。
+  **M2の最後のタスク。** 停止条件のうち人間の受け入れ判定は完了、L38
+  （008のスクリーンショット）の回収のみ残っている）
+- fix/reject-get-writes（PR #60提出済み・レビュー待ち。**Rレビューで、対応対象と
+  していたHigh指摘〈GET経由での書き込み手続き実行=CSRF〉が誤指摘だったと判明**。
+  コード・回帰テストは残し記述を訂正済み。下記L52参照）
+- fix/compose-image-preview-layout（PR #61提出済み・レビュー待ち）
 
 ## 環境
 
@@ -190,24 +250,21 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | リポジトリ | `sarada7739/futary`（**Private**。016 で Public に切り替える。ADR-011） |
 | 既定ブランチ | `main` |
 | gh CLI | 2.98.0 認証済み（スコープ: repo / workflow / gist / read:org） |
-| Cloudflare | 設定済み。D1 `futary-db`（`database_id: 37d32e5d-80a9-4bc9-bae4-e7019bebd883`）、R2 `futary-images`。**`workers.dev`サブドメイン未登録**（L34） |
+| Cloudflare | 設定済み。D1 `futary-db`（`database_id: 37d32e5d-80a9-4bc9-bae4-e7019bebd883`。**リモートにも全マイグレーション適用済み**）、R2 `futary-images`（**CORS設定済み**、`http://localhost:8081`のPUT/GET許可）。`workers.dev`サブドメイン登録済み（`coco7739yahoo.workers.dev`）。`wrangler dev --remote`使用可能（L34解決済み） |
 | R2 APIトークン | **設定済み**（2026-08-29）。`.dev.vars`の`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`に実際の値が入っている（コミットしていない） |
 | Google OAuth | **設定済み**（2026-08-29）。`.dev.vars` に実際のクライアントID/シークレットが入っている（コミットしていない） |
 
 ## 次の一手
 
-1. `fix/ci-security-checks`（L11）は完了。**きれいな`main`の上で**009
-   （リアクション）に着手する（008とファイルが重なるため、Rの008受け入れを
-   待ってから開始する方針をA・Rと合意済み）。Rから申し送り: リアクションは
-   まず`heart`の1種のみ（判断はRが引き取る）。`reaction.toggle`は`postId`を
-   受け取るため、006の`post.delete`と同じ形（`couple_id = ctx.coupleId`を
-   WHEREに含めた1文）で他ペアの投稿への到達を防ぐこと
-2. **人間の対応が必要**: 008・009の完了後、M2受け入れ判定で実機確認を行う。
-   008の`artifacts/008/`スクリーンショット（L38）をこのタイミングでまとめて撮る
-3. **人間の対応が必要（任意・016の前までに）**: `workers.dev`サブドメインを
-   Cloudflareダッシュボードで登録する。登録後、`env.BUCKET`バインディング経由の
-   実クラウド確認ができるようになる（L34参照。急ぎではないが016では必須）
-4. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
+1. `task/009-reactions`（PR #59）・`fix/reject-get-writes`（PR #60）・
+   `fix/compose-image-preview-layout`（PR #61）はいずれも提出済み。Rレビュー対応中
+   （`fix/reject-get-writes`はL52の誤指摘訂正を反映済み。再レビュー待ち）
+2. ~~`fix/reject-get-writes`に着手する~~ → 完了（PR #60。ただし対応対象のHigh指摘が
+   誤指摘だったとRレビューで判明し、記述を訂正した。L52参照）
+3. **人間の対応**: 2026-08-30、実機確認（008・009）が完了し「動作確認問題なし」の
+   回答を得た。残るは008の`artifacts/008/`スクリーンショット（L38）の回収のみ
+4. ~~`workers.dev`サブドメインを登録する~~ → 解決済み（L34。実は既に登録済みだった）
+5. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
    サンプルとして使うかどうかはAの判断待ち
 
 ## 未解決の論点
@@ -262,6 +319,8 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | L49 | Dependabotのセキュリティ更新のみ有効化（`vulnerability-alerts`・`automated-security-fixes`）はリポジトリ設定のAPI経由で行い、`dependabot.yml`を作らなかったため、**設定がリポジトリ内に痕跡を残さず、レビューやCIでは検証できない**（L11 Rレビュー R-31。実測: `gh api repos/{owner}/{repo}/vulnerability-alerts`→204、`gh api repos/{owner}/{repo}/automated-security-fixes`→`{"enabled":true,"paused":false}`で現在は有効と確認済み） | 誰かが無効化しても誰も気づけない | 016の確認手順に上記2つの`gh api`コマンドでの実測確認を追加する |
 | L50 | `scripts/check-audit-ignore-staleness.mjs`の「判定を見送る」分岐（`metadata.vulnerabilities`が想定した形でないとき）は、将来pnpmのJSON出力形式が変わると恒久的に見送り続け、CIは緑のまま固定される可能性がある（L11 Rレビュー R-34）。「放置すると赤くなる」ために作った陳腐化検出に、静かに緑で居座れる経路がある | ログには「判定を見送ります」と出るが、Aが陳腐化検出に切り替えた理由自体が「誰もCIログを読まないから」だったため、この経路もログだけでは気づかれない | 016の再評価項目に「陳腐化検出が実際に判定を行っているか（見送りが常態化していないか）」の確認を追加する |
 | L51 | 008のPR #47受け入れ・マージ後、B自身が「009-reactions（次に着手する。着手可否をAに確認中——Aは当初『Rが008をまだ見ていない』ことを理由に保留を指示していたが、実際には008・L11ともRの受け入れ・マージが完了済みのため、状況をAへ再連絡した）」とworklogに書いた際、L11のPR #54の`process.exit(0)`修正を「バグ発見」と報告したが、Rの確認では当該箇所はバックアップ作成より前にあり、その時点では復元をスキップする経路は成立していなかった（L11 Rレビュー R-35） | 「潜在的な危険パターンを先に潰した」が正確な表現で、「バグを発見した」は少し強い。満たせないものを満たしたことにしないのと同じ精度で、自己申告が過小な方向に外れるのも避けるべき | 記録のみ。今後同種の報告をする際の表現の精度に活かす |
+| ~~L52~~ | ~~oRPCの`RPCHandler`がHTTPメソッドを見ないため、全ての書き込み手続きが`GET`で実行できる（009 M2まとめ監査 High指摘）~~ → **【訂正・誤指摘と判明】**。Rレビューで、`@orpc/server`の`RPCHandler`が既定で`StrictGetMethodPlugin`を自動登録しており、GET経由の手続き実行は元々拒否されていたと判明した（`@orpc/server/dist/adapters/fetch/index.mjs`で確認）。**CSRFの脆弱性は存在しなかった。** `fix/reject-get-writes`で貼った実測（`GET .../couple/get: 405`）は修正前から一貫して正しく、誤っていたのはその解釈の方だった。コード・回帰テストはライブラリの既定に依存しない防御としてそのまま残す（Rの判断）。詳細は`docs/security-report.md`の該当エントリ参照 | | 解決済み（誤指摘と判明・記述訂正済み。`fix/reject-get-writes`PR #60で対応） |
+| ~~L53~~ | ~~oRPCの`encode`が`Cache-Control: no-store`等のレスポンスヘッダを付けない（009 M2まとめ監査 Info指摘）。L52（GETが通る）と組み合わさると…~~ → **前提のL52が誤指摘だったため、この指摘も成立しない**（GET経由の到達自体が元々無い）。`Cache-Control: no-store`自体の要否は本件と切り離した話であり、緊急性はない | | 前提が崩れたため対応不要（記録のみ）。`Cache-Control`自体を足すかは016前に任意で検討 |
 
 ## 決まっていることの要約
 
