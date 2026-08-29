@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-29 / セッションB（008のPR #47をRレビュー往復1回・必須修正なしで受け入れ、mainへマージ。Rの記録4件をL44〜L47に起票。L11着手中に発見したpnpm auditのhigh勧告未修正問題はAのL39と重複するため統合し、無視リストで対応した）
+**最終更新**: 2026-08-29 / セッションB（`fix/ci-security-checks`でL11完了。gitleaks・pnpm audit〈無視リスト方式〉・Dependabotのセキュリティ更新をCIに導入。次は009着手）
 
 ---
 
@@ -194,23 +194,18 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 次の一手
 
-1. `fix/ci-security-checks`（L11: CIにgitleaks/pnpm audit/Dependabotを追加）を
-   完了させる。`pnpm audit --audit-level=high`のゲートは、既存の修正不能な
-   high勧告（image-size。L39参照）でCI全体が即座に赤くなることが分かり、
-   Aへ判断を仰いだ。Aの判断（PR #49）で無視リスト方式が確定し、
-   `pnpm-workspace.yaml`の`auditConfig.ignoreGhsas`で実装済み
-2. `fix/ci-security-checks`が終わったら、**きれいな`main`の上で**009
+1. `fix/ci-security-checks`（L11）は完了。**きれいな`main`の上で**009
    （リアクション）に着手する（008とファイルが重なるため、Rの008受け入れを
    待ってから開始する方針をA・Rと合意済み）。Rから申し送り: リアクションは
    まず`heart`の1種のみ（判断はRが引き取る）。`reaction.toggle`は`postId`を
    受け取るため、006の`post.delete`と同じ形（`couple_id = ctx.coupleId`を
    WHEREに含めた1文）で他ペアの投稿への到達を防ぐこと
-3. **人間の対応が必要**: 008・009の完了後、M2受け入れ判定で実機確認を行う。
+2. **人間の対応が必要**: 008・009の完了後、M2受け入れ判定で実機確認を行う。
    008の`artifacts/008/`スクリーンショット（L38）をこのタイミングでまとめて撮る
-4. **人間の対応が必要（任意・016の前までに）**: `workers.dev`サブドメインを
+3. **人間の対応が必要（任意・016の前までに）**: `workers.dev`サブドメインを
    Cloudflareダッシュボードで登録する。登録後、`env.BUCKET`バインディング経由の
    実クラウド確認ができるようになる（L34参照。急ぎではないが016では必須）
-5. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
+4. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
    サンプルとして使うかどうかはAの判断待ち
 
 ## 未解決の論点
@@ -227,7 +222,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | ~~L8~~ | ~~`packages/ui` の `shadow.fab` が `architecture.md` 7節に無い新規トークン~~ → **解決**（PR #12）。`shadow.fab` を7節の表に追記した | | 解決済み（PR #12） |
 | L9 | ネイティブの Google ログイン未対応。`futary://` を `TRUSTED_ORIGINS` に含めていないため経路自体が無効（fail-closed）。`@better-auth/expo` はセッショントークンをURLクエリに載せる実装で、Androidはカスタムスキームの衝突リスクがある（003監査 Medium指摘） | ネイティブ対応（実機ログイン）を始める前に、検証済みディープリンク（Universal Links/App Links）への切替か、リスク受容のADR化が必要 | ネイティブ対応タスクの前 |
 | ~~L10~~ | ~~Better Authの`rateLimit`がmemoryストレージのまま~~ → **解決（004）**。招待コード用には Better Auth の `rateLimit` を流用せず、`invite_failures` テーブル（user_id + IP + created_at）による専用の実装にした。Better Auth自体のOAuthエンドポイント向けrateLimitは003のまま未変更（別の課題として残る） | | 解決済み（004。Better Auth側のmemory storageは別課題） |
-| L11 | CI に `pnpm audit` / gitleaks / Dependabot が無い（003監査 Low指摘）。**`security-requirements.md` 9節は T6/T7 の対策として「CI で実行する」と書いており、恒久ドキュメントが実在しない統制を主張していた** | T6/T7 の対策が手動実行に依存 | **着手中（008 のレビュー待ちの間に B が対応）。** 合否基準は A が決定済み（`security-requirements.md` 9節「CI の合否基準」）。gitleaks は1件で赤、`pnpm audit` は high 以上で赤、Dependabot はセキュリティ更新のみ。`fix/` で扱う（設計判断は A が済ませたため）。**着手後、B が「導入した瞬間に high 2件で恒久的に赤くなる」ことを実測で発見した**（`image-size`。修正版なし、Metro 経由で到達不能）。A の当初の規則が `high` を「対処できる」の代用にしていた誤りで、無視リストとその4つの縛りを追加して訂正済み（`security-requirements.md` 9節）。根本原因は L39 |
+| ~~L11~~ | ~~CI に `pnpm audit` / gitleaks / Dependabot が無い（003監査 Low指摘）~~ → **解決**（`fix/ci-security-checks`）。gitleaks-action（検出1件で赤）、`pnpm audit --audit-level=high`（`pnpm-workspace.yaml` の `auditConfig.ignoreGhsas` で L39 の2件を無視）＋全重大度の出力専用ステップ（無視リストの影響は受けるが `(N ignored)` で件数は見える。詳細は `pnpm-workspace.yaml` のコメント参照）、Dependabot はリポジトリ設定でセキュリティ更新のみ有効化（`dependabot.yml` は作らない）。着手中に発見したhigh勧告未修正問題（旧L43。AのL39と重複のため統合済み）は無視リスト方式で解決 | | 解決済み（`fix/ci-security-checks`）。無視リストの再評価は016の前 |
 | L12 | `apps/api/src/index.ts` に `app.onError` が無く、サーバ内部エラーに一意なIDが振られていない（003監査 Low指摘）。クライアントへの漏洩は無いことは確認済み | 障害追跡ができない | posts等、複雑な処理が増えるタスクで対応 |
 | L13 | セキュリティヘッダ（CSP等）が未設定（003監査 Low指摘） | 要件7節未達 | Web配信・LP実装タスクで対応 |
 | ~~L14~~ | ~~003で実際のGoogleログインが未検証（クライアント未入手のため人間判断で保留）~~ → **解決（2026-08-29）**。人間がクライアントを作成し、実機で全項目を確認した。実際のログイン成功（2アカウント）・D1への`user`/`account`レコード作成・リロード後のログイン状態維持・Cookie属性（`HttpOnly`/`SameSite=Lax`）・ログアウト導線・004のオンボーディング導線（ペア作成→招待コード発行→別アカウントで参加）を全て確認済み。実機確認中に発見したバグ2件はPR #22で修正済み。詳細は`artifacts/003/manual-check.md`の追記部分参照 | | 解決済み（2026-08-29） |
