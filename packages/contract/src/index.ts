@@ -4,6 +4,8 @@ import { coupleCreateContract, coupleGetContract, coupleUpdateContract } from ".
 import { inviteAcceptContract, inviteIssueContract } from "./invite";
 import { postCreateContract, postDeleteContract, postListContract, postUploadUrlContract } from "./post";
 
+export type { Post } from "./post";
+
 export const contract = {
   health: {
     get: healthGetContract,

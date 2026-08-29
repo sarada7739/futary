@@ -13,6 +13,10 @@ const IMAGE_ID_PATTERN = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;
 export const postSchema = z.object({
   id: z.string(),
   authorId: z.string(),
+  // 008: 投稿カードに投稿者名・アバターを出すため追加。null許容の理由・
+  // authorImageの出どころは architecture.md 5節参照
+  authorName: z.string().nullable(),
+  authorImage: z.string().nullable(),
   body: z.string(),
   // 画像が無い投稿は null。imageUrl は署名付き GET URL（有効期限1時間。architecture.md 6節）
   // であり、post.list/post.create のたびに毎回新しく発行し直す
@@ -21,6 +25,8 @@ export const postSchema = z.object({
   imageHeight: z.number().nullable(),
   createdAt: z.number(),
 });
+
+export type Post = z.infer<typeof postSchema>;
 
 // post.list: カーソルページング（1回20件固定）。cursor は created_at と id の
 // 複合を不透明な文字列にエンコードしたもので、クライアントは中身を解釈しない
