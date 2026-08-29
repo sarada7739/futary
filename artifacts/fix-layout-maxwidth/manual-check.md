@@ -12,7 +12,11 @@
 ## 確認したこと
 
 - `pnpm run type-check`・`pnpm run lint`・`pnpm run test`すべて緑
-  （apps/api 131件・apps/app 28件）
+  （apps/api 131件・apps/app 30件。Rレビュー指摘を受けて回帰テストを2件追加）
+- `apps/app/test/screen.test.tsx`（新規）: `Screen`が既定で`maxWidth: layout.maxWidth`
+  に制約されること、`unconstrained`を渡すと外れることをRNTL（jsdom）で固定した。
+  ログイン不要でタブ配下の画面を描画できる`home-timeline.test.tsx`と同じ基盤を使い、
+  `Screen`単体を直接レンダーして確認している
 - ブラウザ（Chromium、ビューポート1280×900）でサインイン画面
   （`(auth)/sign-in.tsx`。`Screen`を使う画面のうち認証不要で確認できるもの）を
   実際に開き、`getComputedStyle`でScreen直下の要素が`maxWidth: 640px`・
