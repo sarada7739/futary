@@ -20,8 +20,9 @@ minimumReleaseAgeExclude:
   - '@better-auth/expo@1.7.2'
 # L11・security-requirements.md 9節「修正版の無い勧告の扱い（無視リスト）」。
 # 登録できるのは A だけ。B は自分を通すために足さない（塞がれたら A に上げる）。
-# 無視リストとは別に、全重大度の pnpm audit を出力専用で必ずCIに走らせる
-# （無視したものが見えなくなる状態を作らない）。016のリリース前に全項目を再評価する
+# CIが陳腐化を検出する（scripts/check-audit-ignore-staleness.mjs。無視リストを
+# 外した状態でも各項目がaudit結果に現れなくなったら赤にする）。
+# 016のリリース前に全項目を再評価する
 auditConfig:
   ignoreGhsas:
     # image-size（経路: @better-auth/expo -> expo -> @expo/cli -> react-native
