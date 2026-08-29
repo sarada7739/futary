@@ -1239,3 +1239,53 @@
 
 ### 詰まった点
 - なし
+
+## 2026-08-29 / セッションB（007 実機確認）
+
+### やったこと
+- 人間からR2 APIトークンを`.dev.vars`に設定した旨の連絡を受け、実機確認に着手した
+- `.claude/launch.json`に`api-dev-remote`（`wrangler dev --remote`）を追加して
+  起動を試みたが、このCloudflareアカウントは`workers.dev`サブドメインが
+  未登録のため「Register a workers.dev subdomain」エラーで失敗した。新しい
+  `experimental_remote`（バインディング単位のリモート接続）も
+  `wrangler.toml`に一時的に追加して試したが、手元のwrangler（4.126.0/4.127.1）
+  では未知の設定項目として無視され、Workerランタイムがクラッシュした
+  （どちらも試行後、変更は元に戻した）
+- 代替として、`apps/api/src/lib/r2-signed-url.ts`の署名生成ロジックを直接
+  呼び出す一時スクリプト（`apps/api/test/manual-r2-check.test.ts`。vitestの
+  `cloudflare:test`環境経由で`.dev.vars`のR2認証情報を読み込む。確認後に削除）
+  を書き、実クラウドR2に対して確認した
+  1. 署名付きPUT URLで54,321バイトをアップロード → `200`
+  2. 同じオブジェクトへ署名なしでGET → `400 InvalidArgument: Authorization`（拒否）
+  3. 署名付きGET URLでアクセス → `200`、`content-length: 54321`（サイズ一致）
+  4. 有効期限を1秒に短縮した署名付きURLで2秒待ってからGET →
+     `403 ExpiredRequest: Request has expired`（拒否）
+  5. オブジェクト削除後、同じ署名付きGET URLでアクセス → `404`
+  （最初の実行では署名なしGETの期待値を`[401, 403]`にしていたため`400`で
+  テストが落ちた。R2のS3互換APIはAuthorizationヘッダが完全に無いと`400`、
+  署名はあるが不正・期限切れだと`403`を返す仕様と分かり、`res.ok === false`
+  で判定する形に修正した）
+- `env.BUCKET`（Workersバインディング）経由の実クラウド動作
+  （`post.create`のR2実体確認、`post.delete`のR2削除）は、上記の
+  `workers.dev`未登録の制約により確認できていない。Miniflareのローカル
+  シミュレーションでの単体テストのみで担保されている状態
+- 証跡を`artifacts/007/manual-check.md`・`manual-check-raw.txt`に保存し、
+  一時スクリプトは削除した
+- `docs/tasks/007-image-upload.md`の進捗・実装メモ、`docs/state.md`
+  （L32を一部解決に更新、L34〈workers.devサブドメイン未登録〉を新規追加、
+  進行中タスク・次の一手を更新）を更新した
+- ユーザーから「gitのマージは私の許可いらないよ」と指摘を受けた。以後、
+  PRのsquash mergeについて逐一確認を取らない方針に変更し、メモリに記録した
+
+### 決定事項
+- `env.BUCKET`バインディング経由の完全なend-to-end確認は、`workers.dev`
+  サブドメイン登録（人間の対応）を待つ。急ぎではないため008の着手をブロックしない
+- 007の「完了タスク」への移動は、実機確認結果をRへ報告してから最終判断を仰ぐ
+  （Rが「実機確認が済むまで保留」と条件付きで指示していたため）
+
+### 詰まった点
+- `wrangler dev --remote`が使えない環境で、Workersバインディング経由の
+  実クラウド確認をどう代替するかで試行錯誤した。最終的に「署名生成ロジックを
+  Workerランタイムを介さず直接呼ぶ」方式に落ち着いたが、これは`post.create`/
+  `post.delete`が使う`env.BUCKET`バインディング自体の実クラウド動作までは
+  検証できていない点を明確に切り分けて記録する必要があった

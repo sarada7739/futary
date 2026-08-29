@@ -12,6 +12,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@futary/api", "run", "dev"],
       "port": 8787
+    },
+    {
+      "name": "api-dev-remote",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@futary/api", "exec", "wrangler", "dev", "--remote"],
+      "port": 8787
     }
   ]
 }

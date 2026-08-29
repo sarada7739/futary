@@ -126,7 +126,8 @@ Playwright による E2E はこのタスクで入れない。
 - [x] `posts.image_key` の UNIQUE 制約（マイグレーション）
 - [x] `post.create` の実体確認（R2 head）
 - [x] `post.delete` の削除順序（D1 → R2、失敗を握りつぶす、`image_key` を残す）
-- [ ] 署名なしアクセスの拒否確認（実機。下記「実装メモ」参照。未実施）
+- [x] 署名なしアクセスの拒否確認（実機。R2 APIトークン設定後に確認済み。
+      下記「実装メモ」・`artifacts/007/manual-check.md`参照。一部制約あり）
 - [x] security-auditor 実行（High以上ゼロ。Medium 4件中3件・Low 1件中1件を対応。
       詳細は `docs/security-report.md` と `artifacts/007/security-audit-raw.md`）
 - [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
@@ -170,8 +171,24 @@ Playwright による E2E はこのタスクで入れない。
   「signIn.social 成功後もページ遷移が始まるまで意図的に無効のままにする」
   という Button の標準機構では表現できない要件を持つため（コード内コメント参照）。
   二重ガードになるが実害はない
-- **署名なしアクセスの拒否確認・実際のアップロード/削除の実機確認は未実施。**
-  R2 の S3互換API認証情報（`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`）が
-  ローカルの `.dev.vars` に未設定のため（Cloudflareダッシュボード「R2 > Manage R2 API
-  Tokens」での発行が必要。003のGoogle OAuthクライアントと同じ制約）。
-  `.dev.vars.example` に必要な変数とコメントを追記済み
+- **署名なしアクセスの拒否確認・実際のアップロード/削除の実機確認を実施した**
+  （人間がR2 APIトークンを発行し`.dev.vars`に設定した後）。結果は
+  `artifacts/007/manual-check.md`参照。要点:
+  - `wrangler dev --remote`は、このCloudflareアカウントが`workers.dev`
+    サブドメイン未登録のため実行できなかった（新しい`experimental_remote`設定も
+    手元のwrangler 4.126.0/4.127.1では未対応で試せず）。そのため
+    `env.BUCKET`（Workersバインディング）を実クラウドに向けての確認は
+    今回できていない
+  - 代わりに`r2-signed-url.ts`の署名生成ロジックを直接呼び出し、実クラウドR2
+    （S3互換API）に対して確認した。**署名付きPUT成功→署名なしGETは
+    `400 InvalidArgument: Authorization`で拒否→署名付きGETは成功しサイズが
+    一致（54,321バイト）→期限切れ署名付きGETは`403 ExpiredRequest`で拒否→
+    削除後は`404`**という一連の流れを確認できた。手続き
+    （`post.uploadUrl`/`post.list`）が使う署名生成ロジックそのものを直接
+    叩いているため、署名の正しさ・R2側の拒否挙動はこの確認で担保できる
+  - **未確認のまま残るのは、`post.create`のR2実体確認（`env.BUCKET.head()`）と
+    `post.delete`のR2バインディング経由削除（`env.BUCKET.delete()`）が
+    実クラウドでも同様に動くこと。** これはMiniflareのローカルシミュレーション
+    での単体テスト（`apps/api/test/post.test.ts`）でのみ検証済み。
+    `workers.dev`サブドメイン登録後に`wrangler dev --remote`で再検証できる
+    （`docs/state.md` L32参照）

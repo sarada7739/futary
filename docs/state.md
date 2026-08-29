@@ -172,8 +172,10 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 ## 進行中タスク
 
 - 007-image-upload（PR #41、Rレビュー往復1回・必須修正なしでmainへsquash merge済み。
-  ただし完了条件「署名なしアクセスの拒否確認」が実機未確認のため、
-  Rの指示により「完了タスク」への移動は保留。L32参照）
+  2026-08-29、人間がR2 APIトークンを設定し実機確認を実施。署名なしアクセスの拒否・
+  期限切れの失効・削除の反映は実クラウドR2で確認できたが、`workers.dev`サブドメイン
+  未登録のため`env.BUCKET`バインディング経由の確認はできていない（L32・L34参照）。
+  Rへ結果を報告し、「完了タスク」への移動可否の最終判断を待っている）
 
 ## 環境
 
@@ -183,24 +185,26 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | リポジトリ | `sarada7739/futary`（**Private**。016 で Public に切り替える。ADR-011） |
 | 既定ブランチ | `main` |
 | gh CLI | 2.98.0 認証済み（スコープ: repo / workflow / gist / read:org） |
-| Cloudflare | 設定済み。D1 `futary-db`（`database_id: 37d32e5d-80a9-4bc9-bae4-e7019bebd883`）、R2 `futary-images` |
+| Cloudflare | 設定済み。D1 `futary-db`（`database_id: 37d32e5d-80a9-4bc9-bae4-e7019bebd883`）、R2 `futary-images`。**`workers.dev`サブドメイン未登録**（L34） |
+| R2 APIトークン | **設定済み**（2026-08-29）。`.dev.vars`の`R2_ACCOUNT_ID`/`R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`に実際の値が入っている（コミットしていない） |
 | Google OAuth | **設定済み**（2026-08-29）。`.dev.vars` に実際のクライアントID/シークレットが入っている（コミットしていない） |
 
 ## 次の一手
 
-1. **人間の対応が必要**: R2のS3互換API認証情報をCloudflareダッシュボード
-   「R2 > Manage R2 API Tokens」で発行し、`.dev.vars`の`R2_ACCOUNT_ID`/
-   `R2_ACCESS_KEY_ID`/`R2_SECRET_ACCESS_KEY`に設定する（003のGoogle OAuthクライアントと
-   同じ制約。Rから既に人間へ伝達済み）。設定後、署名なしアクセスの拒否確認・
-   実際のアップロード実機確認を行い、007を「完了タスク」に移す
-   （`docs/tasks/007-image-upload.md`の確認観点・完了条件を参照）
-2. 003・004の実機確認待ちのパターンと同様、007の実機確認を待たずに
+1. Rへ007の実機確認結果（`artifacts/007/manual-check.md`）を報告し、
+   「完了タスク」への移動可否の最終判断を仰ぐ
+   （署名なし拒否・期限切れ失効・削除反映は確認済み。`env.BUCKET`バインディング
+   経由の確認は`workers.dev`サブドメイン未登録〈L34〉のため未実施）
+2. **人間の対応が必要（任意）**: `workers.dev`サブドメインを登録すると
+   `wrangler dev --remote`が使えるようになり、`env.BUCKET`経由の完全な
+   end-to-end確認ができる。急ぎではない（L34参照）
+3. 003・004の実機確認待ちのパターンと同様、007の残りの確認を待たずに
    008（タイムライン）へ着手してよい。`docs/tasks/008-*.md`を読んで着手する。
    Rから008に向けた申し送り: `post.list`の`imageUrl`は有効期限1時間の
    署名付きURLで、`post.list`を呼ぶたびに発行し直される。UI側でキャッシュを
    持つ場合、キャッシュしたURLが1時間で失効する点に注意（TanStack Queryの
    `staleTime`をどう置くかが設計判断になる）
-3. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
+4. `docs/sample/風景/`（写真6枚）はまだ用途未定。投稿機能（007以降）で
    サンプルとして使うかどうかはAの判断待ち
 
 ## 未解決の論点
@@ -238,7 +242,8 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | ~~L29~~ | ~~`apps/api/src/procedures/base.ts` の `writeProcedure` の戻り値型 `CoupleContext` が union のままで、readonly を実行時に弾いた後も `userId` が型上 `string \| null` のまま絞り込まれない~~ → **解決**（PR #37）。`writeProcedure` の OutContext を `Extract<CoupleContext, {mode: "member"}>` に変更し、`post.create` にあった到達不能な `if (userId === null) throw ...` を削除した。AがB案（`fix/`対応）を支持し、Rの受け入れを得てmainへマージ済み | | 解決済み（PR #37） |
 | ~~L30~~ | ~~投稿の本文・画像がどちらも空の投稿を作成できてしまう（`post.create` に下限が無い）~~ → **解決**（PR #35）。「本文か画像のどちらかは必須」を要件化（`requirements.md` 4節）。006の時点では画像が無く下限を置けなかったため、画像が入る007で弾く形に揃える（`architecture.md` 5節・`docs/tasks/007-image-upload.md`に実装項目を追加済み。空白のみの本文も空として扱い、両方空・空白のみの2ケースをテストする） | | 解決済み（PR #35。実装は007） |
 | L31 | `post.uploadUrl`にレート制限が無く、`post.create`を呼ばずにR2へアップロードだけを繰り返すと無参照オブジェクトが際限なく作れる（007 security-auditor Medium指摘）。誰でも到達可能（`couple.create`は`authedProcedure`のみ）で、金銭コスト・ストレージ増大につながる。機密性には影響しない | 016前のコスト管理・運用面。放置するとR2の課金が投稿数に対して不自然に増える | 016の前、またはトラフィックが増えた時点で再検討。`invite.accept`のレート制限の仕組み（`invite_failures`と同型）を流用できる。無参照オブジェクトの定期回収ジョブも未実装（`architecture.md`6節でMVP外と明記済み） |
-| L32 | 007でR2のS3互換API認証情報（`R2_ACCOUNT_ID`等）が未設定のため、署名なしアクセスの拒否確認・実際のアップロード実機確認が未実施（003のGoogle OAuthクライアントと同じ制約） | 007の完了条件「署名なしアクセスが拒否されることを確認済み」が未達のまま。**Rの指示により、この確認が済むまで007を「完了タスク」に移さない**（003・004と同じ扱い） | 人間がCloudflareダッシュボードでR2 APIトークンを発行し`.dev.vars`に設定した後、次のセッションで実機確認する。`docs/tasks/007-image-upload.md`参照 |
+| ~~L32~~ | ~~007でR2のS3互換API認証情報（`R2_ACCOUNT_ID`等）が未設定のため、署名なしアクセスの拒否確認・実際のアップロード実機確認が未実施~~ → **一部解決（2026-08-29）**。人間がR2 APIトークンを発行し`.dev.vars`に設定した後、実クラウドR2に対して確認した。署名付きPUT成功→署名なしGETは`400`で拒否→署名付きGETは成功しサイズ一致→期限切れGETは`403`で拒否→削除後は`404`、という一連の流れを確認済み（`artifacts/007/manual-check.md`）。**ただし`wrangler dev --remote`が`workers.dev`サブドメイン未登録のため使えず、`env.BUCKET`バインディング経由（`post.create`のR2実体確認・`post.delete`のR2削除）の実クラウド動作は未確認のまま**（L34参照。Miniflareのローカル単体テストでのみ検証済み） | 主要な確認観点は実機で取れたが、手続き経由（`env.BUCKET`バインディング）の完全なend-to-end確認はL34の解消が前提 | Rへ実機確認結果を報告し、007を「完了タスク」に移してよいか最終判断を仰ぐ |
+| L34 | このCloudflareアカウントは`workers.dev`サブドメインが未登録のため、`wrangler dev --remote`が実行できない（007の実機確認中に発覚）。新しい`experimental_remote`（バインディング単位のリモート接続）もwrangler 4.126.0/4.127.1では未対応の設定項目として無視され、Workerランタイムがクラッシュする | `env.BUCKET`等のWorkersバインディングを実クラウドに向けたローカル開発・確認が一切できない。デプロイ自体（`wrangler deploy`）には影響しない見込み（別経路） | 人間がCloudflareダッシュボード（`https://dash.cloudflare.com/d08a3c92a0ca2b448831a612221af692/workers/onboarding`）で`workers.dev`サブドメインを登録する。登録後、`.claude/launch.json`の`api-dev-remote`設定（007で追加済み）で`wrangler dev --remote`を試せる |
 | L33 | R2のS3互換API認証情報が未設定の状態で画像付き投稿が1件でもあると、`r2-signed-url.ts`の`clientFor`が署名鍵未設定で例外を投げるため`post.list`**全体**が500になる（画像だけ欠落させる設計にはしていない。007 Rレビュー記録依頼） | fail-closedとして筋は通っており、デプロイ時の設定漏れに気づきやすい利点もあるとRは評価。画像の無い投稿しか無い開発初期は顕在化しない | 対応不要と判断済み（記録のみ）。将来「画像だけ表示しない」形に緩めるかは、実際に運用で困った時に再検討 |
 
 ## 決まっていることの要約
