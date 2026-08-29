@@ -10,6 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks-action が差分（PRのbase..head／pushのbefore..after）を
+          # 計算するためにはコミット履歴が必要（shallow clone だと参照が無い）
+          fetch-depth: 0
+
+      - name: gitleaks（検出1件で赤。security-requirements.md 9節）
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: pnpm/action-setup@v4
 
@@ -19,6 +28,22 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      # 出力専用（全重大度）。失敗させない。
+      # 注意: pnpm audit の無視リスト（pnpm-workspace.yaml の auditConfig）は
+      # CLIにこれを個別に外すオプションが無く、このステップにも適用される。
+      # 無視された2件の詳細（GHSA ID・到達不能な理由・修正版が出たら消すこと）は
+      # ログではなく pnpm-workspace.yaml のコメントに置いている。ここでの
+      # 「見えなくなる状態を作らない」は、サマリ行の "(N ignored)" 表示と
+      # pnpm-workspace.yaml の参照可能なコメントの組み合わせで満たす
+      - name: pnpm audit（全重大度・出力のみ）
+        run: pnpm audit || true
+
+      # ゲート。high以上で赤（moderate以下は上の出力専用ステップに任せる）。
+      # pnpm-workspace.yaml の auditConfig.ignoreGhsas（到達不能・修正版無しの
+      # 勧告のみ、A の承認制）がここに効く
+      - name: pnpm audit（high以上で赤。security-requirements.md 9節）
+        run: pnpm audit --audit-level=high
 
       - run: pnpm run type-check
 
