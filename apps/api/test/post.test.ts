@@ -339,6 +339,23 @@ describe("post.list", () => {
     const result = await call(router.post.list, {}, { context: contextFor(user) });
     expect(result.items[0]?.imageUrl).not.toBeNull();
   });
+
+  // 008・architecture.md 5節: 投稿カードの投稿者名・アバターのため
+  it("投稿者の名前・アバターを含む", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    await call(router.post.create, { body: "こんにちは" }, { context: contextFor(user) });
+
+    const result = await call(router.post.list, {}, { context: contextFor(user) });
+    expect(result.items[0]?.authorName).toBe(user.name);
+    // contextFor は image: null を積むテスト用ヘルパーのため null が正しい
+    expect(result.items[0]?.authorImage).toBeNull();
+  });
+
+  // 「user 行が無くても投稿が落ちない」テストはここに置かない。
+  // posts.author_id は user への FK を持ち、その状態はクライアント可観測な
+  // 操作からは構築できない（到達不能）。設計上の理由は architecture.md 5節、
+  // 経緯は state.md L37 参照
 });
 
 describe("post.delete", () => {

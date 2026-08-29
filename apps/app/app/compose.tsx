@@ -1,0 +1,127 @@
+import { useState } from "react";
+import { Image, TextInput, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import { useMutation } from "@tanstack/react-query";
+import { Button, colors, radius, Screen, space, Text } from "@futary/ui";
+import { compressImage, uploadCompressedImage, type SourceImage } from "../lib/image";
+import { orpc } from "../lib/orpc";
+import { queryClient } from "../lib/query";
+
+const MAX_BODY_LENGTH = 2000;
+
+export default function ComposeScreen() {
+  const router = useRouter();
+  const [body, setBody] = useState("");
+  const [image, setImage] = useState<SourceImage | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const requestUploadUrl = useMutation(orpc.post.uploadUrl.mutationOptions());
+  const createPost = useMutation(
+    orpc.post.create.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.post.list.key() }),
+    }),
+  );
+
+  const trimmedBody = body.trim();
+  // post.create の下限（本文か画像のどちらかは必須。architecture.md 5節）と揃える
+  const canSubmit = trimmedBody.length > 0 || image !== null;
+  const isSubmitting = requestUploadUrl.isPending || createPost.isPending;
+
+  async function pickImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 1,
+      allowsMultipleSelection: false,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    if (!asset) return;
+    setImage({ uri: asset.uri, width: asset.width, height: asset.height, mimeType: asset.mimeType });
+  }
+
+  // Button 自体が二重発火を防ぐ（conventions.md 4節）。ここでは
+  // アップロード〜投稿作成の一連の流れをまとめて1つの onPress にする
+  async function handleSubmit() {
+    if (!canSubmit) return;
+    setErrorMessage(null);
+
+    try {
+      let imageId: string | undefined;
+      let imageWidth: number | undefined;
+      let imageHeight: number | undefined;
+
+      if (image) {
+        const compressed = await compressImage(image);
+        const uploaded = await uploadCompressedImage(
+          (contentType) => requestUploadUrl.mutateAsync({ contentType }),
+          compressed,
+        );
+        imageId = uploaded.imageId;
+        imageWidth = uploaded.imageWidth;
+        imageHeight = uploaded.imageHeight;
+      }
+
+      await createPost.mutateAsync({ body: trimmedBody, imageId, imageWidth, imageHeight });
+      router.back();
+    } catch {
+      setErrorMessage("投稿できませんでした。もう一度お試しください");
+    }
+  }
+
+  return (
+    <Screen>
+      <View style={{ flex: 1, padding: space.lg, gap: space.md }}>
+        <TextInput
+          value={body}
+          onChangeText={setBody}
+          placeholder="今日の出来事を書く"
+          placeholderTextColor={colors.textMuted}
+          multiline
+          maxLength={MAX_BODY_LENGTH}
+          style={{
+            minHeight: 120,
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: radius.input,
+            padding: space.md,
+            fontSize: 16,
+            color: colors.text,
+            textAlignVertical: "top",
+          }}
+        />
+
+        {image ? (
+          <View style={{ gap: space.sm }}>
+            <Image
+              source={{ uri: image.uri }}
+              style={{
+                width: "100%",
+                aspectRatio: image.width && image.height ? image.width / image.height : 1,
+                borderRadius: radius.input,
+              }}
+              resizeMode="cover"
+            />
+            <Button variant="ghost" onPress={() => setImage(null)}>
+              画像を外す
+            </Button>
+          </View>
+        ) : (
+          <Button variant="secondary" onPress={pickImage}>
+            画像を選ぶ
+          </Button>
+        )}
+
+        {errorMessage && <Text color="muted">{errorMessage}</Text>}
+
+        <Button onPress={handleSubmit} disabled={!canSubmit}>
+          {isSubmitting ? "投稿中…" : "投稿する"}
+        </Button>
+      </View>
+    </Screen>
+  );
+}
