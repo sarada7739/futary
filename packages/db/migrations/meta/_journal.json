@@ -50,6 +50,13 @@
       "when": 1788000902243,
       "tag": "0006_reaction_kind_check",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788033484923,
+      "tag": "0007_event",
+      "breakpoints": true
     }
   ]
 }

@@ -2779,3 +2779,58 @@ R が PR #83 の `architecture.md` を読み、誤りを見つけた。**R が�
   反例の具体値ごと書いた
 
 実装は本文どおりループすれば問題ないので、B は返答を待たずに進めている。
+
+---
+
+## 2026-08-30 / セッションB（010 実装）
+
+### やったこと
+- `docs/tasks/010-calendar-api.md` を実装した。ブランチ `task/010-calendar-api`
+- `packages/db/src/schema/event.ts`（新規）: `events` テーブル。`kind` に
+  CHECK 制約（`reactions.kind` の0006と同じ理由）。`packages/db/migrations/0007_event.sql`
+  は `drizzle-kit generate` で生成し、他のマイグレーションと採番を揃えるため
+  ファイル名（`0007_graceful_riptide.sql`→`0007_event.sql`）と`meta/_journal.json`の
+  `tag`を手で直した
+- `apps/api/src/lib/date.ts`（新規）: JST 前提の日付ユーティリティを集約
+  （`todayJst`/`diffDays`/`isLeapYear`/`monthsBefore`/`yearsBefore`/`monthDayOf`/
+  `yearsBetween`/`projectMonthDay`）。実行時刻に依存する関数は `nowMs` を
+  引数で受け取れるようにし、日跨ぎの境界時刻をテストで直接指定できるようにした
+- `packages/contract/src/event.ts`（新規）: `event.list`/`create`/`update`/`delete`。
+  `update`は部分更新にせず`create`と同じ全項目を受け取って置き換える形にした。
+  日付の実在性チェック（`refine`）は入れていない（02-29の記念日は平年には
+  実在しない日付として登録されるため）
+- `apps/api/src/procedures/event.ts`（新規）: `readProcedure`/`writeProcedure`の上に実装。
+  `event.list`は`repeat_yearly=0`をSQLの`date BETWEEN`で絞り、`repeat_yearly=1`は
+  couple全件を取ってから`lib/date.ts`の関数で年ごとに射影する
+  （`architecture.md` 5節「繰り返し記念日の射影」。`year(from)`から`year(to)`を
+  必ず全てループし、決め打ちにしない。L「射影する年は最大2つ」の誤りを
+  踏まえ、3暦年に触れる窓で中間の年だけ返ることをテストで確認した）。
+  `update`/`delete`はWHERE句に`couple_id`を含めた1文（006の`post.delete`と同じ形）
+- `apps/api/test/date.test.ts`（新規、19件）・`apps/api/test/event.test.ts`
+  （新規、28件）を追加。タスクファイルの「テストで証明すること」を1項目ずつ
+  対応させた（年をまたぐ範囲・400日の重複・3暦年窓・401日でINVALID_INPUT・
+  うるう年02-29の射影の両方向）
+- `apps/api/test/authorization.test.ts`（変更）: `security-requirements.md` 3節の
+  5項目チェックリストに`event`系4手続きを追加。基底経由チェックの実在数を
+  12→16に更新
+- `apps/api/src/router.ts`に`event: eventProcedures`を追加
+- テスト全体218件緑（packages/ui 7・apps/app 36・apps/api 175）、
+  型チェック・lint通過。ローカルD1にもマイグレーションを適用済み
+- `artifacts/010/test-results.md`に証跡を保存
+
+### 決定事項
+- `security-requirements.md` 10節1（認証・招待・画像アップロード・認可
+  ミドルウェアを触ったタスク）に該当しないため、010単体でのsecurity-auditor
+  監査は必須ではないと判断した（006・008と同じ扱い）。ユーザーからも
+  「010が監査対象か分からないので任せる」との確認を受けた。M3の他タスク
+  （011〜013）と合わせてマイルストーン単位でまとめて監査する方針とした
+- `event.delete`は論理削除にしていない（`events`に`deleted_at`列を持たない。
+  `architecture.md` 4節のスキーマにも無い）。物理削除とした
+- `event.update`は部分更新にせず、`create`と同じ全項目を受け取って置き換える
+  形にした（部分更新はNULL上書き回避ロジックが必要で複雑さが増すだけと判断）
+
+### 詰まった点
+- `drizzle-kit generate`が生成するマイグレーションファイル名がランダムな
+  英単語（`0007_graceful_riptide.sql`）になり、他のタスクの採番規則
+  （`0007_event.sql`のような内容が分かる名前）と異なっていた。ファイル名と
+  `meta/_journal.json`の`tag`の両方を手で揃える必要があった
