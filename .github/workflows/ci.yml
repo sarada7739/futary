@@ -34,13 +34,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # 出力専用（全重大度）。失敗させない。
-      # 注意: pnpm audit の無視リスト（pnpm-workspace.yaml の auditConfig）は
-      # CLIにこれを個別に外すオプションが無く、このステップにも適用される。
-      # 無視された2件の詳細（GHSA ID・到達不能な理由・修正版が出たら消すこと）は
-      # ログではなく pnpm-workspace.yaml のコメントに置いている。ここでの
-      # 「見えなくなる状態を作らない」は、サマリ行の "(N ignored)" 表示と
-      # pnpm-workspace.yaml の参照可能なコメントの組み合わせで満たす
+      # 出力専用（全重大度）。失敗させない。人間が読む前提の材料であり統制ではない
+      # （security-requirements.md 9節「陳腐化の検出」）
       - name: pnpm audit（全重大度・出力のみ）
         run: pnpm audit || true
 
@@ -49,6 +44,12 @@ jobs:
       # 勧告のみ、A の承認制）がここに効く
       - name: pnpm audit（high以上で赤。security-requirements.md 9節）
         run: pnpm audit --audit-level=high
+
+      # 陳腐化の検出。無視リストの項目が、無視を外した状態のauditにまだ
+      # 現れるかを見る。現れなくなっていたら（修正版が出た・依存が消えた等）
+      # その項目はもう不要なので赤くする（security-requirements.md 9節）
+      - name: pnpm audit（無視リストの陳腐化検出）
+        run: node scripts/check-audit-ignore-staleness.mjs
 
       - run: pnpm run type-check
 

@@ -27,4 +27,11 @@ export default tseslint.config(
       "@typescript-eslint/no-require-imports": "off",
     },
   },
+  {
+    // CIから実行するNode.jsスクリプト（例: scripts/check-audit-ignore-staleness.mjs）
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 );
