@@ -119,7 +119,8 @@
 
 | 項目 | 方針 |
 |---|---|
-| CORS | 自ドメインのみ許可。`*` を設定しない |
+| CORS（Worker） | 自ドメインのみ許可。`*` を設定しない |
+| CORS（**R2 バケット**） | **別の設定である。**署名付きURLへのブラウザ直PUTに必要。許可は `PUT`/`GET` と実際のオリジンだけ。`*` を設定しない（`architecture.md` 6節） |
 | CSRF | `SameSite=Lax` + oRPC の POST 経由。状態変更を GET で行わない |
 | CSP | ランディングページと Web アプリに設定する |
 | HTTPS | Cloudflare により常時。HTTP へのフォールバックを作らない |
