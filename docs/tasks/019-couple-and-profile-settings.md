@@ -52,7 +52,12 @@ CHECK (primary_date <> 'married' OR married_date IS NOT NULL)
 - `married_date` にも `anniversary_date` と同じ検証を当てる
   （`1900-01-01` 以降、存在する日付）。**ただし未来の上限だけ違う**（下記）
 - **`married_date` が `anniversary_date` より前になることを許さない。**
-  結婚が交際開始より前にはならない
+  結婚が交際開始より前にはならない。
+  **これも TRIGGER で表す。**入力スキーマだけにしない。
+  `primary_date = 'married'` なのに `married_date` が NULL を CHECK にも置いた理由
+  （**シードが入力スキーマを通らない2つ目の書き込み口になる**）は、
+  **順序の規則にもそのまま当てはまる**（R の指摘）。
+  014 のシードは `couples` に行を入れる。**片方だけ DB で守る理由が無い**
 
 ## 2. `stats.get` の返し方
 

@@ -300,12 +300,24 @@ SQLite に `ALTER TABLE ... ADD CONSTRAINT` は無い。drizzle-kit は
 `couples` は `couple_members` / `invites` / `invite_failures` / `events` / `posts` から
 参照されており、**実際に `FOREIGN KEY constraint failed` になった。**
 
-| 状況 | 使えるか |
+**参照されている表は3つだけである**（実測）。
+
+| 親表 | 参照される数 | あとから CHECK を足せるか |
+|---|---|---|
+| `user` | 8 | **足せない** |
+| `couples` | 4 | **足せない** |
+| **`posts`** | 1（`reactions` から） | **足せない** |
+| 上記以外（`events`・`reactions`・`invites` 等） | 0 | **表を作り直す形が通る**（0006・0009） |
+
+**`events` は参照されていない。**014 の CHECK 追加（0009）は**通る。**
+`reactions` の 0006 が通ったのと同じである。
+
+親表に制約を足すときは、
+
+| 制約の形 | 書き方 |
 |---|---|
-| 子テーブルを持たない表（`reactions`・`events`） | **表を作り直す形が通る**（0006・0009） |
-| **子テーブルを持つ親表**（`couples`・`user`） | **通らない** |
-| 自列だけを見る制約 | `ALTER TABLE ADD COLUMN` に付けられる |
-| **複数列にまたがる制約**（親表の場合） | **TRIGGER で書く**（`BEFORE INSERT` と `BEFORE UPDATE` の両方） |
+| 自列だけを見る | `ALTER TABLE ADD COLUMN` の CHECK 句に付けられる |
+| **複数列にまたがる** | **TRIGGER**（`BEFORE INSERT` と `BEFORE UPDATE` の両方） |
 
 **TRIGGER は drizzle のスキーマファイルに現れない。**
 `packages/db/src/schema/*.ts` を読んだ人には見えないので、
