@@ -1,12 +1,19 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // 020: 012の統計カードの4つの数字を、ホームから独立したページですべて出す。
 // primary_date='none'（hidden）のときは記念日の行を出さず3つになる
 // （4つ全部は書けない。Aの決定・PR #126）
-const { statsGetMock } = vi.hoisted(() => ({
+const { statsGetMock, pushMock } = vi.hoisted(() => ({
   statsGetMock: vi.fn(),
+  pushMock: vi.fn(),
+}));
+
+// 023: unsetのときマイページへ遷移するuseRouterを使うようになったため、
+// home-screen.test.tsxと同じ形でモックする
+vi.mock("expo-router", () => ({
+  useRouter: () => ({ push: pushMock }),
 }));
 
 vi.mock("../lib/orpc", async () => {
@@ -84,6 +91,25 @@ describe("StatsScreen", () => {
     expect(screen.queryByText(/付き合って/)).toBeNull();
     expect(screen.queryByText(/結婚して/)).toBeNull();
     expect(screen.queryByText("記念日")).toBeNull();
+    // hiddenは本人が隠すと決めたので、マイページへの導線は出さない（023）
+    expect(screen.queryByText("付き合った日を設定する")).toBeNull();
+  });
+
+  // 023: unset（まだ決めていない）はhiddenと違い、記念日の行を出さず3つ＋
+  // マイページへの導線が出る
+  it("daysTogetherが'unset'なら記念日の行を出さず、マイページへの導線が出る", async () => {
+    statsGetMock.mockResolvedValue(
+      makeStats({ daysTogether: { status: "unset" }, meetupDays: 5, postCount: 10, photoCount: 3 }),
+    );
+
+    renderScreen();
+
+    const link = await screen.findByText("付き合った日を設定する");
+    expect(screen.getByText("10件")).toBeTruthy();
+    expect(screen.queryByText("記念日")).toBeNull();
+
+    fireEvent.click(link);
+    expect(pushMock).toHaveBeenCalledWith("/profile");
   });
 
   it(

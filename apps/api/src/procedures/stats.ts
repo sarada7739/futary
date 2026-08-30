@@ -5,7 +5,7 @@ import { resolveUserImage } from "../lib/r2-signed-url";
 import { readProcedure } from "./base";
 
 interface CoupleDatesRow {
-  anniversary_date: string;
+  dating_date: string | null;
   married_date: string | null;
   primary_date: string;
 }
@@ -26,19 +26,24 @@ interface CountRow {
 // 「負の値を出さない」責任はここ（サーバ側）で閉じる。
 // dating/married それぞれに upcoming の対を持たせる（Aの決定・PR #123。
 // 「結婚まであと○日」も主役になりうる数字であり、married_upcomingが無いと
-// dating側だけが修飾された非対称な名前になる）
+// dating側だけが修飾された非対称な名前になる）。
+//
+// 023: primary_dateが指している方の日付がまだ無いとき'unset'を返す
+// （登録時に付き合った日を聞かなくなったため生じる状態。「まだ決めていない」を
+// 'hidden'〈本人が隠すと決めた〉と分ける。「片方の日付があるから、そっちを
+// 出す」はしない。利用者が選んだ方だけを見る）
 export function computeDaysTogether(couple: CoupleDatesRow, today: string): DaysTogether {
   if (couple.primary_date === "none") return { status: "hidden" };
 
   if (couple.primary_date === "married") {
-    // primary_date='married'ならmarried_dateは非NULL（DBのTRIGGER・入力スキーマの
-    // refine両方で保証済み。packages/db/src/schema/couple.ts）
-    const diff = diffDays(couple.married_date!, today);
+    if (couple.married_date === null) return { status: "unset" };
+    const diff = diffDays(couple.married_date, today);
     if (diff >= 0) return { status: "married", days: diff + 1 };
     return { status: "married_upcoming", days: -diff };
   }
 
-  const diff = diffDays(couple.anniversary_date, today);
+  if (couple.dating_date === null) return { status: "unset" };
+  const diff = diffDays(couple.dating_date, today);
   if (diff >= 0) return { status: "dating", days: diff + 1 };
   return { status: "dating_upcoming", days: -diff };
 }
@@ -51,7 +56,7 @@ const statsGet = implementer.stats.get.use(readProcedure).handler(async ({ conte
   const [coupleRow, membersResult, meetupRow, postRow, photoRow] = await Promise.all([
     db
       .prepare(
-        "SELECT anniversary_date AS anniversary_date, married_date AS married_date, primary_date AS primary_date FROM couples WHERE id = ?1",
+        "SELECT dating_date AS dating_date, married_date AS married_date, primary_date AS primary_date FROM couples WHERE id = ?1",
       )
       .bind(coupleId)
       .first<CoupleDatesRow>(),

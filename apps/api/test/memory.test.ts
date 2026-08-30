@@ -38,8 +38,8 @@ function contextFor(user: { id: string; name: string; email: string } | null): R
   return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId: null };
 }
 
-async function createCouple(user: { id: string; name: string; email: string }, anniversaryDate = "2010-01-01") {
-  return call(router.couple.create, { anniversaryDate }, { context: contextFor(user) });
+async function createCouple(user: { id: string; name: string; email: string }) {
+  return call(router.couple.create, {}, { context: contextFor(user) });
 }
 
 // JSTのdate（YYYY-MM-DD）内の固定時刻（正午）に対応するUnix秒を返す。

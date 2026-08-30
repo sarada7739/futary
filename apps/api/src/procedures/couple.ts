@@ -14,7 +14,7 @@ const INVITE_CODE_MAX_ATTEMPTS = 5;
 
 interface CoupleRow {
   id: string;
-  anniversary_date: string;
+  dating_date: string | null;
   married_date: string | null;
   primary_date: string;
   created_at: number;
@@ -27,7 +27,7 @@ function nowSeconds(): number {
 function toCouple(row: CoupleRow) {
   return {
     id: row.id,
-    anniversaryDate: row.anniversary_date,
+    datingDate: row.dating_date,
     marriedDate: row.married_date,
     primaryDate: row.primary_date as "dating" | "married" | "none",
     createdAt: row.created_at,
@@ -35,7 +35,7 @@ function toCouple(row: CoupleRow) {
 }
 
 const COUPLE_COLUMNS =
-  "id AS id, anniversary_date AS anniversary_date, married_date AS married_date, " +
+  "id AS id, dating_date AS dating_date, married_date AS married_date, " +
   "primary_date AS primary_date, created_at AS created_at";
 
 // D1 は batch() を文のエラーでロールバックする（architecture.md 4節）。
@@ -52,18 +52,18 @@ export function isConstraintViolation(error: unknown): boolean {
 // 認証必須だけを課す authedProcedure の上に載せる（context.user は非 null に絞り込まれる）
 const coupleCreate = implementer.couple.create
   .use(authedProcedure)
-  .handler(async ({ context, input, errors }) => {
+  .handler(async ({ context, errors }) => {
     const { db } = context;
     const id = crypto.randomUUID();
     const now = nowSeconds();
 
     try {
       await db.batch([
+        // dating_dateは受け取らない（023。答えられない質問を必須にしない）。
+        // 列を挙げずにINSERTすると、NOT NULLでもデフォルトも無い列はNULLになる
         db
-          .prepare(
-            "INSERT INTO couples (id, anniversary_date, is_demo, created_at) VALUES (?1, ?2, 0, ?3)",
-          )
-          .bind(id, input.anniversaryDate, now),
+          .prepare("INSERT INTO couples (id, is_demo, created_at) VALUES (?1, 0, ?2)")
+          .bind(id, now),
         db
           .prepare(
             "INSERT INTO couple_members (couple_id, user_id, slot, joined_at) VALUES (?1, ?2, 1, ?3)",
@@ -76,9 +76,10 @@ const coupleCreate = implementer.couple.create
       throw error;
     }
 
-    // couple.create時点ではmarried_date/primary_dateを受け取らない（DBの既定値
-    // married_date=NULL・primary_date='dating'のまま。019タスク定義）
-    return { id, anniversaryDate: input.anniversaryDate, marriedDate: null, primaryDate: "dating" as const, createdAt: now };
+    // couple.create時点ではdating_date/married_date/primary_dateを受け取らない
+    // （DBの既定値 dating_date=NULL・married_date=NULL・primary_date='dating'
+    // のまま。023タスク定義）
+    return { id, datingDate: null, marriedDate: null, primaryDate: "dating" as const, createdAt: now };
   });
 
 // ctx.coupleId はミドルウェアが解決済み（未認証ならデモペア、認証済みなら所属ペア）
@@ -103,11 +104,11 @@ const coupleUpdate = implementer.couple.update.use(writeProcedure).handler(async
     row = await context.db
       .prepare(
         `UPDATE couples
-            SET anniversary_date = ?1, married_date = ?2, primary_date = ?3
+            SET dating_date = ?1, married_date = ?2, primary_date = ?3
           WHERE id = ?4
           RETURNING ${COUPLE_COLUMNS}`,
       )
-      .bind(input.anniversaryDate, input.marriedDate, input.primaryDate, context.coupleId)
+      .bind(input.datingDate, input.marriedDate, input.primaryDate, context.coupleId)
       .first<CoupleRow>();
   } catch (error) {
     if (isConstraintViolation(error)) throw errors.INVALID_INPUT();
