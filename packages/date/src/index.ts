@@ -1,6 +1,8 @@
-// JST（Asia/Tokyo）固定の日付ユーティリティ（architecture.md 4節）。
-// 「タイムゾーンは Asia/Tokyo 固定。サーバ側で JST の『今日』を算出する」。
-// 日付計算はここに集約する。他所で `new Date()` を直接使わない。
+// JST（Asia/Tokyo）固定の日付ユーティリティ（architecture.md 5節）。
+// サーバ（apps/api）とクライアント（apps/app）の両方から参照する単一の源。
+// `new Date()` / `Date.now()` はこのパッケージの外で直接使わない
+// （ESLint で縛る。architecture.md 5節「日付計算は packages/date に置く」）。
+//
 // Asia/Tokyo は夏時間を持たないため、UTC+9固定のオフセットで正しい。
 // 実行時刻に依存する関数は `nowMs` を引数で受け取れるようにし、テストで
 // 日跨ぎの境界時刻（UTC 15:00 = JST 翌日 00:00）を直接指定できるようにする
@@ -8,18 +10,18 @@
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-interface DateParts {
+export interface DateParts {
   year: number;
   month: number; // 1-12
   day: number;
 }
 
-function parseDate(date: string): DateParts {
+export function parseDate(date: string): DateParts {
   const parts = date.split("-");
   return { year: Number(parts[0]), month: Number(parts[1]), day: Number(parts[2]) };
 }
 
-function formatDate({ year, month, day }: DateParts): string {
+export function formatDate({ year, month, day }: DateParts): string {
   const y = String(year).padStart(4, "0");
   const m = String(month).padStart(2, "0");
   const d = String(day).padStart(2, "0");
@@ -49,6 +51,30 @@ export function diffDays(from: string, to: string): number {
   return Math.round((toEpochDay(to) - toEpochDay(from)) / DAY_MS);
 }
 
+// date から n 日後の日付文字列を返す（n が負なら n 日前になる）
+export function addDays(date: string, n: number): string {
+  const shifted = new Date(toEpochDay(date) + n * DAY_MS);
+  return formatDate({
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  });
+}
+
+// date の曜日を返す（0 = 日曜 〜 6 = 土曜）
+export function dayOfWeek(date: string): number {
+  return new Date(toEpochDay(date)).getUTCDay();
+}
+
+// YYYY-MM-DD が実在する暦日かどうかを判定する（形式は呼び出し側で検証済みの前提。
+// 月が1〜12の範囲外、または日がその月の日数を超えていれば false）
+export function isValidDate(date: string): boolean {
+  const { year, month, day } = parseDate(date);
+  if (!Number.isInteger(month) || month < 1 || month > 12) return false;
+  if (!Number.isInteger(day) || day < 1) return false;
+  return day <= daysInMonth(year, month);
+}
+
 export function isLeapYear(year: number): boolean {
   return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
@@ -57,17 +83,31 @@ export function isLeapYear(year: number): boolean {
 // Date.UTC の「day 0 = 前月末日」という挙動を利用する（1-indexed の
 // month をそのまま zero-indexed 引数に渡すと、その1つ前の月＝求めたい月の
 // 末日になる）
-function daysInMonth(year: number, month: number): number {
+export function daysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 // month（1-indexed。1〜12の範囲外でもよい）を年の繰り上がり・繰り下がりを
-// 考慮して正規化する
-function normalizeYearMonth(year: number, month: number): { year: number; month: number } {
-  const totalMonths = year * 12 + (month - 1);
+// 考慮して正規化しつつ delta ヶ月進める（delta が負なら戻る）。
+// 月グリッドの前月・翌月への移動（apps/app）と、monthsBefore の内部実装
+// （下記）の両方で使う共通の「年月の加減算」primitive
+export function addMonths(year: number, month: number, delta: number): { year: number; month: number } {
+  const totalMonths = year * 12 + (month - 1) + delta;
   const normalizedYear = Math.floor(totalMonths / 12);
   const normalizedMonth = totalMonths - normalizedYear * 12 + 1;
   return { year: normalizedYear, month: normalizedMonth };
+}
+
+// month/day をある年に射影した日付文字列を返す。
+// 「存在しない日付は、その月の末日に寄せる」（architecture.md 5節）。
+// 平年の 02-29 は 02-28 に寄せる（03-01 にはしない）のはこの一般則の一例。
+// 理由は2つ:
+//   1. 2024-02-29 + 365日 = 2025-02-28（平年の365日後がちょうどそこに当たる）
+//   2. カレンダーは月単位。03-01 に寄せると2月の記念日が平年の2月の表示から消える
+// 保存されている date 自体は呼び出し側で変更しない。ここでは射影結果だけを返す
+export function projectMonthDay(month: number, day: number, year: number): string {
+  const clampedDay = Math.min(day, daysInMonth(year, month));
+  return formatDate({ year, month, day: clampedDay });
 }
 
 // date から n ヶ月前の日付文字列を返す（n が負なら n ヶ月後になる）。
@@ -77,7 +117,7 @@ function normalizeYearMonth(year: number, month: number): { year: number; month:
 // 1ヶ月前が3/3になる）には任せない
 export function monthsBefore(date: string, n: number): string {
   const { year, month, day } = parseDate(date);
-  const target = normalizeYearMonth(year, month - n);
+  const target = addMonths(year, month, -n);
   return projectMonthDay(target.month, day, target.year);
 }
 
@@ -103,16 +143,4 @@ export function yearsBetween(from: string, to: string): number[] {
   const years: number[] = [];
   for (let year = fromYear; year <= toYear; year++) years.push(year);
   return years;
-}
-
-// month/day をある年に射影した日付文字列を返す。
-// 「存在しない日付は、その月の末日に寄せる」（architecture.md 5節）。
-// 平年の 02-29 は 02-28 に寄せる（03-01 にはしない）のはこの一般則の一例。
-// 理由は2つ:
-//   1. 2024-02-29 + 365日 = 2025-02-28（平年の365日後がちょうどそこに当たる）
-//   2. カレンダーは月単位。03-01 に寄せると2月の記念日が平年の2月の表示から消える
-// 保存されている date 自体は呼び出し側で変更しない。ここでは射影結果だけを返す
-export function projectMonthDay(month: number, day: number, year: number): string {
-  const clampedDay = Math.min(day, daysInMonth(year, month));
-  return formatDate({ year, month, day: clampedDay });
 }

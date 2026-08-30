@@ -29,6 +29,8 @@ function encodeRandom(): string {
 
 // 48bit のタイムスタンプ（先頭10文字。ミリ秒単位）+ 80bit の乱数（末尾16文字）。
 // 生成時刻順に文字列としてもソート可能になる
+// ULIDのミリ秒タイムスタンプ成分。JSTの暦日計算ではないためpackages/date対象外
+// eslint-disable-next-line no-restricted-syntax
 export function generateImageId(now: number = Date.now()): string {
   return encodeTime(now) + encodeRandom();
 }

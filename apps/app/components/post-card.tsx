@@ -20,13 +20,16 @@ const MINUTE = 60;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-// 投稿カードの相対時刻表示（「3時間前」）。createdAt は Unix秒
+// 投稿カードの相対時刻表示（「3時間前」）。createdAt は Unix秒。
+// 経過時間の比較・ロケール表示のみでJSTの暦日計算ではないためpackages/date対象外
+// eslint-disable-next-line no-restricted-syntax
 function relativeTimeFrom(createdAt: number, now = Date.now()): string {
   const diffSeconds = Math.max(0, Math.floor(now / 1000) - createdAt);
   if (diffSeconds < MINUTE) return "たった今";
   if (diffSeconds < HOUR) return `${Math.floor(diffSeconds / MINUTE)}分前`;
   if (diffSeconds < DAY) return `${Math.floor(diffSeconds / HOUR)}時間前`;
   if (diffSeconds < DAY * 7) return `${Math.floor(diffSeconds / DAY)}日前`;
+  // eslint-disable-next-line no-restricted-syntax
   return new Date(createdAt * 1000).toLocaleDateString("ja-JP");
 }
 

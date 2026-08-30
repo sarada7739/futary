@@ -3,31 +3,40 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-30 / セッションB（**011（カレンダーUI）、Rの受け入れを得て
-mainへマージ済み（PR #89）。ブランチも削除済み。** `apps/app/lib/calendar.ts`
-（月グリッドの日付計算。日〜土、A実測のPR #84の値をそのままテストの期待値に
-した）・`apps/app/components/month-grid.tsx`（自前実装、28〜42日どちらでも
-余分な行を作らない`flex-wrap`）・`event-form.tsx`（登録・編集モーダル。記念日
-選択でrepeatYearly自動true）・`apps/app/app/calendar.tsx`（画面本体。月ナビ・
-凡例・3状態）を実装した。ホームの導線は`(tabs)/index.tsx`ヘッダーに
-「📅 カレンダー」ボタンを追加。**編集は射影後の表示日付ではなく登録日
+**最終更新**: 2026-08-30 / セッションB（**`packages/date`への日付計算の集約
+（L63）を実装した（ブランチ`fix/date-package-migration`。Aの設計をPR #91で
+mainへ反映済み、実装はこのブランチ）。** `todayJst`/`diffDays`/`addDays`/
+`dayOfWeek`/`isLeapYear`/`daysInMonth`/`addMonths`/`monthsBefore`/`yearsBefore`/
+`monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`を新パッケージへ集約し、
+`apps/api`（`event.ts`）・`apps/app`（`lib/calendar.ts`。グリッド構築のみ残す）
+から参照する形にした。`new Date()`/`Date.now()`を`packages/date`の外で禁止する
+ESLintルール（`no-restricted-syntax`）を追加。**このルールを実際に走らせたところ、
+`packages/contract/src/couple.ts`の`anniversaryDateSchema`に`todayJst`の
+3つ目の重複実装（`todayInJst`）が機械的に見つかった**（011でのB自身の気づき・
+Rのレビュー指摘に続く3例目）。こちらも`@futary/date`（`todayJst`・新設した
+`isValidDate`）を使う形に直した。テストはpackages/date 42件（新設）・
+apps/app 51件（-4。todayJst/addMonthsのテストを移動）・apps/api 154件
+（-27。date.test.tsを移動）・packages/ui 7件すべて緑、型チェック・lint通過。
+**次はレビューを経てマージし、その後M3の012（統計カード）に着手する。**
+
+011（カレンダーUI）はRの受け入れを得てmainへマージ済み（PR #89）。ブランチも
+削除済み。`apps/app/lib/calendar.ts`（月グリッドの日付計算。日〜土、A実測の
+PR #84の値をそのままテストの期待値にした）・`month-grid.tsx`（自前実装、
+28〜42日どちらでも余分な行を作らない`flex-wrap`）・`event-form.tsx`（登録・編集
+モーダル。記念日選択でrepeatYearly自動true）・`calendar.tsx`（画面本体。月ナビ・
+凡例・3状態）を実装した。**編集は射影後の表示日付ではなく登録日
 （`event.sourceDate`）を対象にする設計にした**（表示日付のまま送ると、射影で
 表示されている記念日の登録日そのものを動かしてしまうため。回帰テストで固定）。
 種別マーカーは色（`colors.eventAnniversary`/`eventPlan`/`eventMeetup`。017の
 `colors.overlay`と同じ形で`architecture.md`7節にも反映）とグリフ（●/■/▲）を
-併用し、色だけに依存しない。テストはapps/app 55件（新規19件）・apps/api 181件
-（無変更）・packages/ui 7件（無変更）すべて緑、型チェック・lint通過。
-**Rの受け入れでは必須修正なし。**記録2件: (1) 日付計算が`apps/app/lib/calendar.ts`
-と`apps/api/src/lib/date.ts`の2箇所に分かれた件（R-36。012・013が両側とも
-日付計算を使うため、増える前にAへ判断を仰ぐ。L63として起票）、(2) 繰り返し
-記念日の削除はどの年から操作しても全年から消える件（R-37。`artifacts/011/
-manual-check.md`の実機確認項目に追加済み）。詳細は`artifacts/011/review.md`参照。
+併用し、色だけに依存しない。**Rの受け入れでは必須修正なし。**記録2件:
+(1) 日付計算の重複（R-36。上記のL63で解決済み）、(2) 繰り返し記念日の削除は
+どの年から操作しても全年から消える件（R-37。`artifacts/011/manual-check.md`の
+実機確認項目に追加済み）。詳細は`artifacts/011/review.md`参照。
 **カレンダー画面は認証必須のため、B（自動化）はブラウザでの実機確認ができない**
 （003・004・007と同じ制約）。`artifacts/011/manual-check.md`に確認項目を列挙し、
 L62として論点に起票。M3の受け入れでまとめて回収する。011単体のsecurity-auditor
 監査は新しい手続きを増やしていないため不要（006・008・010と同じ扱い、Rも同意）。
-**次はM3の012（統計カード）に着手する**（着手前にR-36の日付計算の置き場所に
-ついてAの判断を待つか確認すること）。
 010（カレンダーAPI）はRの受け入れを得てmainへマージ済み（PR #86）。
 017（画像の全画面表示）はコード側完了・Rの受け入れ済みでmainへマージ済み
 （PR #80）。**残るは人間の実機確認のみ**（Rが列挙した4項目。
@@ -346,9 +355,12 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 10. ~~次は011（カレンダー画面）に着手する~~ → **完了。Rの受け入れを得てmainへ
     マージ済み（PR #89）。ブランチも削除済み**
 11. ~~011のRレビュー結果を待つ~~ → **完了。**`artifacts/011/review.md`に保存済み
-12. **次はM3の012（統計カード）に着手する。** 着手前にL63（日付計算の置き場所。
-    R-36）について、Aの判断が出ていればそれに従う。出ていなければ現状の
-    重複のまま進めてよい（R-37同様、012着手を妨げるものではない）
+12. ~~次はM3の012（統計カード）に着手する。着手前にL63（日付計算の置き場所）
+    についてAの判断を確認すること~~ → **Aが`packages/date`新設を判断済み
+    （PR #91）。B（このセッション）が`fix/date-package-migration`で実装した。**
+    Rのレビュー・マージを待つ
+13. **`fix/date-package-migration`のRレビューを待つ。** マージ後、次はM3の
+    012（統計カード）に着手する
 
 ## 未解決の論点
 
@@ -414,7 +426,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | ~~L61~~ | ~~`apps/api/src/lib/date.ts` の `monthsBefore` は、日が月末を超える場合（例: `2026-03-31` の1ヶ月前）に JS の `Date` の自動繰り上げに任せており、`2026-03-03` を返す（月末〈2/28〉に寄せない）〜利用者からは誤りに見えうる（010 Rレビュー指摘）~~ → **解決（2026-08-30）。月末に寄せる。** Aが「存在しない日付は、その月の末日に寄せる」を一般則として`architecture.md` 5節に新設した（PR #87）。010のうるう日規則（`projectMonthDay`）は「別の問題」ではなく**同じ問題**だった（`2028-02-29`の1年前が素の`Date`だと`2027-03-01`になり、射影規則の`02-28`と正面から矛盾する）。`projectMonthDay`を一般化（`daysInMonth`でクランプ）し、`monthsBefore`/`yearsBefore`ともこれを通す形に統一した。テストも期待値を差し替えて反映済み（178→181件） | | 解決済み（2026-08-30。PR #87・010の中で反映） |
 
 | L62 | 011（カレンダーUI）はコード側完了だが、画面が認証必須（`Stack.Protected guard={hasCouple}`）のためB（自動化）は実機確認ができない。自動テスト（画面結合8件）はoRPCクライアントをモックしており、サーバとの契約・実際の見た目・スマホ幅での窮屈さは未検証 | 前月・翌月ナビゲーション、イベントのD1への実反映、種別マーカーの色の見分けやすさ、繰り返し記念日の実データでの表示（削除時に全年から消えることが分かるか。R-37）が未確認のままM3の他タスクへ進むことになる | **M3の受け入れでまとめて回収する**（017のL59とまとめる回収と同じ形）。確認項目は`artifacts/011/manual-check.md`参照 |
-| ~~L63~~ | ~~日付計算が `apps/app/lib/calendar.ts` と `apps/api/src/lib/date.ts` の2箇所に分かれている~~ → **解決。`packages/date` を新設して寄せる**（`architecture.md` 2節）。危ないのは **`todayJst` が両側に同名で存在すること**で、ずれるとカレンダーが強調する「今日」と `memory.get` が見る「今日」が別の日になる。加えて「存在しない日付は月末に寄せる」（L61）の実装が2箇所にあれば**規則も2つになりうる**。`new Date()` / `Date.now()` を `packages/date` の外で書かないことを ESLint で縛る。`packages/contract` には入れない（型の単一の源であって道具箱ではない）。**R の「012・013 は両側とも日付計算を使う」は言い過ぎで、両タスクの日付計算はサーバ側**（タスクファイルで確認）。ただし `todayJst` の二重定義は現に存在するため、結論は変わらない | | 解決済み（設計はA。実装は `fix/` で 012 の前に行う） |
+| ~~L63~~ | ~~日付計算が `apps/app/lib/calendar.ts` と `apps/api/src/lib/date.ts` の2箇所に分かれている~~ → **解決・実装済み（`fix/date-package-migration`）。**`packages/date` を新設し、`todayJst`/`diffDays`/`addDays`/`dayOfWeek`/`isLeapYear`/`daysInMonth`/`addMonths`/`monthsBefore`/`yearsBefore`/`monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`を集約した。`apps/api`（`event.ts`）・`apps/app`（`lib/calendar.ts`。グリッド構築のみ残し、日付計算はすべて`@futary/date`経由に）が参照する。ESLintで`new Date()`/`Date.now()`を`packages/date`の外で禁止（`no-restricted-syntax`。テストファイルは対象外、Unix秒/ミリ秒を扱うだけの正当な用途は理由コメント付き`eslint-disable-next-line`）。**このルールを入れて実際にlintを走らせたところ、`packages/contract/src/couple.ts`（`anniversaryDateSchema`）に`todayJst`の3つ目の重複実装（`todayInJst`）が見つかった。**011のB自身の気づきとは別に、ESLintルールが機械的に発見した実例。こちらも`@futary/date`（`todayJst`・新設した`isValidDate`）を使う形に直した。`packages/contract`は`@futary/date`に依存するが、日付ユーティリティ自体はコレクションに含めない（Aの方針どおり）。テストは packages/date 42件（新設）・apps/app 51件（-4。todayJst/addMonthsのテストをpackages/dateへ移動）・apps/api 154件（-27。date.test.tsをpackages/dateへ移動）・packages/ui 7件すべて緑 | | 解決済み・実装済み |
 
 ## 決まっていることの要約
 

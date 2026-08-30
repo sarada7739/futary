@@ -35,9 +35,9 @@ export default function InviteCodeScreen() {
     setInvite(issued);
   }
 
-  const expiresAtLabel = invite
-    ? new Date(invite.expiresAt * 1000).toLocaleString("ja-JP")
-    : "";
+  // Unix秒をロケール表示に変換するだけ。JSTの暦日計算ではないためpackages/date対象外
+  // eslint-disable-next-line no-restricted-syntax
+  const expiresAtLabel = invite ? new Date(invite.expiresAt * 1000).toLocaleString("ja-JP") : "";
 
   async function handleShare() {
     if (!invite) return;

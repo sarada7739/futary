@@ -15,6 +15,7 @@
     "@better-auth/expo": "^1.7.2",
     "@expo/metro-runtime": "~57.0.13",
     "@futary/contract": "workspace:*",
+    "@futary/date": "workspace:*",
     "@futary/ui": "workspace:*",
     "@orpc/client": "1.15.0",
     "@orpc/contract": "1.15.0",

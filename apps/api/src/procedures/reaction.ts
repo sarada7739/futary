@@ -1,7 +1,9 @@
 import { implementer } from "../implementer";
 import { writeProcedure } from "./base";
 
+// created_at用のUnix秒。JSTの暦日計算ではないためpackages/date対象外
 function nowSeconds(): number {
+  // eslint-disable-next-line no-restricted-syntax
   return Math.floor(Date.now() / 1000);
 }
 

@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event } from "@futary/contract";
-import { monthGridRange, todayJst } from "../lib/calendar";
+import { todayJst } from "@futary/date";
+import { monthGridRange } from "../lib/calendar";
 
 // 011: カレンダー画面の画面結合テスト。home-timeline.test.tsx と同じ形で
 // oRPC クライアントをモックする（サーバとの契約自体は検証しない。conventions.md 6節）

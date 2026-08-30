@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { Pressable, Text as RNText, ScrollView, View } from "react-native";
 import type { Event } from "@futary/contract";
+import { addMonths, todayJst } from "@futary/date";
 import { Button, Card, Screen, space, Text } from "@futary/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { EventForm, type EventFormValues } from "../components/event-form";
 import { MonthGrid } from "../components/month-grid";
-import { addMonths, monthGridRange, monthLabel, todayJst } from "../lib/calendar";
+import { monthGridRange, monthLabel } from "../lib/calendar";
 import { EVENT_KIND_COLORS, EVENT_KIND_GLYPHS, EVENT_KIND_LABELS, EVENT_KIND_ORDER } from "../lib/event-kind";
 import { orpc } from "../lib/orpc";
 import { queryClient } from "../lib/query";

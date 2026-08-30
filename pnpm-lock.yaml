@@ -32,6 +32,9 @@ importers:
       '@futary/contract':
         specifier: workspace:*
         version: link:../../packages/contract
+      '@futary/date':
+        specifier: workspace:*
+        version: link:../../packages/date
       '@futary/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -84,6 +87,9 @@ importers:
       '@futary/contract':
         specifier: workspace:*
         version: link:../../packages/contract
+      '@futary/date':
+        specifier: workspace:*
+        version: link:../../packages/date
       '@futary/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -172,6 +178,9 @@ importers:
 
   packages/contract:
     dependencies:
+      '@futary/date':
+        specifier: workspace:*
+        version: link:../date
       '@orpc/contract':
         specifier: 1.15.0
         version: 1.15.0
@@ -182,6 +191,15 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  packages/date:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@26.3.0)(jsdom@30.0.1(@noble/hashes@2.3.0))(vite@8.2.2(@types/node@26.3.0)(esbuild@0.28.2)(terser@5.50.0)(tsx@4.23.12)(yaml@2.9.0))
 
   packages/db:
     dependencies:

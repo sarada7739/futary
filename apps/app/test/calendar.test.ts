@@ -1,17 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, buildMonthGrid, monthGridRange, todayJst } from "../lib/calendar";
-
-describe("todayJst", () => {
-  it("UTC 15:00（JST 翌日 00:00）を跨ぐと日付が進む", () => {
-    // 2026-08-30T14:59:59Z はまだ JST 2026-08-30 23:59:59
-    expect(todayJst(Date.UTC(2026, 7, 30, 14, 59, 59))).toBe("2026-08-30");
-    // 2026-08-30T15:00:00Z から JST 2026-08-31 00:00:00
-    expect(todayJst(Date.UTC(2026, 7, 30, 15, 0, 0))).toBe("2026-08-31");
-  });
-});
+import { buildMonthGrid, monthGridRange } from "../lib/calendar";
 
 // 011タスクファイル・AのPR #84（docs/tasks/011-calendar-ui.md）が実測した値。
-// 日〜土始まりの月グリッド
+// 日〜土始まりの月グリッド。todayJst・addMonths等の日付そのものの計算は
+// @futary/date（packages/date/test/date.test.ts）でテスト済み（architecture.md
+// 5節「日付計算は packages/date に置く」）。ここは表示用のグリッド構築のみを扱う
 describe("monthGridRange", () => {
   it("2026年12月: 年をまたいで翌年1月まで届く（35日）", () => {
     expect(monthGridRange(2026, 12)).toEqual({ from: "2026-11-29", to: "2027-01-02" });
@@ -53,19 +46,5 @@ describe("buildMonthGrid", () => {
     expect(grid).toHaveLength(35);
     expect(grid[0]!.date).toBe("2026-11-29");
     expect(grid.at(-1)!.date).toBe("2027-01-02");
-  });
-});
-
-describe("addMonths", () => {
-  it("年をまたいで進む", () => {
-    expect(addMonths(2026, 12, 1)).toEqual({ year: 2027, month: 1 });
-  });
-
-  it("年をまたいで戻る", () => {
-    expect(addMonths(2027, 1, -1)).toEqual({ year: 2026, month: 12 });
-  });
-
-  it("同一年内の移動", () => {
-    expect(addMonths(2026, 6, 1)).toEqual({ year: 2026, month: 7 });
   });
 });

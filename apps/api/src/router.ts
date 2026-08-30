@@ -10,6 +10,8 @@ export type { RpcContext } from "./context";
 const healthGet = implementer.health.get.handler(async ({ context }) => {
   // D1への疎通確認。失敗すればここで例外が飛び500になる
   await context.db.prepare("SELECT 1").first();
+  // ヘルスチェック応答のUnixミリ秒。JSTの暦日計算ではないためpackages/date対象外
+  // eslint-disable-next-line no-restricted-syntax
   return { ok: true as const, now: Date.now() };
 });
 
