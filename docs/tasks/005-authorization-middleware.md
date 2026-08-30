@@ -60,7 +60,7 @@
 | 4 | ペアに未所属のユーザーが呼ぶと `NEEDS_ONBOARDING` になる |
 | 5 | `DEMO_COUPLE_ID` が未設定のとき、未認証アクセスが拒否される（fail-closed） |
 
-**この5件は認可を触った全てのタスクで維持される**（`security-requirements.md` 3節）。
+**これらは認可を触った全てのタスクで維持される**（`security-requirements.md` 3節。件数と内容は出典側を見る）。
 壊れたら実装が間違っている。
 
 ## 確認観点
