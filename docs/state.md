@@ -4,25 +4,40 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-08-30 / セッションB（**019（記念日とプロフィールの設定）
-実装完了。Rレビュー依頼前**）。Aが人間の新規要望（モックアップ付き）を
-019・020・021の3タスクに分けて起票（PR #121。019→020→021→014の順）。
-019は`couples`に`married_date`（NULL許容）・`primary_date`（既定'dating'）を
-追加し、マイページで名前・アイコン・記念日設定ができるようにした。
-`stats.get`の`daysTogether`に`married`/`hidden`（daysを含めない）を追加。
-**実装前の事前調査どおり、Better Authは`overrideUserInfoOnSignIn`未設定なら
-再ログイン時にuser.name/imageを上書きしない**ことをソースで確認し、既存の
-`user`テーブルの列をそのまま`me.update`で書き換える設計にした。
-**D1特有の制約を発見: `couples`は複数の子テーブルからFOREIGN KEYで
-参照される親テーブルのため、drizzle-kitが生成する「テーブルを作り直す」形の
-CHECK制約追加マイグレーションが`FOREIGN KEY constraint failed`で失敗する
-（D1がPRAGMA foreign_keys=OFFを無視するため）。ALTER TABLE ADD COLUMN +
-TRIGGERに手で書き換えて回避した。**この発見はarchitecture.mdへの反映価値が
-あると判断しAへ報告済み（回答待ち）。あわせて「結婚した日が未来のケースの
-daysTogetherの仕様」もタスク定義に無かったためAへ確認依頼中。
-テストはapps/api 205件→234件（+29）・apps/app 69件→80件（+11）すべて緑、
-型チェック・lint通過（`artifacts/019/test-results.md`）。**次はRへレビュー依頼。**
-マイページ・ホーム画面は認証必須のためB（自動化）は実機確認ができず、
-`artifacts/019/manual-check.md`に確認項目を列挙した。
+マージ済み。リモートD1へのマイグレーション適用も完了**）。019は`couples`に
+`married_date`（NULL許容）・`primary_date`（既定'dating'）を追加し、
+マイページで名前・アイコン・記念日設定ができるようにした
+（PR #122。R受け入れ済み）。`stats.get`の`daysTogether`は
+`dating`/`dating_upcoming`/`married`/`married_upcoming`/`hidden`の5状態
+（Aの決定・PR #123。旧`together`/`upcoming`から改名し`married_upcoming`を
+新設）。`married_date`の上限は2年後（`anniversary_date`は1年後のまま。
+意図的に違う）。
+
+実装過程での2つの発見・確認は解決済み: (1) Better Authは
+`overrideUserInfoOnSignIn`未設定なら再ログイン時にuser.name/imageを
+上書きしない（ソースで確認済み） (2) `couples`は複数の子テーブルから
+FOREIGN KEYで参照される親テーブルのため、drizzle-kit生成の「テーブルを
+作り直す」形のCHECK制約追加マイグレーションが`FOREIGN KEY constraint
+failed`で失敗する（D1がPRAGMA foreign_keys=OFFを無視するため）。
+ALTER TABLE ADD COLUMN + TRIGGER（`couples_married_date_required_*`・
+`couples_married_after_anniversary_*`の計4本）に手で書き換えて回避し、
+Aがarchitecture.md 4節に恒久化した（PR #123）。この過程で「実体とファイルの
+ずれを1つのテストで固定する」（`sqlite_master`のindex/trigger一覧を
+期待値と突き合わせる）という設計が生まれ、`apps/api/test/
+schema-integrity.test.ts`として実装した。
+
+テストはapps/api 205件→248件（+43）・apps/app 69件→81件（+12）すべて緑、
+型チェック・lint通過（`artifacts/019/test-results.md`）。**人間の許可を得て
+リモートD1に0009を適用済み**（`migrations list`で未適用が無いことを
+リモートで確認。4本のTRIGGERが実在することも確認済み）。
+
+**次は019の実機確認を人間へ依頼する。**018自体は既に「基本的に確認OK」を
+得ているため、019の名前・アイコン・記念日設定・`married_upcoming`表示が
+確認対象になる（L79参照）。**020（ホームの再構成）は同じホーム画面を
+さらに作り変える**ため、019の実機確認後すぐに020へ着手し、020完了時に
+まとめて再確認してもらう形にする（020は019の`primary_date`に依存するため
+順序としても019の後）。014はR・Aで先読み済みだが020・021の後
+（タスク番号順・`docs/tasks/019`の「なぜ014の前に置くか」参照）。
 
 以下は上記より前、018・fix/meetup-daysのマージ完了直後の記録
 （過去の記録として残す）。
@@ -644,6 +659,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | ~~L76~~ | ~~人間から新規要望3点: (1) 「予定」(kind='plan')は個人の予定なので設定者(created_by)以外は削除・編集できないようにする (2) 予定に「２人の予定」チェックボックスを付け、チェックされていれば設定者以外も編集可能にする (3) チェックされた予定は翌日に自動で「会った日」(kind='meetup')に変換される~~ → **解決・設計反映済み。**認可（誰が書き込めるか）に関わる仕様変更のためBの独断で実装せずAへ設計判断を依頼し、**Aが021として起票した**（`docs/tasks/021-plan-ownership.md`。PR #121）。詳細・実装方針（1文のWHERE句・Cron Triggersでの自動変換・衝突時は変換せず残す等）はタスクファイル参照 | | 解決済み・設計反映済み |
 | ~~L77~~ | ~~D1特有の制約を019実装中に発見。~~ → **解決・記録済み（PR #123）。**Aが`architecture.md`4節の`PRAGMA foreign_keys=OFF`の記述の隣に「子テーブルを持つ親テーブルには、あとからCHECKを足せない」を追記した。Bの回避（自列だけの制約は`ALTER TABLE ADD COLUMN`、複数列にまたがる制約はTRIGGER）は妥当と判定。追加指示（TRIGGERの存在を`packages/db/src/schema/couple.ts`にもコメントで明記する）を反映済み | | 解決済み（PR #123） |
 | ~~L78~~ | ~~結婚した日が未来のケースの`daysTogether`仕様が未定義。~~ → **解決・設計反映済み（PR #123）。**Aが`married_upcoming`を新設し、既存の`together`/`upcoming`も`dating`/`dating_upcoming`に改名する判断を出した（`meetupCount`→`meetupDays`と同じ理由。「片方だけ修飾された」非対称な名前を残さない）。`married_date`の上限も2年後に緩和（`anniversary_date`の1年後とは意図的に違う。婚約から式まで1年半空くのは珍しくないため）。Bが`packages/contract/src/stats.ts`・`couple.ts`・`apps/api/src/procedures/stats.ts`・`apps/app/components/stats-card.tsx`・関連テストに反映済み | | 解決済み・実装反映済み（PR #123） |
+| L79 | 019（記念日とプロフィールの設定）はコード側完了・レビュー完了・リモートD1へのマイグレーション適用も完了したが、マイページ・ホーム画面が認証必須のためB（自動化）は実機確認ができない | 名前・アイコン変更が再ログインしても消えないか、記念日設定がふたりに共有されるか、`married_upcoming`の表示が実際にどう見えるかが未確認 | **人間が実機で確認する。**確認項目は`artifacts/019/manual-check.md`参照。020（ホームの再構成）が同じ画面をさらに作り変えるため、020完了時にも改めて見てもらう前提で、いまは019単体を依頼する |
 
 ## 決まっていることの要約
 
