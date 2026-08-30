@@ -1,13 +1,16 @@
-import { colors, iconFabPlus, iconTabAlbum, iconTabHome, iconTabProfile, iconTabSearch, shadow, space } from "@futary/ui";
+import { colors, iconFabPlus, iconTabCalendar, iconTabHome, iconTabProfile, iconTabSearch, shadow, space } from "@futary/ui";
 import { Tabs, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Image, type ImageSourcePropType, Pressable, View } from "react-native";
 
 // 002 の絵文字代用を、docs/sample/透過素材/dnUunrHG.png から切り出したアイコンに
-// 差し替え（008）。単色の線画のため tintColor でアクティブ/非アクティブを塗り分ける
+// 差し替え（008）。単色の線画のため tintColor でアクティブ/非アクティブを塗り分ける。
+// 「アルバム」タブは「カレンダー」に置き換えた（fix/persistent-tab-bar。
+// architecture.md「タブに出すのは動く機能」。アルバムは次フェーズでスコープ外、
+// カレンダーはMVPの機能でありタブに無かった）
 const tabIcons: Record<string, ImageSourcePropType> = {
   index: iconTabHome,
-  album: iconTabAlbum,
+  calendar: iconTabCalendar,
   search: iconTabSearch,
   profile: iconTabProfile,
 };
@@ -70,10 +73,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="album"
+        name="calendar"
         options={{
-          title: "アルバム",
-          tabBarIcon: ({ focused }) => <TabIcon name="album" focused={focused} />,
+          title: "カレンダー",
+          tabBarIcon: ({ focused }) => <TabIcon name="calendar" focused={focused} />,
         }}
       />
       <Tabs.Screen

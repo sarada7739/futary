@@ -3806,3 +3806,45 @@ A も `dnUunrHG.png` を実際に開いて確認した。
 
 **これが唯一、素材から切り出さないアイコンになる。**その事実を残しておかないと、
 次に誰かが「素材から切り出す」規則を読んで矛盾に見える。
+
+---
+
+## 2026-08-30 / セッションB（fix/persistent-tab-bar 実装）
+
+### やったこと
+- AのPR #104（画面の外枠を常に出す規則・カレンダーのタブ化の判断）をCI緑
+  確認後squash merge
+- `apps/app/app/calendar.tsx`を`apps/app/app/(tabs)/calendar.tsx`へ移動
+  （相対import深さの調整含む）。旧ファイルと`_layout.tsx`の`Stack.Screen`
+  エントリを削除
+- `apps/app/app/(tabs)/album.tsx`を削除。`(tabs)/_layout.tsx`の`album`タブを
+  `calendar`タブに置き換えた
+- カレンダー用のタブアイコンが素材に無かったため、SVGで新規に描き起こした。
+  ラスタライズツール（ImageMagick等）が環境に無かったため、Browser paneの
+  canvas APIで`data:image/svg+xml`をcanvasに描画し`toDataURL("image/png")`で
+  PNG化する方法を使った。既存4アイコンの線色（`#3F332F`付近。実測でサンプル）・
+  太さ・角丸に合わせた。`packages/ui/src/assets.ts`に`iconTabCalendar`として
+  追加し、不要になった`iconTabAlbum`エクスポートは削除した
+- `apps/app/app/(tabs)/index.tsx`のホームヘッダーから「📅 カレンダー」ボタンを
+  削除（タブで直接行けるため冗長）
+- `compose.tsx`に「キャンセル」ボタンを追加。モーダルの閉じる導線を
+  ヘッダーの戻る/閉じるに依存させない（Aの新設規則どおり）
+- テスト: `calendar-screen.test.tsx`のimportパスを更新、
+  `home-timeline.test.tsx`にキャンセルボタンのテストを1件追加
+- ブラウザプレビューで確認: 開発サーバ再起動後にバンドルエラーが無いこと、
+  未認証で`/calendar`へ直接アクセスするとサインイン画面へ正しくリダイレクト
+  されること（ルーティング自体が壊れていないことの間接確認）
+- 型チェック・lint・テスト（app 63件）すべて緑を確認
+- `docs/sample/README.md`のカレンダーアイコン行を完了として更新
+- `docs/state.md`を更新（進行中タスク・L70に人間の最初の受け入れ試行の
+  報告内容と対応をまとめて記載）
+
+### 決定事項
+- なし（Aの規則・判断をそのまま実装した）
+
+### 詰まった点
+- 開発サーバのブラウザコンソールに大量の`UnableToResolveError`が表示され
+  一瞬焦ったが、新しいタブで開き直すとエラーが出ないことを確認した。
+  長時間動かしていた同一タブのコンソールログ履歴に、過去のファイル移動時の
+  古いエラーが蓄積して残っていただけと判断した（サーバ側ログ・ネットワーク
+  リクエストはすべて200 OKで、画面も正常に描画されていた）

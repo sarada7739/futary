@@ -27,7 +27,7 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-const { default: CalendarScreen } = await import("../app/calendar");
+const { default: CalendarScreen } = await import("../app/(tabs)/calendar");
 const { queryClient } = await import("../lib/query");
 
 const today = todayJst();

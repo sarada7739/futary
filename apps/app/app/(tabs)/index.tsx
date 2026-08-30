@@ -113,22 +113,11 @@ export default function HomeScreen() {
         ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
         ListHeaderComponent={
           <View style={{ gap: space.md, marginBottom: space.md }}>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <Image
-                source={logoMark}
-                style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
-                resizeMode="contain"
-              />
-              <Button variant="ghost" onPress={() => router.push("/calendar")}>
-                📅 カレンダー
-              </Button>
-            </View>
+            <Image
+              source={logoMark}
+              style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
+              resizeMode="contain"
+            />
             <StatsCard />
             <MemoryCard />
           </View>
