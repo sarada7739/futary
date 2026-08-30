@@ -73,7 +73,7 @@ const statsGet = implementer.stats.get.use(readProcedure).handler(async ({ conte
 
   return {
     daysTogether: computeDaysTogether(coupleRow.anniversary_date, todayJst()),
-    meetupCount: meetupRow?.count ?? 0,
+    meetupDays: meetupRow?.count ?? 0,
     postCount: postRow?.count ?? 0,
     photoCount: photoRow?.count ?? 0,
     members: membersResult.results.map((row) => ({ userId: row.user_id, name: row.name, image: row.image })),

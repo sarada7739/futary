@@ -124,16 +124,16 @@ describe("stats.get", () => {
     expect(stats.daysTogether).toEqual({ status: "upcoming", days: 30 });
   });
 
-  it("会った日ゼロならmeetupCountは0（カード自体は出る＝エラーにならない）", async () => {
+  it("会った日ゼロならmeetupDaysは0（カード自体は出る＝エラーにならない）", async () => {
     const user = await createUser();
     await createCouple(user, todayJst());
 
     const stats = await call(router.stats.get, undefined, { context: contextFor(user) });
 
-    expect(stats.meetupCount).toBe(0);
+    expect(stats.meetupDays).toBe(0);
   });
 
-  it("meetupCountはkind='meetup'の件数のみを数える（plan/anniversaryは含めない）", async () => {
+  it("meetupDaysはkind='meetup'の件数のみを数える（plan/anniversaryは含めない）", async () => {
     const user = await createUser();
     const couple = await createCouple(user, todayJst());
     await insertEvent(couple.id, user.id, "meetup", todayJst());
@@ -143,7 +143,7 @@ describe("stats.get", () => {
 
     const stats = await call(router.stats.get, undefined, { context: contextFor(user) });
 
-    expect(stats.meetupCount).toBe(2);
+    expect(stats.meetupDays).toBe(2);
   });
 
   it("postCountは未削除の投稿のみを数える", async () => {

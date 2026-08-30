@@ -34,7 +34,7 @@ describe("StatsCard", () => {
   it("記念日が今日以前なら「付き合って○日目」を表示する", async () => {
     statsGetMock.mockResolvedValue({
       daysTogether: { status: "together", days: 365 },
-      meetupCount: 48,
+      meetupDays: 48,
       postCount: 10,
       photoCount: 5,
       members: [
@@ -46,7 +46,7 @@ describe("StatsCard", () => {
     renderCard();
 
     expect(await screen.findByText("付き合って 365日目")).toBeTruthy();
-    expect(screen.getByText("会った回数：48回")).toBeTruthy();
+    expect(screen.getByText("会った日数：48日")).toBeTruthy();
     expect(screen.getByText("Haruka")).toBeTruthy();
     expect(screen.getByText("Yuki")).toBeTruthy();
     expect(screen.queryByText("招待中")).toBeNull();
@@ -55,7 +55,7 @@ describe("StatsCard", () => {
   it("記念日が未来なら「あと○日」を表示する（負の値を出さない）", async () => {
     statsGetMock.mockResolvedValue({
       daysTogether: { status: "upcoming", days: 5 },
-      meetupCount: 0,
+      meetupDays: 0,
       postCount: 0,
       photoCount: 0,
       members: [{ userId: "u1", name: "Haruka", image: null }],
@@ -67,10 +67,10 @@ describe("StatsCard", () => {
     expect(screen.queryByText(/-/)).toBeNull();
   });
 
-  it("会った日ゼロでも「会った回数：0回」が出て、カード自体は表示される", async () => {
+  it("会った日ゼロでも「会った日数：0日」が出て、カード自体は表示される", async () => {
     statsGetMock.mockResolvedValue({
       daysTogether: { status: "together", days: 1 },
-      meetupCount: 0,
+      meetupDays: 0,
       postCount: 0,
       photoCount: 0,
       members: [{ userId: "u1", name: "Haruka", image: null }],
@@ -78,13 +78,13 @@ describe("StatsCard", () => {
 
     renderCard();
 
-    expect(await screen.findByText("会った回数：0回")).toBeTruthy();
+    expect(await screen.findByText("会った日数：0日")).toBeTruthy();
   });
 
   it("ペアが1人だけなら、相手の枠に「招待中」が出る", async () => {
     statsGetMock.mockResolvedValue({
       daysTogether: { status: "together", days: 1 },
-      meetupCount: 0,
+      meetupDays: 0,
       postCount: 0,
       photoCount: 0,
       members: [{ userId: "u1", name: "Haruka", image: null }],

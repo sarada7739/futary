@@ -105,7 +105,7 @@ beforeEach(() => {
   // 検証はstats-card.test.tsxで行う）
   statsGetMock.mockResolvedValue({
     daysTogether: { status: "together", days: 1 },
-    meetupCount: 0,
+    meetupDays: 0,
     postCount: 0,
     photoCount: 0,
     members: [{ userId: "me", name: "自分", image: null }],
