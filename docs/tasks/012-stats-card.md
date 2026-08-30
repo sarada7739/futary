@@ -77,18 +77,67 @@
 - ペアが1人の状態でカードが壊れないか
 
 ## 完了条件
-- [ ] ホーム最上部に統計カードが表示される
-- [ ] 上記の境界条件5件がテストで緑
-- [ ] 005 の認可テストも緑
+- [x] ホーム最上部に統計カードが表示される
+- [x] 上記の境界条件5件がテストで緑
+- [x] 005 の認可テストも緑
 - [ ] `artifacts/012/` に**人間の実機確認の記録**（操作した項目と結果。テキスト）を保存
+  — **未達。認証必須画面のため人間の実機確認が必要（下記実装メモ参照）**
 
 ## 停止条件
 - 完了: 上記をすべて満たす
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] `stats.get`
-- [ ] 統計カード UI
-- [ ] ホームへの組み込み
-- [ ] 境界条件テスト5件
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] `stats.get`
+- [x] 統計カード UI
+- [x] ホームへの組み込み
+- [x] 境界条件テスト5件
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+## 実装メモ
+
+- `packages/contract/src/stats.ts`（新規）: `daysTogether`を判別可能なunion
+  （`{status:"together",days}` / `{status:"upcoming",days}`）にした。負の値を
+  出さない責任をサーバ側で閉じ、「両方null」「両方非null」という無効な状態を
+  型で排除している（Rの助言・Aの支持）。`members`（`{userId,name,image}[]`）を
+  追加し、カードのアバター表示・「ペアが1人だけ」の判定に使う
+  （デザインサンプル`docs/sample/sample.png`のホーム画面を参照）
+- `packages/contract/src/couple.ts`: `anniversaryDateSchema`の上限を
+  「今日まで」から「1年後まで」（`yearsBefore(todayJst(), -1)`）に緩和
+  （L66・Aの決定。`upcoming`側を実際に到達可能にするため）
+- `packages/contract/src/event.ts`: `eventInputSchema`に
+  `kind==='anniversary' || !repeatYearly`の`refine`を追加（L67・Aの決定）。
+  `.extend()`と`.refine()`の順序上、共通の基底スキーマ
+  （`eventInputBaseSchema`）を作り、`create`/`update`それぞれに同じrefine関数
+  を適用する形にした
+- `apps/api/src/procedures/stats.ts`（新規）: `computeDaysTogether`を
+  エクスポートし、off-by-oneの境界（together側の下端＝今日／upcoming側の下端＝
+  明日）を純粋関数として直接テストした（Rの指摘: 片側だけだと見逃す）。
+  `photoCount`に`AND deleted_at IS NULL`を含めた（L65）。`members`は
+  `couple_members LEFT JOIN user`をslot昇順で取得
+- `apps/app/components/stats-card.tsx`（新規）: 通信エラー時はカード自体を
+  出さない（ホーム画面の主役は投稿一覧のため、統計カードの失敗で画面全体を
+  止めない）。読み込み中は同じレイアウトの骨格（灰色の円・「―」）を出す
+- `apps/app/app/(tabs)/index.tsx`: ヘッダー内の「📅 カレンダー」ボタンの下に
+  `StatsCard`を追加。既存の`home-timeline.test.tsx`が`stats.get`を新たに
+  呼ぶようになったため、モックに既定値を追加して既存テストの回帰を防いだ
+- テストは apps/api 176件（新規24件: stats 15・couple 3・event 6）・
+  apps/app 56件（新規5件）・packages/contract は単体テスト基盤が無いため
+  型チェックのみ。型チェック・lint通過
+- 005の認可テストに`stats.get`を追加（NEEDS_ONBOARDING・デモペア読み取り）。
+  基底経由チェックの実在数を16→17に更新
+
+## 未確認（人間の実機確認が必要）
+
+011・017と同じ制約（conventions.md 8節）。ホーム画面は認証必須のため、
+B（自動化）はこの経路を通れない。以下は自動テストでは担保できていない:
+
+1. 実機でカードのレイアウト（2人のアバター・ハート・大きい日数表示・小さい
+   会った回数）がデザインサンプルに近い見た目になっているか
+2. 実データで「あと○日」（未来の記念日）が実際に見え方として自然か
+3. 「招待中」表示が実機で分かりやすいか
+4. JSTの日付境界（UTC 15:00前後）で実機の表示が正しく切り替わるか
+   （`computeDaysTogether`自体はテスト済みだが、実際の日付が変わる瞬間の
+   キャッシュ更新タイミングは未確認）
+
+`docs/state.md`に論点として起票する。

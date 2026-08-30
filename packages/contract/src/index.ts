@@ -10,11 +10,13 @@ import {
   eventListContract,
   eventUpdateContract,
 } from "./event";
+import { statsGetContract } from "./stats";
 
 export type { Post } from "./post";
 export { REACTION_KINDS } from "./reaction";
 export type { Event } from "./event";
 export { EVENT_KINDS } from "./event";
+export type { DaysTogether, Stats } from "./stats";
 
 export const contract = {
   health: {
@@ -46,6 +48,9 @@ export const contract = {
     create: eventCreateContract,
     update: eventUpdateContract,
     delete: eventDeleteContract,
+  },
+  stats: {
+    get: statsGetContract,
   },
 };
 

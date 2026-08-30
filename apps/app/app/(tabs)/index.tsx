@@ -4,6 +4,7 @@ import type { Post } from "@futary/contract";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, FlatList, Image, RefreshControl, View } from "react-native";
 import { PostCard } from "../../components/post-card";
+import { StatsCard } from "../../components/stats-card";
 import { useSession } from "../../lib/auth-client";
 import { orpc } from "../../lib/orpc";
 import { POST_LIST_REFETCH_INTERVAL_MS, queryClient } from "../../lib/query";
@@ -110,23 +111,25 @@ export default function HomeScreen() {
         contentContainerStyle={{ padding: space.lg, gap: space.md, flexGrow: 1 }}
         ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
         ListHeaderComponent={
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: space.md,
-            }}
-          >
-            <Image
-              source={logoMark}
-              style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
-              resizeMode="contain"
-            />
-            <Button variant="ghost" onPress={() => router.push("/calendar")}>
-              📅 カレンダー
-            </Button>
-            {/* 統計カード（012）・思い出しカード（013）の置き場所。ここに追加する */}
+          <View style={{ gap: space.md, marginBottom: space.md }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <Image
+                source={logoMark}
+                style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
+                resizeMode="contain"
+              />
+              <Button variant="ghost" onPress={() => router.push("/calendar")}>
+                📅 カレンダー
+              </Button>
+            </View>
+            <StatsCard />
+            {/* 思い出しカード（013）の置き場所。ここに追加する */}
           </View>
         }
         renderItem={({ item }) => {
