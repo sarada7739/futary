@@ -107,9 +107,12 @@ events
   kind           TEXT    NOT NULL            -- 'anniversary' | 'plan' | 'meetup'
   repeat_yearly  INTEGER NOT NULL DEFAULT 0  -- kind='anniversary' のときだけ 1
                                             -- 入力スキーマで拒否する（5節）
+  time           TEXT                        -- HH:MM（JSTの壁時計）。任意。
+                                            -- anniversary には設定できない（5節）
   created_by     TEXT    NOT NULL
   created_at     INTEGER NOT NULL
   INDEX (couple_id, date)
+  UNIQUE (couple_id, date) WHERE kind = 'meetup'   -- 会った日は1日1件
 ```
 
 ### `posts` を読むクエリには必ず `deleted_at IS NULL` を含める
@@ -200,9 +203,13 @@ post.uploadUrl      { contentType } -> { imageId, url }  署名付きPUT・有�
 reaction.toggle     { postId, kind }
 event.list          { from, to } -> { items }
                     範囲は最大400日。超えたら INVALID_INPUT
-                    items[].date       射影後の日付（表示する日）
-                    items[].sourceDate 登録された日付。repeatYearly でなければ date と同じ
-event.create        { date, title, kind, repeatYearly }
+                    items[].date          射影後の日付（表示する日）
+                    items[].sourceDate    登録された日付。repeatYearly でなければ date と同じ
+                    items[].time          HH:MM または null
+                    items[].createdByName 設定した人の名前。null 許容（LEFT JOIN）
+event.create        { date, title, kind, repeatYearly, time? }
+                    time は HH:MM。anniversary には付けられない
+                    kind='meetup' は同じ日の既存行を上書きする
 event.update        { id, ... }
 event.delete        { id }
 stats.get           -> { daysTogether, meetupCount, postCount, photoCount }
@@ -435,6 +442,36 @@ R2 に取り込んで自前配信する案は取らない。プロフィール�
 DB の CHECK 制約は置かない。**書き込み口が入力スキーマの1つしか無く、
 そこで弾けば到達しない。**（`posts.image_key` の UNIQUE を宣言的制約にしたのは、
 「複数行を数えて判断する」形を避けるためであり、この場合とは事情が違う）
+
+### `anniversary` には `time` を設定できない
+
+**同じ理由で、入力スキーマで拒否する。**
+記念日は**「日」であって時刻を持つ概念ではない。**毎年射影される性質とも
+噛み合わない（「毎年 5/18 14:30」は意味を成さない）。
+
+`time` は `HH:MM` の文字列で持つ。**JST の壁時計としての時刻**であって
+ある瞬間ではない。`date` を `YYYY-MM-DD` で持つのと同じ理由である（4節）。
+
+### 「会った日」は1日1件
+
+**部分 UNIQUE インデックスで表す。**
+
+```sql
+CREATE UNIQUE INDEX events_meetup_unique
+  ON events (couple_id, date) WHERE kind = 'meetup';
+```
+
+上の `repeatYearly` と扱いが違うのは、**こちらが「複数行の関係」だから**である。
+1行の中の整合（`kind` と `repeatYearly`）は入力スキーマで足りるが、
+**「同じ日に他の行があるか」はアプリケーション側で数えることになる。**
+`posts.image_key` の UNIQUE と同じ理由で、**宣言的制約にする。**
+
+- `event.create` は `ON CONFLICT ... DO UPDATE` で**上書きする。**
+  人間の要望が「後に設定したもので上書き」だからである。
+  **1文で済み、D1 にトランザクションが無くても原子性が保たれる**（4節）
+- **`event.update` は上書きしない。**衝突したら `INVALID_INPUT` を返す。
+  `create` は「この日は会った日だ」という宣言だが、
+  `update` は特定の1件の編集であり、**別の行が黙って消えるのは意図と違う**
 
 ### 存在しない日付は、その月の末日に寄せる
 
