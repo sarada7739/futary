@@ -17,6 +17,7 @@
   "dependencies": {
     "@better-auth/expo": "^1.7.2",
     "@futary/contract": "workspace:*",
+    "@futary/date": "workspace:*",
     "@futary/db": "workspace:*",
     "@orpc/contract": "1.15.0",
     "@orpc/server": "1.15.0",

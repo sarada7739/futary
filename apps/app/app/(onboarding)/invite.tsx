@@ -1,3 +1,4 @@
+import { formatJstDateTime } from "@futary/date";
 import { Button, Card, Screen, Text, space } from "@futary/ui";
 import { useMutation, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -35,9 +36,7 @@ export default function InviteCodeScreen() {
     setInvite(issued);
   }
 
-  const expiresAtLabel = invite
-    ? new Date(invite.expiresAt * 1000).toLocaleString("ja-JP")
-    : "";
+  const expiresAtLabel = invite ? formatJstDateTime(invite.expiresAt) : "";
 
   async function handleShare() {
     if (!invite) return;

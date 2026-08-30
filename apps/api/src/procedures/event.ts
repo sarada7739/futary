@@ -1,6 +1,6 @@
 import type { Event } from "@futary/contract";
 import { implementer } from "../implementer";
-import { diffDays, monthDayOf, projectMonthDay, yearsBetween } from "../lib/date";
+import { diffDays, monthDayOf, projectMonthDay, yearsBetween } from "@futary/date";
 import { readProcedure, writeProcedure } from "./base";
 
 // 範囲は最大400日。射影の回数と D1 の行読み取りを有界にする。

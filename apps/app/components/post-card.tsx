@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
+import { formatJstDate } from "@futary/date";
 import { Avatar, Button, Card, colors, radius, space, Text } from "@futary/ui";
 import type { Post } from "@futary/contract";
 import { ImageViewer } from "./image-viewer";
@@ -27,7 +28,9 @@ function relativeTimeFrom(createdAt: number, now = Date.now()): string {
   if (diffSeconds < HOUR) return `${Math.floor(diffSeconds / MINUTE)}分前`;
   if (diffSeconds < DAY) return `${Math.floor(diffSeconds / HOUR)}時間前`;
   if (diffSeconds < DAY * 7) return `${Math.floor(diffSeconds / DAY)}日前`;
-  return new Date(createdAt * 1000).toLocaleDateString("ja-JP");
+  // timeZone を明示しないと端末のタイムゾーンで解釈され、JST基準の投稿日付が
+  // 1日ずれる（L64。Rレビュー指摘）
+  return formatJstDate(createdAt);
 }
 
 // 自分の投稿の「…」メニュー。確認せず即削除しない

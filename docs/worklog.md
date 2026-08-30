@@ -3132,6 +3132,59 @@ R は「**012・013 は両側とも日付計算を使う**」と書いていた�
 （`010 で作った lib/date.ts`）は既に `packages/date` へ書き換えた。
 **先に移せば、012 は最初から正しい場所を参照して書ける。**
 
+---
+
+## 2026-08-30 / セッションB（fix/date-package-migration）
+
+### やったこと
+- AからのL63判断（PR #91。`packages/date`新設）を受け、`fix/date-package-migration`
+  ブランチで実装した
+- `packages/date`（新規パッケージ）を作成し、`apps/api/src/lib/date.ts`の
+  全関数（`todayJst`/`diffDays`/`isLeapYear`/`monthsBefore`/`yearsBefore`/
+  `monthDayOf`/`yearsBetween`/`projectMonthDay`）を移設。加えて、
+  `apps/app/lib/calendar.ts`が独自に持っていた計算（`daysInMonth`・
+  月の加減算）をA案の「年月の加減算」に沿って`addMonths`として一般化・公開し、
+  グリッド構築に必要だった`addDays`・`dayOfWeek`も新設した
+- `apps/app/lib/calendar.ts`を`@futary/date`の primitive
+  （`addDays`/`dayOfWeek`/`daysInMonth`/`formatDate`）だけを組み合わせる形に
+  書き換え、`new Date()`を一切使わないようにした（`monthGridRange`・
+  `buildMonthGrid`は文字列の加減算・比較のみで完結する）
+- `apps/api/test/date.test.ts`を`packages/date/test/date.test.ts`へ移動し、
+  新設した`addDays`/`dayOfWeek`/`addMonths`のテストを追加（27件→36件）
+- **`new Date()`/`Date.now()`を`packages/date`の外で禁止するESLintルール
+  （`no-restricted-syntax`）を`eslint.config.js`に追加した。**
+  テストファイルは対象外（モックデータのタイムスタンプ生成であり暦日計算では
+  ないため）。Unix秒/ミリ秒をそのまま扱うだけの正当な用途（`created_at`用の
+  `nowSeconds()`×4箇所・ULID生成・ヘルスチェック応答・招待コード有効期限表示・
+  投稿カードの相対時刻表示、計9箇所）には理由コメント付きの
+  `eslint-disable-next-line`を個別に付けた
+- **このルールを実際に走らせたところ、`packages/contract/src/couple.ts`の
+  `anniversaryDateSchema`に`todayJst`の3つ目の重複実装（`todayInJst`。
+  004のペア作成で使われていた）が機械的に見つかった。**011でB自身が気づいた
+  重複、Rのレビュー指摘に続く3例目であり、ESLintルールが機械的検出として
+  機能した実例になった。`isValidDate`を`packages/date`に新設し（既存の
+  `new Date()`パースによる存在確認を`daysInMonth`ベースの判定に置き換え）、
+  `couple.ts`を`@futary/date`の`todayJst`/`isValidDate`を使う形に書き換えた
+  （`packages/contract`は`@futary/date`に依存するが、日付ユーティリティ自体は
+  持たない。Aの「型の単一の源であって道具箱ではない」方針どおり）
+- `apps/api`・`apps/app`・`packages/contract`の`package.json`に
+  `@futary/date: workspace:*`を追加
+- 型チェック（全ワークスペース）・lint・テスト
+  （packages/date 42・apps/app 51・apps/api 154・packages/ui 7、すべて緑）を確認
+- `docs/state.md`のL63を解決済みに更新、次の一手を整理
+
+### 決定事項
+- `new Date()`/`Date.now()`の禁止はテストファイルを対象外にし、production
+  コードのうちUnix秒/ミリ秒（暦日ではない）を扱うだけの箇所は
+  `eslint-disable-next-line`+理由コメントで個別に許可する形にした。
+  Aの指示（「ESLintで禁止する」）を文字どおりリポジトリ全体へ機械的に適用すると、
+  `created_at`の生成やULID等、暦日計算と無関係な既存コードまで壊れるため、
+  「JSTの暦日計算を重複させない」という本来の目的に沿って対象を絞った。
+  この判断はAへの確認を経ていないため、Rのレビューで疑問が出ればAに上げる
+
+### 詰まった点
+- なし（テストの件数が減って見えたのは移動によるもので、実際には
+  packages/dateに36→42件が乗っており、全体としては増えている）
 ## 2026-08-30 A: ESLint 規則の指定が雑だった（`Date.now()` は禁止しない・L64）
 
 B が L63 を実装し、**私の指定した ESLint 規則が暦と無関係な既存コードまで止めた**と
@@ -3188,3 +3241,42 @@ B が ESLint を走らせたところ、`packages/contract/src/couple.ts` に
 私は2つだと思っていた。**規約に書くだけでは見つからなかったものが、
 機械的な検査で出た。**L26（`Button` の二重発火）で「規約を書いただけでは遡及しない」と
 書いたのと同じことが、逆向きに確認された形になる。
+
+---
+
+## 2026-08-30 / セッションB（fix/date-package-migration・訂正反映）
+
+### やったこと
+- RがPR #92を受け入れ（必須修正なし）つつ、`post-card.tsx`・`invite.tsx`の
+  `toLocaleDateString`/`toLocaleString`が`timeZone`未指定で端末依存になっている
+  不具合を発見・報告してきた
+- ほぼ同時にAからも、ESLintルールの指定（`new Date()`と`Date.now()`両方禁止）が
+  雑だったという訂正（PR #93）が届いた。`Date.now()`は暦日を作らないため禁止不要、
+  `new Date(...)`だけが境界という訂正で、Rが見つけた不具合と同じ2箇所
+  （`invite.tsx`・`post-card.tsx`）が原因だと特定されていた（L64として起票）
+- PR #93を`main`へsquash merge。`fix/date-package-migration`に`main`をマージし、
+  `docs/state.md`のL63/L64行が競合したので解消した（同じ話題の別表現のため
+  1つにまとめる。conventions.md 9節）
+- `packages/date`に`formatJstDate`/`formatJstDateTime`を新設（`timeZone:
+  "Asia/Tokyo"`を明示）。境界時刻（`2026-03-15T23:30:00Z` = JST
+  `2026-03-16 08:30`）でテストを追加し、UTCでは前日でもJSTの日付を返すことを固定した
+- ESLintルールを`new Date(...)`のみの禁止に変更し、`Date.now()`のCallExpression
+  規則を削除
+- 前回付けた9箇所の`eslint-disable-next-line`のうち、`Date.now()`だけを使う
+  7箇所（`ulid.ts`・`couple.ts`/`event.ts`/`post.ts`/`reaction.ts`の
+  `nowSeconds()`・`router.ts`・`post-card.tsx`の`relativeTimeFrom`のデフォルト
+  引数）から`eslint-disable`と「packages/date対象外」コメントを削除（不要になった）
+- 残り2箇所（`invite.tsx`の有効期限表示・`post-card.tsx`の7日超の日付表示）を
+  `formatJstDate`/`formatJstDateTime`を使う形に置き換え、`eslint-disable`を
+  0個にした
+- 型チェック（全ワークスペース）・lint・テスト
+  （packages/date 44・apps/app 51・apps/api 154・packages/ui 7、すべて緑）を確認
+
+### 決定事項
+- なし（Aの訂正をそのまま反映した）
+
+### 詰まった点
+- `docs/state.md`のL63/L64行がAの`main`側編集と自分のブランチ側編集で競合した。
+  同じ話題（`packages/date`集約）の別表現だったため、`conventions.md`9節の
+  「同じ事実の別表現なら正典を決めて1つにする」に従い、実装完了後の状態を
+  正確に反映する形で1本化した

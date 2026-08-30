@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
+  addDays,
+  addMonths,
+  dayOfWeek,
   diffDays,
+  formatJstDate,
+  formatJstDateTime,
   isLeapYear,
+  isValidDate,
   monthDayOf,
   monthsBefore,
   projectMonthDay,
   todayJst,
   yearsBefore,
   yearsBetween,
-} from "../src/lib/date";
+} from "../src/index";
 
 describe("todayJst", () => {
   // JST は UTC+9 固定（夏時間なし）。UTC 15:00 は JST 翌日 00:00 にあたる
@@ -49,6 +55,81 @@ describe("diffDays", () => {
   });
 });
 
+describe("addDays", () => {
+  it("正のnで先の日付を返す", () => {
+    expect(addDays("2026-01-01", 1)).toBe("2026-01-02");
+  });
+
+  it("負のnで前の日付を返す", () => {
+    expect(addDays("2026-01-01", -1)).toBe("2025-12-31");
+  });
+
+  it("月末・年末をまたぐ", () => {
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+  });
+
+  it("diffDaysの逆演算になる（011の月グリッド計算で使う）", () => {
+    expect(addDays("2027-01-01", -diffDays("2026-12-27", "2027-01-01"))).toBe("2026-12-27");
+  });
+});
+
+describe("dayOfWeek", () => {
+  // 2026-02-01 は日曜（011タスクファイル・AのPR #84の実測値の前提）
+  it("日曜は0", () => {
+    expect(dayOfWeek("2026-02-01")).toBe(0);
+  });
+
+  it("土曜は6", () => {
+    expect(dayOfWeek("2026-02-07")).toBe(6);
+  });
+});
+
+describe("formatJstDate / formatJstDateTime", () => {
+  // L64（Rレビュー指摘）: timeZoneを明示しないtoLocaleDateString/toLocaleStringは
+  // 端末のタイムゾーンで解釈され、JST基準の投稿日付が1日ずれる不具合があった。
+  // 2026-03-15T23:30:00Z はJSTでは2026-03-16 08:30（UTCでは前日のまま）
+  const unixSeconds = Date.UTC(2026, 2, 15, 23, 30, 0) / 1000;
+
+  it("formatJstDate はUTCで前日でもJSTの日付を返す", () => {
+    expect(formatJstDate(unixSeconds)).toBe("2026/3/16");
+  });
+
+  it("formatJstDateTime もJSTの日付・時刻を返す", () => {
+    expect(formatJstDateTime(unixSeconds)).toBe("2026/3/16 8:30:00");
+  });
+});
+
+describe("isValidDate", () => {
+  // packages/contract の anniversaryDateSchema（couple.ts）が使う。
+  // 従来はISO文字列をnew Date()でパースしてNaN判定していたが、
+  // packages/date外でnew Date()を書けなくなった（L63のESLintルール）ため
+  // daysInMonthベースの判定に置き換えた
+  it("実在する日付はtrue", () => {
+    expect(isValidDate("2026-01-15")).toBe(true);
+  });
+
+  it("31日を持たない月の31日はfalse", () => {
+    expect(isValidDate("2026-04-31")).toBe(false);
+  });
+
+  it("平年の02-29はfalse", () => {
+    expect(isValidDate("2026-02-29")).toBe(false);
+  });
+
+  it("うるう年の02-29はtrue", () => {
+    expect(isValidDate("2024-02-29")).toBe(true);
+  });
+
+  it("月が範囲外はfalse", () => {
+    expect(isValidDate("2026-13-01")).toBe(false);
+    expect(isValidDate("2026-00-01")).toBe(false);
+  });
+
+  it("日が0以下はfalse", () => {
+    expect(isValidDate("2026-01-00")).toBe(false);
+  });
+});
+
 describe("isLeapYear", () => {
   it("4で割り切れる年はうるう年", () => {
     expect(isLeapYear(2024)).toBe(true);
@@ -67,6 +148,20 @@ describe("isLeapYear", () => {
   });
 });
 
+describe("addMonths", () => {
+  it("年をまたいで進む（011の月グリッド移動で使う）", () => {
+    expect(addMonths(2026, 12, 1)).toEqual({ year: 2027, month: 1 });
+  });
+
+  it("年をまたいで戻る", () => {
+    expect(addMonths(2027, 1, -1)).toEqual({ year: 2026, month: 12 });
+  });
+
+  it("同一年内の移動", () => {
+    expect(addMonths(2026, 6, 1)).toEqual({ year: 2026, month: 7 });
+  });
+});
+
 describe("monthsBefore / yearsBefore", () => {
   it("nヶ月前の日付を返す", () => {
     expect(monthsBefore("2026-03-15", 1)).toBe("2026-02-15");
@@ -76,7 +171,7 @@ describe("monthsBefore / yearsBefore", () => {
     expect(monthsBefore("2026-01-15", 1)).toBe("2025-12-15");
   });
 
-  // 「存在しない日付は、その月の末日に寄せる」（architecture.md 5節。Aの決定）。
+  // 「存在しない日付は、その月の末日に寄せる」（architecture.md 5節。Aの決定)。
   // 素のDateは翌月へ繰り上げる（2026-03-31の1ヶ月前が2026-03-03になる）が、
   // それは採らない
   it("月末を超える日はその月の末日に寄せる（翌月へ繰り上げない）", () => {
