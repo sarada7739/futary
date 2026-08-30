@@ -34,6 +34,7 @@ function RootNavigator() {
           name="compose"
           options={{ presentation: "modal", headerShown: true, title: "投稿する" }}
         />
+        <Stack.Screen name="calendar" options={{ headerShown: true, title: "カレンダー" }} />
       </Stack.Protected>
       <Stack.Protected guard={needsOnboarding}>
         <Stack.Screen name="(onboarding)" />

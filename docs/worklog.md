@@ -3001,3 +3001,58 @@ B は「010 のうるう日規則（`projectMonthDay`。射影専用）とは別
 ### 詰まった点
 - `## 進行中タスク`の見出しが本文編集の過程のどこかで失われていた。
   次から見出し構造が保たれているかを`grep -n "^## "`等で都度確認する
+
+---
+
+## 2026-08-30 / セッションB（011 実装）
+
+### やったこと
+- `docs/tasks/011-calendar-ui.md`とAのPR #84（月グリッドの取得範囲の実測値）
+  を読んでから着手した
+- `apps/app/lib/calendar.ts`（新規）: 月グリッド（日〜土）の日付計算。
+  `todayJst`/`monthGridRange`/`buildMonthGrid`/`addMonths`/`monthLabel`。
+  `monthGridRange`はPR #84が実測した4件（2026年12月35日・2027年1月42日・
+  2026年2月28日・2028年2月35日）をそのままテストの期待値にした
+- `packages/ui/src/tokens.ts`に`colors.eventAnniversary`/`eventPlan`/
+  `eventMeetup`を新設し、`architecture.md`7節にも反映（017の`colors.overlay`
+  追加と同じ形。設計判断ではなく実装との同期のみ）
+- `apps/app/components/month-grid.tsx`（新規）: 月グリッド本体。日付セルは
+  幅`100/7%`の`flex-wrap`で折り返し、28〜42日のどの月でも固定行数にしない。
+  種別マーカーは色とグリフ（●/■/▲）を併用する
+- `apps/app/components/event-form.tsx`（新規）: 登録・編集モーダル。背景は
+  親子`Pressable`のstopPropagationに頼らず、独立した`absoluteFill`の
+  兄弟レイヤーとして敷く形にした（017で当たり判定の穴を踏んだ教訓の先回り）
+- `apps/app/app/calendar.tsx`（新規）: 画面本体。月ナビ・凡例・グリッド・
+  選択日のイベント一覧カード・3状態（読み込み中はグリッドの骨格のみ・
+  イベントゼロの月・通信エラー+再試行）を配線
+- **編集対象は表示日付（射影後の`date`）ではなく登録日（`sourceDate`）にした。**
+  今年に射影表示されている繰り返し記念日をそのまま`date`で更新すると、
+  記念日の登録日そのものを今年へ動かしてしまうため。画面結合テストで回帰を固定
+- ホームの導線: `(tabs)/index.tsx`ヘッダーに「📅 カレンダー」ボタンを追加、
+  `_layout.tsx`に`calendar`ルートを認証必須スタックへ登録
+- テスト: `apps/app/test/calendar.test.ts`（純粋な日付計算11件）・
+  `apps/app/test/calendar-screen.test.tsx`（画面結合8件。登録→反映、
+  グリッド端〈前月側〉のセルのイベント表示、記念日選択でrepeatYearly自動true、
+  sourceDate編集、削除）
+- 型チェック（全ワークスペース）・lint（`eslint .`）・テスト
+  （ui 7・app 55・api 181）すべて緑を確認
+- `docs/tasks/011-calendar-ui.md`の完了条件・進捗・実装メモを更新
+  （実機確認の1項目のみ未達として明記）
+- `artifacts/011/test-results.md`・`artifacts/011/manual-check.md`を作成
+- `docs/state.md`を更新（進行中タスクに011を記載、L62として実機確認待ちを起票）
+
+### 決定事項
+- カレンダーのイベント種別マーカーは色（新設3トークン）とグリフ（●/■/▲）を
+  併用する。色覚特性に依存しない差を確認観点が明示的に要求していたため
+- イベント編集フォームのモーダルは背景と本体を親子関係にせず独立レイヤーにする
+  （017の当たり判定バグと同じ構造的な問題を避けるための設計判断）
+
+### 詰まった点
+- 画面結合テストで「予定」「会った日」が凡例とイベント行の両方に出るため
+  `getByText`が複数要素エラーになった。`getAllByText`の件数チェックに変更
+- 通信エラーのテストは`useQuery`の既定リトライ（3回・指数バックオフ）が
+  尽きるまで`isError`にならず、`findByText`の既定タイムアウト（1000ms）内に
+  収まらなかった。このテストだけ`timeout`を長くして対処した
+- カレンダー画面は認証必須のため、ブラウザプレビューでの実機確認ができなかった
+  （003・004・007と同じ制約）。`artifacts/011/manual-check.md`に確認項目を
+  列挙し、`docs/state.md`にL62として起票した

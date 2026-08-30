@@ -110,12 +110,22 @@ export default function HomeScreen() {
         contentContainerStyle={{ padding: space.lg, gap: space.md, flexGrow: 1 }}
         ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
         ListHeaderComponent={
-          <View style={{ gap: space.md, marginBottom: space.md }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: space.md,
+            }}
+          >
             <Image
               source={logoMark}
               style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
               resizeMode="contain"
             />
+            <Button variant="ghost" onPress={() => router.push("/calendar")}>
+              📅 カレンダー
+            </Button>
             {/* 統計カード（012）・思い出しカード（013）の置き場所。ここに追加する */}
           </View>
         }
