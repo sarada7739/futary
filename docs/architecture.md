@@ -113,6 +113,9 @@ events
   created_at     INTEGER NOT NULL
   INDEX (couple_id, date)
   UNIQUE (couple_id, date) WHERE kind = 'meetup'   -- 会った日は1日1件
+  CHECK (kind IN ('anniversary','plan','meetup'))
+  CHECK (repeat_yearly = 0 OR kind = 'anniversary')   -- 5節
+  CHECK (time IS NULL OR kind <> 'anniversary')       -- 5節
 ```
 
 ### `posts` を読むクエリには必ず `deleted_at IS NULL` を含める
@@ -439,9 +442,26 @@ R2 に取り込んで自前配信する案は取らない。プロフィール�
 **入力スキーマで拒否する。**`kind !== "anniversary"` かつ `repeatYearly === true` を
 `INVALID_INPUT` にする。`event.create` と `event.update` の両方。
 
-DB の CHECK 制約は置かない。**書き込み口が入力スキーマの1つしか無く、
-そこで弾けば到達しない。**（`posts.image_key` の UNIQUE を宣言的制約にしたのは、
-「複数行を数えて判断する」形を避けるためであり、この場合とは事情が違う）
+**当初「DB の CHECK 制約は置かない」と決めていた。**理由は
+「書き込み口が入力スキーマの1つしか無く、そこで弾けば到達しない」だった。
+**014 でその前提が崩れたので、置く方に変えた。**
+
+`packages/db/seed/demo.ts` が**入力スキーマを通らない2つ目の書き込み口**になる。
+シードが `repeat_yearly = 1` の `meetup` を書いても、DB は何も言わない。
+そして `event.list` の射影は `repeat_yearly` を見て動くため、
+**毎年出てくる「会った日」**という、契約経由では絶対に作れないデータがデモに並ぶ。
+
+`events.kind` に CHECK を置いたのと同じ理由である。
+**未知の値が1件でも入ると `event.list` の出力検証全体を巻き込んで壊れる。**
+
+```sql
+CHECK (repeat_yearly = 0 OR kind = 'anniversary')
+CHECK (time IS NULL OR kind <> 'anniversary')
+```
+
+**入力スキーマ側の検証は残す。**利用者に返すエラーメッセージは Zod の方が読める。
+CHECK は**データが壊れないこと**を、Zod は**理由が伝わること**を受け持つ。
+片方を消さない（R の指摘・L67 の受け入れ記録どおりの場所で前提が変わった）。
 
 ### `anniversary` には `time` を設定できない
 
