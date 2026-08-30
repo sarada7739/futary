@@ -6673,3 +6673,19 @@ B が気づき R が確認した。011 以降、`manual-check.md` に
 
 確認項目は残すが、**「016 のデプロイ後。念のためであって、これを待って何も
 止めない」**と書き換えた。
+
+## 2026-08-31 セッションB: WheelColumnのタイマー確定を撤去
+
+`apps/app/components/wheel-column.tsx`の`isInitializingRef`・`timerRef`・
+`SETTLE_DELAY_MS`（300ms）をすべて削除し、`onScroll`ハンドラで受け取った
+オフセットから毎回中央の行を計算し、値と異なれば即`onChange`する形に
+書き換えた（`commitFromOffset`）。初期化時の`scrollTo`もそのまま残したが、
+それが発火する`onScroll`イベントで`commitFromOffset`が呼ばれても、対象の
+インデックスは`value`と同じ（`selectedIndex`の計算元）なので`onChange`は
+発火しない。フラグやタイマーで確定タイミングを制御する必要が無くなった。
+
+`artifacts/022/manual-check.md`のiPhone Safari項目を「016のデプロイ後。
+念のため」に書き換え、いま人間に依頼する項目から外した。`fix/wheel-column-no-timer`
+（PR #156）としてRへレビュー依頼。apps/app 125件すべて緑、型チェック・
+lint通過。人間が`/clear`を挟むため、このPRのレビュー待ちのまま区切る
+（`docs/state.md`冒頭に次のセッションの再開手順を書いた）。
