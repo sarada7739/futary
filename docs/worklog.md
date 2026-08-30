@@ -4144,3 +4144,70 @@ L67（`repeatYearly` を `anniversary` に限る）と同じ形なので、**同
 
 既存の重複はマイグレーションで潰す。**残すのは最新の1件**（新しい挙動と揃える）。
 `meetupCount`（012）が「会った日数」になることも書いた。
+
+## 2026-08-30 / セッションB（018実装）
+
+### やったこと
+- AがPR #114で起票した018のタスク定義をCI緑確認後squash merge・
+  `--delete-branch`（`docs/018-calendar-improvements`。ローカルブランチは
+  Aのworktreeで使用中のため削除できず、リモートのみ削除）
+- 設計で「D1で通るか未確認」とされていた部分UNIQUEインデックスを衝突対象に
+  する`ON CONFLICT ... WHERE kind='meetup' DO UPDATE`構文を、実装前に
+  ローカルD1の使い捨てテーブルで検証。想定どおり後勝ちで上書きされることを確認
+- `packages/db/src/schema/event.ts`に`time`列（TEXT・NULL許容）・
+  `events_meetup_unique`（`(couple_id, date) WHERE kind='meetup'`の部分UNIQUE）
+  を追加。`pnpm --filter @futary/db run generate`でマイグレーションを生成し
+  `0008_event_time_and_meetup_unique.sql`にリネーム。既存の重複meetupを
+  解消するDELETE文（`ROW_NUMBER()`で`created_at`最大・同値なら`id`が
+  大きい方を残す）を手で先頭に追加した。ローカルD1に適用して動作確認済み
+  （ダミーの重複データでも検証: `old`/`new`/`other-day`/`plan-same-day`の
+  4行から`old`だけが消えることを確認）
+- `packages/contract/src/event.ts`に`time`（HH:MM・null許容）・
+  `createdByName`（null許容）を追加。`refineTimeKind`で`anniversary`には
+  `time`を設定できないよう拒否（`refineRepeatYearlyKind`と同じ形で並べて書いた）
+- `apps/api/src/procedures/event.ts`を書き換え。`event.list`は`user`を
+  LEFT JOINして`createdByName`を返す（`post.list`と同じ形）。`event.create`は
+  `INSERT ... ON CONFLICT ... DO UPDATE`の1文で上書きし、`id`は更新しない
+  （既存行の身元を保つ）。`event.update`は`isConstraintViolation`で
+  部分UNIQUE違反を捕捉し`INVALID_INPUT`を返す（上書きしない）
+- `apps/app/components/event-form.tsx`に時間入力欄を追加（記念日では項目
+  自体を隠す）。同じ日に自分以外の「会った日」が既にあるとき、create では
+  「上書きされます」、edit では「保存できません」の注記を出し、edit の方は
+  送信もブロックする（`meetupByDate`を親から受け取り、フォーム内の
+  `date`/`kind`の変化に反応する形にした。calendar画面のselectedDateに
+  依存させると、日付を手で書き換えるケースを取りこぼすため）
+- `apps/app/app/(tabs)/calendar.tsx`のイベント行に時間・設定者名を追加。
+  どちらも既存の2行（タイトル行・メタ行）に収め、行が増えないようにした
+  （確認観点「時間の有無で行の高さが変わらない」）。`event.update`が
+  `INVALID_INPUT`で失敗したときだけ「その日には既に「会った日」が
+  登録されています」の専用メッセージを出す（`ORPCError`の`instanceof`で
+  判定。`isDefinedError`は`catch`節の`error`が`unknown`型のままだと
+  `Extract<unknown, ...>`が`never`に潰れて使えなかった）
+- テストを追加。`apps/api/test/event.test.ts`に11件
+  （createdByName・time・meetupの上書き/衝突・重複解消DELETE文の単体検証）、
+  `apps/app/test/calendar-screen.test.tsx`に8件（設定者名・時間の表示、
+  記念日で時間欄が隠れる、上書き注記、edit時のブロック、専用エラー文言）。
+  マイグレーション本体の重複解消は、この環境では部分UNIQUEインデックスが
+  既に有効な状態でテストが走るため重複データを再現できず、同一のDELETE文を
+  使い捨てテーブルに対して実行する形で論理だけを検証した（013のL69と同種の
+  「この環境では作れない状態」の扱い）
+- `pnpm test`・`type-check`・`lint`をルートで実行しすべて緑を確認
+  （apps/api 193→204件・apps/app 61→69件）
+- `docs/tasks/018-calendar-improvements.md`の進捗を更新、
+  `artifacts/018/test-results.md`・`artifacts/018/manual-check.md`を作成、
+  `docs/state.md`にL73として起票
+
+### 決定事項
+- なし（Aの設計をそのまま実装した）
+
+### 詰まった点
+- `isDefinedError(error)`を`catch (error)`節（`error`は`unknown`型）に
+  そのまま渡すと、`Extract<unknown, ORPCError<any,any>>`が`never`に潰れ
+  `error.code`にアクセスできない型エラーになった。`error instanceof ORPCError`
+  に切り替えて解消（`instanceof`はジェネリックの絞り込みに依存しないため）
+- 同じ問題を、先に`updateEvent.error`（フックが返すミューテーション状態）を
+  読む形で避けようとしたが、`handleSubmit`のクロージャが捕まえている
+  `updateEvent`は自分が生成された時点のレンダーのものであり、`catch`節の
+  中で読んでも直前の`mutateAsync`失敗による状態更新をまだ反映していない
+  （次のレンダーで初めて新しい値になる）ことに気づき、元の`catch (error)`
+  方式へ戻した
