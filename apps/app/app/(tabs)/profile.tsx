@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
 import { Avatar, Button, Card, colors, radius, Screen, space, Text } from "@futary/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { DateInput8 } from "../../components/date-input8";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
@@ -176,42 +177,14 @@ export default function ProfileScreen() {
                 <Text size="sm" color="muted">
                   付き合った日
                 </Text>
-                <TextInput
-                  value={anniversaryDate}
-                  onChangeText={setAnniversaryDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textMuted}
-                  testID="profile-anniversary-date"
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: radius.input,
-                    padding: space.md,
-                    fontSize: 16,
-                    color: colors.text,
-                  }}
-                />
+                <DateInput8 value={anniversaryDate} onChange={setAnniversaryDate} testID="profile-anniversary-date" />
               </View>
 
               <View style={{ gap: space.xs }}>
                 <Text size="sm" color="muted">
                   結婚した日（任意）
                 </Text>
-                <TextInput
-                  value={marriedDate}
-                  onChangeText={setMarriedDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textMuted}
-                  testID="profile-married-date"
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: radius.input,
-                    padding: space.md,
-                    fontSize: 16,
-                    color: colors.text,
-                  }}
-                />
+                <DateInput8 value={marriedDate} onChange={setMarriedDate} testID="profile-married-date" />
                 {marriedDateRequired && (
                   <Text size="xs" color="muted">
                     「結婚した日」を表示するには、結婚した日を入力してください

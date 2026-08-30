@@ -6503,3 +6503,42 @@ DB の TRIGGER は通す（NULL 比較が真にならない）。**Zod だけが
 
 **名指しされた1件が対象から消え、名指しされていない3件だけが残った形になった。**
 その経緯も表に残した。
+## 2026-08-31 セッションB: 022（時刻の選択と日付の8桁入力）実装
+
+着手前にRから4件（改名時のdrizzle-kit対話への回答・ON CONFLICT DO UPDATEの
+SET句にend_timeを含める・scrollend周りの罠2件）、Aから決定1件（刻みに乗らない
+既存の時刻を丸めず選択肢へ差し込む）の先読みを受け、すべて反映した。
+
+**drizzle-kit generateがこの環境（非TTY）で動かなかった。** `time`→`start_time`
+の改名を検出すると対話プロンプト（矢印キー選択）を要求するが、
+`process.stdin.isTTY`が無い環境では即エラーになる。過去のマイグレーション
+（0000〜0010）はいずれも列追加・CHECK追加のみでrenameを含まず、022が
+初めて踏んだ制約だった。回避策として、`meta/0010_snapshot.json`を手動で
+複製・更新して`meta/0011_snapshot.json`・`_journal.json`・マイグレーションSQL
+（`INSERT INTO __new_events ... SELECT`で`time`の値を`start_time`の位置へ渡す）
+を直接作成し、`pnpm generate`を再実行して「No schema changes」を確認する
+ことで、手動生成の内容とdrizzleスキーマ定義が完全に一致することを検証した。
+
+**「既存行の扱いが変わるマイグレーションは、行を入れた状態で当てる」
+（conventions.md 6節）を初めて実装した。** vitestのテスト環境
+（`@cloudflare/vitest-pool-workers`）はsetupFile（`apply-migrations.ts`）で
+全マイグレーションを一度だけ適用し、そこがisolatedStorageの「初期状態」に
+なる。そのため`TEST_MIGRATIONS.slice(0, N)`をそのまま呼んでも
+`applyD1Migrations`は`d1_migrations`テーブルの記録を見て「適用済み」として
+何もしない（idempotent）。回避策として、テスト内で`d1_migrations`から
+対象マイグレーション名の記録を削除し、`events`テーブルを0010時点の構造へ
+一時的にリネーム・作り直したうえで、本物の0011ファイルを`applyD1Migrations`
+で再適用し、テスト終了後（`finally`）に元の構造へ戻す形にした
+（`migration-existing-rows.test.ts`）。**テーブルをリネームしても紐づく
+インデックスの名前は変わらず残る**ため、0011のCREATE INDEXが「already exists」
+で失敗する問題も踏んだ（一時的にDROP→0011適用→後片付けで作り直す）。
+
+D1の`exec()`は改行区切りで文を解釈するため、複数行に整形したCREATE TABLE文が
+「incomplete input」で落ちた。1行にまとめて解決した。
+
+022のBは、023（付き合った日を登録時に聞かない）の起票を受けてAが指示した
+とおり、オンボーディングの付き合った日を対象から外し、マイページの2箇所
+（付き合った日・結婚した日）とカレンダーの日付に絞って実装した。
+
+テストはapps/api 277件→288件（+11）・apps/app 107件→125件（+18）すべて緑、
+型チェック・lint通過。`artifacts/022/`に証跡を保存し、Rへレビュー依頼した。

@@ -9,6 +9,7 @@ import { EventForm, type EventFormValues } from "../../components/event-form";
 import { MonthGrid } from "../../components/month-grid";
 import { monthGridRange, monthLabel } from "../../lib/calendar";
 import { EVENT_KIND_COLORS, EVENT_KIND_GLYPHS, EVENT_KIND_LABELS, EVENT_KIND_ORDER } from "../../lib/event-kind";
+import { formatEventTimeRange } from "../../lib/event-time";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
 
@@ -45,7 +46,7 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
       </RNText>
       <View style={{ flex: 1 }}>
         <Text>
-          {event.time ? `${event.time} ` : ""}
+          {event.startTime ? `${formatEventTimeRange(event)} ` : ""}
           {event.title}
         </Text>
         <Text size="xs" color="muted">
@@ -241,7 +242,8 @@ export default function CalendarScreen() {
         defaultDate={formState?.date ?? selectedDate}
         defaultTitle={editingEvent?.title}
         defaultKind={editingEvent?.kind}
-        defaultTime={editingEvent?.time}
+        defaultStartTime={editingEvent?.startTime}
+        defaultEndTime={editingEvent?.endTime}
         defaultIsShared={editingEvent?.isShared}
         sourceDateNote={sourceDateNote}
         meetupByDate={meetupByDate}

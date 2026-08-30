@@ -29,8 +29,10 @@ export const eventSchema = z.object({
   title: z.string(),
   kind: eventKindSchema,
   repeatYearly: z.boolean(),
-  // HH:MM または null。anniversary には設定できない（018）
-  time: timeSchema.nullable(),
+  // HH:MM または null。anniversary には設定できない（018。022でtimeから改名）
+  startTime: timeSchema.nullable(),
+  // HH:MM または null。startTimeが無いと設定できない。startTimeより後（022）
+  endTime: timeSchema.nullable(),
   // 設定した人の名前。null許容（LEFT JOIN。post.authorName と同じ形。018）
   createdByName: z.string().nullable(),
   // 「ふたりの予定」（021）。kind='plan'のときだけtrueになりうる
@@ -61,8 +63,11 @@ const eventInputBaseSchema = z.object({
   title: z.string().trim().min(1, "タイトルを入力してください").max(MAX_TITLE_LENGTH),
   kind: eventKindSchema,
   repeatYearly: z.boolean(),
-  // HH:MM。任意。anniversary には設定できない（下のrefine。018・architecture.md 5節）
-  time: timeSchema.nullable().optional(),
+  // HH:MM。任意。anniversary には設定できない（下のrefine。018・022でtimeから改名）
+  startTime: timeSchema.nullable().optional(),
+  // HH:MM。任意。startTimeが無いと設定できない。startTimeより後、同じ日の中だけ
+  // （下のrefine。022）
+  endTime: timeSchema.nullable().optional(),
   // 「ふたりの予定」（021）。kind='plan'のときだけtrueにできる（下のrefine）
   isShared: z.boolean(),
 });
@@ -78,12 +83,42 @@ function refineRepeatYearlyKind<T extends z.ZodType<{ kind: string; repeatYearly
   });
 }
 
-// timeはkind='anniversary'のときだけ設定できない（repeatYearlyと同じ形。018）。
+// start_time/end_timeはkind='anniversary'のときだけ設定できない（repeatYearlyと
+// 同じ形。018・022でtimeから改名し、end_timeにも同じ理由を適用）。
 // 記念日は「日」であって時刻を持つ概念ではなく、毎年射影される性質とも噛み合わない
-function refineTimeKind<T extends z.ZodType<{ kind: string; time?: string | null }>>(schema: T) {
-  return schema.refine((value) => !(value.kind === "anniversary" && value.time != null), {
-    message: "timeはkindが記念日のときは設定できません",
-    path: ["time"],
+function refineTimeKind<T extends z.ZodType<{ kind: string; startTime?: string | null; endTime?: string | null }>>(
+  schema: T,
+) {
+  return schema
+    .refine((value) => !(value.kind === "anniversary" && value.startTime != null), {
+      message: "startTimeはkindが記念日のときは設定できません",
+      path: ["startTime"],
+    })
+    .refine((value) => !(value.kind === "anniversary" && value.endTime != null), {
+      message: "endTimeはkindが記念日のときは設定できません",
+      path: ["endTime"],
+    });
+}
+
+// end_timeはstart_timeが無いと立てられない（022。CHECK events_end_time_requires_start_check
+// でも表す。書き込み口はここだけの想定だが、014のシード等に備えてDB側にも置く）
+function refineEndTimeRequiresStart<T extends z.ZodType<{ startTime?: string | null; endTime?: string | null }>>(
+  schema: T,
+) {
+  return schema.refine((value) => value.endTime == null || value.startTime != null, {
+    message: "endTimeはstartTimeが無いと設定できません",
+    path: ["endTime"],
+  });
+}
+
+// 終了は開始より後。日をまたがない（022）。HH:MMはゼロ詰めなので文字列比較が
+// そのまま時刻の前後になる（CHECK events_end_time_after_start_checkでも表す）
+function refineEndTimeAfterStart<T extends z.ZodType<{ startTime?: string | null; endTime?: string | null }>>(
+  schema: T,
+) {
+  return schema.refine((value) => value.endTime == null || value.startTime == null || value.endTime > value.startTime, {
+    message: "endTimeはstartTimeより後にしてください",
+    path: ["endTime"],
   });
 }
 
@@ -98,7 +133,19 @@ function refineIsSharedKind<T extends z.ZodType<{ kind: string; isShared: boolea
   });
 }
 
-const eventInputSchema = refineIsSharedKind(refineTimeKind(refineRepeatYearlyKind(eventInputBaseSchema)));
+function refineEventInput<T extends z.ZodType<EventInputBase>>(schema: T) {
+  return refineEndTimeAfterStart(refineEndTimeRequiresStart(refineIsSharedKind(refineTimeKind(refineRepeatYearlyKind(schema)))));
+}
+
+type EventInputBase = {
+  kind: string;
+  repeatYearly: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  isShared: boolean;
+};
+
+const eventInputSchema = refineEventInput(eventInputBaseSchema);
 
 export const eventCreateContract = oc.input(eventInputSchema).output(eventSchema).errors({
   FORBIDDEN: {},
@@ -111,7 +158,7 @@ export const eventCreateContract = oc.input(eventInputSchema).output(eventSchema
 // INVALID_INPUT は上記のバリデーションに加え、meetupを既に会った日がある
 // 日へ移そうとしたときにも返す（上書きしない。018・architecture.md 5節）
 export const eventUpdateContract = oc
-  .input(refineIsSharedKind(refineTimeKind(refineRepeatYearlyKind(eventInputBaseSchema.extend({ id: z.string() })))))
+  .input(refineEventInput(eventInputBaseSchema.extend({ id: z.string() })))
   .output(eventSchema)
   .errors({
     FORBIDDEN: {},
