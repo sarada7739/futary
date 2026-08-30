@@ -319,10 +319,10 @@ CHECK (is_shared = 0 OR kind = 'plan')
 ## 完了条件
 - [x] 予定の編集・削除が持ち主に限られ、「ふたりの予定」は例外になる
 - [x] `event.list` が `canEdit` を返し、画面がそれで押せる／押せないを決めている
-- [ ] **自分を締め出す更新が拒まれ、画面がその選択を出さない**
+- [x] **自分を締め出す更新が拒まれ、画面がその選択を出さない**
   （設定者でない側が `plan` を選ぶと「ふたりの予定」が立ったまま固定される）
 - [x] 上記のテストが緑
-- [ ] **security-auditor を起動し、High 以上がゼロ**（認可を触るため必須。`security-requirements.md` 10節1）
+- [x] **security-auditor を起動し、High 以上がゼロ**（認可を触るため必須。`security-requirements.md` 10節1）
 - [ ] `artifacts/021/` に**人間の実機確認の記録**を保存
 
 ---
