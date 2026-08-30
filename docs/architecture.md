@@ -180,6 +180,10 @@ event.create        { date, title, kind, repeatYearly }
 event.update        { id, ... }
 event.delete        { id }
 stats.get           -> { daysTogether, meetupCount, postCount, photoCount }
+                    daysTogether は判別可能な union
+                      { status: "together", days }  記念日が今日以前
+                      { status: "upcoming", days }  記念日が未来（「あと○日」）
+                    記念日は1年後まで登録できる（打ち間違いの歯止め）
 memory.get          -> { post, label } | null
 ```
 
