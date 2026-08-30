@@ -14,3 +14,14 @@ export { default as iconTabCalendar } from "../assets/tab-calendar.png";
 // 無いため、カレンダーと同じ手順で新規に描き起こした。3本の横線（長さを
 // 変えてフィードらしさを出す）。他のタブアイコンと同じ単線・角丸・塗りなし
 export { default as iconTabTimeline } from "../assets/tab-timeline.png";
+// ホーム機能パネルのアイコン6種（020。docs/sample/README.md「ホーム機能
+// パネルのアイコンも描き起こす」）。人間が置いた見本（透過の無いJPEG。
+// 使わない理由は同READMEに記録）を見本に、タブアイコンと同じ単線・角丸・
+// 塗りなし・単色で新規に描き起こした。タイムライン・カレンダーは既存の
+// タブアイコンを使い回すためここには含めない
+export { default as iconPanelMemory } from "../assets/panel-memory.png";
+export { default as iconPanelStats } from "../assets/panel-stats.png";
+export { default as iconPanelToday } from "../assets/panel-today.png";
+export { default as iconPanelList } from "../assets/panel-list.png";
+export { default as iconPanelMood } from "../assets/panel-mood.png";
+export { default as iconPanelAi } from "../assets/panel-ai.png";

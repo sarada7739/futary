@@ -1,4 +1,16 @@
-import { logoMark, Screen, space } from "@futary/ui";
+import {
+  iconPanelAi,
+  iconPanelList,
+  iconPanelMemory,
+  iconPanelMood,
+  iconPanelStats,
+  iconPanelToday,
+  iconTabCalendar,
+  iconTabTimeline,
+  logoMark,
+  Screen,
+  space,
+} from "@futary/ui";
 import { useRouter } from "expo-router";
 import { Image, ScrollView, View } from "react-native";
 import { FeaturePanel } from "../../components/feature-panel";
@@ -23,16 +35,18 @@ export default function HomeScreen() {
 
         {/* パネルは常に出す。データの取得に失敗しても入口が消えてはいけない
             （タスク定義「状態の網羅」）。取得状態に依存しないため、
-            StatsCardのようにquery状態を気にする必要が無い */}
-        <View style={{ gap: space.md }}>
-          <FeaturePanel label="タイムライン" description="ふたりの投稿を見る" onPress={() => router.push("/timeline")} />
-          <FeaturePanel label="カレンダー" description="記念日・予定・会った日" onPress={() => router.push("/calendar")} />
-          <FeaturePanel label="思い出" description="過去の今日" onPress={() => router.push("/memory")} />
-          <FeaturePanel label="統計" description="ふたりの記録をまとめて見る" onPress={() => router.push("/stats")} />
-          <FeaturePanel label="今日どうだった？" />
-          <FeaturePanel label="リスト" />
-          <FeaturePanel label="気分の記録" />
-          <FeaturePanel label="AIまとめ" />
+            StatsCardのようにquery状態を気にする必要が無い。
+            4列×2行のグリッド（PR #132。モックアップの4+3の空き1枠を
+            タイムラインが埋める） */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+          <FeaturePanel label="タイムライン" icon={iconTabTimeline} onPress={() => router.push("/timeline")} />
+          <FeaturePanel label="カレンダー" icon={iconTabCalendar} onPress={() => router.push("/calendar")} />
+          <FeaturePanel label="思い出" icon={iconPanelMemory} onPress={() => router.push("/memory")} />
+          <FeaturePanel label="統計" icon={iconPanelStats} onPress={() => router.push("/stats")} />
+          <FeaturePanel label="今日どうだった？" icon={iconPanelToday} />
+          <FeaturePanel label="リスト" icon={iconPanelList} />
+          <FeaturePanel label="気分の記録" icon={iconPanelMood} />
+          <FeaturePanel label="AIまとめ" icon={iconPanelAi} />
         </View>
       </ScrollView>
     </Screen>

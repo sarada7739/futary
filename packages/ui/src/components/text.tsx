@@ -20,10 +20,13 @@ const textColors: Record<TextColor, string> = {
   inverse: colors.surface,
 };
 
+export type TextAlign = "left" | "center" | "right";
+
 export type TextProps = Omit<RNTextProps, "style"> & {
   size?: TextSize;
   color?: TextColor;
   weight?: "regular" | "bold";
+  align?: TextAlign;
   children: ReactNode;
 };
 
@@ -31,6 +34,7 @@ export function Text({
   size = "md",
   color = "default",
   weight = "regular",
+  align = "left",
   children,
   ...rest
 }: TextProps) {
@@ -41,6 +45,7 @@ export function Text({
         fontSize: sizes[size],
         color: textColors[color],
         fontWeight: weight === "bold" ? "700" : "400",
+        textAlign: align,
       }}
     >
       {children}

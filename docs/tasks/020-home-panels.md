@@ -237,3 +237,22 @@
 `artifacts/020/manual-check.md`参照。B側で気づいた点2件をAへ報告した
 （`requirements.md`5節の「検索」行が本タスクで古くなった点、
 「モックアップの7枚」という記述とパネル表の実数8枚が食い違っている点）
+
+## 追記: パネルをグリッドに作り直した（`fix/panel-icon-grid`）
+
+人間の実機確認中の反応（L81・L82）を受け、Aの判断（PR #131・#132）どおり
+パネルをカードからグリッドに作り直した。
+
+- パネル用アイコン6個をSVGで新規に描き起こし（`packages/ui/assets/panel-*.png`。
+  96×96、単線・角丸・単色`#4A3733`。タブアイコンと同じ揃える点）
+  `packages/ui/src/assets.ts`から`iconPanelMemory`等としてexport
+- タイムライン・カレンダーは既存のタブアイコンを使い回した（新規に描かない）
+- `FeaturePanel`を全面書き換え: `Card`をやめ、アイコン（32pt）＋ラベルのみ
+  （説明文は削除）。枠線・背景を持たない。4列×2行、ラベルは2行まで折り返し
+  可、8枚とも高さ固定（92px）
+- `packages/ui`の`Text`に`align`プロップを追加（`left`/`center`/`right`。
+  既存の`size`/`color`/`weight`と同じ「curated propsのみ、生styleは渡さない」
+  方針を維持したまま中央揃えを可能にした）
+- テストは`home-screen.test.tsx`（既存10件）がラベル・遷移・次フェーズ表示を
+  そのままカバーしており変更不要。apps/app 96件・packages/ui 7件すべて緑、
+  type-check・lint通過
