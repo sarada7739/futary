@@ -604,4 +604,43 @@ describe("重複したmeetupの解消ロジック（0008マイグレーション
       await db.exec("DROP TABLE _dedupe_test");
     }
   });
+
+  // created_atが同値のときのタイブレーク（idが大きい方を残す）。Rレビュー指摘。
+  // この場合だけ大小が結果を左右するため、created_atに差がある上のテストとは別に確認する
+  it("created_atが同値なら、idが大きい方が残る", async () => {
+    await db.exec(
+      "CREATE TABLE _dedupe_tiebreak_test (id TEXT PRIMARY KEY, couple_id TEXT NOT NULL, date TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL)",
+    );
+    try {
+      await db
+        .prepare("INSERT INTO _dedupe_tiebreak_test VALUES ('id-a', 'c1', '2026-05-01', 'meetup', 100)")
+        .run();
+      await db
+        .prepare("INSERT INTO _dedupe_tiebreak_test VALUES ('id-b', 'c1', '2026-05-01', 'meetup', 100)")
+        .run();
+
+      await db
+        .prepare(
+          `DELETE FROM _dedupe_tiebreak_test
+            WHERE kind = 'meetup'
+              AND id NOT IN (
+                SELECT id FROM (
+                  SELECT id, ROW_NUMBER() OVER (
+                           PARTITION BY couple_id, date
+                           ORDER BY created_at DESC, id DESC
+                         ) AS rn
+                    FROM _dedupe_tiebreak_test
+                   WHERE kind = 'meetup'
+                )
+                WHERE rn = 1
+              )`,
+        )
+        .run();
+
+      const { results } = await db.prepare("SELECT id FROM _dedupe_tiebreak_test").all<{ id: string }>();
+      expect(results.map((r) => r.id)).toEqual(["id-b"]);
+    } finally {
+      await db.exec("DROP TABLE _dedupe_tiebreak_test");
+    }
+  });
 });
