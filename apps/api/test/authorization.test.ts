@@ -542,7 +542,15 @@ describe("7. ペアのもう1人が、共有でない plan を更新・削除で
 // security-requirements.md 3節の項目8。security-auditorが「kindの変更が
 // 権限を奪う」経路を発見した（docs/tasks/021-plan-ownership.md）。
 // 「誰かが誰かを締め出す」ではなく「自分を締め出す更新を拒む」形で塞ぐ
-describe("8. 更新の結果、実行者自身がその行を編集できなくなる更新を拒否する", () => {
+// Rが2段階での迂回を発見（meetup→共有plan→〈持ち主が〉非共有plan。単独では
+// 正しい2つの更新をつなぐと、1段階で塞いだのと同じ終着点に着く）。
+// AがWHERE句を「この操作が安全か」ではなく「この状態遷移が許されるか」で
+// 書き直す判断をした: kind<>'plan'からkind='plan'への変換そのものを拒む
+// （区分をまたぐ変換だけを見る。plan内の共有/非共有は持ち主が決めてよいため
+// 変えていない）。「いまの4件はすべて設定者でない側が主語で、設定者による
+// 操作が1件も試されていなかった」という指摘（Rが主語の分布を見て発見）を
+// 踏まえ、設定者・設定者でない側の両方を主語にしたテストを揃える
+describe("8. 更新の結果、この行を編集できなくなる側が生まれる更新を拒否する", () => {
   async function createCoupleOfTwo() {
     const owner = await createUser();
     await createCouple(owner);
@@ -568,7 +576,26 @@ describe("8. 更新の結果、実行者自身がその行を編集できなく�
       ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
 
-    // 締め出しが拒まれた以上、行はそのまま（kindが変わっていない）
+    const row = await db.prepare("SELECT kind FROM events WHERE id = ?1").bind(anniversary.id).first<{ kind: string }>();
+    expect(row?.kind).toBe("anniversary");
+  });
+
+  it("設定者が、自分の記念日を「非共有のplan」にする更新も拒まれる（NOT_FOUND。当初これが通っていた）", async () => {
+    const { owner } = await createCoupleOfTwo();
+    const anniversary = await call(
+      router.event.create,
+      { date: "2026-01-01", title: "記念日", kind: "anniversary", repeatYearly: true, isShared: false },
+      { context: contextFor(owner) },
+    );
+
+    await expect(
+      call(
+        router.event.update,
+        { id: anniversary.id, date: "2026-01-01", title: "改変", kind: "plan", repeatYearly: false, isShared: false },
+        { context: contextFor(owner) },
+      ),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
     const row = await db.prepare("SELECT kind FROM events WHERE id = ?1").bind(anniversary.id).first<{ kind: string }>();
     expect(row?.kind).toBe("anniversary");
   });
@@ -593,7 +620,27 @@ describe("8. 更新の結果、実行者自身がその行を編集できなく�
     expect(row?.is_shared).toBe(1);
   });
 
-  it("設定者でない側が、記念日を「共有のplan」にする更新は通る（自分は編集し続けられる）", async () => {
+  it("設定者が、記念日を「共有のplan」にする更新も拒まれる（NOT_FOUND。2段階での迂回を防ぐため当初は通していたが閉じた）", async () => {
+    const { owner } = await createCoupleOfTwo();
+    const anniversary = await call(
+      router.event.create,
+      { date: "2026-01-01", title: "記念日", kind: "anniversary", repeatYearly: true, isShared: false },
+      { context: contextFor(owner) },
+    );
+
+    await expect(
+      call(
+        router.event.update,
+        { id: anniversary.id, date: "2026-01-01", title: "改変", kind: "plan", repeatYearly: false, isShared: true },
+        { context: contextFor(owner) },
+      ),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    const row = await db.prepare("SELECT kind FROM events WHERE id = ?1").bind(anniversary.id).first<{ kind: string }>();
+    expect(row?.kind).toBe("anniversary");
+  });
+
+  it("設定者でない側が、記念日を「共有のplan」にする更新も拒まれる（NOT_FOUND。同上）", async () => {
     const { owner, partner } = await createCoupleOfTwo();
     const anniversary = await call(
       router.event.create,
@@ -601,16 +648,92 @@ describe("8. 更新の結果、実行者自身がその行を編集できなく�
       { context: contextFor(owner) },
     );
 
-    const updated = await call(
-      router.event.update,
-      { id: anniversary.id, date: "2026-01-01", title: "改変", kind: "plan", repeatYearly: false, isShared: true },
-      { context: contextFor(partner) },
-    );
-    expect(updated.kind).toBe("plan");
-    expect(updated.isShared).toBe(true);
+    await expect(
+      call(
+        router.event.update,
+        { id: anniversary.id, date: "2026-01-01", title: "改変", kind: "plan", repeatYearly: false, isShared: true },
+        { context: contextFor(partner) },
+      ),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    const row = await db.prepare("SELECT kind FROM events WHERE id = ?1").bind(anniversary.id).first<{ kind: string }>();
+    expect(row?.kind).toBe("anniversary");
   });
 
-  it("設定者が、自分のplanの共有を外す更新は通る", async () => {
+  it("meetupを共有planに変える更新→（成功していれば）持ち主が非共有にする更新、と続けて呼んでも、1回目（共有planへの変換）で拒まれる（Rが発見した2段階の迂回）", async () => {
+    const { owner } = await createCoupleOfTwo();
+    const meetup = await call(
+      router.event.create,
+      { date: "2026-01-01", title: "会った日", kind: "meetup", repeatYearly: false, isShared: false },
+      { context: contextFor(owner) },
+    );
+
+    // step1: meetup → 共有plan（持ち主による操作。単独では「安全に見える」更新）
+    await expect(
+      call(
+        router.event.update,
+        { id: meetup.id, date: "2026-01-01", title: "改変", kind: "plan", repeatYearly: false, isShared: true },
+        { context: contextFor(owner) },
+      ),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    // step1が拒まれた以上、kindはmeetupのまま。step2（非共有化）を試す前提が無い
+    const row = await db.prepare("SELECT kind FROM events WHERE id = ?1").bind(meetup.id).first<{ kind: string }>();
+    expect(row?.kind).toBe("meetup");
+  });
+
+  it("どちらでも、planを記念日・会った日にする更新は通る（権限が広がる向き）", async () => {
+    const { owner, partner } = await createCoupleOfTwo();
+    const sharedPlan = await call(
+      router.event.create,
+      { date: "2026-01-01", title: "ふたりの予定", kind: "plan", repeatYearly: false, isShared: true },
+      { context: contextFor(owner) },
+    );
+
+    const updatedByPartner = await call(
+      router.event.update,
+      { id: sharedPlan.id, date: "2026-01-01", title: "会った", kind: "meetup", repeatYearly: false, isShared: false },
+      { context: contextFor(partner) },
+    );
+    expect(updatedByPartner.kind).toBe("meetup");
+
+    const ownPlan = await call(
+      router.event.create,
+      { date: "2026-01-02", title: "自分の予定", kind: "plan", repeatYearly: false, isShared: false },
+      { context: contextFor(owner) },
+    );
+    const updatedByOwner = await call(
+      router.event.update,
+      { id: ownPlan.id, date: "2026-01-02", title: "記念日に", kind: "anniversary", repeatYearly: true, isShared: false },
+      { context: contextFor(owner) },
+    );
+    expect(updatedByOwner.kind).toBe("anniversary");
+  });
+
+  it("記念日↔会った日はどちらでも変更できる（区分をまたがない。変えていない）", async () => {
+    const { owner, partner } = await createCoupleOfTwo();
+    const anniversary = await call(
+      router.event.create,
+      { date: "2026-01-01", title: "記念日", kind: "anniversary", repeatYearly: true, isShared: false },
+      { context: contextFor(owner) },
+    );
+
+    const toMeetup = await call(
+      router.event.update,
+      { id: anniversary.id, date: "2026-01-01", title: "会った日に", kind: "meetup", repeatYearly: false, isShared: false },
+      { context: contextFor(partner) },
+    );
+    expect(toMeetup.kind).toBe("meetup");
+
+    const backToAnniversary = await call(
+      router.event.update,
+      { id: anniversary.id, date: "2026-01-01", title: "記念日に戻す", kind: "anniversary", repeatYearly: true, isShared: false },
+      { context: contextFor(owner) },
+    );
+    expect(backToAnniversary.kind).toBe("anniversary");
+  });
+
+  it("設定者が、自分のplanの共有を外す更新は通る（plan内の共有/非共有は持ち主が決めてよい）", async () => {
     const { owner } = await createCoupleOfTwo();
     const plan = await call(
       router.event.create,

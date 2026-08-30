@@ -404,13 +404,14 @@ describe("021: 予定の持ち主・「ふたりの予定」", () => {
     expect(screen.getByText("✓ ふたりの予定")).toBeTruthy();
   });
 
-  // 021: 自分を締め出す更新を、押す前に止める（サーバのWHERE句と対になるUI側の
-  // 備え。docs/tasks/021-plan-ownership.md「画面で先に止める」）。
-  // Buttonのdisabled表現はreact-native-webのPressableに依存し、toBeDisabled()
-  // では確実に検出できないため、押してから状態が変わらないことで確認する
-  // （profile-screen.test.tsxのprimaryDate検証と同じ理由・同じ形）
-  describe("自分を締め出す更新を、押す前に止める", () => {
-    it("記念日を編集していて種別をplanに切り替えると、「ふたりの予定」が付いたまま固定され外せない", async () => {
+  // 021: 記念日・会った日〈どちらでも編集できる〉から非共有planへの変換で
+  // 相手（または自分）を締め出せる経路があったため、サーバのWHERE句で
+  // 区分をまたぐ変換自体を禁じた（docs/tasks/021-plan-ownership.md「権限の
+  // 条件を『操作』ではなく『状態遷移』で書く」）。画面側は「ふたりの予定」を
+  // 条件付きで固定する形をやめ、押しても拒まれる選択（元がplan以外のときの
+  // 「予定」への変更）そのものを選択肢から外す
+  describe("元がplan以外のとき、種別の選択肢からplanを外す", () => {
+    it("記念日を編集しているとき、「予定」の選択肢が無い", async () => {
       const anniversary = makeEvent({ id: "ann", title: "記念日", kind: "anniversary", repeatYearly: true, canEdit: true });
       listMock.mockResolvedValue({ items: [anniversary] });
 
@@ -418,34 +419,51 @@ describe("021: 予定の持ち主・「ふたりの予定」", () => {
       fireEvent.click(await screen.findByTestId(`event-row-${anniversary.id}-${anniversary.date}`));
       await screen.findByTestId("event-form-title");
 
-      fireEvent.click(screen.getByTestId("event-form-kind-plan"));
-      expect(screen.getByText("✓ ふたりの予定")).toBeTruthy();
-
-      // 押しても外れない（無効化されているため）
-      fireEvent.click(screen.getByTestId("event-form-is-shared"));
-      expect(screen.getByText("✓ ふたりの予定")).toBeTruthy();
-      expect(screen.queryByText("ふたりの予定にする")).toBeNull();
+      expect(screen.queryByTestId("event-form-kind-plan")).toBeNull();
+      expect(screen.getByTestId("event-form-kind-anniversary")).toBeTruthy();
+      expect(screen.getByTestId("event-form-kind-meetup")).toBeTruthy();
     });
 
-    it("共有中のplanを編集しているときは、「ふたりの予定」を外せない", async () => {
-      const sharedPlan = makeEvent({ id: "shared", title: "共有の予定", kind: "plan", isShared: true, canEdit: true });
-      listMock.mockResolvedValue({ items: [sharedPlan] });
+    it("会った日を編集しているとき、「予定」の選択肢が無い", async () => {
+      const meetup = makeEvent({ id: "meetup-1", title: "会った日", kind: "meetup", canEdit: true });
+      listMock.mockResolvedValue({ items: [meetup] });
 
       renderScreen();
-      fireEvent.click(await screen.findByTestId(`event-row-${sharedPlan.id}-${sharedPlan.date}`));
+      fireEvent.click(await screen.findByTestId(`event-row-${meetup.id}-${meetup.date}`));
       await screen.findByTestId("event-form-title");
-      expect(screen.getByText("✓ ふたりの予定")).toBeTruthy();
 
-      fireEvent.click(screen.getByTestId("event-form-is-shared"));
-      expect(screen.getByText("✓ ふたりの予定")).toBeTruthy();
+      expect(screen.queryByTestId("event-form-kind-plan")).toBeNull();
     });
 
-    it("非共有のplan（自分が設定者）を編集しているときは、自由にチェックを外せる", async () => {
-      const ownPlan = makeEvent({ id: "own", title: "自分の予定", kind: "plan", isShared: false, canEdit: true });
-      listMock.mockResolvedValue({ items: [ownPlan] });
+    it("既存のplanを編集しているときは、「予定」の選択肢がある", async () => {
+      const plan = makeEvent({ id: "plan-1", title: "予定", kind: "plan", isShared: false, canEdit: true });
+      listMock.mockResolvedValue({ items: [plan] });
 
       renderScreen();
-      fireEvent.click(await screen.findByTestId(`event-row-${ownPlan.id}-${ownPlan.date}`));
+      fireEvent.click(await screen.findByTestId(`event-row-${plan.id}-${plan.date}`));
+      await screen.findByTestId("event-form-title");
+
+      expect(screen.getByTestId("event-form-kind-plan")).toBeTruthy();
+    });
+
+    it("新規作成では、3つとも選択肢にある", async () => {
+      listMock.mockResolvedValue({ items: [] });
+      renderScreen();
+      await screen.findByText("予定はまだありません");
+
+      fireEvent.click(screen.getByTestId("calendar-add-event"));
+
+      expect(screen.getByTestId("event-form-kind-plan")).toBeTruthy();
+      expect(screen.getByTestId("event-form-kind-anniversary")).toBeTruthy();
+      expect(screen.getByTestId("event-form-kind-meetup")).toBeTruthy();
+    });
+
+    it("既存のplanを編集しているときは、「ふたりの予定」を自由にチェック・解除できる", async () => {
+      const plan = makeEvent({ id: "plan-2", title: "予定", kind: "plan", isShared: false, canEdit: true });
+      listMock.mockResolvedValue({ items: [plan] });
+
+      renderScreen();
+      fireEvent.click(await screen.findByTestId(`event-row-${plan.id}-${plan.date}`));
       await screen.findByTestId("event-form-title");
       expect(screen.getByText("ふたりの予定にする")).toBeTruthy();
 
@@ -459,7 +477,7 @@ describe("021: 予定の持ち主・「ふたりの予定」", () => {
       expect(screen.getByText("ふたりの予定にする")).toBeTruthy();
     });
 
-    it("新規作成では、自由にチェックを外せる", async () => {
+    it("新規作成では、「ふたりの予定」を自由にチェック・解除できる", async () => {
       listMock.mockResolvedValue({ items: [] });
       renderScreen();
       await screen.findByText("予定はまだありません");

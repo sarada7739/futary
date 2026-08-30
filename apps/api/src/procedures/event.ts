@@ -152,20 +152,25 @@ const eventCreate = implementer.event.create.use(writeProcedure).handler(async (
 // 場合はすべて更新件数0となり、区別せず NOT_FOUND を返す（docs/tasks/021-plan-ownership.md。
 // 「書き込みが0件で終わったあとに理由を調べない」——2段階と区別している）。
 //
-// WHERE には2つの条件を入れる（security-auditor指摘。security-requirements.md
-// 3節項目8）。
+// WHERE には3つの条件を入れる（security-auditor指摘・Rレビューで2回訂正。
+// security-requirements.md 3節項目8）。
 // (1) 更新前の行に対する権限（kind <> 'plan' OR is_shared = 1 OR created_by = ?）。
 //     event.deleteのWHERE句と文言をそろえている。片方だけ変えると消せてしまう
 // (2) 更新後の状態でも実行者自身が編集できることを要求する
 //     （?newKind <> 'plan' OR ?newIsShared = 1 OR created_by = ?）。
-//     同じUPDATE文でkind自体も変えられるため、(1)だけだと「記念日・会った日
-//     〈どちらでも編集できる〉を、設定者でない側が編集し、その場でkindを
-//     plan・is_sharedを0にする」という経路で自分自身を締め出せてしまう
-//     （021以前は全kindがどちらでも編集できたため無害だったが、持ち主の概念を
-//     入れたことで権限を奪う手段になった）。「誰かが誰かを締め出す」のではなく
-//     「自分を締め出す更新を拒む」形にすることで、2段階にせず1文のままで表せる
-//     （新しいkind・is_sharedは入力に、created_byは行にあるため読み足しが無い）。
-//     event.deleteには不要（削除は状態を変えないため「更新後」が無い）
+//     「自分を締め出す更新を拒む」形。(1)だけだと、設定者でない側が記念日・
+//     会った日〈どちらでも編集できる〉を編集し、その場でkindをplan・
+//     is_sharedを0にすることで自分自身を締め出せてしまう
+// (3) kind<>'plan'からkind='plan'への変換そのものを拒む
+//     （NOT (kind <> 'plan' AND ?newKind = 'plan')）。
+//     (2)だけだと「設定者本人」は素通りする（created_byが更新で変わらない
+//     ため）。自分の記念日・会った日を非共有planに変えて相手を締め出せて
+//     しまう。さらに(2)にis_shared=1の例外を残すと、「共有planにする→
+//     （持ち主が）非共有にする」の2段階で同じ終着点に迂回できる
+//     （単独では正しい2つの更新をつなぐと着く。Rが発見）。区分をまたぐ
+//     変換自体を禁じることで両方を塞ぐ。plan内の共有/非共有は持ち主が
+//     決めてよいため変えていない。event.deleteには(2)(3)とも不要
+//     （削除は状態を変えないため「更新後」が無い）
 const eventUpdate = implementer.event.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
   const repeatYearly = input.repeatYearly ? 1 : 0;
@@ -181,6 +186,7 @@ const eventUpdate = implementer.event.update.use(writeProcedure).handler(async (
           WHERE id = ?7 AND couple_id = ?8
             AND (kind <> 'plan' OR is_shared = 1 OR created_by = ?9)
             AND (?3 <> 'plan' OR ?6 = 1 OR created_by = ?9)
+            AND NOT (kind <> 'plan' AND ?3 = 'plan')
          RETURNING id AS id, date AS date, title AS title, kind AS kind,
                    repeat_yearly AS repeat_yearly, time AS time, is_shared AS is_shared,
                    created_by AS created_by`,

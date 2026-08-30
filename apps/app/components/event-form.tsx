@@ -82,21 +82,18 @@ export function EventForm({
   function selectKind(nextKind: EventKind) {
     setKind(nextKind);
     if (nextKind !== "plan") setIsShared(false);
-    // 021: 自分を締め出す更新を、押す前に止める（サーバのWHERE句と対になる
-    // UI側の備え。docs/tasks/021-plan-ownership.md「画面で先に止める」）。
-    // 元がすでに「非共有のplan」だった場合だけ、この画面を開けている時点で
-    // 自分が設定者だと確定する（canEditのゲートで非設定者は編集画面自体を
-    // 開けない）。それ以外（新規作成・記念日や会った日からの変更・共有中の
-    // planの編集）は、設定者かどうかをこの画面からは判定できないため、
-    // planを選んだ時点で「ふたりの予定」を立てたまま固定する
-    else if (!(mode === "create" || (defaultKind === "plan" && defaultIsShared === false))) {
-      setIsShared(true);
-    }
   }
 
-  // 上と同じ判定。ロック中はチェックボックス自体を操作不能にする
-  const isSharedLocked =
-    kind === "plan" && !(mode === "create" || (defaultKind === "plan" && defaultIsShared === false));
+  // 021: 記念日・会った日〈どちらでも編集できる〉から非共有planへの変換で
+  // 相手（または自分）を締め出せる経路があったため、区分をまたぐ変換自体を
+  // サーバのWHERE句で禁じた（docs/tasks/021-plan-ownership.md「権限の条件を
+  // 『操作』ではなく『状態遷移』で書く」）。編集中のイベントの元の種別が
+  // plan以外なら、選択肢からplanそのものを外す（押しても拒まれるものを
+  // 選ばせない）。「ふたりの予定」を条件付きで固定する形はこれで不要になった
+  const availableKinds =
+    mode === "edit" && defaultKind && defaultKind !== "plan"
+      ? EVENT_KIND_ORDER.filter((k) => k !== "plan")
+      : EVENT_KIND_ORDER;
 
   const trimmedTitle = title.trim();
   const trimmedTime = time.trim();
@@ -205,7 +202,7 @@ export function EventForm({
                     Rレビュー指摘）。ボタンを内容の幅で並べ、収まらない分だけ
                     次の行へ折り返す */}
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-                  {EVENT_KIND_ORDER.map((k) => (
+                  {availableKinds.map((k) => (
                     <Button
                       key={k}
                       variant={kind === k ? "primary" : "secondary"}
@@ -233,15 +230,12 @@ export function EventForm({
                   <Button
                     variant={isShared ? "primary" : "secondary"}
                     onPress={() => setIsShared((v) => !v)}
-                    disabled={isSharedLocked}
                     testID="event-form-is-shared"
                   >
                     {isShared ? "✓ ふたりの予定" : "ふたりの予定にする"}
                   </Button>
                   <Text size="xs" color="muted">
-                    {isSharedLocked
-                      ? "この予定はふたりの予定のまま保存されます"
-                      : "チェックすると、相手も編集・削除できるようになります"}
+                    チェックすると、相手も編集・削除できるようになります
                   </Text>
                 </View>
               )}

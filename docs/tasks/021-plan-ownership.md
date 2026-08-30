@@ -428,14 +428,14 @@ CHECK (is_shared = 0 OR kind = 'plan')
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] スキーマ + マイグレーション（`is_shared`・CHECK）
-- [ ] **CI に `drizzle-kit generate` の空回しチェックを入れる**（下記）
-- [ ] `event.update` / `event.delete` の権限
-- [ ] `event.list` が `canEdit` を返す
-- [ ] 「ふたりの予定」の UI（説明文は**いまできることだけ**）
-- [ ] テスト（`canEdit` と実際の可否の突き合わせを含む）
-- [ ] security-auditor
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] スキーマ + マイグレーション（`is_shared`・CHECK）
+- [ ] **CI に `drizzle-kit generate` の空回しチェックを入れる**（下記。021本体とは独立、別PRで対応予定）
+- [x] `event.update` / `event.delete` の権限（区分をまたぐ変換を拒む形まで含む。3回の往復で完成）
+- [x] `event.list` が `canEdit` を返す
+- [x] 「ふたりの予定」の UI（説明文は**いまできることだけ**。元がplan以外のときは種別の選択肢からplanを外す形に変更）
+- [x] テスト（`canEdit` と実際の可否の突き合わせ・2段階の迂回を含む）
+- [x] security-auditor
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
 
 **公開後（3 の分）**
 - [ ] 同じ日に共有の予定が2件あるときをAが決める

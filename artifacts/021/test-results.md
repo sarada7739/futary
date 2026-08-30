@@ -4,20 +4,25 @@
 
 ## `pnpm --filter @futary/api run test`
 
-apps/api 248件→260件（+12）すべて緑。詳細は`test-results-api.txt`
+apps/api 248件→277件（+29）すべて緑。詳細は`test-results-api.txt`
 
 内訳:
-- `authorization.test.ts`: security-requirements.md 3節の項目7（ペアのもう1人が、
-  共有でないplanを更新・削除できない）を4件追加（event.update・event.delete・
-  is_shared=1なら双方可・anniversary/meetupは変えていないこと）
+- `authorization.test.ts`: security-requirements.md 3節の項目6（`DEMO_COUPLE_ID`が
+  実在するがis_demoでないペアを指すとき拒否。021以前から未実装だった）を2件、
+  項目7（ペアのもう1人が、共有でないplanを更新・削除できない）を4件、項目8
+  （更新の結果この行を編集できなくなる側が生まれる更新を拒否する）を9件追加。
+  項目8はRの2回のレビューを経て「区分をまたぐ変換自体を拒む」形になり、
+  設定者・設定者でない側の両方を主語にしたテストと、2段階の迂回が1回目で
+  拒まれることを固定するテストを含む
 - `event.test.ts`: `event.list`が返す`canEdit`と`event.update`/`event.delete`の
   実際の可否が一致することを、`kind × is_shared × 設定者かどうか`の8通り
   （作れない組み合わせ〈anniversary/meetup × is_shared=true〉は除外）で
-  突き合わせる`it.each`テストを追加
+  突き合わせる`it.each`テストを追加。`is_shared`が`kind='plan'`以外に立てられ
+  ないことを入力・DB CHECK両方で確かめるテストも追加
 
 ## `pnpm --filter @futary/app run test`
 
-apps/app 96件→101件（+5）すべて緑。詳細は`test-results-app.txt`
+apps/app 96件→107件（+11）すべて緑。詳細は`test-results-app.txt`
 
 内訳（`calendar-screen.test.tsx`）:
 - 種別がplanのときだけ「ふたりの予定にする」ボタンが出る
@@ -25,6 +30,9 @@ apps/app 96件→101件（+5）すべて緑。詳細は`test-results-app.txt`
 - kindをplan以外に切り替えるとisSharedがfalseに戻って送信される
 - canEdit:falseのイベントは押しても何も起きず「編集は設定者のみ」と表示される
 - canEdit:trueのイベントは通常どおり編集でき、is_sharedの状態がチェックに反映される
+- 元の種別がplan以外（記念日・会った日）のときは、種別の選択肢から「予定」が
+  外れる。既存のplanを編集しているとき・新規作成のときは3つとも選べる
+- 既存のplan・新規作成では「ふたりの予定」を自由にチェック・解除できる
 
 ## `pnpm --filter @futary/contract run type-check` / `@futary/api` / `@futary/ui` / `@futary/app`
 
