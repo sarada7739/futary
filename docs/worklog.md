@@ -6674,6 +6674,21 @@ B が気づき R が確認した。011 以降、`manual-check.md` に
 確認項目は残すが、**「016 のデプロイ後。念のためであって、これを待って何も
 止めない」**と書き換えた。
 
+## 2026-08-31 セッションB: WheelColumnのタイマー確定を撤去
+
+`apps/app/components/wheel-column.tsx`の`isInitializingRef`・`timerRef`・
+`SETTLE_DELAY_MS`（300ms）をすべて削除し、`onScroll`ハンドラで受け取った
+オフセットから毎回中央の行を計算し、値と異なれば即`onChange`する形に
+書き換えた（`commitFromOffset`）。初期化時の`scrollTo`もそのまま残したが、
+それが発火する`onScroll`イベントで`commitFromOffset`が呼ばれても、対象の
+インデックスは`value`と同じ（`selectedIndex`の計算元）なので`onChange`は
+発火しない。フラグやタイマーで確定タイミングを制御する必要が無くなった。
+
+`artifacts/022/manual-check.md`のiPhone Safari項目を「016のデプロイ後。
+念のため」に書き換え、いま人間に依頼する項目から外した。`fix/wheel-column-no-timer`
+（PR #156）としてRへレビュー依頼。apps/app 125件すべて緑、型チェック・
+lint通過。人間が`/clear`を挟むため、このPRのレビュー待ちのまま区切る
+（`docs/state.md`冒頭に次のセッションの再開手順を書いた）。
 ## 2026-08-31 セッションA: Aの誤りの型を harness.md に書いた
 
 **人間の指摘。**今日の手戻りの多くは A が作った。数えると
@@ -6766,6 +6781,44 @@ index は、決めた瞬間と着地する瞬間で意味が変わる。**
 
 **「依存配列が不正確に見える」という理由で直さない。正確にすると壊れる側である。**
 **書いておかないと、いつか誰かが「直す」。**
+## 2026-08-31 セッションB: WheelColumnの実装をAの決定4件（PR #157〜#159）どおりに直した
+
+`main`を確認したところ、A（別セッション）が`docs/tasks/022-time-and-date-input.md`に
+「自分が動かした分で、位置を戻さない」（PR #157）・「行き先をindexで決めない。
+値で引き直す」（PR #158）・「出口は2つで全部・`options.length`は意図」（PR #159）
+の3件を判断として書いていた。同時にRから同内容のレビュー差し戻し（R-1〜R-4、
+4件すべて要修正）が直接届いた。両者の内容は一致していたため、そのまま実装した。
+
+`WheelColumn`に`selfCommittedValueRef`（自分がcommit()で最後に通知したvalue）と
+`pendingAnimatedScrollRef`（タップ由来の位置合わせを次のeffectで1回だけ実行する
+予約フラグ）を追加。位置合わせの`useEffect`は、`selfCommittedValueRef.current === value`
+（＝自分のスクロール・タップ起因の変更）なら基本的に何もせず、`pendingAnimatedScrollRef`が
+立っているとき（タップ経由）だけ、確定後の最新`options`で出した`selectedIndex`へ
+アニメーション移動する。外から`value`が変わったとき（selfCommittedValueRefと
+不一致）は、従来どおり即座に位置を合わせる。`useEffect`の依存は`options.length`の
+まま変えていない（A・R合意どおり。`options`自体にすると`buildMinuteOptions`が
+刻み外れ値のとき毎レンダー新しい配列を返すため無限ループになる）。
+
+`selectByPress`は、タップ先の値が現在値と同じ場合はその場でアニメーション移動、
+異なる場合は`commit()`だけ呼んで飛び先の計算をeffectへ委ねる形に分けた
+（タップ時点のindexで飛び先を固定すると、commit後にoptionsが縮んで違う値に
+着地する。R-4）。
+
+`apps/app/test/wheel-column.test.tsx`を新設し、R-1〜R-4に対応する4件の回帰
+テストを追加した（`TimeWheelPicker`と同じ「optionsをvalueから毎回組み立てる」
+形のテスト用ハーネスで、`buildMinuteOptions`をそのまま使う実結線）。jsdomには
+`Element.prototype.scroll`が無く、react-native-webは`node.scrollTop = ...`への
+直接代入にフォールバックすることを確認した上で、`scrollTop`をアクセサ化して
+spyし、位置合わせの`scrollTo`が呼ばれたかどうかを決定的に検証している。
+実機・タイマーを一切使わずに4件とも再現・固定できた。
+
+`artifacts/022/manual-check.md`項目2の記述（「食い違う経路が無い」という
+未検証の断定）を、実際に何を直し何をテストで担保したかに書き換えた。
+iPhoneでの実際の慣性スクロールの感触自体は引き続き未確認（016のデプロイ後）。
+
+apps/app 129件（125+4）すべて緑、型チェック・lint通過。`fix/wheel-column-no-timer`
+へ`main`（PR #157〜#159含む）をマージし、`docs/worklog.md`の競合は両方の
+追記を残す形で解消した。次はRへ再レビューを依頼する。
 
 ## 2026-08-31 セッションA: 修正が「閉じたらアンマウント」に乗っていた（Rの指摘）
 
@@ -6802,6 +6855,26 @@ R が実測、発火0回）。テストが `fireEvent.scroll` を呼んでおら
 
 R が「**経路で数えていて入口で数えていない**、と A が書いたのと同じ形が
 テスト側にも出た」と指摘した。**そのとおりで、実装側とテスト側で同じ形を踏んでいる。**
+## 2026-08-31 セッションB: R-4のテストを座標ベースに直し、Modalの前提をコメントに残した
+
+Rから再レビューが届き、R-1・R-2・外部変化の3件は判別している（旧コードを
+落とす）と認めた上で、R-4のテストだけ「旧コードでも緑になる」と指摘された。
+実際に検証した: `selectByPress`を旧ロジック（タップ時点のindexで飛び先を
+固定）に一時的に戻し、テストを流すと`setSpy`が`280`（旧: タップ時点の
+13件配列でのindex）で1回だけ呼ばれ、期待値`240`と一致せず落ちることを
+確認した。テストを「アニメーションの飛び先（`scrollTop`に書き込まれる座標）」
+を見る形に直し、修正版に戻して緑を確認した。
+
+あわせてAの指摘（`selfCommittedValueRef`を一度も戻さない設計が安全なのは
+`event-form.tsx`の`Modal`が`animationType="none"`で閉じるたびに
+`WheelColumn`をアンマウントする前提に乗っているため）を、`Modal`定義の
+直前とWheelColumn側の両方にコメントとして残した。JSXコメント`{/* */}`を
+`return (`直下・要素の外に置くと構文エラーになる（`return`は単一の式しか
+取れず、コメントと`<Modal>`が2つの兄弟要素になってしまう）ことを実際に
+ビルドエラーで確認し、通常のTSコメントに直して解決した。
+
+main（PR #160含む）を取り込み。apps/app 129件すべて緑、型チェック・
+lint通過。Rへ再レビューを依頼した。
 
 **追記3（同日）**: **確認項目にまた「確かめようのないもの」が残っていた。**
 `022` の確認観点に「**PC の Safari・Chrome でも同じ形に見えるか**」と書いていたが、

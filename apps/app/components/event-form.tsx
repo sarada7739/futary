@@ -165,6 +165,13 @@ export function EventForm({
     });
   }
 
+  // animationType="none"は見た目の選択だけでなく、閉じた瞬間に
+  // react-native-webがchildrenをアンマウントする前提として使われている
+  // （WheelColumn内のselfCommittedValueRef・pendingAnimatedScrollRefは
+  // アンマウントで自然にリセットされる想定。PR #156レビュー・Rの指摘）。
+  // animationTypeを付ける／WheelColumnをModalの外へ出す／常設パネルに
+  // 変えるなど、閉じてもアンマウントされない形に変えるときはwheel-column.tsx
+  // 側の前提も見直すこと
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onCancel}>
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.lg }}>
