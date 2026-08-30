@@ -1,32 +1,95 @@
 import { describe, expect, it } from "vitest";
 import { resolveRootRoute, type RootRouteInput } from "../lib/root-route";
 
-// architecture.md 7節「ルーティングは、必ずどれか1つが真になる」（Rレビュー
+// architecture.md「ルーティングは、必ずどれか1つが真になる」（Rレビュー
 // 指摘R-1・A決定）。014でデモペアを解決できないゲストがどのStack.Protected
 // のguardにも入れず、空白画面から再読み込みでしか戻れなくなる不具合を
-// 踏んだ。状態の組み合わせを列挙し、どれか1つだけが真になることを固定する
+// 踏んだ。
+//
+// 手で並べたケースは、並べ忘れがあっても気づけない（Rの提案・A決定と
+// 同じ理由: conventions.md 6節「0件は範囲とセットでしか意味を持たない」）。
+// isAuthenticated × isDemoViewer × isCoupleLoading × hasCoupleData ×
+// isNeedsOnboardingError の2^5=32通りを総当たりし、
+//
+// - isAuthenticated && isDemoViewer が両方trueの組み合わせは、呼び出し側
+//   （_layout.tsx）が `!isAuthenticated && isGuestMode` として組み立てる
+//   ため到達しない。ここでは検査の対象外にする（root-route.tsの前提コメント参照）
+// - isCoupleLoading=true は、呼び出し側の早期return
+//   （`(isAuthenticated || isDemoViewer) && isCoupleLoading` でロード画面を
+//   出す）が拾うため、resolveRootRouteの3guardは検査しない
+//
+// 上記2つを除いた到達可能な組み合わせでは、guardがちょうど1つだけ真になる
+// ことを固定する。ただし「認証済み・NEEDS_ONBOARDING以外のエラー」
+// （hasCoupleData=false かつ isNeedsOnboardingError=false）は既知の
+// 受容済みギャップとして0個を許す（014の対象外。014が変えたのは
+// isDemoViewer=trueの経路だけで、この組み合わせの振る舞いはそれ以前から
+// 変わっていない。再試行でじきに解消する一時的な状態であり、ゲストの
+// demoFailedのように「そのまま」ではない）
+
+const BOOLS = [false, true] as const;
 
 function countTrue(route: { hasCouple: boolean; needsOnboarding: boolean; showAuth: boolean }): number {
   return [route.hasCouple, route.needsOnboarding, route.showAuth].filter(Boolean).length;
 }
 
-describe("resolveRootRoute: 未認証（ゲスト含む）は必ずどれか1つが真になる", () => {
-  // isDemoViewerはisAuthenticated=falseのときだけ意味を持つ（呼び出し側で
-  // !isAuthenticated && isGuestMode として組み立てる）
-  const cases: RootRouteInput[] = [
-    // 未認証・非デモ（サインイン画面をまだ見ている状態）
-    { isAuthenticated: false, isDemoViewer: false, isCoupleLoading: false, hasCoupleData: false, isNeedsOnboardingError: false },
-    // ゲスト・デモペアが正常に取れた
-    { isAuthenticated: false, isDemoViewer: true, isCoupleLoading: false, hasCoupleData: true, isNeedsOnboardingError: false },
-    // ゲスト・デモペアの解決に失敗した（014で踏んだ本体。FORBIDDEN等）
-    { isAuthenticated: false, isDemoViewer: true, isCoupleLoading: false, hasCoupleData: false, isNeedsOnboardingError: false },
-  ];
+function isReachable(input: RootRouteInput): boolean {
+  if (input.isAuthenticated && input.isDemoViewer) return false; // 呼び出し側の構成上ありえない
+  if (input.isCoupleLoading) return false; // 呼び出し側の早期returnが拾う
+  return true;
+}
 
-  it.each(cases)("isDemoViewer=%s, hasCoupleData=%s のとき、guardが1つだけ真になる", (input) => {
-    const route = resolveRootRoute(input);
-    expect(countTrue(route)).toBe(1);
+function isKnownGap(input: RootRouteInput): boolean {
+  // 認証済み・NEEDS_ONBOARDING以外のエラー（既知・意図的。014の対象外）
+  return input.isAuthenticated && !input.isDemoViewer && !input.hasCoupleData && !input.isNeedsOnboardingError;
+}
+
+function allCombinations(): RootRouteInput[] {
+  const combos: RootRouteInput[] = [];
+  for (const isAuthenticated of BOOLS) {
+    for (const isDemoViewer of BOOLS) {
+      for (const isCoupleLoading of BOOLS) {
+        for (const hasCoupleData of BOOLS) {
+          for (const isNeedsOnboardingError of BOOLS) {
+            combos.push({ isAuthenticated, isDemoViewer, isCoupleLoading, hasCoupleData, isNeedsOnboardingError });
+          }
+        }
+      }
+    }
+  }
+  return combos;
+}
+
+describe("resolveRootRoute: 到達可能な組み合わせは、既知のギャップを除き必ずguardが1つだけ真になる", () => {
+  const combos = allCombinations();
+  // 到達可能な組み合わせが実在することを保証する（filterが空配列だと
+  // 下のit.eachが何も検査せず成功してしまう）
+  const reachable = combos.filter(isReachable);
+  expect(reachable.length).toBeGreaterThan(0);
+
+  const reachableTuples = reachable.map(
+    (r) =>
+      [r.isAuthenticated, r.isDemoViewer, r.isCoupleLoading, r.hasCoupleData, r.isNeedsOnboardingError] as const,
+  );
+
+  it.each(reachableTuples)(
+    "auth=%s demo=%s loading=%s hasData=%s needsOnb=%s",
+    (isAuthenticated, isDemoViewer, isCoupleLoading, hasCoupleData, isNeedsOnboardingError) => {
+      const input = { isAuthenticated, isDemoViewer, isCoupleLoading, hasCoupleData, isNeedsOnboardingError };
+      const route = resolveRootRoute(input);
+      const expected = isKnownGap(input) ? 0 : 1;
+      expect(countTrue(route)).toBe(expected);
+    },
+  );
+
+  it("既知のギャップは「認証済み・NEEDS_ONBOARDING以外のエラー」の1通りだけである", () => {
+    const gaps = reachable.filter(isKnownGap);
+    expect(gaps).toEqual([
+      { isAuthenticated: true, isDemoViewer: false, isCoupleLoading: false, hasCoupleData: false, isNeedsOnboardingError: false },
+    ]);
   });
+});
 
+describe("resolveRootRoute: ゲスト固有の振る舞い", () => {
   it("ゲストでcouple.getが失敗するとdemoFailedが立ち、showAuthだけが真になる", () => {
     const route = resolveRootRoute({
       isAuthenticated: false,
@@ -50,34 +113,5 @@ describe("resolveRootRoute: 未認証（ゲスト含む）は必ずどれか1つ
       isNeedsOnboardingError: false,
     });
     expect(route.demoFailed).toBe(false);
-  });
-});
-
-describe("resolveRootRoute: 認証済みは、couple.getが解決すればどれか1つだけが真になる", () => {
-  const cases: RootRouteInput[] = [
-    // ペアに所属している
-    { isAuthenticated: true, isDemoViewer: false, isCoupleLoading: false, hasCoupleData: true, isNeedsOnboardingError: false },
-    // ペアに未所属（NEEDS_ONBOARDING）
-    { isAuthenticated: true, isDemoViewer: false, isCoupleLoading: false, hasCoupleData: false, isNeedsOnboardingError: true },
-  ];
-
-  it.each(cases)("hasCoupleData=%s, isNeedsOnboardingError=%s のとき、guardが1つだけ真になる", (input) => {
-    const route = resolveRootRoute(input);
-    expect(countTrue(route)).toBe(1);
-  });
-
-  // 既知の受容済みギャップ（014の対象外。認証済み利用者がcouple.getで
-  // NEEDS_ONBOARDING以外のエラー〈通信断等〉を受けている間、再試行で
-  // じきに解消する一時的な空表示。ゲストのdemoFailedとは別物で、
-  // 014はこちらを変えていない）
-  it("認証済みでcouple.getがNEEDS_ONBOARDING以外のエラーのときは、どのguardも真にならない（既知・意図的）", () => {
-    const route = resolveRootRoute({
-      isAuthenticated: true,
-      isDemoViewer: false,
-      isCoupleLoading: false,
-      hasCoupleData: false,
-      isNeedsOnboardingError: false,
-    });
-    expect(countTrue(route)).toBe(0);
   });
 });

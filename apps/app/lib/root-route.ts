@@ -1,8 +1,14 @@
 // RootNavigator（apps/app/app/_layout.tsx）のガード判定を、Reactの外に
 // 出して単体テストできるようにした純関数（Rレビュー指摘R-1を受けて分離）。
 // Stack.Protectedの3つのguardのうち、どれか1つは必ずtrueになることを
-// テストで固定する。全部falseになると、バナーだけ出た空白画面から
-// 再読み込みでしか戻れなくなる（実際に踏んだ不具合）
+// テストで固定する（apps/app/test/root-route.test.ts）。全部falseになると、
+// バナーだけ出た空白画面から再読み込みでしか戻れなくなる（実際に踏んだ不具合）。
+//
+// 前提（呼び出し側が保証する。この関数自身は検査しない）:
+// isDemoViewer は isAuthenticated=false のときしか true にならない
+// （呼び出し側で `!isAuthenticated && isGuestMode` として組み立てるため）。
+// isAuthenticated と isDemoViewer が両方 true の入力は想定外で、
+// needsOnboarding と showAuth が両方 true になりうる（不変条件が壊れる）
 export interface RootRouteInput {
   isAuthenticated: boolean;
   isDemoViewer: boolean;
