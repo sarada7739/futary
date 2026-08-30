@@ -11,7 +11,17 @@
 ## 確認してほしい項目
 
 1. `wrangler dev --remote` でログインし、リモートD1に
-   `0009_couple_dates.sql`を適用してから確認する（マージ後に適用する）
+   `0009_couple_dates.sql`を適用してから確認する（マージ後に適用する）。
+   **`0009_couple_dates.sql`は一度生成した後にTRIGGERを2本追加している。
+   ファイル名は変えていないため、`wrangler d1 migrations apply`はファイル名で
+   適用済みを判定し、以前にこのファイルを`--local`で当てたことがある環境では
+   再実行しても新しいTRIGGERが入らない（no-op）。**リモートは0009をまだ
+   一度も当てていないため無事だが、`wrangler dev`（`--remote`無し）で
+   ローカルD1を使う場合は、`.wrangler/state/v3/d1`を削除してから
+   全マイグレーションを当て直すか、`SELECT name FROM sqlite_master WHERE
+   type='trigger'`で`couples_married_after_anniversary_insert`/`_update`
+   両方が存在することを確認する（Rレビュー指摘。0007で人間がハマったのと
+   同じ種類の落とし穴）
 2. マイページで名前を変更でき、**再ログインしても消えない**
 3. マイページでアイコン画像を変更できる。変更後、タイムライン・カレンダーの
    両方で新しい名前・画像が反映される

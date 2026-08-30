@@ -62,6 +62,16 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     ]);
   });
 
+  // events_couple_date_idxはこの一覧テストが固有に守る唯一の対象（Rレビュー指摘）。
+  // 振る舞いのテストからは捕まえられない: 列順が(date, couple_id)に変わっても
+  // 名前は変わらず、event.list等の振る舞いは（性能が落ちるだけで）通り続ける
+  it("events_couple_date_idx の列順が (couple_id, date) のままである", async () => {
+    const objects = await listIndexesAndTriggers();
+    const index = objects.find((o) => o.name === "events_couple_date_idx");
+
+    expect(index?.sql).toContain("(`couple_id`,`date`)");
+  });
+
   // 018: 部分UNIQUEインデックスからWHERE句が落ちると、events_meetup_uniqueという
   // 名前のまま単なるUNIQUE (couple_id, date)になり、記念日と予定を同じ日に
   // 1件ずつしか置けなくなる（会った日の一意化テストは通ったまま壊れる）
