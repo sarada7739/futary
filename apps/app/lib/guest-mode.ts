@@ -12,6 +12,11 @@ export interface GuestModeState {
   isGuestMode: boolean;
   enterGuestMode: () => void;
   exitGuestMode: () => void;
+  // デモの解決に失敗して（couple.getがFORBIDDEN等）サインイン画面へ
+  // 戻された直後だけtrue。理由を1行出すために使う（architecture.md 7節
+  // 「ゲストの解決に失敗したら、サインイン画面へ戻す。理由を1行出す。
+  // 黙って空白にしない」。Rレビュー指摘R-1・A決定）
+  demoUnavailable: boolean;
 }
 
 // 既定値はisGuestMode:false（通常の非デモ画面と同じ振る舞い）。
@@ -22,6 +27,7 @@ const defaultGuestModeState: GuestModeState = {
   isGuestMode: false,
   enterGuestMode: () => {},
   exitGuestMode: () => {},
+  demoUnavailable: false,
 };
 
 export const GuestModeContext = createContext<GuestModeState>(defaultGuestModeState);

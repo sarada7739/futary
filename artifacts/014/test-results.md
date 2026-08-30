@@ -87,3 +87,49 @@ Error: DEMO_COUPLE_ID（demo-couple）が is_demo=1 でないペアを指して�
 
 中断時、D1への削除・R2へのアップロードのどちらも実行されなかった（ログに"Creating object"が1件も出ていないことを確認）。
 その後、偽装データを取り除いて再度シードを実行し、正常に投入できることも確認した。
+
+## Rレビュー1回目の差し戻し（R-1・R-2・R-3）と対応
+
+PR #165はRから2件の要修正（R-1・R-2）と1件の軽微な指摘（R-3）を受けた。すべて対応済み。
+
+### R-1（要修正）ゲストでcouple.getが失敗すると空白画面から戻れない
+
+`hasCouple`・`needsOnboarding`・`(auth)`のguardのどれもtrueにならない状態が作れた
+（デモペアが解決できないゲスト。本番ではデプロイ直後〜016のシード投入までの間に必ず起きる）。
+Aが`architecture.md`7節に「ルーティングは、必ずどれか1つが真になる」を新設。
+
+- ガード判定を`apps/app/lib/root-route.ts`の純関数`resolveRootRoute`に切り出した
+- `demoFailed`（ゲスト閲覧中にcouple.getが失敗）を新設し、`showAuth`に含めてサインイン画面へ落とす
+- サインイン画面に「いまデモを見られません」の1行を表示する（`GuestModeContext`に`demoUnavailable`を追加）
+- 状態の組み合わせを列挙し、非認証系（ゲスト含む）は必ずどれか1つのguardが真になることをテストで固定した（`apps/app/test/root-route.test.ts`）。認証済み利用者がcouple.getで
+  NEEDS_ONBOARDING以外のエラーを受けている間だけは、014の対象外の既知の
+  ギャップとして残る（再試行でじきに解消する一時的な状態。ゲストのdemoFailedとは別物）ことも
+  テストで明示した
+- ローカルD1で`demo-couple`を削除しcouple.get失敗を再現し、サインイン画面へ「いまデモを
+  見られません」付きで戻ることを確認した
+
+### R-2（要修正・小）0013の是正手順が「残骸を落とす」まで書いていなかった
+
+Rが実測: 違反行がある状態で0013を当てると失敗し`__new_events`が残る。是正のUPDATEだけ
+実行して再実行すると、今度は`table __new_events already exists`で別のエラーになる。
+マイグレーションファイル冒頭のコメントに`DROP TABLE IF EXISTS __new_events;`を
+是正手順の先頭へ追加した。Aが`architecture.md`4節に「表の作り直しが失敗すると
+`__new_<表名>`が残る」を新設。
+
+### R-3（軽微）ユーザー削除だけがcouple_idスコープ・is_demoの検査対象外だった
+
+`buildDeleteSql`の7文中6文は`WHERE couple_id = 'demo-couple'`で守られるが、
+`DELETE FROM user WHERE id IN (...)`だけは固定IDのみで実行されていた。
+`assertUsersSafeToOverwrite()`を追加し、該当IDのuserが実在するならこのデモペアの
+メンバーであることまで確認するようにした。ローカルD1で該当ユーザーの
+`couple_members`だけを削除して「別ペアに属する」状態を偽装し、シードが中断すること
+を確認した。
+
+### 既知の制約の記述を訂正
+
+`manual-check.md`の項目1が「sessionStorage+フルリロードで直せる」という対処の
+選択肢を人間に提示していたとRから指摘された（Aも同様に指摘し、`conventions.md`8節に
+「確認依頼書に、選択肢を書かない」を新設）。人間に頼めるのは事象の観測までで、
+対処の判断はA・Bの側で行うべきだった。R-1の修正で、この検証環境で観測していた
+「バナーだけ出て遷移しない」症状自体が解消している可能性が高いと判断し、
+その旨と観測してほしい範囲だけに書き直した。

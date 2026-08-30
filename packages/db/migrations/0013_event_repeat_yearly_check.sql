@@ -3,7 +3,12 @@
 -- 記録する」と同じ理由。このマイグレーションは行を消さないが、下のINSERT文が
 -- 表の作り直し中に失敗すると同様に手動での復旧が要る）。
 --   SELECT COUNT(*) FROM events WHERE repeat_yearly = 1 AND kind <> 'anniversary';
--- 0件でなければ、このマイグレーションを当てる前に
+-- 0件でなければ、このマイグレーションを当てる前に是正する。
+-- 【Rレビュー実測: 違反行がある状態で当てると、下のINSERT文がCHECK違反で
+-- 失敗し、events本体は無事だが __new_events が残骸として残る。この状態で
+-- 是正だけしてそのまま再実行すると「table `__new_events` already exists」で
+-- 別のエラーになる。是正の前に必ず残骸を消すこと】
+--   DROP TABLE IF EXISTS __new_events;
 --   UPDATE events SET repeat_yearly = 0 WHERE repeat_yearly = 1 AND kind <> 'anniversary';
 -- で是正してから適用する（security-auditor指摘。0件でも結果をworklog.mdに記録する）
 PRAGMA foreign_keys=OFF;--> statement-breakpoint

@@ -28,7 +28,7 @@ export default function SignInScreen() {
   // useState で持ち、両ボタンに反映する
   const isSigningInRef = useRef(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const { enterGuestMode } = useGuestMode();
+  const { enterGuestMode, demoUnavailable } = useGuestMode();
 
   function handleGoogleSignIn() {
     if (isSigningInRef.current) return;
@@ -75,6 +75,13 @@ export default function SignInScreen() {
           <Button variant="ghost" onPress={enterGuestMode} disabled={isSigningIn}>
             ゲストではじめる
           </Button>
+          {/* デモの解決に失敗してここへ戻された直後だけ出す（黙って空白に
+              しない。architecture.md 7節。Rレビュー指摘R-1・A決定） */}
+          {demoUnavailable && (
+            <Text size="sm" color="muted" align="center">
+              いまデモを見られません。しばらくしてからお試しください
+            </Text>
+          )}
         </View>
       </View>
     </Screen>

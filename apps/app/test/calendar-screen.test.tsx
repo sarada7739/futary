@@ -69,7 +69,7 @@ function renderScreen() {
 function renderScreenAsGuest(exitGuestMode: () => void) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <GuestModeContext.Provider value={{ isGuestMode: true, enterGuestMode: () => {}, exitGuestMode }}>
+      <GuestModeContext.Provider value={{ isGuestMode: true, enterGuestMode: () => {}, exitGuestMode, demoUnavailable: false }}>
         <CalendarScreen />
       </GuestModeContext.Provider>
     </QueryClientProvider>,

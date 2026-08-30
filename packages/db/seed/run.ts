@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildDemoSeed, buildDemoSeedSql } from "./demo.ts";
+import { buildDemoSeed, buildDemoSeedSql, type DemoSeed } from "./demo.ts";
 
 // デモペアのシードをD1・R2へ投入するCLI（docs/tasks/014-guest-demo.md）。
 // 014はローカル（--local）まで、016はこれをそのまま --remote で呼ぶ
@@ -49,7 +49,7 @@ interface D1ExecuteResult {
 // resolveCoupleContext は AND is_demo = 1 で守られているが、シードの
 // 削除・上書き側には同じ条件が無かった）。couplesが存在しない
 // （＝初回投入）場合は空配列が返るので、そのまま先へ進めてよい
-function assertSafeToOverwrite(target: "--local" | "--remote", coupleId: string): void {
+function assertCoupleSafeToOverwrite(target: "--local" | "--remote", coupleId: string): void {
   const output = runWranglerCaptured([
     "d1",
     "execute",
@@ -72,8 +72,43 @@ function assertSafeToOverwrite(target: "--local" | "--remote", coupleId: string)
   }
 }
 
-function applySql(target: "--local" | "--remote", coupleId: string, sql: string): void {
-  assertSafeToOverwrite(target, coupleId);
+// buildDeleteSqlの7文のうち、`DELETE FROM user WHERE id IN (...)` だけは
+// couple_idスコープでもis_demoの検査対象でもない（Rレビュー指摘R-3）。
+// 固定IDはBetter Authが振る実IDと衝突しない前提だが、「固定IDだけで消す」
+// という形そのものが監査の指摘だったため、こちらも同じ強さで守る。
+// 該当IDのuserが実在するなら、このcoupleのメンバーであることまで確認する
+// （couple_membersに居ない・別のcoupleに居るなら中断する）
+function assertUsersSafeToOverwrite(target: "--local" | "--remote", coupleId: string, userIds: string[]): void {
+  const idList = userIds.map((id) => `'${id}'`).join(", ");
+  const output = runWranglerCaptured([
+    "d1",
+    "execute",
+    "DB",
+    target,
+    "--json",
+    "--command",
+    `SELECT u.id AS id, cm.couple_id AS couple_id FROM user u ` +
+      `LEFT JOIN couple_members cm ON cm.user_id = u.id WHERE u.id IN (${idList})`,
+  ]);
+  const parsed = JSON.parse(output) as D1ExecuteResult[];
+  const rows = (parsed[0]?.results ?? []) as Array<{ id: string; couple_id: string | null }>;
+  const unsafe = rows.filter((row) => row.couple_id !== coupleId);
+  if (unsafe.length > 0) {
+    throw new Error(
+      `デモ用の固定ユーザーID（${unsafe.map((r) => r.id).join(", ")}）が、` +
+        `このデモペア以外のユーザーとして実在します。このまま進めると無関係な` +
+        `ユーザーを削除することになるため中断します。`,
+    );
+  }
+}
+
+function applySql(target: "--local" | "--remote", seed: DemoSeed, sql: string): void {
+  assertCoupleSafeToOverwrite(target, seed.coupleId);
+  assertUsersSafeToOverwrite(
+    target,
+    seed.coupleId,
+    seed.users.map((u) => u.id),
+  );
   const tmpDir = mkdtempSync(path.join(tmpdir(), "futary-seed-"));
   const sqlFile = path.join(tmpDir, "demo-seed.sql");
   try {
@@ -111,7 +146,7 @@ function main(): void {
       `images ${seed.images.length}件`,
   );
 
-  applySql(target, seed.coupleId, sql);
+  applySql(target, seed, sql);
   uploadImages(target, seed.images);
 
   console.log("完了。DEMO_COUPLE_ID =", seed.coupleId);
