@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { call } from "@orpc/server";
+import { addDays, todayJst, yearsBefore } from "@futary/date";
 import { describe, expect, it } from "vitest";
 import { router } from "../src/router";
 import type { Bindings } from "../src/index";
@@ -84,11 +85,49 @@ describe("couple.create", () => {
     ).rejects.toThrow();
   });
 
-  it("未来の日付は入力バリデーションで弾かれる", async () => {
+  it("極端に先の日付は入力バリデーションで弾かれる", async () => {
     const user = await createUser();
 
     await expect(
       call(router.couple.create, { anniversaryDate: "9999-01-01" }, { context: contextFor(user) }),
+    ).rejects.toThrow();
+  });
+
+  // L66（Aの決定）: 人間が「記念日が未来の日付なら『あと○日』を出す」と決めたため、
+  // 未来の記念日を登録できる必要がある。上限は「1年後まで」（打ち間違いの歯止め。
+  // 業務上の意味は無い）。この境界を上下両方でテストする
+  it("近い未来（1ヶ月後）の記念日は登録できる（012: upcoming に到達させるため）", async () => {
+    const user = await createUser();
+    const nearFuture = addDays(todayJst(), 30);
+
+    const couple = await call(
+      router.couple.create,
+      { anniversaryDate: nearFuture },
+      { context: contextFor(user) },
+    );
+
+    expect(couple.anniversaryDate).toBe(nearFuture);
+  });
+
+  it("ちょうど1年後の記念日は登録できる（上限の境界）", async () => {
+    const user = await createUser();
+    const oneYearLater = yearsBefore(todayJst(), -1);
+
+    const couple = await call(
+      router.couple.create,
+      { anniversaryDate: oneYearLater },
+      { context: contextFor(user) },
+    );
+
+    expect(couple.anniversaryDate).toBe(oneYearLater);
+  });
+
+  it("1年より先（1年後+1日）の記念日は入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    const beyondOneYear = addDays(yearsBefore(todayJst(), -1), 1);
+
+    await expect(
+      call(router.couple.create, { anniversaryDate: beyondOneYear }, { context: contextFor(user) }),
     ).rejects.toThrow();
   });
 

@@ -84,6 +84,47 @@ describe("event.create / event.list（基本のCRUD）", () => {
     ]);
   });
 
+  // L67（Aの決定）: repeatYearlyはkind='anniversary'のときだけtrueにできる。
+  // 入力スキーマで拒否する（DBのCHECK制約は置かない）
+  it("kind='meetup'にrepeatYearly:trueを指定すると入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("kind='plan'にrepeatYearly:trueを指定すると入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: true },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("kind='anniversary'にrepeatYearly:trueは登録できる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    const created = await call(
+      router.event.create,
+      { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true },
+      { context: contextFor(user) },
+    );
+
+    expect(created.repeatYearly).toBe(true);
+  });
+
   it("範囲外の一回きりの予定は返らない", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -137,6 +178,20 @@ describe("event.update / event.delete", () => {
       kind: "meetup",
       repeatYearly: false,
     });
+  });
+
+  it("更新でもkind='meetup'にrepeatYearly:trueを指定すると入力バリデーションで弾かれる（L67）", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createEvent(user, { date: "2026-03-10", kind: "meetup" });
+
+    await expect(
+      call(
+        router.event.update,
+        { id: created.id, date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
   });
 
   it("他ペアのイベントIDを指定した更新は NOT_FOUND になり、対象は変わらない", async () => {

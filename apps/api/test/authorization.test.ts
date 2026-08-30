@@ -244,6 +244,19 @@ describe("3. 未認証アクセスで読み取れるのがデモペアのデー�
     expect(result.items[0]?.body).toBe("デモの投稿");
     expect(result.items.map((p) => p.body)).not.toContain("他ペアの投稿");
   });
+
+  it("stats.get は DEMO_COUPLE_ID のペアの統計だけを返す（012）", async () => {
+    const demoCoupleId = await createDemoCouple();
+    const owner = await createUser();
+    await createCouple(owner, "2020-01-01");
+
+    const result = await call(router.stats.get, undefined, { context: contextFor(null, demoCoupleId) });
+
+    // createDemoCoupleはcouple_membersを作らない（メンバーゼロ）。owner側のペアが
+    // 混ざっていれば members に owner.id を含む1件が返るはずで、それが無いことで
+    // デモペア側のデータであることを確認する
+    expect(result.members).toHaveLength(0);
+  });
 });
 
 describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING になる", () => {
@@ -338,6 +351,13 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
       call(router.event.delete, { id: crypto.randomUUID() }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
+
+  it("stats.get（012）", async () => {
+    const user = await createUser();
+    await expect(call(router.stats.get, undefined, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+  });
 });
 
 describe("5. DEMO_COUPLE_ID が未設定のとき、未認証アクセスが拒否される（fail-closed）", () => {
@@ -378,8 +398,9 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （010時点: health.get/me.get + couple 3 + invite 2 + post 4 + reaction 1 + event 4 = 16）
-    expect(procedures.length).toBeGreaterThanOrEqual(16);
+    // （012時点: health.get/me.get + couple 3 + invite 2 + post 4 + reaction 1 + event 4
+    // + stats 1 = 17）
+    expect(procedures.length).toBeGreaterThanOrEqual(17);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの

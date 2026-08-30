@@ -3405,3 +3405,56 @@ B のブランチがマージされたときに同じ行が2つ残る（`convent
 
 #95 はまだ開いていたので、そこへ push した。**別の PR を立てない。**
 docs PR を溜めると squash merge のたびに玉突きが起きることを、今日 #72 で経験している。
+
+---
+
+## 2026-08-30 / セッションB（012 実装）
+
+### やったこと
+- `docs/tasks/012-stats-card.md`を読んでから着手した
+- Rが着手前にタスク定義を先読みし3件を指摘してきたため、実装前に対応した
+  - L65: `photoCount`の`deleted_at IS NULL`抜け。Aが自身の誤りと認め、
+    タスクファイル・`architecture.md`4節両方を修正（PR #95）。Bは修正済みの
+    仕様どおり`AND deleted_at IS NULL`を含めて実装した
+  - L66: 「記念日が未来の日付」の扱いが未決定だったが、**人間が「あと◯日の
+    方が親切」と直接決定**（Rが伝達）。契約の形はB設計:
+    `daysTogether`を判別可能なunion（`{status:"together",days}` /
+    `{status:"upcoming",days}`）にした。負の値を出さない責任をサーバ側で
+    閉じる（Rの助言）。**Aが追加で指摘**: `anniversaryDateSchema`の
+    `value <= todayJst()`を残したままでは`upcoming`が永久に到達不能になる。
+    上限を「今日まで」から「1年後まで」（打ち間違いの歯止め）に緩和する
+    判断を受け、`couple.create`/`update`両方に適用した
+  - L67: `eventInputSchema`の`repeatYearly`が`kind`に依存しない件。Aの決定
+    どおり、`kind==='anniversary' || !repeatYearly`を入力スキーマの`refine`
+    として追加した（DB CHECK制約は置かない。書き込み口が入力スキーマの
+    1つのみのため）
+- `packages/contract/src/stats.ts`（新規）: `stats.get`契約
+- `apps/api/src/procedures/stats.ts`（新規）: `stats.get`実装。
+  `computeDaysTogether`をexportし、off-by-oneの境界（together側の下端＝今日・
+  upcoming側の下端＝明日）を純粋関数として直接テストした（Rの指摘: 片側だけ
+  だと見逃す）
+- `apps/app/components/stats-card.tsx`（新規）: 統計カードUI。通信エラー時は
+  カード自体を出さない（ホーム画面の主役は投稿一覧のため、全体を止めない）
+- `apps/app/app/(tabs)/index.tsx`: `StatsCard`をヘッダー下に追加。
+  `home-timeline.test.tsx`が新たに`stats.get`を呼ぶようになったため、
+  モックに既定値を追加して既存テストの回帰を防いだ
+- テスト: `apps/api/test/stats.test.ts`（新規13件）・`couple.test.ts`
+  （未来日境界3件追加）・`event.test.ts`（repeatYearly制約4件追加）・
+  `authorization.test.ts`（stats.get 2件追加。基底経由チェック16→17）・
+  `apps/app/test/stats-card.test.tsx`（新規5件）
+- 型チェック（全ワークスペース）・lint（`eslint .`）・テスト
+  （api 176・app 56・date 44・ui 7）すべて緑を確認
+- `docs/tasks/012-stats-card.md`の完了条件・進捗・実装メモを更新
+  （実機確認の1項目のみ未達として明記）
+- `artifacts/012/test-results.md`・`artifacts/012/manual-check.md`を作成
+- `docs/state.md`を更新（進行中タスクに012を記載、L65〜L67を解決済みに更新、
+  L68として実機確認待ちを起票）
+- Aの docs PR（#95。L65〜L67の対応方針、コード変更なし）をCI緑確認後
+  squash mergeし、`main`を`task/012-stats-card`へマージした
+
+### 決定事項
+- なし（Aと人間の決定をそのまま反映した）
+
+### 詰まった点
+- `insertEvent`テストヘルパーで、`created_by`列に誤って`coupleId`を渡していた
+  （`user.id`への外部キー制約違反で失敗）。引数を分離して修正した

@@ -41,12 +41,25 @@ export const eventListContract = oc
     INVALID_INPUT: { status: 400 },
   });
 
-const eventInputSchema = z.object({
+const eventInputBaseSchema = z.object({
   date: dateSchema,
   title: z.string().trim().min(1, "タイトルを入力してください").max(MAX_TITLE_LENGTH),
   kind: eventKindSchema,
   repeatYearly: z.boolean(),
 });
+
+// repeatYearly は kind='anniversary' のときだけ true にできる（L67・Aの決定）。
+// DBのCHECK制約は置かない。書き込み口がこの入力スキーマの1つしか無く、
+// ここで弾けば到達しないため（posts.image_keyのUNIQUE制約とは事情が違う。
+// あちらは複数行を数えて判断する形を避けるための宣言的制約）
+function refineRepeatYearlyKind<T extends z.ZodType<{ kind: string; repeatYearly: boolean }>>(schema: T) {
+  return schema.refine((value) => value.kind === "anniversary" || !value.repeatYearly, {
+    message: "repeatYearlyはkindが記念日のときだけtrueにできます",
+    path: ["repeatYearly"],
+  });
+}
+
+const eventInputSchema = refineRepeatYearlyKind(eventInputBaseSchema);
 
 export const eventCreateContract = oc.input(eventInputSchema).output(eventSchema).errors({
   FORBIDDEN: {},
@@ -57,7 +70,7 @@ export const eventCreateContract = oc.input(eventInputSchema).output(eventSchema
 // event.update: WHERE 句に couple_id を含めた1文で行う（006の post.delete と同じ形）。
 // 部分更新にはせず、create と同じ全項目を受け取って置き換える
 export const eventUpdateContract = oc
-  .input(eventInputSchema.extend({ id: z.string() }))
+  .input(refineRepeatYearlyKind(eventInputBaseSchema.extend({ id: z.string() })))
   .output(eventSchema)
   .errors({
     FORBIDDEN: {},
