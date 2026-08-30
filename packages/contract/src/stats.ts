@@ -25,7 +25,9 @@ export type DaysTogether = z.infer<typeof daysTogetherSchema>;
 
 export const statsSchema = z.object({
   daysTogether: daysTogetherSchema,
-  meetupCount: z.number(),
+  // 018で「会った日」を1日1件に固定したため、数えているのは回数ではなく
+  // 日数になった（`docs/requirements.md` 4節）。フィールド名もそれに揃える
+  meetupDays: z.number(),
   postCount: z.number(),
   photoCount: z.number(),
   // slot昇順（1, 2）。1件なら相手が未参加

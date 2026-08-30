@@ -4211,3 +4211,35 @@ L67（`repeatYearly` を `anniversary` に限る）と同じ形なので、**同
   中で読んでも直前の`mutateAsync`失敗による状態更新をまだ反映していない
   （次のレンダーで初めて新しい値になる）ことに気づき、元の`catch (error)`
   方式へ戻した
+
+## 2026-08-30 / セッションB（018マージ・fix/meetup-days）
+
+### やったこと
+- Rが018（PR #115）を受け入れ。指摘2件（重複解消のタイブレークテスト、
+  上書き注記が表示中の月に限られる旨の明記）を反映してからCI緑を確認し、
+  squash merge・`--delete-branch`でmainへ取り込んだ
+- Rの指摘1件（`meetupCount`が実質「会った日数」になったのに文言・
+  フィールド名が「回数」のまま）はAへ転送。Aが`requirements.md`4節に
+  判断を記録し`meetupCount`→`meetupDays`への改名を指示（PR #116）
+- PR #116はPR #115マージ直後の玉突きでDIRTY化（squash mergeによる祖先切れ。
+  `docs/worklog.md`はunion属性で自動解決したが、他の変更点で衝突）。
+  A（`docs/meetup-days`）のリモートブランチをfetchしてローカルでmainを
+  マージ（クリーンに解決）、pushし直してCI緑を確認しsquash merge。
+  ローカルブランチ削除はAのworktreeで使用中のため失敗、リモートのみ削除
+- `fix/meetup-days`ブランチで、Aが指定した範囲（`packages/contract/src/stats.ts`・
+  `apps/api/src/procedures/stats.ts`・`apps/app/components/stats-card.tsx`・
+  テスト3ファイル）を`meetupCount`→`meetupDays`に改名。SQLは変更していない
+  （`COUNT(*) WHERE kind='meetup'`のまま。018で1日1件に固定した結果、
+  数えているものが元々正しく「日数」になっていたため）。ラベルも
+  「会った回数：{n}回」→「会った日数：{n}日」に変更
+- `docs/architecture.md`・`docs/requirements.md`・`docs/worklog.md`は
+  PR #116でA自身が変更済みのため触れていない（fix/の範囲をBに指定した
+  ファイルに限定）
+- `pnpm test`・`type-check`・`lint`をルートで実行しすべて緑を確認
+  （apps/api 205件・apps/app 69件）
+
+### 決定事項
+- なし（Aの指示をそのまま実装した）
+
+### 詰まった点
+- なし

@@ -110,7 +110,7 @@ export function StatsCard() {
             {daysTogetherLabel(stats.daysTogether)}
           </Text>
           <Text size="sm" color="muted">
-            会った回数：{stats.meetupCount}回
+            会った日数：{stats.meetupDays}日
           </Text>
         </View>
       </View>
