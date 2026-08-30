@@ -107,15 +107,19 @@ events
   kind           TEXT    NOT NULL            -- 'anniversary' | 'plan' | 'meetup'
   repeat_yearly  INTEGER NOT NULL DEFAULT 0  -- kind='anniversary' のときだけ 1
                                             -- 入力スキーマで拒否する（5節）
-  time           TEXT                        -- HH:MM（JSTの壁時計）。任意。
+  start_time     TEXT                        -- HH:MM（JSTの壁時計）。任意。022（旧 time）
                                             -- anniversary には設定できない（5節）
+  end_time       TEXT                        -- HH:MM。任意。022
+                                            -- start_time が無いと立てられない
   created_by     TEXT    NOT NULL
   created_at     INTEGER NOT NULL
   INDEX (couple_id, date)
   UNIQUE (couple_id, date) WHERE kind = 'meetup'   -- 会った日は1日1件
   CHECK (kind IN ('anniversary','plan','meetup'))
   CHECK (repeat_yearly = 0 OR kind = 'anniversary')   -- 5節
-  CHECK (time IS NULL OR kind <> 'anniversary')       -- 5節
+  CHECK (start_time IS NULL OR kind <> 'anniversary')      -- 5節
+  CHECK (end_time IS NULL OR start_time IS NOT NULL)       -- 022
+  CHECK (end_time IS NULL OR end_time > start_time)        -- 022。日をまたがない
 ```
 
 ### `posts` を読むクエリには必ず `deleted_at IS NULL` を含める
@@ -231,13 +235,16 @@ event.list          { from, to } -> { items }
                     範囲は最大400日。超えたら INVALID_INPUT
                     items[].date          射影後の日付（表示する日）
                     items[].sourceDate    登録された日付。repeatYearly でなければ date と同じ
-                    items[].time          HH:MM または null
+                    items[].startTime     HH:MM または null（022。旧 time）
+                    items[].endTime       HH:MM または null（022）
                     items[].createdByName 設定した人の名前。null 許容（LEFT JOIN）
                     items[].canEdit       この利用者が更新・削除できるか（021）
                                           サーバが計算する。判定をクライアントに持たせない
                                           created_by（ユーザーID）は返さない
-event.create        { date, title, kind, repeatYearly, time? }
-                    time は HH:MM。anniversary には付けられない
+event.create        { date, title, kind, repeatYearly, startTime?, endTime? }
+                    HH:MM。anniversary には付けられない
+                    endTime は startTime が無いと立てられない（CHECK でも表す）
+                    endTime は startTime より後。日をまたがない（022）
                     kind='meetup' は同じ日の既存行を上書きする
 event.update        { id, ... }
 event.delete        { id }
