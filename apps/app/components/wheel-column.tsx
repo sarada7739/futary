@@ -20,12 +20,30 @@ export type WheelColumnProps = {
 export function WheelColumn({ options, value, onChange, testID }: WheelColumnProps) {
   const scrollRef = useRef<ScrollView>(null);
   const selectedIndex = Math.max(0, options.indexOf(value));
+  // 直前にcommit()で自分から通知したvalueを覚えておく。位置合わせの
+  // scrollToは「外からvalueが変わったとき」だけ走らせ、自分のonChangeが
+  // 一往復して戻ってきたとき（利用者がスクロール中）には走らせない
+  // （Rの指摘・Aの決定。PR #156レビュー）
+  const selfCommittedValueRef = useRef<string | null>(null);
+  // タップ（selectByPress）できた行の位置合わせだけは、確定後の最新optionsで
+  // 出したselectedIndexへアニメーション移動したい（タップ時点のindexで
+  // 飛び先を決めると、刻み外れ値が消えてoptionsが縮んだ場合にアニメーション
+  // 終点がずれたoptionsを読んでしまい違う値に着地する。Rの指摘）。
+  // 次のeffectで1回だけアニメーション移動するよう予約するフラグ
+  const pendingAnimatedScrollRef = useRef(false);
 
   useEffect(() => {
+    if (selfCommittedValueRef.current === value) {
+      if (pendingAnimatedScrollRef.current) {
+        pendingAnimatedScrollRef.current = false;
+        scrollRef.current?.scrollTo({ y: selectedIndex * ITEM_HEIGHT, animated: true });
+      }
+      return;
+    }
     scrollRef.current?.scrollTo({ y: selectedIndex * ITEM_HEIGHT, animated: false });
     // optionsの中身が変わる（刻みに乗らない値の出入り）とインデックスがずれるため、
     // 長さも依存に含める
-  }, [selectedIndex, options.length]);
+  }, [value, selectedIndex, options.length]);
 
   // 確定という操作を持たない。スクロール位置から、いま中央にある行を毎回
   // そのまま値にする（022・docs/tasks/022-time-and-date-input.md「タイマーで
@@ -34,14 +52,22 @@ export function WheelColumn({ options, value, onChange, testID }: WheelColumnPro
   // かつそれは016のデプロイ後まで確かめられない（開発サーバーはiPhone実機に
   // 届かない）。画面が見せているものと保存されるものを構造として一致させ、
   // 食い違わないことを確かめずに済む形にする（「刻みに乗らない値を丸めない」
-  // と同じ考え方）
+  // と同じ考え方）。ただし位置合わせのscrollToを毎回走らせると、利用者が
+  // スクロールしている最中（慣性の途中・刻み外れ値が選択肢から消えて
+  // indexが繰り上がる瞬間）に、実際の物理位置を上書きして戦ってしまう
+  // （Rの指摘）。そこで「自分が動かした結果のvalueでは位置を戻さない」形にした
+  function commit(next: string) {
+    selfCommittedValueRef.current = next;
+    onChange(next);
+  }
+
   function commitFromOffset(offsetY: number) {
     const index = Math.max(0, Math.min(options.length - 1, Math.round(offsetY / ITEM_HEIGHT)));
     const next = options[index];
     if (next === undefined) return;
     // 刻みに乗らない特別行が選択肢から消えるのは、値が実際に変わった時だけ
     // （「自分で動かしたなら利用者の操作」022）
-    if (next !== value) onChange(next);
+    if (next !== value) commit(next);
   }
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -49,8 +75,17 @@ export function WheelColumn({ options, value, onChange, testID }: WheelColumnPro
   }
 
   function selectByPress(index: number) {
-    scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
-    onChange(options[index]!);
+    const next = options[index]!;
+    if (next === value) {
+      // 値は変わらない（optionsも変わらない）ので、タップ時点のindexへ
+      // そのままアニメーション移動してよい
+      scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
+      return;
+    }
+    // optionsが確定後の値に基づいて縮む/伸びる可能性があるため、飛び先は
+    // ここでは決めず、再レンダー後のeffectに委ねる
+    pendingAnimatedScrollRef.current = true;
+    commit(next);
   }
 
   return (
@@ -88,15 +123,15 @@ export function WheelColumn({ options, value, onChange, testID }: WheelColumnPro
       />
       <ScrollView
         ref={scrollRef}
+        testID={testID ? `${testID}-scroll` : undefined}
         showsVerticalScrollIndicator={false}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
         contentContainerStyle={{ paddingVertical: ITEM_HEIGHT * PADDING_COUNT }}
-        // CSSのscroll-snapも併用する（scrollendがあれば使う程度に留め、
-        // 主な確定判定はscrollの停止で行う。react-native-webはキャメルケースの
-        // CSSプロパティをstyleにそのまま渡せる）
+        // CSSのscroll-snapも併用する（行の境界で吸着させ見た目を揃える。
+        // react-native-webはキャメルケースのCSSプロパティをstyleにそのまま渡せる）
         style={Platform.OS === "web" ? ({ scrollSnapType: "y mandatory" } as object) : undefined}
       >
         {options.map((option, index) => (
