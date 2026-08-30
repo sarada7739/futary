@@ -17,6 +17,11 @@ export const colors = {
   // 画像の全画面表示（017）の背景。ブランドの暖色とは無関係な機能色のため、
   // パレットから離れた黒系の半透明にしている
   overlay: "rgba(20, 15, 14, 0.92)",
+  // カレンダー（011）のイベント種別マーカー。3種を色相で離す
+  // （赤系/黄系/青緑系）。色だけに頼らず形（グリフ）も併用するのは呼び出し側の責務
+  eventAnniversary: "#E36387",
+  eventPlan: "#D9A441",
+  eventMeetup: "#4C8C8B",
 } as const;
 
 export const radius = {
