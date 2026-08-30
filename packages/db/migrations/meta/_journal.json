@@ -71,6 +71,13 @@
       "when": 1788081374507,
       "tag": "0009_couple_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1788100859548,
+      "tag": "0010_lyrical_chronomancer",
+      "breakpoints": true
     }
   ]
 }

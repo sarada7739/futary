@@ -26,6 +26,10 @@ export const events = sqliteTable(
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
+    // 「ふたりの予定」（021）。kind='plan'のときだけ立てられる。設定者以外は
+    // plan を編集・削除できないが、is_shared=1ならどちらでも編集・削除できる
+    // （anniversary/meetupはこれまでどおりどちらでも編集・削除できる。変えていない）
+    isShared: integer("is_shared", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
@@ -36,5 +40,10 @@ export const events = sqliteTable(
     // 会った日（meetup）は1日1件。複数行の関係なのでCHECKではなく部分UNIQUE
     // インデックスで表す（architecture.md 5節。posts.image_keyのUNIQUEと同じ方針）
     uniqueIndex("events_meetup_unique").on(table.coupleId, table.date).where(sql`${table.kind} = 'meetup'`),
+    // is_sharedはkind='plan'のときだけ立てられる（021タスク定義）。eventsは
+    // 他テーブルからFK参照される親テーブルではないため、D1の「テーブルを
+    // 作り直す」形のCHECK追加マイグレーションがそのまま通る（architecture.md
+    // 4節のcouplesの制約とは異なる。TRIGGERへの回避は不要）
+    check("events_is_shared_check", sql`${table.isShared} = 0 OR ${table.kind} = 'plan'`),
   ],
 );
