@@ -6781,3 +6781,41 @@ index は、決めた瞬間と着地する瞬間で意味が変わる。**
 
 **「依存配列が不正確に見える」という理由で直さない。正確にすると壊れる側である。**
 **書いておかないと、いつか誰かが「直す」。**
+## 2026-08-31 セッションB: WheelColumnの実装をAの決定4件（PR #157〜#159）どおりに直した
+
+`main`を確認したところ、A（別セッション）が`docs/tasks/022-time-and-date-input.md`に
+「自分が動かした分で、位置を戻さない」（PR #157）・「行き先をindexで決めない。
+値で引き直す」（PR #158）・「出口は2つで全部・`options.length`は意図」（PR #159）
+の3件を判断として書いていた。同時にRから同内容のレビュー差し戻し（R-1〜R-4、
+4件すべて要修正）が直接届いた。両者の内容は一致していたため、そのまま実装した。
+
+`WheelColumn`に`selfCommittedValueRef`（自分がcommit()で最後に通知したvalue）と
+`pendingAnimatedScrollRef`（タップ由来の位置合わせを次のeffectで1回だけ実行する
+予約フラグ）を追加。位置合わせの`useEffect`は、`selfCommittedValueRef.current === value`
+（＝自分のスクロール・タップ起因の変更）なら基本的に何もせず、`pendingAnimatedScrollRef`が
+立っているとき（タップ経由）だけ、確定後の最新`options`で出した`selectedIndex`へ
+アニメーション移動する。外から`value`が変わったとき（selfCommittedValueRefと
+不一致）は、従来どおり即座に位置を合わせる。`useEffect`の依存は`options.length`の
+まま変えていない（A・R合意どおり。`options`自体にすると`buildMinuteOptions`が
+刻み外れ値のとき毎レンダー新しい配列を返すため無限ループになる）。
+
+`selectByPress`は、タップ先の値が現在値と同じ場合はその場でアニメーション移動、
+異なる場合は`commit()`だけ呼んで飛び先の計算をeffectへ委ねる形に分けた
+（タップ時点のindexで飛び先を固定すると、commit後にoptionsが縮んで違う値に
+着地する。R-4）。
+
+`apps/app/test/wheel-column.test.tsx`を新設し、R-1〜R-4に対応する4件の回帰
+テストを追加した（`TimeWheelPicker`と同じ「optionsをvalueから毎回組み立てる」
+形のテスト用ハーネスで、`buildMinuteOptions`をそのまま使う実結線）。jsdomには
+`Element.prototype.scroll`が無く、react-native-webは`node.scrollTop = ...`への
+直接代入にフォールバックすることを確認した上で、`scrollTop`をアクセサ化して
+spyし、位置合わせの`scrollTo`が呼ばれたかどうかを決定的に検証している。
+実機・タイマーを一切使わずに4件とも再現・固定できた。
+
+`artifacts/022/manual-check.md`項目2の記述（「食い違う経路が無い」という
+未検証の断定）を、実際に何を直し何をテストで担保したかに書き換えた。
+iPhoneでの実際の慣性スクロールの感触自体は引き続き未確認（016のデプロイ後）。
+
+apps/app 129件（125+4）すべて緑、型チェック・lint通過。`fix/wheel-column-no-timer`
+へ`main`（PR #157〜#159含む）をマージし、`docs/worklog.md`の競合は両方の
+追記を残す形で解消した。次はRへ再レビューを依頼する。
