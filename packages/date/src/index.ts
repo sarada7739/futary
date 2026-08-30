@@ -54,6 +54,16 @@ export function diffDays(from: string, to: string): number {
   return Math.round((toEpochDay(to) - toEpochDay(from)) / DAY_MS);
 }
 
+// 指定したJSTの暦日が覆うUnixミリ秒の範囲 [fromMs, toMs) をUTC基準で返す。
+// posts.created_at のようなUnixタイムスタンプをJSTの暦日で絞り込む
+// SQLの範囲条件に使う（013 memory.get）。
+// 「JSTのD日 00:00」はUTCでは「D日 00:00 - 9時間」に当たるため、
+// toEpochDay(D)（UTC基準のD日 00:00）からJST_OFFSET_MSを引くだけで求まる
+export function jstDayRangeMs(date: string): { fromMs: number; toMs: number } {
+  const fromMs = toEpochDay(date) - JST_OFFSET_MS;
+  return { fromMs, toMs: fromMs + DAY_MS };
+}
+
 // date から n 日後の日付文字列を返す（n が負なら n 日前になる）
 export function addDays(date: string, n: number): string {
   const shifted = new Date(toEpochDay(date) + n * DAY_MS);
