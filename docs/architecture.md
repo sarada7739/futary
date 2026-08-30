@@ -105,7 +105,8 @@ events
   date           TEXT    NOT NULL            -- YYYY-MM-DD
   title          TEXT    NOT NULL
   kind           TEXT    NOT NULL            -- 'anniversary' | 'plan' | 'meetup'
-  repeat_yearly  INTEGER NOT NULL DEFAULT 0  -- 記念日のみ 1
+  repeat_yearly  INTEGER NOT NULL DEFAULT 0  -- kind='anniversary' のときだけ 1
+                                            -- 入力スキーマで拒否する（5節）
   created_by     TEXT    NOT NULL
   created_at     INTEGER NOT NULL
   INDEX (couple_id, date)
@@ -147,8 +148,12 @@ events
 |---|---|
 | 付き合って○日目 | JSTの今日 − `couples.anniversary_date` + 1 |
 | 会った回数 | `events` の `kind = 'meetup'` の件数 |
-| 写真の枚数 | `posts` の `image_key IS NOT NULL` の件数 |
+| 写真の枚数 | `posts` の **未削除**かつ `image_key IS NOT NULL` の件数 |
 | 投稿数 | `posts` の未削除件数 |
+
+**写真の枚数にも「未削除」を付ける。**論理削除した行は `image_key` を残すため
+（6節「削除の順序と孤児オブジェクト」）、付け忘れると
+**写真の枚数が投稿数を上回る**という、見た目に明らかな矛盾が出る。
 
 ## 5. API（oRPC 手続き）
 
@@ -175,6 +180,10 @@ event.create        { date, title, kind, repeatYearly }
 event.update        { id, ... }
 event.delete        { id }
 stats.get           -> { daysTogether, meetupCount, postCount, photoCount }
+                    daysTogether は判別可能な union
+                      { status: "together", days }  記念日が今日以前
+                      { status: "upcoming", days }  記念日が未来（「あと○日」）
+                    記念日は1年後まで登録できる（打ち間違いの歯止め）
 memory.get          -> { post, label } | null
 ```
 
@@ -383,6 +392,23 @@ R2 に取り込んで自前配信する案は取らない。プロフィール�
 整形も `packages/date` に置き、**JST を明示する。**
 `new Date(...)` を外で書かせない規則は、これも自動的に拾う。
 
+
+### `repeatYearly` は `anniversary` にしか立てられない
+
+`events.repeat_yearly` の列コメントは当初から「**記念日のみ 1**」と書いていたが、
+**入力スキーマは `kind` と無関係に `boolean` を受けていた。**
+`meetup` に `repeatYearly: true` を立てられる。
+**ドキュメントが実在しない統制を主張している状態**である（R の指摘・L67）。
+
+立ってしまうと、「会った日」が毎年のカレンダーに繰り返し現れる。
+**実際には1度しか会っていない日が、毎年あったことになる。**
+
+**入力スキーマで拒否する。**`kind !== "anniversary"` かつ `repeatYearly === true` を
+`INVALID_INPUT` にする。`event.create` と `event.update` の両方。
+
+DB の CHECK 制約は置かない。**書き込み口が入力スキーマの1つしか無く、
+そこで弾けば到達しない。**（`posts.image_key` の UNIQUE を宣言的制約にしたのは、
+「複数行を数えて判断する」形を避けるためであり、この場合とは事情が違う）
 
 ### 存在しない日付は、その月の末日に寄せる
 
