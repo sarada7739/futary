@@ -85,10 +85,25 @@ SQLite 3.35 以降にはあるが、**通るなら表を作り直さずに済む
 
 1. `ALTER TABLE couples ADD COLUMN dating_date TEXT`（**NULL 許容**）
 2. `UPDATE couples SET dating_date = anniversary_date`（**全行**）
-3. 019 の TRIGGER 4本を落として、`dating_date` を見る形で作り直す
+3. **`anniversary_date` を参照している TRIGGER 2本**を落として、
+   `dating_date` を見る形で作り直す
 4. `ALTER TABLE couples DROP COLUMN anniversary_date`
 
-**3 を飛ばすと 4 が落ちる。**TRIGGER が `anniversary_date` を参照している。
+**3 を飛ばすと 4 が落ちる**（R が実測。SQLite 3.50.4）。
+
+```
+DROP COLUMN → error in trigger couples_married_after_anniversary_insert
+              after drop column: no such column: NEW.anniversary_date
+```
+
+**作り直すのは2本であって4本ではない**（R の指摘。当初「4本」と書いていた）。
+`couples_married_after_anniversary_*` の2本だけが `anniversary_date` を参照する。
+**`couples_married_date_required_*` は参照していないので、文字列も変わらない。**
+**「4本」と書いてあると、変わらない2本まで期待値を書き換えることになる**
+（`conventions.md` 6節。**期待値を変える差分は、テストが守れない場所である**）。
+
+**`dating_date` が NULL の行に `married_date` を入れられることも実測済み。
+DB は要望どおりの形を許す。**
 
 ### 通らない場合
 
@@ -115,10 +130,75 @@ SQLite 3.35 以降にはあるが、**通るなら表を作り直さずに済む
 ## 3. 契約と画面
 
 ```
-couple.create   {}            付き合った日を受け取らない
-couple.update   { datingDate?, marriedDate?, primaryDate? }   019 のまま。列名だけ変わる
+couple.create   {}                        付き合った日を受け取らない
+couple.get      -> { datingDate: string | null, marriedDate, primaryDate, ... }
+couple.update   { datingDate?, marriedDate?, primaryDate? }
 stats.get       daysTogether に { status: "unset" } が増える
 ```
+
+**`anniversaryDate` → `datingDate` に改名する**（列名と揃える。
+`married_date` ができた時点で「記念日」は曖昧になっている）。
+
+### 「019 のまま」と書いてはいけなかった
+
+**当初ここに「019 のまま。列名だけ変わる」と書いていた。誤りである**（R の指摘）。
+**成り立たない箇所が3つあり、どれも「この要望を出した人が使えなくなる」形だった。**
+
+#### (1) 入力スキーマが、結婚した日だけの登録を弾く
+
+019 の refine がこうなっている。
+
+```js
+.refine((v) => v.marriedDate === null || v.marriedDate >= v.anniversaryDate, ...)
+```
+
+**`datingDate` が `null` のとき `"2020-01-01" >= null` は `false` になる。**
+**refine が落ちて `INVALID_INPUT` になる。**
+
+**「すでに結婚していて、付き合った日を覚えていない人」が、結婚した日を設定できない。
+023 はその人のために書かれたタスクである。**
+
+**`v.datingDate === null ||` を足す。**
+
+**DB の TRIGGER は通す**（NULL 比較が真にならない）。
+**Zod だけが弾いていて、しかも間違っている側である。**
+019 で「CHECK はデータが壊れないこと、Zod は理由が伝わること」と分けたが、
+**Zod が DB より厳しいときは、厳しい方が正しいとは限らない。**
+
+#### (2) マイページの保存ボタンが押せない
+
+`canSave` が `DATE_PATTERN.test(anniversaryDate)` を含んでいる。
+**付き合った日が入っていないと、画面全体が動かない。**
+
+023 のあと、新しいペアは `dating_date` が NULL で始まる。そのままだと——
+
+- **名前を変えられない**（019 の機能）
+- **アイコンを変えられない**（019 の機能）
+- **結婚した日も設定できない**
+- **付き合った日を打つまで、何もできない**
+
+**「マイページであとから設定する」がこのタスクの目的なのに、
+そのマイページが、日付が入っていることを前提に組まれている。**
+
+**日付は任意にする。名前だけ変えて保存できること。**
+初期値に `null` が来ることも前提にする。
+
+#### (3) `coupleSchema.anniversaryDate` が `z.string()` のまま
+
+`couple.get` が返す型である。**NULL 許容にしないと、日付の無いペアを返せない。**
+
+## 4. 統計ページの `unset`
+
+020 で「`hidden` のときは4つではなく3つ」と決めた。**`unset` も3つである。**
+
+**ただし `hidden` と扱いが違う。**
+
+| | 統計ページ |
+|---|---|
+| `hidden` | **3つ。何も促さない**（本人が隠すと決めた） |
+| `unset` | **3つ＋マイページへの導線**（まだ決めていない） |
+
+**ホームの記念日カードと同じ分け方にする。**画面ごとに違う答えを持たせない。
 
 - **オンボーディングから日付の入力を消す。**ペアを作る操作だけが残る
 - **マイページは 019 のまま。**そこで設定する
@@ -140,6 +220,9 @@ stats.get       daysTogether に { status: "unset" } が増える
 - **`primary_date='married'` で `married_date` が無いときも `unset`**
 - **`primary_date='none'` は `hidden`**（`unset` にならない）
 - **`unset` でも `meetupDays`・`postCount`・`photoCount` は返る**
+- **`datingDate` が `null` のまま `marriedDate` を設定できる**
+  （**入力スキーマ・DB の両方で通ること。**この要望の本体である）
+- **`datingDate` が `null` のまま、名前とアイコンだけ変えて保存できる**
 - `couple.create` が日付なしで通る
 - **マイグレーション後、既存行の `dating_date` に元の値が入っている**
   （既存行を入れた状態で当てる）
@@ -149,6 +232,8 @@ stats.get       daysTogether に { status: "unset" } が増える
 - **登録が短くなったか**（ペアを作るだけで終わるか）
 - **ホームで「まだ設定していない」と分かるか。**そこからマイページへ行けるか
 - **非表示にしている人に、設定を促す表示が出ていないか**
+- **付き合った日を入れずに、結婚した日だけ設定できるか**（この要望の本体）
+- **付き合った日を入れずに、名前とアイコンを変えて保存できるか**
 - 既に設定している人の日数が、**マイグレーションの前後で変わっていないか**
 
 ## 完了条件
@@ -166,7 +251,10 @@ stats.get       daysTogether に { status: "unset" } が増える
 
 ## 進捗
 - [ ] `ALTER TABLE DROP COLUMN` が D1 で通るか確かめる
-- [ ] スキーマ + マイグレーション（`dating_date`・TRIGGER の作り直し）
+- [ ] スキーマ + マイグレーション（`dating_date`・**TRIGGER 2本**の作り直し）
+- [ ] 入力スキーマの refine を直す（`datingDate === null` を通す）
+- [ ] `coupleSchema.anniversaryDate` を `datingDate: string | null` に
+- [ ] マイページを、日付が無くても動く形にする
 - [ ] 契約の変更（`couple.create`・`stats.get` の `unset`）
 - [ ] オンボーディングから日付の入力を消す
 - [ ] ホームの `unset` 表示とマイページへの導線
