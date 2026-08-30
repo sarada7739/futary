@@ -5,9 +5,41 @@
 
 **最終更新**: 2026-08-31 / セッションB（futary-f2）。**PR #156
 （`WheelColumn`のタイマー確定撤去）がRの受け入れを得てmainへマージ済み
-（`65b1f11`）。022はこれで完全に閉じた。** 人間は就寝中。「023をやらせて
-おいて」との指示（Aを通じて受領）に従い、人間への確認依頼は出さずに
-023へ進む。人間が起きたら022・023をまとめて報告する。
+（`65b1f11`）。022はこれで完全に閉じた。** 続けて**023（付き合った日を
+登録時に聞かない）を実装し、PR #162としてRへレビュー依頼中。** 人間は
+就寝中。「023をやらせておいて」との指示（Aを通じて受領）に従い、人間への
+確認依頼は出さずに進めた。人間が起きたら022・023をまとめて報告する。
+
+## 023の実装内容（詳細。PR #162・レビュー待ち）
+
+`docs/tasks/023-anniversary-optional.md`どおり実装した。着手前に
+**`ALTER TABLE couples DROP COLUMN`がD1で通るかをローカルD1で実測確認**
+（「通るはずだ」で進めない。Aの指摘）。手順は
+ADD COLUMN→値コピー→TRIGGER2本の作り直し→DROP COLUMNの順で、3番目を
+飛ばすと4番目が`no such column`で落ちることも実測した上でこの順で進めた
+（詳細はworklog参照）。
+
+`couples.anniversary_date`（NOT NULL）を`dating_date`（NULL許容）へ改名
+（マイグレーション`0012_couple_dating_date_optional.sql`。非TTY環境のため
+022と同じく`meta/`のスナップショット・journalを手動生成し、
+`pnpm generate`で「No schema changes」を確認済み）。作り直したTRIGGERは
+`couples_married_after_anniversary_*`の2本だけ（`couples_married_date_required_*`
+は対象外。タスク定義どおり）。契約は`couple.create`が空入力に、
+`coupleSchema.anniversaryDate`が`datingDate: string | null`に、
+`stats.get`のdaysTogetherに`unset`（primary_dateが指す方の日付が未設定。
+`hidden`とは別）が増えた。マイページ（`profile.tsx`）は日付未入力でも
+保存できる形にし、オンボーディング（`create.tsx`）から日付入力を消した。
+ホーム・統計ページ両方に、`unset`のときだけマイページへの導線を追加した。
+
+apps/api 288件→296件（+8）・apps/app 129件→133件（+4）すべて緑、型
+チェック・lint通過（`artifacts/023/test-results.md`）。既存の
+`couple.create`呼び出しテスト多数（authorization/couple/event/invite/
+memory/post/reaction/method-restriction）を日付引数なしの形に書き換えた。
+`migration-existing-rows.test.ts`に0012版（既存行の`anniversary_date`が
+`dating_date`へ引き継がれる）を追加。**画面は認証必須のためB（自動化）は
+実機確認ができず、`artifacts/023/manual-check.md`に確認項目を列挙した**
+（人間の起床後、022の分とまとめて依頼する）。**リモートD1への0012適用は
+Rレビュー・マージ後、人間の許可を得てから行う**（018以降の方針を維持）。
 
 ## PR #156の経緯（重要。次のセッションが同じ手戻りをしないために）
 
@@ -41,25 +73,22 @@ iOS SafariとWebKitを共有するiPhoneで016デプロイ後に確認」に分�
 
 ## 次のセッションがまずやること
 
-1. **023（付き合った日を登録時に聞かない）に着手する**（B担当。
-   `docs/tasks/023-anniversary-optional.md`参照）。**Rの先読みは前セッション
-   で済んでおり4件ともタスク定義に取り込み済み（R確認済み）。頼み直し不要**
-2. 023で特に先に確かめること2つ（Rが既に実測済み。タスクファイルにも
-   書いてある）:
-   - **`ALTER TABLE couples DROP COLUMN` がD1で通るか**を、まずローカルD1に
-     実際に流して確認する（022の「再生成して差分ゼロを見る」検証とは別物。
-     こちらは「その文がD1で実行できるか」という問い）。**「通るはずだ」で
-     進めない**（Aの指摘）。通らなければ代案（旧列を誰も読まない列として
-     残す）に切り替え、そのことを`architecture.md`4節に書く
-   - **作り直すTRIGGERは`couples_married_after_anniversary_*`の2本だけ。**
-     `couples_married_date_required_*`は`anniversary_date`を参照していない
-     ため触らない。`schema-integrity.test.ts`の期待値もこの2本の文字列
-     （`anniversary_date`→`dating_date`への書き換え）だけを直す。変わらない
-     方の期待値を書き換えると「期待値を減らして緑にする」ことになる
-3. 022で積み残した実機確認（`artifacts/022/manual-check.md`）: **項目1
-   （スマホ幅の押しやすさ）・2（iPhone Safariの慣性の感触）・3のエンジン
-   部分（Safari系）は016のデプロイ後まで人間に依頼できない。**それまでの
-   項目（10・11）はClaude in Chrome経由でBが診断できる
+1. **`gh pr checks 162`でPR #162（`023-anniversary-optional`）のCI・R
+   レビュー状況を確認する。**Rの受け入れが得られていれば
+   `gh pr merge 162 --squash --delete-branch`でmainへマージし、`state.md`・
+   `worklog.md`を更新する。まだ未レビューならRの返答を待つ（#156のときと
+   同様、Rの受け入れを待たずにマージしない。`CLAUDE.md`「Bは自分の実装を
+   自己採点しない」）
+2. PR #162がマージされたら、**人間の許可を得てリモートD1へ0012を適用する**
+   （既存行の`anniversary_date`→`dating_date`の引き継ぎを適用前後の件数・
+   値で実測確認する。019・022と同じ手順）
+3. 022・023両方の実機確認（`artifacts/022/manual-check.md`・
+   `artifacts/023/manual-check.md`）を、**人間が起きたらまとめて依頼する。**
+   022側で016のデプロイ後まで依頼できない項目（1・2・3のエンジン部分）を
+   除き、Claude in Chrome経由でBが診断できる項目は先に診断しておいてよい
+4. 022・023とも完了し次第、**次は014（ゲスト・デモ体験）に着手する**
+   （`docs/tasks/014-guest-demo.md`参照。014のシード仕様はPR #119で
+   固め済み。順序は022→023→014→015→016。着手前にRへ声をかける）
 
 ## 022の完了内容（詳細）
 
