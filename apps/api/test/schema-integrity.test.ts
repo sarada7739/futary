@@ -55,6 +55,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
       "index:posts_image_key_unique",
       "index:session_token_unique",
       "index:user_email_unique",
+      "trigger:couples_married_after_anniversary_insert",
+      "trigger:couples_married_after_anniversary_update",
       "trigger:couples_married_date_required_insert",
       "trigger:couples_married_date_required_update",
     ]);
@@ -84,5 +86,21 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(insertTrigger?.sql).toContain("WHEN NEW.primary_date = 'married' AND NEW.married_date IS NULL");
     expect(updateTrigger?.sql).toContain("BEFORE UPDATE ON `couples`");
     expect(updateTrigger?.sql).toContain("WHEN NEW.primary_date = 'married' AND NEW.married_date IS NULL");
+  });
+
+  // 019: married_dateがanniversary_dateより前にならない制約も同じ理由でTRIGGER
+  it("couples_married_after_anniversary の2本のTRIGGERが、INSERT/UPDATE両方に存在する", async () => {
+    const objects = await listIndexesAndTriggers();
+    const insertTrigger = objects.find((o) => o.name === "couples_married_after_anniversary_insert");
+    const updateTrigger = objects.find((o) => o.name === "couples_married_after_anniversary_update");
+
+    expect(insertTrigger?.sql).toContain("BEFORE INSERT ON `couples`");
+    expect(insertTrigger?.sql).toContain(
+      "WHEN NEW.married_date IS NOT NULL AND NEW.married_date < NEW.anniversary_date",
+    );
+    expect(updateTrigger?.sql).toContain("BEFORE UPDATE ON `couples`");
+    expect(updateTrigger?.sql).toContain(
+      "WHEN NEW.married_date IS NOT NULL AND NEW.married_date < NEW.anniversary_date",
+    );
   });
 });

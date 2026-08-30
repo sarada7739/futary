@@ -56,6 +56,14 @@ export const couples = sqliteTable(
       "couples_married_date_required_check",
       sql`${table.primaryDate} <> 'married' OR ${table.marriedDate} IS NOT NULL`,
     ),
+    // married_date が anniversary_date より前にならない（結婚が交際開始より前には
+    // ならない）。上と同じ理由（シードが入力スキーマを通らない2つ目の書き込み口に
+    // なる）で、入力スキーマだけでなくDB側にも表す（019・Aの決定）。
+    // 実体はTRIGGER（上のcouples_married_date_required_checkと同じ事情）
+    check(
+      "couples_married_after_anniversary_check",
+      sql`${table.marriedDate} IS NULL OR ${table.marriedDate} >= ${table.anniversaryDate}`,
+    ),
   ],
 );
 

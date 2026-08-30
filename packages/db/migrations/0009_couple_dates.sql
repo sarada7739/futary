@@ -19,4 +19,16 @@ CREATE TRIGGER `couples_married_date_required_update`
   WHEN NEW.primary_date = 'married' AND NEW.married_date IS NULL
 BEGIN
   SELECT RAISE(ABORT, 'CHECK constraint failed: couples_married_date_required');
+END;--> statement-breakpoint
+CREATE TRIGGER `couples_married_after_anniversary_insert`
+  BEFORE INSERT ON `couples`
+  WHEN NEW.married_date IS NOT NULL AND NEW.married_date < NEW.anniversary_date
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: couples_married_after_anniversary');
+END;--> statement-breakpoint
+CREATE TRIGGER `couples_married_after_anniversary_update`
+  BEFORE UPDATE ON `couples`
+  WHEN NEW.married_date IS NOT NULL AND NEW.married_date < NEW.anniversary_date
+BEGIN
+  SELECT RAISE(ABORT, 'CHECK constraint failed: couples_married_after_anniversary');
 END;

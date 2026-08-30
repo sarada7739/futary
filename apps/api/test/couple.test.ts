@@ -360,4 +360,44 @@ describe("couplesのTRIGGER（DB側の不変条件を直接確かめる）", () 
       db.prepare("UPDATE couples SET married_date = NULL WHERE id = ?1").bind(id).run(),
     ).rejects.toThrow(/constraint failed/i);
   });
+
+  // 019・Aの決定（PR #123タスク定義の更新）: married_dateがanniversary_dateより
+  // 前にならない制約も、married_date_required と同じ理由（シードは入力スキーマを
+  // 通らない書き込み口）でDB側にも表す
+  it("INSERTでmarried_dateがanniversary_dateより前だと弾かれる", async () => {
+    await expect(
+      db
+        .prepare(
+          "INSERT INTO couples (id, anniversary_date, married_date, primary_date, is_demo, created_at) VALUES (?1, '2020-01-01', '2019-12-31', 'dating', 0, 0)",
+        )
+        .bind(crypto.randomUUID())
+        .run(),
+    ).rejects.toThrow(/constraint failed/i);
+  });
+
+  it("UPDATEでmarried_dateをanniversary_dateより前の日付に変えようとすると弾かれる", async () => {
+    const id = crypto.randomUUID();
+    await db
+      .prepare(
+        "INSERT INTO couples (id, anniversary_date, married_date, primary_date, is_demo, created_at) VALUES (?1, '2020-01-01', NULL, 'dating', 0, 0)",
+      )
+      .bind(id)
+      .run();
+
+    await expect(
+      db.prepare("UPDATE couples SET married_date = '2019-12-31' WHERE id = ?1").bind(id).run(),
+    ).rejects.toThrow(/constraint failed/i);
+  });
+
+  it("married_dateとanniversary_dateが同日ならDB側でも許される（境界）", async () => {
+    const id = crypto.randomUUID();
+    await expect(
+      db
+        .prepare(
+          "INSERT INTO couples (id, anniversary_date, married_date, primary_date, is_demo, created_at) VALUES (?1, '2020-01-01', '2020-01-01', 'married', 0, 0)",
+        )
+        .bind(id)
+        .run(),
+    ).resolves.not.toThrow();
+  });
 });

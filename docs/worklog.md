@@ -4830,3 +4830,38 @@ R は「利用者が増えたときに初めて効く。**気づく時期が一�
 **R が自分の検出を「方法」ではなく「たまたま」と切り分けている。**
 今日 R は7件以上を見つけているが、そのうち仕組みで見つかるものと、
 偶然そこを読んでいたものは違う。**後者は再現しない。**
+
+## 2026-08-30 / セッションB（019: married_dateの順序制約もTRIGGER化・schema-integrityテスト追加）
+
+### やったこと
+- PR #123（A）を取り込んだところ、`docs/tasks/019-couple-and-profile-settings.md`の
+  「テストで証明すること」節が更新されており、`married_date <
+  anniversary_date`を作れないという既存の要件に**「これもTRIGGERで表す。
+  入力スキーマだけにしない」が追記されていた**ことに気づいた。従来はZodの
+  refineだけで実装していたため、`packages/db/src/schema/couple.ts`に
+  `couples_married_after_anniversary_check`を追加し（実体はTRIGGER。
+  `couples_married_date_required_check`と同じ理由・同じコメント形式）、
+  `0009_couple_dates.sql`に`couples_married_after_anniversary_insert`/
+  `_update`の2本を追加した
+- ローカルの永続D1（`.wrangler/state/v3/d1`）は0009適用済みのまま記録されて
+  いたため、マイグレーションファイルを差し替えても再適用されない
+  （D1はファイル名で適用済みを判定し、内容の変更を検知しない）。
+  ディレクトリを削除して10本すべて再適用し、4本のTRIGGERが揃っていることを
+  実測確認した
+- `docs/architecture.md`4節でAが提案した「実体とファイルのずれを1つのテストで
+  固定する」（`sqlite_master`のindex/trigger一覧を期待値と突き合わせる）を
+  `apps/api/test/schema-integrity.test.ts`として実装（前回のコミットで
+  追加済みだったものに、新しい2本のTRIGGERを反映）
+- `couple.test.ts`に新しい順序制約TRIGGERを直接検証するテストを追加
+  （INSERT・UPDATE・境界〈同日は許可〉の3件）
+- `docs/tasks/019-couple-and-profile-settings.md`の完了条件をすべてチェック
+  （人間の実機確認を除く）。`artifacts/019/`のtest-results.md・
+  manual-check.mdを更新
+- `pnpm test`・`type-check`・`lint`をルートで実行しすべて緑を確認
+  （apps/api 240→247件・apps/app 81件）
+
+### 決定事項
+- なし（Aが更新したタスク定義の要件をそのまま実装した）
+
+### 詰まった点
+- なし
