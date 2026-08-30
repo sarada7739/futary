@@ -20,7 +20,7 @@
 | `postCount` | `posts` の未削除件数 |
 | `photoCount` | `posts` の `image_key IS NOT NULL` の件数 |
 
-- 日付計算は 010 で作った `lib/date.ts` を使う。ここで `new Date()` を直接使わない
+- 日付計算は **`packages/date`** を使う。**`new Date()` / `Date.now()` を直接書かない**（`architecture.md` 2節）
 - `readProcedure` の上に載せる（デモでも見える）
 - カードのデザイン
   - 2人のアバターを並べ、間にハートを置く
