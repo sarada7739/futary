@@ -15,6 +15,8 @@ const INVITE_CODE_MAX_ATTEMPTS = 5;
 interface CoupleRow {
   id: string;
   anniversary_date: string;
+  married_date: string | null;
+  primary_date: string;
   created_at: number;
 }
 
@@ -23,8 +25,18 @@ function nowSeconds(): number {
 }
 
 function toCouple(row: CoupleRow) {
-  return { id: row.id, anniversaryDate: row.anniversary_date, createdAt: row.created_at };
+  return {
+    id: row.id,
+    anniversaryDate: row.anniversary_date,
+    marriedDate: row.married_date,
+    primaryDate: row.primary_date as "dating" | "married" | "none",
+    createdAt: row.created_at,
+  };
 }
+
+const COUPLE_COLUMNS =
+  "id AS id, anniversary_date AS anniversary_date, married_date AS married_date, " +
+  "primary_date AS primary_date, created_at AS created_at";
 
 // D1 は batch() を文のエラーでロールバックする（architecture.md 4節）。
 // couple_members の CHECK/NOT NULL/UNIQUE 違反はすべてここに来るため、
@@ -64,15 +76,15 @@ const coupleCreate = implementer.couple.create
       throw error;
     }
 
-    return { id, anniversaryDate: input.anniversaryDate, createdAt: now };
+    // couple.create時点ではmarried_date/primary_dateを受け取らない（DBの既定値
+    // married_date=NULL・primary_date='dating'のまま。019タスク定義）
+    return { id, anniversaryDate: input.anniversaryDate, marriedDate: null, primaryDate: "dating" as const, createdAt: now };
   });
 
 // ctx.coupleId はミドルウェアが解決済み（未認証ならデモペア、認証済みなら所属ペア）
 const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ context }) => {
   const row = await context.db
-    .prepare(
-      "SELECT id AS id, anniversary_date AS anniversary_date, created_at AS created_at FROM couples WHERE id = ?1",
-    )
+    .prepare(`SELECT ${COUPLE_COLUMNS} FROM couples WHERE id = ?1`)
     .bind(context.coupleId)
     .first<CoupleRow>();
 
@@ -82,16 +94,25 @@ const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ con
   return toCouple(row);
 });
 
-const coupleUpdate = implementer.couple.update.use(writeProcedure).handler(async ({ context, input }) => {
-  const row = await context.db
-    .prepare(
-      `UPDATE couples
-          SET anniversary_date = ?1
-        WHERE id = ?2
-        RETURNING id AS id, anniversary_date AS anniversary_date, created_at AS created_at`,
-    )
-    .bind(input.anniversaryDate, context.coupleId)
-    .first<CoupleRow>();
+// primary_date='married'なのにmarried_dateがNULL、という状態はDBのTRIGGERで
+// 弾かれる（packages/db/src/schema/couple.ts）。入力スキーマのrefineで通常は
+// 到達しないが、防御としてisConstraintViolationで捕捉しINVALID_INPUTにする
+const coupleUpdate = implementer.couple.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
+  let row: CoupleRow | null;
+  try {
+    row = await context.db
+      .prepare(
+        `UPDATE couples
+            SET anniversary_date = ?1, married_date = ?2, primary_date = ?3
+          WHERE id = ?4
+          RETURNING ${COUPLE_COLUMNS}`,
+      )
+      .bind(input.anniversaryDate, input.marriedDate, input.primaryDate, context.coupleId)
+      .first<CoupleRow>();
+  } catch (error) {
+    if (isConstraintViolation(error)) throw errors.INVALID_INPUT();
+    throw error;
+  }
 
   if (!row) throw new Error("couple_id に対応するペアが見つかりません");
   return toCouple(row);
@@ -237,9 +258,7 @@ const inviteAccept = implementer.invite.accept.use(authedProcedure).handler(asyn
 
   const coupleId = insertResult.results[0]?.couple_id;
   const coupleRow = await db
-    .prepare(
-      "SELECT id AS id, anniversary_date AS anniversary_date, created_at AS created_at FROM couples WHERE id = ?1",
-    )
+    .prepare(`SELECT ${COUPLE_COLUMNS} FROM couples WHERE id = ?1`)
     .bind(coupleId)
     .first<CoupleRow>();
   if (!coupleRow) throw new Error("参加したペアが見つかりません");

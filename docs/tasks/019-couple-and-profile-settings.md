@@ -126,9 +126,16 @@ CHECK (primary_date <> 'married' OR married_date IS NOT NULL)
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] Better Auth の上書き挙動を確認する
-- [ ] スキーマ + マイグレーション
-- [ ] 契約と手続き
-- [ ] マイページ UI
-- [ ] テスト
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] Better Auth の上書き挙動を確認する（`overrideUserInfoOnSignIn`未設定なら
+      上書きされない。ソース〈`oauth2/link-account.mjs`〉で確認済み）
+- [x] スキーマ + マイグレーション（0009。D1のFK制約でdrizzle-kit生成の
+      テーブル差し替え手順が使えず、ALTER TABLE ADD COLUMN + TRIGGERに
+      手で書き換えた。詳細はartifacts/019/test-results.md）
+- [x] 契約と手続き
+- [x] マイページ UI
+- [x] テスト
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+実装は完了。**完了条件の最後（人間の実機確認）だけ未達。**
+`artifacts/019/manual-check.md`参照。結婚した日が未来のケースの仕様が
+未確定のままAへ確認依頼中（worklog.md参照）

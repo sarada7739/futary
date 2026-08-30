@@ -15,10 +15,18 @@ export const statsMemberSchema = z.object({
 // 未来の日付なら「あと○日」。人間の決定（012 R経由。「あと◯日の方が親切」）で
 // 非表示ではなくこちらを採用した。「負の値を出さない」責任はサーバ側で閉じる
 // （クライアントに数値の解釈〈符号判定〉を持たせない。判別可能なunionにすることで
-// 「両方null」「両方非null」という無効な状態自体を型で排除している）
+// 「両方null」「両方非null」という無効な状態自体を型で排除している）。
+//
+// 019でcouples.primary_dateを反映するよう拡張した。
+// - married: primary_date='married'のとき。「結婚して○日目」
+// - hidden: primary_date='none'のとき。daysを含めない
+//   （含めると、非表示にしたはずの数字がレスポンスに乗って開発者ツールから
+//   見えてしまう。「恥ずかしいから隠したい」に対して隠れていないことになる）
 export const daysTogetherSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("together"), days: z.number() }),
   z.object({ status: z.literal("upcoming"), days: z.number() }),
+  z.object({ status: z.literal("married"), days: z.number() }),
+  z.object({ status: z.literal("hidden") }),
 ]);
 
 export type DaysTogether = z.infer<typeof daysTogetherSchema>;

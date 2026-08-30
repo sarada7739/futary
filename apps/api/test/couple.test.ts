@@ -180,7 +180,7 @@ describe("couple.update", () => {
 
     const updated = await call(
       router.couple.update,
-      { anniversaryDate: "2022-02-02" },
+      { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
       { context: contextFor(user) },
     );
 
@@ -191,7 +191,11 @@ describe("couple.update", () => {
     const user = await createUser();
 
     await expect(
-      call(router.couple.update, { anniversaryDate: "2022-02-02" }, { context: contextFor(user) }),
+      call(
+        router.couple.update,
+        { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
+        { context: contextFor(user) },
+      ),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 
@@ -199,7 +203,108 @@ describe("couple.update", () => {
   // DEMO_COUPLE_ID の設定有無に関係ない（test/authorization.test.ts の2番目の項目）
   it("未認証なら FORBIDDEN", async () => {
     await expect(
-      call(router.couple.update, { anniversaryDate: "2022-02-02" }, { context: contextFor(null) }),
+      call(
+        router.couple.update,
+        { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
+        { context: contextFor(null) },
+      ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+// 019: 記念日を2つ持てるようにする
+describe("couple.create / couple.get の married_date・primary_date（019）", () => {
+  it("couple.create直後はmarriedDate=null・primaryDate='dating'", async () => {
+    const user = await createUser();
+    const couple = await call(
+      router.couple.create,
+      { anniversaryDate: "2020-01-01" },
+      { context: contextFor(user) },
+    );
+
+    expect(couple.marriedDate).toBeNull();
+    expect(couple.primaryDate).toBe("dating");
+  });
+});
+
+describe("couple.update のmarried_date・primary_date検証（019）", () => {
+  it("primaryDate='married'なのにmarriedDateが無いと入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+
+    await expect(
+      call(
+        router.couple.update,
+        { anniversaryDate: "2020-01-01", marriedDate: null, primaryDate: "married" },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("primaryDate='married'かつmarriedDateがあれば更新できる", async () => {
+    const user = await createUser();
+    await call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+
+    const updated = await call(
+      router.couple.update,
+      { anniversaryDate: "2020-01-01", marriedDate: "2023-05-01", primaryDate: "married" },
+      { context: contextFor(user) },
+    );
+
+    expect(updated.marriedDate).toBe("2023-05-01");
+    expect(updated.primaryDate).toBe("married");
+  });
+
+  it("marriedDateがanniversaryDateより前だと入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+
+    await expect(
+      call(
+        router.couple.update,
+        { anniversaryDate: "2020-01-01", marriedDate: "2019-12-31", primaryDate: "married" },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("marriedDateとanniversaryDateが同日なら更新できる（境界）", async () => {
+    const user = await createUser();
+    await call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+
+    const updated = await call(
+      router.couple.update,
+      { anniversaryDate: "2020-01-01", marriedDate: "2020-01-01", primaryDate: "married" },
+      { context: contextFor(user) },
+    );
+
+    expect(updated.marriedDate).toBe("2020-01-01");
+  });
+
+  it("primaryDate='none'にできる（非表示）", async () => {
+    const user = await createUser();
+    await call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+
+    const updated = await call(
+      router.couple.update,
+      { anniversaryDate: "2020-01-01", marriedDate: null, primaryDate: "none" },
+      { context: contextFor(user) },
+    );
+
+    expect(updated.primaryDate).toBe("none");
+  });
+
+  it("不正なprimaryDateの値は入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+
+    await expect(
+      call(
+        router.couple.update,
+        // @ts-expect-error 契約はz.enum(PRIMARY_DATE_VALUES)固定。不正な値をわざと渡す
+        { anniversaryDate: "2020-01-01", marriedDate: null, primaryDate: "single" },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
   });
 });

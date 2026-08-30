@@ -95,6 +95,40 @@ describe("StatsCard", () => {
     expect(await screen.findByText("招待中")).toBeTruthy();
   });
 
+  // 019: primary_dateに従ってdaysTogetherの表示を出し分ける
+  it("primaryDate='married'（結婚した日）なら「結婚して○日目」を表示する", async () => {
+    statsGetMock.mockResolvedValue({
+      daysTogether: { status: "married", days: 100 },
+      meetupDays: 0,
+      postCount: 0,
+      photoCount: 0,
+      members: [{ userId: "u1", name: "Haruka", image: null }],
+    });
+
+    renderCard();
+
+    expect(await screen.findByText("結婚して 100日目")).toBeTruthy();
+  });
+
+  it("primaryDate='none'（hidden）なら日数の表示が出ない", async () => {
+    statsGetMock.mockResolvedValue({
+      daysTogether: { status: "hidden" },
+      meetupDays: 3,
+      postCount: 0,
+      photoCount: 0,
+      members: [{ userId: "u1", name: "Haruka", image: null }],
+    });
+
+    renderCard();
+
+    // 「会った日数：3日」は出る（daysTogetherだけが隠れる）ため、
+    // カードの読み込みを待つのはこちらで行う
+    await screen.findByText("会った日数：3日");
+    expect(screen.queryByText(/付き合って/)).toBeNull();
+    expect(screen.queryByText(/結婚して/)).toBeNull();
+    expect(screen.queryByText(/あと/)).toBeNull();
+  });
+
   it(
     "通信エラー時はカード自体を表示しない",
     async () => {

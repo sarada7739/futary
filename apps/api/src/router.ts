@@ -1,11 +1,13 @@
 import { implementer } from "./implementer";
 import { coupleProcedures, inviteProcedures } from "./procedures/couple";
+import { meProcedures } from "./procedures/me";
 import { postProcedures } from "./procedures/post";
 import { reactionProcedures } from "./procedures/reaction";
 import { eventProcedures } from "./procedures/event";
 import { postUploadUrl } from "./procedures/upload";
 import { statsProcedures } from "./procedures/stats";
 import { memoryProcedures } from "./procedures/memory";
+import { resolveUserImage } from "./lib/r2-signed-url";
 
 export type { RpcContext } from "./context";
 
@@ -18,16 +20,16 @@ const healthGet = implementer.health.get.handler(async ({ context }) => {
 const meGet = implementer.me.get.handler(async ({ context }) => {
   if (!context.user) return null;
   const { id, name, email, image } = context.user;
-  return { id, name, email, image: image ?? null };
+  // imageはGoogleの外部URLか、自分でアップロードした画像のR2キーの
+  // どちらもありうる。後者だけ署名付きGET URLへ解決する（019）
+  return { id, name, email, image: await resolveUserImage(context.r2Sign, image ?? null) };
 });
 
 export const router = implementer.router({
   health: {
     get: healthGet,
   },
-  me: {
-    get: meGet,
-  },
+  me: { get: meGet, ...meProcedures },
   couple: coupleProcedures,
   invite: inviteProcedures,
   post: { ...postProcedures, uploadUrl: postUploadUrl },

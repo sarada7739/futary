@@ -1,23 +1,260 @@
-import { Avatar, Button, Screen, space, Text } from "@futary/ui";
-import { View } from "react-native";
-import { signOut, useSession } from "../../lib/auth-client";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
+import { Avatar, Button, Card, colors, radius, Screen, space, Text } from "@futary/ui";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
+import { orpc } from "../../lib/orpc";
+import { queryClient } from "../../lib/query";
+import { signOut } from "../../lib/auth-client";
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_NAME_LENGTH = 20;
+
+type PrimaryDate = Couple["primaryDate"];
+
+// ホーム上部に何を表示するか（019）。ラベルはこの画面だけで使うため
+// event-kind.tsのような共有libには出さない
+const PRIMARY_DATE_LABELS: Record<PrimaryDate, string> = {
+  dating: "付き合った日",
+  married: "結婚した日",
+  none: "非表示",
+};
 
 export default function ProfileScreen() {
-  const { data: session } = useSession();
+  const meQuery = useQuery(orpc.me.get.queryOptions());
+  const coupleQuery = useQuery(orpc.couple.get.queryOptions());
+
+  const [name, setName] = useState("");
+  // 選び直した画像はここに置き、保存を押すまでアップロードしない
+  // （compose.tsxと同じ形。キャンセルすればアップロードされずに済む）
+  const [pendingImage, setPendingImage] = useState<SourceImage | null>(null);
+  const [anniversaryDate, setAnniversaryDate] = useState("");
+  const [marriedDate, setMarriedDate] = useState("");
+  const [primaryDate, setPrimaryDate] = useState<PrimaryDate>("dating");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  // サーバのデータが届いた最初の1回だけフォームへ反映する。以降は
+  // 利用者の入力をサーバ再取得で上書きしない（event-form.tsxのvisible再初期化とは
+  // 違い、この画面は開いたままなので「初回のみ」で揃える）
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (initializedRef.current) return;
+    if (!meQuery.data || !coupleQuery.data) return;
+    setName(meQuery.data.name);
+    setAnniversaryDate(coupleQuery.data.anniversaryDate);
+    setMarriedDate(coupleQuery.data.marriedDate ?? "");
+    setPrimaryDate(coupleQuery.data.primaryDate);
+    initializedRef.current = true;
+  }, [meQuery.data, coupleQuery.data]);
+
+  const requestUploadUrl = useMutation(orpc.me.uploadImageUrl.mutationOptions());
+  const updateMe = useMutation(orpc.me.update.mutationOptions());
+  const updateCouple = useMutation(orpc.couple.update.mutationOptions());
+  const isSubmitting = requestUploadUrl.isPending || updateMe.isPending || updateCouple.isPending;
+
+  const trimmedName = name.trim();
+  const trimmedMarriedDate = marriedDate.trim();
+  const marriedDateValid = trimmedMarriedDate.length === 0 || DATE_PATTERN.test(trimmedMarriedDate);
+  const marriedDateRequired = primaryDate === "married" && trimmedMarriedDate.length === 0;
+  const canSave =
+    trimmedName.length > 0 &&
+    trimmedName.length <= MAX_NAME_LENGTH &&
+    DATE_PATTERN.test(anniversaryDate) &&
+    marriedDateValid &&
+    !marriedDateRequired;
+
+  async function pickImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 1,
+      allowsMultipleSelection: false,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    if (!asset) return;
+    setPendingImage({ uri: asset.uri, width: asset.width, height: asset.height, mimeType: asset.mimeType });
+  }
+
+  async function handleSave() {
+    if (!canSave) return;
+    setErrorMessage(null);
+    setSavedMessage(null);
+
+    try {
+      let imageId: string | undefined;
+      if (pendingImage) {
+        const compressed = await compressImage(pendingImage);
+        const uploaded = await uploadCompressedImage(
+          (contentType) => requestUploadUrl.mutateAsync({ contentType }),
+          compressed,
+        );
+        imageId = uploaded.imageId;
+      }
+
+      await updateMe.mutateAsync({ name: trimmedName, imageId });
+      // 記念日はふたりの共有データ。変更した本人以外にも影響することが
+      // 分かるよう、保存後の文言で明示する（019タスク定義）
+      await updateCouple.mutateAsync({
+        anniversaryDate,
+        marriedDate: trimmedMarriedDate.length > 0 ? trimmedMarriedDate : null,
+        primaryDate,
+      });
+
+      setPendingImage(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: orpc.me.get.key() }),
+        queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() }),
+        queryClient.invalidateQueries({ queryKey: orpc.stats.get.key() }),
+      ]);
+      setSavedMessage("保存しました。記念日はふたりに共通する設定です");
+    } catch {
+      setErrorMessage("保存できませんでした。もう一度お試しください");
+    }
+  }
+
+  const avatarImageUrl = pendingImage?.uri ?? meQuery.data?.image ?? undefined;
 
   return (
     <Screen>
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md }}>
-        <Avatar
-          name={session?.user.name ?? "?"}
-          imageUrl={session?.user.image ?? undefined}
-          size={64}
-        />
-        <Text size="lg" weight="bold">
-          {session?.user.name ?? "マイページ"}
-        </Text>
-        <Text color="muted">{session?.user.email}</Text>
-        <View style={{ marginTop: space.xl, width: 200 }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
+          <View style={{ alignItems: "center", gap: space.md }}>
+            <Pressable onPress={pickImage} accessibilityRole="button" accessibilityLabel="アイコン画像を変更">
+              <Avatar name={name || "?"} imageUrl={avatarImageUrl} size={64} />
+            </Pressable>
+            <Button variant="ghost" onPress={pickImage}>
+              アイコン画像を変更
+            </Button>
+          </View>
+
+          <Card>
+            <View style={{ gap: space.md }}>
+              <Text weight="bold">プロフィール</Text>
+
+              <View style={{ gap: space.xs }}>
+                <Text size="sm" color="muted">
+                  名前
+                </Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="名前"
+                  placeholderTextColor={colors.textMuted}
+                  maxLength={MAX_NAME_LENGTH}
+                  testID="profile-name"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: radius.input,
+                    padding: space.md,
+                    fontSize: 16,
+                    color: colors.text,
+                  }}
+                />
+              </View>
+
+              <Text size="sm" color="muted">
+                {meQuery.data?.email}
+              </Text>
+            </View>
+          </Card>
+
+          <Card>
+            <View style={{ gap: space.md }}>
+              <Text weight="bold">記念日</Text>
+              <Text size="xs" color="muted">
+                ふたりの共有データです。変更するともう1人にも反映されます
+              </Text>
+
+              <View style={{ gap: space.xs }}>
+                <Text size="sm" color="muted">
+                  付き合った日
+                </Text>
+                <TextInput
+                  value={anniversaryDate}
+                  onChangeText={setAnniversaryDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={colors.textMuted}
+                  testID="profile-anniversary-date"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: radius.input,
+                    padding: space.md,
+                    fontSize: 16,
+                    color: colors.text,
+                  }}
+                />
+              </View>
+
+              <View style={{ gap: space.xs }}>
+                <Text size="sm" color="muted">
+                  結婚した日（任意）
+                </Text>
+                <TextInput
+                  value={marriedDate}
+                  onChangeText={setMarriedDate}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor={colors.textMuted}
+                  testID="profile-married-date"
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: radius.input,
+                    padding: space.md,
+                    fontSize: 16,
+                    color: colors.text,
+                  }}
+                />
+                {marriedDateRequired && (
+                  <Text size="xs" color="muted">
+                    「結婚した日」を表示するには、結婚した日を入力してください
+                  </Text>
+                )}
+              </View>
+
+              <View style={{ gap: space.xs }}>
+                <Text size="sm" color="muted">
+                  ホーム上部の表示
+                </Text>
+                <View style={{ flexDirection: "row", gap: space.sm }}>
+                  {PRIMARY_DATE_VALUES.map((value) => (
+                    <View key={value} style={{ flex: 1 }}>
+                      <Button
+                        variant={primaryDate === value ? "primary" : "secondary"}
+                        onPress={() => setPrimaryDate(value)}
+                        testID={`profile-primary-date-${value}`}
+                      >
+                        {PRIMARY_DATE_LABELS[value]}
+                      </Button>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </Card>
+
+          {errorMessage && (
+            <Text size="sm" color="muted">
+              {errorMessage}
+            </Text>
+          )}
+          {savedMessage && (
+            <Text size="sm" color="brand">
+              {savedMessage}
+            </Text>
+          )}
+
+          <Button onPress={handleSave} disabled={!canSave} testID="profile-save">
+            {isSubmitting ? "保存中…" : "保存する"}
+          </Button>
+
           <Button
             variant="secondary"
             onPress={async () => {
@@ -26,8 +263,7 @@ export default function ProfileScreen() {
           >
             ログアウト
           </Button>
-        </View>
-      </View>
+      </ScrollView>
     </Screen>
   );
 }

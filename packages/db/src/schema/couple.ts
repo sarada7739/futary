@@ -10,12 +10,42 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 
-export const couples = sqliteTable("couples", {
-  id: text("id").primaryKey(),
-  anniversaryDate: text("anniversary_date").notNull(),
-  isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
+export const couples = sqliteTable(
+  "couples",
+  {
+    id: text("id").primaryKey(),
+    anniversaryDate: text("anniversary_date").notNull(),
+    // 結婚した日。NULL許容（019）
+    marriedDate: text("married_date"),
+    // ホーム上部に何を表示するか。既定は'dating'（019・architecture.md 4節）
+    primaryDate: text("primary_date").notNull().default("dating"),
+    isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    // events.kindと同じ理由。未知の値が1件でも入るとstats.getの出力検証を
+    // 巻き込んで壊れる（architecture.md 4節）
+    check("couples_primary_date_check", sql`${table.primaryDate} IN ('dating', 'married', 'none')`),
+    // primary_date='married'なのにmarried_dateがNULL、という状態を作らない。
+    // 入力スキーマでも拒否するが、シードが入力スキーマを通らない2つ目の
+    // 書き込み口になるためCHECKでも表す（014と同じ理由）。
+    // 【実際のマイグレーションはこのCHECKをそのまま生成していない】
+    // couplesはcouple_members/invites/invite_failures/events/postsから
+    // FOREIGN KEYで参照される親テーブル。drizzle-kitはCHECK追加を
+    // 「新テーブルへ差し替える」手順（PRAGMA foreign_keys=OFF; ...; DROP TABLE）
+    // で生成するが、D1はこのPRAGMAを無視して常にFKを強制するため、親テーブルの
+    // DROPがFOREIGN KEY constraint failedで落ちる（実測。architecture.md 4節の
+    // 「PRAGMA foreign_keys=OFFはD1で無視される」と同根の制約）。
+    // 019のマイグレーション（0009_couple_dates.sql）はこの1点だけ手で
+    // ALTER TABLE ADD COLUMN + TRIGGER に書き換えている。この2列にまたがる
+    // 制約は同じ理由（テーブル作り直し禁止）でALTER TABLE ADD COLUMNの
+    // CHECK句にもできない（自列以外を参照するCHECKは追加できないため）
+    check(
+      "couples_married_date_required_check",
+      sql`${table.primaryDate} <> 'married' OR ${table.marriedDate} IS NOT NULL`,
+    ),
+  ],
+);
 
 // slot は 1ペア2人までを DB に担保するための列（architecture.md 4節）。
 // 空きスロットが無いと INSERT 時に NOT NULL 違反で失敗する仕組みのため、

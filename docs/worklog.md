@@ -4461,3 +4461,93 @@ B が3案を挙げた。**読み取り時に書き換える案 (b) は採れな�
 
 ### 詰まった点
 - なし
+
+## 2026-08-30 / セッションB（019実装）
+
+### やったこと
+- AがPR #121で019・020・021を起票（人間がモックアップ付きで出した新要望を
+  2タスクに分け、Bからの021要望と合わせて3タスクにした）。PR #121が
+  Bの直近のmain更新（018・fix/meetup-days）と競合していたため、
+  A側ブランチ（`docs/019-020-tasks`）にmainをローカルでマージして
+  push し直して解消（state.mdのL73〜L76が新旧で競合したため、Bの新規
+  L74をL76へ繰り下げてAの021起票で解決済みにした）。CI緑確認後
+  squash mergeし、019から着手した
+- **実装前に「Better Authがログインのたびにuser.name/user.imageを上書き
+  するか」を調査**（タスク定義の指示どおり）。`better-auth@1.7.2`の
+  `oauth2/link-account.mjs`を読み、`overrideUserInfoOnSignIn`が未設定
+  （falsy）なら再ログイン時に上書きされないことをソースで確認した。
+  `apps/api/src/auth.ts`の`socialProviders.google`はこのオプションを
+  設定していないため、既存の`user.name`/`user.image`列を直接書き換える
+  設計で問題ないと判断した
+- `packages/db/src/schema/couple.ts`に`married_date`（NULL許容）・
+  `primary_date`（既定'dating'、CHECK）を追加。`pnpm db:generate`で
+  マイグレーションを生成したところ、drizzle-kitが「新テーブルへ差し替える」
+  形（`PRAGMA foreign_keys=OFF; ...; DROP TABLE couples; ...`）を生成した。
+  **これをそのままローカルD1に当てたところ`FOREIGN KEY constraint failed`
+  で失敗した。** `couples`は`couple_members`/`invites`/`invite_failures`/
+  `events`/`posts`からFKで参照される親テーブルで、D1は
+  `PRAGMA foreign_keys=OFF`を無視して常にFKを強制するため
+  （architecture.md 4節に既にある知見と同根）、参照されている親テーブルの
+  DROPが実際に落ちることを実測で確認した
+- 対応として、`primary_date`（自列だけを参照するCHECK）は
+  `ALTER TABLE ADD COLUMN ... CHECK(...)`にそのまま追加し、
+  `married_date`との2列にまたがる制約（`primary_date='married'なら
+  married_dateが必須`）はBEFORE INSERT/UPDATEのTRIGGERで表す形に
+  手で書き換えた（`0009_couple_dates.sql`）。ローカルD1で実際に
+  検証（同値・タイブレークではなく、直接INSERT/UPDATEで違反ケース・
+  正常ケース双方を試し、エラーメッセージに「CHECK constraint failed」を
+  含めることで既存の`isConstraintViolation`がそのまま使えることも確認）
+- `packages/contract/src/couple.ts`（`marriedDate`/`primaryDate`・
+  refine2件）・`stats.ts`（`daysTogether`に`married`/`hidden`を追加。
+  `hidden`は`days`を含めない）・`me.ts`（`meUpdateContract`・
+  `meUploadImageUrlContract`を新設）を実装
+- `apps/api/src/lib/r2-signed-url.ts`に`userImageKeyFor`（`users/...`前綴り。
+  `couples/...`とは別）・`resolveUserImage`（前綴りで外部URLかR2キーかを
+  判別し、後者だけ署名付きGET URLへ解決）を追加。`me.get`・`post.list`の
+  `authorImage`・`stats.get`のメンバー`image`の3箇所すべてで使う形にし、
+  「表示名の決め方を2箇所に持たない」という019タスク定義の方針を
+  画像の解決にも適用した
+- `apps/api/src/procedures/me.ts`を新設。`me.update`は
+  `UPDATE user SET name=?1, image=COALESCE(?2, image) WHERE id=?3`で
+  imageId省略時に既存の画像を保持する形にした（`context.user.image`
+  ＝セッションにキャッシュされた値を読んで書き戻す案は、テストで
+  実際にズレが起きることに気づいて却下した。詳細は下記「詰まった点」）
+- `apps/app/app/(tabs)/profile.tsx`を全面書き換え。名前・アイコン変更、
+  付き合った日・結婚した日、ホーム上部表示の3択（`PRIMARY_DATE_VALUES`を
+  contractから再利用）を実装。`useSession`ではなく`me.get`/`couple.get`を
+  使う形にした（`useSession`はBetter Authのセッションキャッシュを返すため、
+  R2キーを署名付きURLへ解決する経路を通らない）
+- `apps/app/components/stats-card.tsx`の`daysTogetherLabel`を
+  `married`/`hidden`に対応させた（`hidden`はラベル自体を出さない）
+- テストを追加。`apps/api/test/couple.test.ts`に9件（married_date/
+  primary_dateの入力検証・境界）、`stats.test.ts`に5件
+  （computeDaysTogetherの新分岐・stats.get統合）、`authorization.test.ts`に
+  2件（me.update/me.uploadImageUrlの未認証FORBIDDEN。「新しい書き込み
+  手続きを追加したら認可テストを足す」という既存の規約に従った）、
+  `r2-signed-url.test.ts`を新設5件、`me.test.ts`に8件（me.update/
+  me.uploadImageUrl。他人の画像キーを指定してもINVALID_INPUTになることを
+  含む）。`apps/app/test/profile-screen.test.tsx`を新設9件、
+  `stats-card.test.tsx`に2件
+- `pnpm test`・`type-check`・`lint`をルートで実行しすべて緑を確認
+  （apps/api 205→234件・apps/app 69→80件）
+- `docs/tasks/019-couple-and-profile-settings.md`の進捗を更新、
+  `artifacts/019/test-results.md`・`artifacts/019/manual-check.md`を作成、
+  `docs/state.md`にL77（D1のCHECK制約に関する発見の報告）・L78
+  （結婚した日が未来のケースの仕様確認）として起票し、Aへ伝達した
+
+### 決定事項
+- なし（Aの設計をそのまま実装した。ただしD1の制約対応〈TRIGGERへの
+  書き換え〉はB独自の技術判断）
+
+### 詰まった点
+- `me.update`でimageId省略時に既存の画像を保持する実装を、当初
+  `context.user.image`（`authedProcedure`が絞り込んだセッション値）を
+  読んで書き戻す形で書いた。テスト（`apps/api/test/me.test.ts`）で
+  DBの`image`列を直接書き換えてから`me.update`を呼ぶケースを書いたところ、
+  `contextFor`ヘルパーが常に`image: null`を積む作りだったため
+  「既存の画像が保持される」ことを検証できなかった。この過程で、
+  セッション値をJS側で読んで書き戻す設計そのものが「セッションが古い
+  状態でDBだけ更新される」ケースに弱いことに気づき、
+  `UPDATE ... SET image = COALESCE(?, image)`でDBの現在値を直接使う形に
+  設計を変えて解消した（テストの都合で見つかったが、直した理由は
+  テストの都合ではなく設計自体の堅牢性）

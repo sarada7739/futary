@@ -1,7 +1,7 @@
 import { REACTION_KINDS } from "@futary/contract";
 import { implementer } from "../implementer";
 import { isConstraintViolation } from "./couple";
-import { createGetUrl, imageKeyFor, MAX_IMAGE_BYTES, type R2SignConfig } from "../lib/r2-signed-url";
+import { createGetUrl, imageKeyFor, MAX_IMAGE_BYTES, resolveUserImage, type R2SignConfig } from "../lib/r2-signed-url";
 import { readProcedure, writeProcedure } from "./base";
 
 const PAGE_SIZE = 20;
@@ -89,11 +89,14 @@ async function fetchReactionSummaries(
 // 鍵そのものはクライアントに渡さず、都度発行し直す短命URLだけを渡す
 async function toPost(row: PostRow, r2Sign: R2SignConfig, reactions: ReactionSummary[] = []) {
   const imageUrl = row.image_key ? await createGetUrl(r2Sign, row.image_key) : null;
+  // authorImageはGoogleの外部URLか、投稿者が自分でアップロードした画像の
+  // R2キーのどちらもありうる。後者だけ署名付きGET URLへ解決する（019）
+  const authorImage = await resolveUserImage(r2Sign, row.author_image);
   return {
     id: row.id,
     authorId: row.author_id,
     authorName: row.author_name,
-    authorImage: row.author_image,
+    authorImage,
     body: row.body,
     imageUrl,
     imageWidth: row.image_width,
