@@ -37,7 +37,12 @@ function FabTabButton({
     <View style={{ flex: 1, alignItems: "center" }}>
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => ({ marginTop: -20, opacity: pressed ? 0.85 : 1, ...shadow.fab })}
+        style={({ pressed }) => ({
+          marginTop: -20,
+          borderRadius: 28,
+          opacity: pressed ? 0.85 : 1,
+          ...shadow.fab,
+        })}
       >
         <Image source={iconFabPlus} style={{ width: 56, height: 56 }} resizeMode="contain" />
       </Pressable>
