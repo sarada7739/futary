@@ -176,7 +176,7 @@ B が自分で書いた実装（`post.list` / `post.delete` / `reaction.toggle`�
 | 指標 | 算出 |
 |---|---|
 | 付き合って○日目 | JSTの今日 − `couples.anniversary_date` + 1 |
-| 会った回数 | `events` の `kind = 'meetup'` の件数 |
+| 会った日数 | `events` の `kind = 'meetup'` の件数。**018 の部分 UNIQUE により1日1件なので日数と一致する**（`requirements.md` 4節） |
 | 写真の枚数 | `posts` の **未削除**かつ `image_key IS NOT NULL` の件数 |
 | 投稿数 | `posts` の未削除件数 |
 
@@ -212,7 +212,7 @@ event.create        { date, title, kind, repeatYearly, time? }
                     kind='meetup' は同じ日の既存行を上書きする
 event.update        { id, ... }
 event.delete        { id }
-stats.get           -> { daysTogether, meetupCount, postCount, photoCount }
+stats.get           -> { daysTogether, meetupDays, postCount, photoCount }
                     daysTogether は判別可能な union
                       { status: "together", days }  記念日が今日以前
                       { status: "upcoming", days }  記念日が未来（「あと○日」）
