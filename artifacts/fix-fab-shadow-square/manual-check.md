@@ -48,8 +48,25 @@ react-native-web は `shadow*` 系プロパティを CSS の `box-shadow` に変
 ブラウザでの実機確認ができない（011以降と同じ制約）。人間の実機確認を
 依頼する。
 
+## Rレビューでの追加対応
+
+Rが受け入れたうえで、任意の提案2件を出した。両方このPRに反映した。
+
+1. **`shadow`トークンに`borderRadius`と対で使う旨のコメントを追加。**
+   `packages/ui/src/tokens.ts`の`shadow`定義の直前に1行追加した。
+   `shadow`はこのリポジトリで唯一「他プロパティとの対」を要求するトークンで、
+   その要件がどこにも書かれていなかった（`Card`の実装を読めば分かるが、
+   今回のFABのように`Card`を読まない箇所では気づけない）。
+2. **FABの`56`（画像サイズ）と`28`（borderRadius）が別々の数値として
+   並んでいたのを、`FAB_SIZE`定数から両方を導出する形に変更。**
+   片方だけ変えて片方を忘れると同じ不具合が黙って戻る（テストで検出
+   できないため）ことを防ぐ。002の「FABの直径はこの1箇所でしか使わない
+   寸法なのでトークン化しない」という判断はそのまま維持し、
+   同一ファイル内の定数として関係だけを書いた。
+
 ## テスト・型チェック・lint
 
-- `pnpm --filter @futary/app run test`: 96件すべて緑（020マージ後のmainベース）。詳細は`test-results.txt`
+- `pnpm --filter @futary/app run test`: 96件すべて緑。詳細は`test-results.txt`
 - `pnpm --filter @futary/app run type-check`: 通過。詳細は`type-check-results.txt`
+- `pnpm --filter @futary/ui run type-check`: 通過（tokens.tsのコメント追加のみ）
 - `pnpm lint`: エラーなし。詳細は`lint-results.txt`
