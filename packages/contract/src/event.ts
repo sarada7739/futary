@@ -33,12 +33,6 @@ export const eventSchema = z.object({
   time: timeSchema.nullable(),
   // 設定した人の名前。null許容（LEFT JOIN。post.authorName と同じ形。018）
   createdByName: z.string().nullable(),
-  // 「ふたりの予定」（021）。kind='plan'のときだけtrueになりうる
-  isShared: z.boolean(),
-  // このイベントを閲覧者が編集・削除できるか。サーバが計算して返す
-  // （021。createdByIdは返さない。権限規則〈kind・isShared・設定者かどうか〉を
-  // クライアント側に再度書かせないため。architecture.md 5節）
-  canEdit: z.boolean(),
 });
 
 export type Event = z.infer<typeof eventSchema>;
@@ -63,8 +57,6 @@ const eventInputBaseSchema = z.object({
   repeatYearly: z.boolean(),
   // HH:MM。任意。anniversary には設定できない（下のrefine。018・architecture.md 5節）
   time: timeSchema.nullable().optional(),
-  // 「ふたりの予定」（021）。kind='plan'のときだけtrueにできる（下のrefine）
-  isShared: z.boolean(),
 });
 
 // repeatYearly は kind='anniversary' のときだけ true にできる（L67・Aの決定）。
@@ -87,18 +79,7 @@ function refineTimeKind<T extends z.ZodType<{ kind: string; time?: string | null
   });
 }
 
-// isSharedはkind='plan'のときだけtrueにできる（021。repeatYearlyと同じ形）。
-// DBのCHECK制約（events_is_shared_check）も置く。書き込み口は入力スキーマの
-// 1つしか無いため到達しないはずだが、014のシードなど入力スキーマを通らない
-// 書き込み口ができたときの備えとしてCHECKも残す（events_kind_checkと同じ理由）
-function refineIsSharedKind<T extends z.ZodType<{ kind: string; isShared: boolean }>>(schema: T) {
-  return schema.refine((value) => value.kind === "plan" || !value.isShared, {
-    message: "isSharedはkindが予定のときだけtrueにできます",
-    path: ["isShared"],
-  });
-}
-
-const eventInputSchema = refineIsSharedKind(refineTimeKind(refineRepeatYearlyKind(eventInputBaseSchema)));
+const eventInputSchema = refineTimeKind(refineRepeatYearlyKind(eventInputBaseSchema));
 
 export const eventCreateContract = oc.input(eventInputSchema).output(eventSchema).errors({
   FORBIDDEN: {},
@@ -111,7 +92,7 @@ export const eventCreateContract = oc.input(eventInputSchema).output(eventSchema
 // INVALID_INPUT は上記のバリデーションに加え、meetupを既に会った日がある
 // 日へ移そうとしたときにも返す（上書きしない。018・architecture.md 5節）
 export const eventUpdateContract = oc
-  .input(refineIsSharedKind(refineTimeKind(refineRepeatYearlyKind(eventInputBaseSchema.extend({ id: z.string() })))))
+  .input(refineTimeKind(refineRepeatYearlyKind(eventInputBaseSchema.extend({ id: z.string() }))))
   .output(eventSchema)
   .errors({
     FORBIDDEN: {},

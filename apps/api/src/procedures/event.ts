@@ -19,32 +19,16 @@ interface EventRowBase {
   kind: string;
   repeat_yearly: number;
   time: string | null;
-  is_shared: number;
 }
 
 // event.list は user を LEFT JOIN して1クエリで取れるが、event.create/update は
 // INSERT/UPDATE の RETURNING に JOIN を書けないため、名前は別途合成する（下記参照）
 interface EventRow extends EventRowBase {
   created_by_name: string | null;
-  created_by: string;
 }
 
-// 021: plan にだけ行ごとの持ち主がある。anniversary/meetupはどちらでも
-// 編集・削除できる（変えていない）。event.update/deleteのWHERE句（下記）と
-// 同じ規則をここでも計算する。「両方に同じことを書いた」ではなく
-// 「両方が同じ答えを出す」ことをテストで突き合わせる（docs/tasks/021-plan-ownership.md）。
-// viewerIdがnull（未認証のデモ閲覧者）はwriteProcedureが即FORBIDDENで弾くため、
-// kind・isSharedに関わらず常にfalse
-function computeCanEdit(kind: string, isShared: boolean, createdBy: string, viewerId: string | null): boolean {
-  if (viewerId === null) return false;
-  return kind !== "plan" || isShared || createdBy === viewerId;
-}
-
-// repeat_yearly=0 のときは date === sourceDate（射影が起きていない）。
-// createdById は返さない。権限規則（kind・isShared・設定者かどうか）を
-// クライアント側に再度書かせないため、サーバが計算したcanEditだけを返す
-// （021・architecture.md 5節）
-function toEvent(row: EventRowBase, createdByName: string | null, canEdit: boolean): Event {
+// repeat_yearly=0 のときは date === sourceDate（射影が起きていない）
+function toEvent(row: EventRowBase, createdByName: string | null): Event {
   return {
     id: row.id,
     date: row.date,
@@ -54,8 +38,6 @@ function toEvent(row: EventRowBase, createdByName: string | null, canEdit: boole
     repeatYearly: row.repeat_yearly === 1,
     time: row.time,
     createdByName,
-    isShared: row.is_shared === 1,
-    canEdit,
   };
 }
 
@@ -70,9 +52,8 @@ async function fetchUserName(db: D1Database, userId: string): Promise<string | n
 // repeat_yearly=1 の行を、範囲が触れる年それぞれに射影する（architecture.md 5節）。
 // 「射影する年を決め打ちにしない」ため year(from)〜year(to) を必ずループする。
 // 同じ記念日が2回現れることがあり、重複は除去しない
-function projectEvent(row: EventRow, from: string, to: string, viewerId: string | null): Event[] {
-  const canEdit = computeCanEdit(row.kind, row.is_shared === 1, row.created_by, viewerId);
-  const event = toEvent(row, row.created_by_name, canEdit);
+function projectEvent(row: EventRow, from: string, to: string): Event[] {
+  const event = toEvent(row, row.created_by_name);
   if (!event.repeatYearly) return [event];
 
   const { month, day } = monthDayOf(row.date);
