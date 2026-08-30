@@ -31,9 +31,13 @@
 `architecture.md` 5節のとおり CHECK を2本足す。**このタスクの作業である。**
 
 ```sql
-CHECK (repeat_yearly = 0 OR kind = 'anniversary')
-CHECK (time IS NULL OR kind <> 'anniversary')
+CHECK (repeat_yearly = 0 OR kind = 'anniversary')   -- ★ 存在しない。014 で足す（下記）
+CHECK (start_time IS NULL OR kind <> 'anniversary') -- events_start_time_check（022 で改名）
 ```
+
+**この仕様は PR #119 で凍結したが、そのあと 022（`time` → `start_time` / `end_time`）と
+023（`anniversary_date` → `dating_date`）が通っている。R が全13本のマイグレーションを
+実際に流して、3箇所のずれを見つけた。**
 
 #### 生成された SQL に `CREATE INDEX` が2本入っていることを目視で確認する
 
@@ -135,14 +139,41 @@ SELECT COUNT(*) FROM events WHERE repeat_yearly = 1 AND kind <> 'anniversary';
 #### DB の制約を通ること
 
 シードは**入力スキーマを通らない2つ目の書き込み口**である。
-018 で `events` に CHECK を足した（`architecture.md` 5節）ので、
-**`repeat_yearly = 1` の `meetup` や、時間付きの `anniversary` を書くと落ちる。**
 
-**落ちるのが正しい。**契約経由では作れないデータをシードだけが作れる状態にしない。
+**`repeat_yearly` の CHECK は存在しない。014 で足す。**
+
+R が実測した。
+
+```
+repeat_yearly=1 の meetup  -> ★ 通った（DB は弾かない）
+時間付きの anniversary      -> 弾いた（events_start_time_check）
+```
+
+`events` の CHECK は5本あるが、**`repeat_yearly` を見るものは1本も無い。**
+TRIGGER にも無い。**この仕様は、存在しない制約に乗っていた。**
+
+**足す。019 で `couples` について片付けたのと同じ形である**
+（`architecture.md` 4節。**契約経由では作れないデータを、シードだけが作れる状態にしない**）。
+
+- 名前は **`events_repeat_yearly_check`**。**CHECK には必ず名前を付ける**
+- **`events` は親表ではない**ので、表を作り直す形が通る
+- **作り直しは索引と CHECK を落とす。**`schema-integrity.test.ts` が
+  索引2本と表の CHECK を見る（022 で `type='table'` を足した）。**生成 SQL も目で確かめる**
+- **既存行を入れた状態で当てるテスト**（`conventions.md` 6節）。
+  **違反行があれば、当てる前に件数を数えて記録する**
+
+**時間付きの `anniversary` は既に弾かれる**（`events_start_time_check`）。
+
+**落ちるのが正しい。**
 - **1ヶ月前・半年前・1年前の日付に必ず投稿を置く**（013 の思い出しがデモで確実に出るように）
   - **これも乱数に頼らない。**「1ヶ月前」は `packages/date` の `monthsBefore` で
     求めた日付そのものに置く（存在しない日は月末に寄る。`architecture.md` 5節）
-- 「付き合って○日目」がそれらしい数字になるよう `anniversary_date` を設定する
+- 「付き合って○日目」がそれらしい数字になるよう **`dating_date`** を設定する
+  （**023 で `anniversary_date` から改名。しかも NULL 許容になった**）
+  - **デモペアには必ず入れる。**入れないと `daysTogether` が `unset` になり、
+    **公開デモの最初の画面に「付き合った日を設定する」の導線が出る**
+  - `primary_date` は **`dating`**（既定のまま）。`married_date` は入れない。
+    **デモで見せたいのは「付き合って○日目」である**
 
 ### シードデータの内容についての制約（`docs/security-requirements.md` 1節）
 - **実在の人物の写真を使わない**

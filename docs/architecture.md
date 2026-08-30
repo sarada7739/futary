@@ -483,6 +483,16 @@ SELECT type, name, sql FROM sqlite_master
 **期待値を減らす差分は、テストが守れない場所である**（`conventions.md` 6節）。
 **CHECK が1本減った差分は、この一覧から1行消える形で現れる。**
 
+##### 名前と実体がずれているものの一覧
+
+**直していないものは、ここに書く。**読んだ人が名前から中身を推測しないため。
+
+| 名前 | 実体 | なぜ直していないか |
+|---|---|---|
+| `couples_married_after_anniversary_insert` / `_update` | 参照している列は **`dating_date`**（023 で `anniversary_date` から改名） | **見た目だけのために動かさない。**直すにはマイグレーション追加と `schema-integrity.test.ts` の期待値書き換えが要る。**期待値を変える差分は、テストが守れない場所である**（`conventions.md` 6節）。**016 の前に無料で触れる機会があれば直す** |
+
+**RAISE の文字列も `couples_married_after_anniversary` のままである。**
+
 ##### CHECK には必ず名前を付ける
 
 **`CONSTRAINT <名前> CHECK (...)` の形で書く**（R の指摘）。
