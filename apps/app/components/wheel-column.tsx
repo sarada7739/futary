@@ -8,12 +8,6 @@ const ITEM_HEIGHT = 40;
 const VISIBLE_COUNT = 5;
 const PADDING_COUNT = Math.floor(VISIBLE_COUNT / 2);
 
-// Safari（デスクトップ・iOSとも）にscrollendが無いため、scrollが一定時間
-// 止まったところを確定として拾う（022・docs/tasks/022-time-and-date-input.md）。
-// iOSの慣性スクロールは長く続くため、短くするとPCのホイールに合わせた値では
-// iPhoneだけ「指を離した瞬間の値」になってしまう（Rレビュー指摘）
-const SETTLE_DELAY_MS = 300;
-
 export type WheelColumnProps = {
   options: readonly string[];
   value: string;
@@ -25,53 +19,36 @@ export type WheelColumnProps = {
 // 任意のoptions配列を渡せる（呼び出し側がbuildMinuteOptionsで差し込む）
 export function WheelColumn({ options, value, onChange, testID }: WheelColumnProps) {
   const scrollRef = useRef<ScrollView>(null);
-  // 開いた直後・値が外から変わった直後のscrollToは利用者の操作ではないため
-  // 確定させない（Rレビュー指摘）。このフラグが立っている間はscrollハンドラの
-  // 確定処理を無視する
-  const isInitializingRef = useRef(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedIndex = Math.max(0, options.indexOf(value));
 
   useEffect(() => {
-    isInitializingRef.current = true;
     scrollRef.current?.scrollTo({ y: selectedIndex * ITEM_HEIGHT, animated: false });
-    // scrollToが起こすscrollイベントがこのフラグを見る前に飛んでこないよう、
-    // 少し待ってから解除する
-    const timer = setTimeout(() => {
-      isInitializingRef.current = false;
-    }, 50);
-    return () => clearTimeout(timer);
     // optionsの中身が変わる（刻みに乗らない値の出入り）とインデックスがずれるため、
     // 長さも依存に含める
   }, [selectedIndex, options.length]);
 
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
-  function commit(offsetY: number) {
+  // 確定という操作を持たない。スクロール位置から、いま中央にある行を毎回
+  // そのまま値にする（022・docs/tasks/022-time-and-date-input.md「タイマーで
+  // 確定しない」。Aの決定）。iPhoneはフリック後も慣性で回り続けるため、
+  // タイマーで確定すると減速が終わる前に通り過ぎた値で確定してしまい、
+  // かつそれは016のデプロイ後まで確かめられない（開発サーバーはiPhone実機に
+  // 届かない）。画面が見せているものと保存されるものを構造として一致させ、
+  // 食い違わないことを確かめずに済む形にする（「刻みに乗らない値を丸めない」
+  // と同じ考え方）
+  function commitFromOffset(offsetY: number) {
     const index = Math.max(0, Math.min(options.length - 1, Math.round(offsetY / ITEM_HEIGHT)));
     const next = options[index];
     if (next === undefined) return;
-    // 利用者が動かした結果として選ぶ。刻みに乗らない特別行が選択肢から
-    // 消えるのはここを通った時だけ（「自分で動かしたなら利用者の操作」022）
+    // 刻みに乗らない特別行が選択肢から消えるのは、値が実際に変わった時だけ
+    // （「自分で動かしたなら利用者の操作」022）
     if (next !== value) onChange(next);
-    scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
   }
 
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    if (isInitializingRef.current) return;
-    const offsetY = e.nativeEvent.contentOffset.y;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => commit(offsetY), SETTLE_DELAY_MS);
+    commitFromOffset(e.nativeEvent.contentOffset.y);
   }
 
   function selectByPress(index: number) {
-    isInitializingRef.current = false;
-    if (timerRef.current) clearTimeout(timerRef.current);
     scrollRef.current?.scrollTo({ y: index * ITEM_HEIGHT, animated: true });
     onChange(options[index]!);
   }
