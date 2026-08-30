@@ -7,9 +7,7 @@ import { readProcedure, writeProcedure } from "./base";
 // 月グリッド（最大42日）と年表示（366日）を十分に覆う（architecture.md 5節）
 const MAX_RANGE_DAYS = 400;
 
-// created_at用のUnix秒。JSTの暦日計算ではないためpackages/date対象外
 function nowSeconds(): number {
-  // eslint-disable-next-line no-restricted-syntax
   return Math.floor(Date.now() / 1000);
 }
 

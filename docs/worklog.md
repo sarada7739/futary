@@ -3185,3 +3185,98 @@ R は「**012・013 は両側とも日付計算を使う**」と書いていた�
 ### 詰まった点
 - なし（テストの件数が減って見えたのは移動によるもので、実際には
   packages/dateに36→42件が乗っており、全体としては増えている）
+## 2026-08-30 A: ESLint 規則の指定が雑だった（`Date.now()` は禁止しない・L64）
+
+B が L63 を実装し、**私の指定した ESLint 規則が暦と無関係な既存コードまで止めた**と
+報告してきた。B は自分の判断でスコープを絞り、`eslint-disable` を9箇所に付けて通した。
+
+**B の判断の向きは正しい。ただし機構が違う。私の指定が雑だった。**
+
+### `Date.now()` を禁止する必要が無かった
+
+本番コードの使用箇所を全部見た。
+
+| 箇所 | 使い方 |
+|---|---|
+| `couple.ts` `event.ts` `post.ts` `reaction.ts` | `Math.floor(Date.now()/1000)`（`created_at`） |
+| `ulid.ts` | `generateImageId(now = Date.now())` |
+| `router.ts` | ヘルスチェックの `now: Date.now()` |
+| `invite.tsx` `post-card.tsx` | **`new Date(...)` で整形** |
+
+**上6箇所は `Date.now()` だけで、`new Date` を1つも作っていない。**
+数値を1つ返すだけで暦日を作れず、タイムゾーンも日付境界も関与しない。
+**重複しても「今日が何日か」の答えは割れない。**禁止する理由が無かった。
+
+**`new Date(...)` が境界である。**ここで初めて暦とタイムゾーンの解釈が入る。
+禁止をこちらだけにすれば、**9箇所の `eslint-disable` のうち6箇所が要らなくなる。**
+
+### 除外が9個並ぶ形にしない
+
+B の対応は「例外に理由コメントを付けて個別に通す」だった。動くが、
+**除外が増え続ける規則は、いずれ本物の違反を隠す。**
+`conventions.md` 8節でスクリーンショット要件を撤回したのと同じ理由である
+（4回中3回が例外で通る要件は統制ではない）。
+
+必要なものは `packages/date` に関数として置き、そこを通す形にする。
+
+### 残る2箇所を調べたら、別の不具合が出た（L64）
+
+`invite.tsx` と `post-card.tsx` の `new Date(...)` は表示用の整形だった。
+そして **`toLocaleString` / `toLocaleDateString` は `timeZone` を指定しなければ
+端末のタイムゾーンで解釈される。**ロケールが `ja-JP` でもタイムゾーンは端末のものになる。
+
+このアプリは **JST 固定**である（`conventions.md` 6節）。
+端末が別のタイムゾーンにあると**投稿の日付が1日ずれて表示される。**
+利用者2人が日本に居る間は顕在化しないが、**014 のデモは公開前提であり、
+海外から見た面接官には別の日付が見える。**
+
+整形も `packages/date` に置いて JST を明示すれば、この2箇所も片付き、
+**`eslint-disable` は0個になる。**L64 として起票した。
+
+### 規則が実際に機能した
+
+B が ESLint を走らせたところ、`packages/contract/src/couple.ts` に
+**`todayJst` の3つ目の重複実装**（`todayInJst`）が機械的に見つかった。
+
+私は2つだと思っていた。**規約に書くだけでは見つからなかったものが、
+機械的な検査で出た。**L26（`Button` の二重発火）で「規約を書いただけでは遡及しない」と
+書いたのと同じことが、逆向きに確認された形になる。
+
+---
+
+## 2026-08-30 / セッションB（fix/date-package-migration・訂正反映）
+
+### やったこと
+- RがPR #92を受け入れ（必須修正なし）つつ、`post-card.tsx`・`invite.tsx`の
+  `toLocaleDateString`/`toLocaleString`が`timeZone`未指定で端末依存になっている
+  不具合を発見・報告してきた
+- ほぼ同時にAからも、ESLintルールの指定（`new Date()`と`Date.now()`両方禁止）が
+  雑だったという訂正（PR #93）が届いた。`Date.now()`は暦日を作らないため禁止不要、
+  `new Date(...)`だけが境界という訂正で、Rが見つけた不具合と同じ2箇所
+  （`invite.tsx`・`post-card.tsx`）が原因だと特定されていた（L64として起票）
+- PR #93を`main`へsquash merge。`fix/date-package-migration`に`main`をマージし、
+  `docs/state.md`のL63/L64行が競合したので解消した（同じ話題の別表現のため
+  1つにまとめる。conventions.md 9節）
+- `packages/date`に`formatJstDate`/`formatJstDateTime`を新設（`timeZone:
+  "Asia/Tokyo"`を明示）。境界時刻（`2026-03-15T23:30:00Z` = JST
+  `2026-03-16 08:30`）でテストを追加し、UTCでは前日でもJSTの日付を返すことを固定した
+- ESLintルールを`new Date(...)`のみの禁止に変更し、`Date.now()`のCallExpression
+  規則を削除
+- 前回付けた9箇所の`eslint-disable-next-line`のうち、`Date.now()`だけを使う
+  7箇所（`ulid.ts`・`couple.ts`/`event.ts`/`post.ts`/`reaction.ts`の
+  `nowSeconds()`・`router.ts`・`post-card.tsx`の`relativeTimeFrom`のデフォルト
+  引数）から`eslint-disable`と「packages/date対象外」コメントを削除（不要になった）
+- 残り2箇所（`invite.tsx`の有効期限表示・`post-card.tsx`の7日超の日付表示）を
+  `formatJstDate`/`formatJstDateTime`を使う形に置き換え、`eslint-disable`を
+  0個にした
+- 型チェック（全ワークスペース）・lint・テスト
+  （packages/date 44・apps/app 51・apps/api 154・packages/ui 7、すべて緑）を確認
+
+### 決定事項
+- なし（Aの訂正をそのまま反映した）
+
+### 詰まった点
+- `docs/state.md`のL63/L64行がAの`main`側編集と自分のブランチ側編集で競合した。
+  同じ話題（`packages/date`集約）の別表現だったため、`conventions.md`9節の
+  「同じ事実の別表現なら正典を決めて1つにする」に従い、実装完了後の状態を
+  正確に反映する形で1本化した

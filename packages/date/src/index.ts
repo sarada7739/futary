@@ -1,7 +1,9 @@
 // JST（Asia/Tokyo）固定の日付ユーティリティ（architecture.md 5節）。
 // サーバ（apps/api）とクライアント（apps/app）の両方から参照する単一の源。
-// `new Date()` / `Date.now()` はこのパッケージの外で直接使わない
-// （ESLint で縛る。architecture.md 5節「日付計算は packages/date に置く」）。
+// `new Date(...)` はこのパッケージの外で直接使わない（ESLint で縛る。
+// architecture.md 5節「日付計算は packages/date に置く」）。`Date.now()` は
+// 数値を1つ返すだけで暦日を作らないため対象外（タイムゾーンも日付境界も
+// 関与しない。禁止するのは暦とタイムゾーンの解釈が入る `new Date(...)`）。
 //
 // Asia/Tokyo は夏時間を持たないため、UTC+9固定のオフセットで正しい。
 // 実行時刻に依存する関数は `nowMs` を引数で受け取れるようにし、テストで
@@ -9,6 +11,7 @@
 
 const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const JST_TIME_ZONE = "Asia/Tokyo";
 
 export interface DateParts {
   year: number;
@@ -143,4 +146,17 @@ export function yearsBetween(from: string, to: string): number[] {
   const years: number[] = [];
   for (let year = fromYear; year <= toYear; year++) years.push(year);
   return years;
+}
+
+// Unix秒をJST固定の日時文字列に整形する（招待コードの有効期限表示等）。
+// `timeZone` を指定しない `toLocaleString` は端末のタイムゾーンで解釈される
+// （ロケールが ja-JP でもタイムゾーンは別）ため、ここで明示する（L64）
+export function formatJstDateTime(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toLocaleString("ja-JP", { timeZone: JST_TIME_ZONE });
+}
+
+// Unix秒をJST固定の日付文字列に整形する（投稿の相対時刻表示が7日を超えたとき等）。
+// formatJstDateTime と同じ理由でタイムゾーンを明示する（L64）
+export function formatJstDate(unixSeconds: number): string {
+  return new Date(unixSeconds * 1000).toLocaleDateString("ja-JP", { timeZone: JST_TIME_ZONE });
 }

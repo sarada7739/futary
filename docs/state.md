@@ -4,20 +4,29 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-08-30 / セッションB（**`packages/date`への日付計算の集約
-（L63）を実装した（ブランチ`fix/date-package-migration`。Aの設計をPR #91で
+（L63・L64）を実装した（ブランチ`fix/date-package-migration`。Aの設計をPR #91で
 mainへ反映済み、実装はこのブランチ）。** `todayJst`/`diffDays`/`addDays`/
 `dayOfWeek`/`isLeapYear`/`daysInMonth`/`addMonths`/`monthsBefore`/`yearsBefore`/
-`monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`を新パッケージへ集約し、
-`apps/api`（`event.ts`）・`apps/app`（`lib/calendar.ts`。グリッド構築のみ残す）
-から参照する形にした。`new Date()`/`Date.now()`を`packages/date`の外で禁止する
-ESLintルール（`no-restricted-syntax`）を追加。**このルールを実際に走らせたところ、
-`packages/contract/src/couple.ts`の`anniversaryDateSchema`に`todayJst`の
-3つ目の重複実装（`todayInJst`）が機械的に見つかった**（011でのB自身の気づき・
-Rのレビュー指摘に続く3例目）。こちらも`@futary/date`（`todayJst`・新設した
-`isValidDate`）を使う形に直した。テストはpackages/date 42件（新設）・
-apps/app 51件（-4。todayJst/addMonthsのテストを移動）・apps/api 154件
-（-27。date.test.tsを移動）・packages/ui 7件すべて緑、型チェック・lint通過。
-**次はレビューを経てマージし、その後M3の012（統計カード）に着手する。**
+`monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`/`formatJstDate`/
+`formatJstDateTime`を新パッケージへ集約し、`apps/api`（`event.ts`）・
+`apps/app`（`lib/calendar.ts`。グリッド構築のみ残す。`invite.tsx`・
+`post-card.tsx`の日付表示整形）から参照する形にした。**`new Date(...)`を
+`packages/date`の外で禁止するESLintルール（`no-restricted-syntax`）を追加。**
+当初`Date.now()`も対象にしたが、AがPR #93で訂正（数値を1つ返すだけで暦日を
+作らずタイムゾーンも関与しないため禁止不要。境界は`new Date(...)`の方）。
+これによりB独自の判断だった「Unix秒/ミリ秒利用9箇所への理由コメント付き
+eslint-disable」も不要になり、`invite.tsx`・`post-card.tsx`の2箇所は
+`packages/date`の整形関数に置き換えて`eslint-disable`ゼロで通る形にした。
+**この過程でRが、その2箇所が`timeZone`未指定のため端末のタイムゾーンで
+日付がずれる不具合を発見（L64）。**`formatJstDate`/`formatJstDateTime`で
+`timeZone: "Asia/Tokyo"`を明示して解消した。また、ESLintルールを実際に
+走らせたところ`packages/contract/src/couple.ts`の`anniversaryDateSchema`に
+`todayJst`の3つ目の重複実装（`todayInJst`）が機械的に見つかった
+（011でのB自身の気づき・R-36に続く3例目）。こちらも`@futary/date`
+（`todayJst`・新設した`isValidDate`）を使う形に直した。テストは
+packages/date 44件（新設）・apps/app 51件（-4）・apps/api 154件（-27）・
+packages/ui 7件すべて緑、型チェック・lint通過。
+**次はRへ再度確認を依頼し、マージ後にM3の012（統計カード）に着手する。**
 
 011（カレンダーUI）はRの受け入れを得てmainへマージ済み（PR #89）。ブランチも
 削除済み。`apps/app/lib/calendar.ts`（月グリッドの日付計算。日〜土、A実測の
@@ -426,7 +435,8 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | ~~L61~~ | ~~`apps/api/src/lib/date.ts` の `monthsBefore` は、日が月末を超える場合（例: `2026-03-31` の1ヶ月前）に JS の `Date` の自動繰り上げに任せており、`2026-03-03` を返す（月末〈2/28〉に寄せない）〜利用者からは誤りに見えうる（010 Rレビュー指摘）~~ → **解決（2026-08-30）。月末に寄せる。** Aが「存在しない日付は、その月の末日に寄せる」を一般則として`architecture.md` 5節に新設した（PR #87）。010のうるう日規則（`projectMonthDay`）は「別の問題」ではなく**同じ問題**だった（`2028-02-29`の1年前が素の`Date`だと`2027-03-01`になり、射影規則の`02-28`と正面から矛盾する）。`projectMonthDay`を一般化（`daysInMonth`でクランプ）し、`monthsBefore`/`yearsBefore`ともこれを通す形に統一した。テストも期待値を差し替えて反映済み（178→181件） | | 解決済み（2026-08-30。PR #87・010の中で反映） |
 
 | L62 | 011（カレンダーUI）はコード側完了だが、画面が認証必須（`Stack.Protected guard={hasCouple}`）のためB（自動化）は実機確認ができない。自動テスト（画面結合8件）はoRPCクライアントをモックしており、サーバとの契約・実際の見た目・スマホ幅での窮屈さは未検証 | 前月・翌月ナビゲーション、イベントのD1への実反映、種別マーカーの色の見分けやすさ、繰り返し記念日の実データでの表示（削除時に全年から消えることが分かるか。R-37）が未確認のままM3の他タスクへ進むことになる | **M3の受け入れでまとめて回収する**（017のL59とまとめる回収と同じ形）。確認項目は`artifacts/011/manual-check.md`参照 |
-| ~~L63~~ | ~~日付計算が `apps/app/lib/calendar.ts` と `apps/api/src/lib/date.ts` の2箇所に分かれている~~ → **解決・実装済み（`fix/date-package-migration`）。**`packages/date` を新設し、`todayJst`/`diffDays`/`addDays`/`dayOfWeek`/`isLeapYear`/`daysInMonth`/`addMonths`/`monthsBefore`/`yearsBefore`/`monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`を集約した。`apps/api`（`event.ts`）・`apps/app`（`lib/calendar.ts`。グリッド構築のみ残し、日付計算はすべて`@futary/date`経由に）が参照する。ESLintで`new Date()`/`Date.now()`を`packages/date`の外で禁止（`no-restricted-syntax`。テストファイルは対象外、Unix秒/ミリ秒を扱うだけの正当な用途は理由コメント付き`eslint-disable-next-line`）。**このルールを入れて実際にlintを走らせたところ、`packages/contract/src/couple.ts`（`anniversaryDateSchema`）に`todayJst`の3つ目の重複実装（`todayInJst`）が見つかった。**011のB自身の気づきとは別に、ESLintルールが機械的に発見した実例。こちらも`@futary/date`（`todayJst`・新設した`isValidDate`）を使う形に直した。`packages/contract`は`@futary/date`に依存するが、日付ユーティリティ自体はコレクションに含めない（Aの方針どおり）。テストは packages/date 42件（新設）・apps/app 51件（-4。todayJst/addMonthsのテストをpackages/dateへ移動）・apps/api 154件（-27。date.test.tsをpackages/dateへ移動）・packages/ui 7件すべて緑 | | 解決済み・実装済み |
+| ~~L64~~ | ~~表示用の日付整形が端末のタイムゾーンで行われている。~~ `apps/app/app/(onboarding)/invite.tsx`（招待コードの有効期限）と `apps/app/components/post-card.tsx`（投稿の日付）が `toLocaleString("ja-JP")` / `toLocaleDateString("ja-JP")` を `timeZone` 指定なしで呼んでいた（ロケールは ja-JP でもタイムゾーンは端末のもの） → **解決・実装済み（`fix/date-package-migration`）。** `packages/date` に `formatJstDateTime`/`formatJstDate` を新設し、`timeZone: "Asia/Tokyo"` を明示。両呼び出し箇所をこれに置き換えた。JST/UTCの境界時刻（`2026-03-15T23:30:00Z` = JST `2026-03-16 08:30`）でテストを追加し、端末のタイムゾーンに関わらずJST基準の日付になることを固定した | | 解決済み・実装済み |
+| ~~L63~~ | ~~日付計算が `apps/app/lib/calendar.ts` と `apps/api/src/lib/date.ts` の2箇所に分かれている~~ → **解決・実装済み（`fix/date-package-migration`）。**`packages/date` を新設し、`todayJst`/`diffDays`/`addDays`/`dayOfWeek`/`isLeapYear`/`daysInMonth`/`addMonths`/`monthsBefore`/`yearsBefore`/`monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`/`formatJstDate`/`formatJstDateTime`を集約した。`apps/api`（`event.ts`）・`apps/app`（`lib/calendar.ts`。グリッド構築のみ残し、日付計算はすべて`@futary/date`経由に）が参照する。**ESLintで`new Date(...)`のみを`packages/date`の外で禁止**（`no-restricted-syntax`。当初`Date.now()`も対象にしたが、暦日を作らずタイムゾーンも関与しないため不要とAが訂正した〈L64と同じPR #93〉。テストファイルは対象外）。**このルールを入れて実際にlintを走らせたところ、`packages/contract/src/couple.ts`（`anniversaryDateSchema`）に`todayJst`の3つ目の重複実装（`todayInJst`）が見つかった。**011のB自身の気づき、Rのレビュー指摘（R-36）に続く3例目で、ESLintルールが機械的に発見した唯一の例。こちらも`@futary/date`（`todayJst`・新設した`isValidDate`）を使う形に直した。`packages/contract`は`@futary/date`に依存するが、日付ユーティリティ自体はコレクションに含めない（Aの方針どおり）。テストは packages/date 44件（新設）・apps/app 51件（-4。todayJst/addMonthsのテストをpackages/dateへ移動）・apps/api 154件（-27。date.test.tsをpackages/dateへ移動）・packages/ui 7件すべて緑 | | 解決済み・実装済み |
 
 ## 決まっていることの要約
 

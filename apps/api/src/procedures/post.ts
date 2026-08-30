@@ -31,9 +31,7 @@ const POST_COLUMNS =
   "posts.image_width AS image_width, posts.image_height AS image_height, posts.created_at AS created_at";
 const POST_FROM = "posts LEFT JOIN user ON user.id = posts.author_id";
 
-// created_at用のUnix秒。JSTの暦日計算ではないためpackages/date対象外
 function nowSeconds(): number {
-  // eslint-disable-next-line no-restricted-syntax
   return Math.floor(Date.now() / 1000);
 }
 

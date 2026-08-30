@@ -4,6 +4,8 @@ import {
   addMonths,
   dayOfWeek,
   diffDays,
+  formatJstDate,
+  formatJstDateTime,
   isLeapYear,
   isValidDate,
   monthDayOf,
@@ -79,6 +81,21 @@ describe("dayOfWeek", () => {
 
   it("土曜は6", () => {
     expect(dayOfWeek("2026-02-07")).toBe(6);
+  });
+});
+
+describe("formatJstDate / formatJstDateTime", () => {
+  // L64（Rレビュー指摘）: timeZoneを明示しないtoLocaleDateString/toLocaleStringは
+  // 端末のタイムゾーンで解釈され、JST基準の投稿日付が1日ずれる不具合があった。
+  // 2026-03-15T23:30:00Z はJSTでは2026-03-16 08:30（UTCでは前日のまま）
+  const unixSeconds = Date.UTC(2026, 2, 15, 23, 30, 0) / 1000;
+
+  it("formatJstDate はUTCで前日でもJSTの日付を返す", () => {
+    expect(formatJstDate(unixSeconds)).toBe("2026/3/16");
+  });
+
+  it("formatJstDateTime もJSTの日付・時刻を返す", () => {
+    expect(formatJstDateTime(unixSeconds)).toBe("2026/3/16 8:30:00");
   });
 });
 
