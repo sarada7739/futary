@@ -6563,3 +6563,37 @@ D1の`exec()`は改行区切りで文を解釈するため、複数行に整形�
 
 **適用に人間の許可を取るのはこれまでどおり。許可を取る順番であって、
 確認の順番ではない。**
+
+## 2026-08-31 セッションB: リモートD1へ0011を当てる前の件数確認（Rの指摘）
+
+`0011`は`events_start_time_check`（記念日には時刻を付けられない）を新しく
+DB側の制約として足す（018ではZodにしか無かった）。**この条件に反する行が
+既にあると、`INSERT INTO __new_events ... SELECT`がCHECK違反で失敗する。**
+`DROP TABLE`の手前で止まるためデータは失われないが、`__new_events`が残った
+まま止まる（021の0010でRが実行して確認したのと同じ形）。
+
+適用前にリモートD1で確認した（読み取り専用）。
+
+```sql
+SELECT COUNT(*) AS total,
+       SUM(CASE WHEN time IS NOT NULL THEN 1 ELSE 0 END) AS with_time,
+       SUM(CASE WHEN kind='anniversary' AND time IS NOT NULL THEN 1 ELSE 0 END) AS anniversary_with_time
+  FROM events;
+-- total: 5, with_time: 2, anniversary_with_time: 0
+```
+
+**`anniversary_with_time`が0だったため、0011はCHECK違反なく通る見込み。**
+0だったことも記録として残す（次に同じ形のCHECK制約を足す人のため）。
+
+**適用前に数えたのは「違反の有無」、適用後に数えるのは「移行の完全性」で、
+別のものを数える**（Rの指摘）。適用後は以下を確認する。
+
+```sql
+SELECT COUNT(*) FROM events;                     -- 5のまま（行が消えていない）
+SELECT COUNT(*) FROM events WHERE start_time IS NOT NULL;  -- 2（timeの値が移った）
+SELECT COUNT(*) FROM events WHERE end_time IS NOT NULL;    -- 0（新設列。SELECT側にNULLを直接書いた）
+```
+
+人間へ(1)リモートD1への0011適用の許可 (2)適用後の実機確認、の2つを
+一度に依頼する（architecture.md 8節。マージ後・実機確認前にリモートを
+最新にする）。
