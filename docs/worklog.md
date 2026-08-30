@@ -6599,5 +6599,18 @@ SELECT COUNT(*) FROM events WHERE end_time IS NOT NULL;     -- 期待値: 0（�
 
 人間へ(1)リモートD1への0011適用の許可 (2)適用後の実機確認、の2つを
 一度に依頼した（architecture.md 8節。マージ後・実機確認前にリモートを
-最新にする）。**この時点ではまだ0011を適用していない**（人間の許可待ち）。
-実測値は許可が得られ次第、適用後にこの節へ追記する。
+最新にする）。
+
+**人間の許可を得て、`wrangler d1 migrations apply futary-db --remote`で
+0011を適用した。実測値（適用後）:**
+
+```sql
+SELECT COUNT(*) AS total,
+       SUM(CASE WHEN start_time IS NOT NULL THEN 1 ELSE 0 END) AS with_start_time,
+       SUM(CASE WHEN end_time IS NOT NULL THEN 1 ELSE 0 END) AS with_end_time
+  FROM events;
+-- 実測: total: 5, with_start_time: 2, with_end_time: 0
+```
+
+**期待値と完全に一致した。**`migrations list --remote`で未適用が無いことも
+確認済み。
