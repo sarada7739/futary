@@ -82,7 +82,21 @@ export function EventForm({
   function selectKind(nextKind: EventKind) {
     setKind(nextKind);
     if (nextKind !== "plan") setIsShared(false);
+    // 021: 自分を締め出す更新を、押す前に止める（サーバのWHERE句と対になる
+    // UI側の備え。docs/tasks/021-plan-ownership.md「画面で先に止める」）。
+    // 元がすでに「非共有のplan」だった場合だけ、この画面を開けている時点で
+    // 自分が設定者だと確定する（canEditのゲートで非設定者は編集画面自体を
+    // 開けない）。それ以外（新規作成・記念日や会った日からの変更・共有中の
+    // planの編集）は、設定者かどうかをこの画面からは判定できないため、
+    // planを選んだ時点で「ふたりの予定」を立てたまま固定する
+    else if (!(mode === "create" || (defaultKind === "plan" && defaultIsShared === false))) {
+      setIsShared(true);
+    }
   }
+
+  // 上と同じ判定。ロック中はチェックボックス自体を操作不能にする
+  const isSharedLocked =
+    kind === "plan" && !(mode === "create" || (defaultKind === "plan" && defaultIsShared === false));
 
   const trimmedTitle = title.trim();
   const trimmedTime = time.trim();
@@ -219,12 +233,15 @@ export function EventForm({
                   <Button
                     variant={isShared ? "primary" : "secondary"}
                     onPress={() => setIsShared((v) => !v)}
+                    disabled={isSharedLocked}
                     testID="event-form-is-shared"
                   >
                     {isShared ? "✓ ふたりの予定" : "ふたりの予定にする"}
                   </Button>
                   <Text size="xs" color="muted">
-                    チェックすると、相手も編集・削除できるようになります
+                    {isSharedLocked
+                      ? "この予定はふたりの予定のまま保存されます"
+                      : "チェックすると、相手も編集・削除できるようになります"}
                   </Text>
                 </View>
               )}

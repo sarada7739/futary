@@ -151,9 +151,21 @@ const eventCreate = implementer.event.create.use(writeProcedure).handler(async (
 // （006の post.delete と同じ形）。他ペアのイベントID・存在しないID・権限が無い
 // 場合はすべて更新件数0となり、区別せず NOT_FOUND を返す（docs/tasks/021-plan-ownership.md。
 // 「書き込みが0件で終わったあとに理由を調べない」——2段階と区別している）。
-// 権限規則（kind <> 'plan' OR is_shared = 1 OR created_by = ?）はevent.deleteの
-// WHERE句と文言をそろえている。片方だけ変えると消せてしまうため、テストで
-// 両方を同じ表（kind × is_shared × 設定者かどうか）で突き合わせる
+//
+// WHERE には2つの条件を入れる（security-auditor指摘。security-requirements.md
+// 3節項目8）。
+// (1) 更新前の行に対する権限（kind <> 'plan' OR is_shared = 1 OR created_by = ?）。
+//     event.deleteのWHERE句と文言をそろえている。片方だけ変えると消せてしまう
+// (2) 更新後の状態でも実行者自身が編集できることを要求する
+//     （?newKind <> 'plan' OR ?newIsShared = 1 OR created_by = ?）。
+//     同じUPDATE文でkind自体も変えられるため、(1)だけだと「記念日・会った日
+//     〈どちらでも編集できる〉を、設定者でない側が編集し、その場でkindを
+//     plan・is_sharedを0にする」という経路で自分自身を締め出せてしまう
+//     （021以前は全kindがどちらでも編集できたため無害だったが、持ち主の概念を
+//     入れたことで権限を奪う手段になった）。「誰かが誰かを締め出す」のではなく
+//     「自分を締め出す更新を拒む」形にすることで、2段階にせず1文のままで表せる
+//     （新しいkind・is_sharedは入力に、created_byは行にあるため読み足しが無い）。
+//     event.deleteには不要（削除は状態を変えないため「更新後」が無い）
 const eventUpdate = implementer.event.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
   const repeatYearly = input.repeatYearly ? 1 : 0;
@@ -168,6 +180,7 @@ const eventUpdate = implementer.event.update.use(writeProcedure).handler(async (
             SET date = ?1, title = ?2, kind = ?3, repeat_yearly = ?4, time = ?5, is_shared = ?6
           WHERE id = ?7 AND couple_id = ?8
             AND (kind <> 'plan' OR is_shared = 1 OR created_by = ?9)
+            AND (?3 <> 'plan' OR ?6 = 1 OR created_by = ?9)
          RETURNING id AS id, date AS date, title AS title, kind AS kind,
                    repeat_yearly AS repeat_yearly, time AS time, is_shared AS is_shared,
                    created_by AS created_by`,
