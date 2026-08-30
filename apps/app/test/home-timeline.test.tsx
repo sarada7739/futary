@@ -6,14 +6,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // （007の決定。conventions.md 6節）ため、oRPC クライアントをモックして
 // react-native-web + jsdom 上でTanStack Queryの実挙動と組み合わせて検証する。
 // モックする以上サーバとの契約自体は検証していない（実機確認で見る）
-const { listMock, createMock, deleteMock, toggleReactionMock, pushMock, backMock } = vi.hoisted(() => ({
-  listMock: vi.fn(),
-  createMock: vi.fn(),
-  deleteMock: vi.fn(),
-  toggleReactionMock: vi.fn(),
-  pushMock: vi.fn(),
-  backMock: vi.fn(),
-}));
+const { listMock, createMock, deleteMock, toggleReactionMock, statsGetMock, pushMock, backMock } = vi.hoisted(
+  () => ({
+    listMock: vi.fn(),
+    createMock: vi.fn(),
+    deleteMock: vi.fn(),
+    toggleReactionMock: vi.fn(),
+    statsGetMock: vi.fn(),
+    pushMock: vi.fn(),
+    backMock: vi.fn(),
+  }),
+);
 
 vi.mock("expo-router", () => ({
   useRouter: () => ({ push: pushMock, back: backMock }),
@@ -56,6 +59,9 @@ vi.mock("../lib/orpc", async () => {
     reaction: {
       toggle: toggleReactionMock,
     },
+    stats: {
+      get: statsGetMock,
+    },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
@@ -83,6 +89,16 @@ function makePost(overrides: Partial<Record<string, unknown>> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   queryClient.clear();
+  // ホーム画面が012でStatsCardを組み込んだため、投稿一覧のテストが壊れないよう
+  // 既定値を用意する（このファイルの主眼は投稿一覧であり、統計カード自体の
+  // 検証はstats-card.test.tsxで行う）
+  statsGetMock.mockResolvedValue({
+    daysTogether: { status: "together", days: 1 },
+    meetupCount: 0,
+    postCount: 0,
+    photoCount: 0,
+    members: [{ userId: "me", name: "自分", image: null }],
+  });
 });
 
 describe("HomeScreen", () => {

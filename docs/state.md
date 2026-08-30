@@ -3,8 +3,28 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-30 / セッションB（**`packages/date`への日付計算の集約
-（L63・L64）、Rの受け入れを得てmainへマージ済み（PR #92）。ブランチも削除済み。**
+**最終更新**: 2026-08-30 / セッションB（**012（ペア統計カード）を実装し、
+Rへレビュー依頼済み**（ブランチ`task/012-stats-card`）。`stats.get`（新規。
+`daysTogether`を判別可能なunion`{status:"together",days}` /
+`{status:"upcoming",days}`で返す）・`apps/app/components/stats-card.tsx`
+（2人のアバター・ハート・大きい日数表示）を実装し、ホーム最上部に組み込んだ。
+**着手前にRが3件を先読み指摘**: L65（`photoCount`に`deleted_at IS NULL`が
+無い。Aの誤りと判明、`architecture.md`4節も含めて修正）・L66（記念日が未来の
+日付のときの扱いが未決定。人間が「あと○日」を採用と決定。Aが
+`anniversaryDateSchema`の上限を「今日まで」から「1年後まで」に緩和する判断を
+追加し、`upcoming`分岐を実際に到達可能にした）・L67（`repeatYearly`が`kind`に
+依存せず立てられる件。入力スキーマで`kind==='anniversary' || !repeatYearly`を
+強制する形で解決）。**3件とも実装まで完了。**`computeDaysTogether`をexportし、
+off-by-onの境界（today/tomorrow双方）を純粋関数として直接テストした
+（Rの指摘: 片側だけだと見逃す）。テストはapps/api 176件（+22）・
+apps/app 56件（+5）すべて緑、型チェック・lint通過。**カレンダー画面と同様、
+ホーム画面は認証必須のためB（自動化）は実機確認ができない**
+（`artifacts/012/manual-check.md`。L68として起票。M3受け入れでまとめて回収）。
+
+以下は011・packages/date移行の完了記録（過去の記録として残す）。
+
+`packages/date`への日付計算の集約（L63・L64）は、Rの受け入れを得てmainへ
+マージ済み（PR #92）。ブランチも削除済み。
 `todayJst`/`diffDays`/`addDays`/
 `dayOfWeek`/`isLeapYear`/`daysInMonth`/`addMonths`/`monthsBefore`/`yearsBefore`/
 `monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`/`formatJstDate`/
@@ -29,8 +49,6 @@ packages/ui 7件すべて緑、型チェック・lint通過。**Rの受け入れ
 本番コードの`eslint-disable`が0件であることをRが`git grep`で確認済み。
 JST/UTC境界時刻のテスト（`timeZone`指定を外すとCI環境〈UTC〉では落ちる形）を
 Rが「環境から借りた正しさではなく、明示した正しさを固定している」と評価。
-**次はM3の012（統計カード）に着手する。** `daysTogether`は`packages/date`の
-`diffDays`を使う想定（012タスクファイルはAが既に参照先を書き換え済み）。
 
 011（カレンダーUI）はRの受け入れを得てmainへマージ済み（PR #89）。ブランチも
 削除済み。`apps/app/lib/calendar.ts`（月グリッドの日付計算。日〜土、A実測の
@@ -276,7 +294,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 |---|---|---|---|
 | M1 | 001〜005 | 足回り・デザイン基盤・認証・ペア成立・認可 | **完了**（2026-08-29、人間の受け入れ確認済み） |
 | M2 | 006〜009 | 投稿・画像・タイムライン・リアクション | **完了**（2026-08-30、人間の明示的な受け入れ確認済み。L4 も同時に決定） |
-| M3 | **017** → 010〜013 | **画像の全画面表示** → カレンダー・統計・思い出し | 着手中（017・010・011完了。次は012） |
+| M3 | **017** → 010〜013 | **画像の全画面表示** → カレンダー・統計・思い出し | 着手中（017・010・011完了。012実装完了・R待ち。次は013） |
 | M4 | 014〜016 | ゲストデモ・LP・仕上げと公開 | 未着手 |
 
 各マイルストーンの区切りで**人間が実際に触って**受け入れを判定する。
@@ -327,7 +345,8 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 ## 進行中タスク
 
-（現在、実装が進行中のタスクは無い）
+- 012-stats-card（ブランチ`task/012-stats-card`）— 実装完了。Rへレビュー依頼中。
+  詳細は`artifacts/012/test-results.md`・`docs/tasks/012-stats-card.md`実装メモ
 
 ## 環境
 
@@ -373,8 +392,10 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
     （PR #91）。B（このセッション）が`fix/date-package-migration`で実装した。**
 13. ~~`fix/date-package-migration`のRレビューを待つ~~ → **完了。Rの受け入れを
     得てmainへマージ済み（PR #92）。ブランチも削除済み**
-14. **次はM3の012（統計カード）に着手する。** `daysTogether`は`packages/date`の
-    `diffDays`を使う（012タスクファイルはAが参照先を書き換え済み）
+14. ~~次はM3の012（統計カード）に着手する~~ → **実装完了。Rへレビュー依頼中**
+    （ブランチ`task/012-stats-card`）
+15. **012のRレビュー結果を待つ。** 対応後は`artifacts/012/review.md`に保存する
+    （conventions.md 8節）
 
 ## 未解決の論点
 
@@ -442,6 +463,12 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 | L62 | 011（カレンダーUI）はコード側完了だが、画面が認証必須（`Stack.Protected guard={hasCouple}`）のためB（自動化）は実機確認ができない。自動テスト（画面結合8件）はoRPCクライアントをモックしており、サーバとの契約・実際の見た目・スマホ幅での窮屈さは未検証 | 前月・翌月ナビゲーション、イベントのD1への実反映、種別マーカーの色の見分けやすさ、繰り返し記念日の実データでの表示（削除時に全年から消えることが分かるか。R-37）が未確認のままM3の他タスクへ進むことになる | **M3の受け入れでまとめて回収する**（017のL59とまとめる回収と同じ形）。確認項目は`artifacts/011/manual-check.md`参照 |
 | ~~L64~~ | ~~表示用の日付整形が端末のタイムゾーンで行われている。~~ `apps/app/app/(onboarding)/invite.tsx`（招待コードの有効期限）と `apps/app/components/post-card.tsx`（投稿の日付）が `toLocaleString("ja-JP")` / `toLocaleDateString("ja-JP")` を `timeZone` 指定なしで呼んでいた（ロケールは ja-JP でもタイムゾーンは端末のもの） → **解決・実装済み（`fix/date-package-migration`）。** `packages/date` に `formatJstDateTime`/`formatJstDate` を新設し、`timeZone: "Asia/Tokyo"` を明示。両呼び出し箇所をこれに置き換えた。JST/UTCの境界時刻（`2026-03-15T23:30:00Z` = JST `2026-03-16 08:30`）でテストを追加し、端末のタイムゾーンに関わらずJST基準の日付になることを固定した | | 解決済み・実装済み |
 | ~~L63~~ | ~~日付計算が `apps/app/lib/calendar.ts` と `apps/api/src/lib/date.ts` の2箇所に分かれている~~ → **解決・実装済み（`fix/date-package-migration`）。**`packages/date` を新設し、`todayJst`/`diffDays`/`addDays`/`dayOfWeek`/`isLeapYear`/`daysInMonth`/`addMonths`/`monthsBefore`/`yearsBefore`/`monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`/`formatJstDate`/`formatJstDateTime`を集約した。`apps/api`（`event.ts`）・`apps/app`（`lib/calendar.ts`。グリッド構築のみ残し、日付計算はすべて`@futary/date`経由に）が参照する。**ESLintで`new Date(...)`のみを`packages/date`の外で禁止**（`no-restricted-syntax`。当初`Date.now()`も対象にしたが、暦日を作らずタイムゾーンも関与しないため不要とAが訂正した〈L64と同じPR #93〉。テストファイルは対象外）。**このルールを入れて実際にlintを走らせたところ、`packages/contract/src/couple.ts`（`anniversaryDateSchema`）に`todayJst`の3つ目の重複実装（`todayInJst`）が見つかった。**011のB自身の気づき、Rのレビュー指摘（R-36）に続く3例目で、ESLintルールが機械的に発見した唯一の例。こちらも`@futary/date`（`todayJst`・新設した`isValidDate`）を使う形に直した。`packages/contract`は`@futary/date`に依存するが、日付ユーティリティ自体はコレクションに含めない（Aの方針どおり）。テストは packages/date 44件（新設）・apps/app 51件（-4。todayJst/addMonthsのテストをpackages/dateへ移動）・apps/api 154件（-27。date.test.tsをpackages/dateへ移動）・packages/ui 7件すべて緑 | | 解決済み・実装済み |
+
+| ~~L65~~ | ~~012タスク定義の`photoCount`算出に`postCount`と違い`deleted_at IS NULL`が無い~~ → **解決・実装済み（`task/012-stats-card`）。**Aが自身の誤りと認め、タスクファイル・`architecture.md`4節の統計表両方を修正した（「恒久側が誤っていたので、そちらも直した」）。`apps/api/src/procedures/stats.ts`の`photoCount`クエリに`AND deleted_at IS NULL`を含めて実装し、テストで固定した（削除済み画像投稿を含めないことを確認） | | 解決済み・実装済み |
+| ~~L66~~ | ~~012タスク定義「記念日が未来の日付」の境界条件が「あと○日」/「非表示」の2択のまま未決定~~ → **解決・実装済み（`task/012-stats-card`）。人間が「あと◯日の方が親切」と判断**（Rから伝達）。**契約の形はB設計**（Rの助言「負の値を出さない責任をサーバ側で閉じる」）: `daysTogether`を`{status:"together",days}` / `{status:"upcoming",days}`の判別可能なunionにした（`packages/contract/src/stats.ts`）。**Aが追加で指摘: `anniversaryDateSchema`の`value <= todayJst()`を残したままでは`upcoming`が永久に到達不能になる。**「到達不能だから作らない」（`Math.max(1,...)`は入れない）と「到達可能にしてから作る」（`upcoming`分岐）は別、という基準をAが明示。上限を「今日まで」から「1年後まで」に緩和（打ち間違いの歯止め。業務上の意味は無い）。`couple.create`/`update`両方に適用し、`upcoming`へ実際に到達することをテストで固定した | | 解決済み・実装済み |
+| ~~L67~~ | ~~`packages/contract/src/event.ts`の`eventInputSchema`は`repeatYearly: z.boolean()`が`kind`に依存せず、`meetup`/`plan`にも`repeatYearly: true`を立てられる~~ → **解決・実装済み（`task/012-stats-card`）。**Aが「012で`meetupCount`という2人目の消費者ができた」ことを理由に対応を決定（`docs/tasks/012-stats-card.md`・`architecture.md`4節に反映）。`eventInputSchema`に`kind==='anniversary' \|\| !repeatYearly`の`refine`を追加し、`event.create`/`event.update`両方で入力スキーマレベルで拒否する形にした。DBのCHECK制約は置かない（書き込み口が入力スキーマの1つのみのため）。テストで固定済み | | 解決済み・実装済み |
+
+| L68 | 012（統計カード）はコード側完了だが、画面が認証必須のためB（自動化）は実機確認ができない。自動テストはoRPCクライアントをモックしており、サーバとの契約・実際の見た目（デザインサンプルとの近さ）は未検証 | カードのレイアウト、「あと○日」表示の自然さ、「招待中」表示の分かりやすさが未確認のままM3の他タスクへ進むことになる | **M3の受け入れでまとめて回収する**（L59・017・L62・R-37と同じ回収。Rの提案）。確認項目は`artifacts/012/manual-check.md`参照 |
 
 ## 決まっていることの要約
 

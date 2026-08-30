@@ -1,14 +1,19 @@
 import { oc } from "@orpc/contract";
-import { isValidDate, todayJst } from "@futary/date";
+import { isValidDate, todayJst, yearsBefore } from "@futary/date";
 import { z } from "zod";
 
 const MIN_ANNIVERSARY_DATE = "1900-01-01";
 
-// YYYY-MM-DD 形式・実在する日付・妥当な範囲（1900-01-01〜今日）であることを検証する。
+// YYYY-MM-DD 形式・実在する日付・妥当な範囲であることを検証する。
 // 日付計算は @futary/date に集約する（architecture.md 5節・L63）。
 // 以前はここに JST の「今日」を独自に計算するコードがあり、todayJst の
 // 3つ目の重複実装になっていた（011の重複はB自身が気づいたが、こちらはESLint
 // ルール導入で機械的に発見した）
+//
+// 上限は「今日まで」ではなく「1年後まで」（L66・Aの決定）。人間が
+// 「記念日が未来の日付なら『あと○日』を出す」を採用したため、未来の記念日を
+// 登録できる必要がある。1年後という上限は業務上の意味ではなく、
+// 1900-01-01の下限と同じ「打ち間違いを弾くための歯止め」（例: 2126-05-18）
 const anniversaryDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD 形式で指定してください")
@@ -18,8 +23,8 @@ const anniversaryDateSchema = z
   .refine((value) => value >= MIN_ANNIVERSARY_DATE, {
     message: `${MIN_ANNIVERSARY_DATE} 以降の日付を指定してください`,
   })
-  .refine((value) => value <= todayJst(), {
-    message: "未来の日付は指定できません",
+  .refine((value) => value <= yearsBefore(todayJst(), -1), {
+    message: "1年より先の日付は指定できません",
   });
 
 export const coupleSchema = z.object({
