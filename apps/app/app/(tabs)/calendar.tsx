@@ -33,14 +33,13 @@ function meetupByDateOf(events: Event[]): Record<string, Event> {
 }
 
 // 時間・設定者の有無で行の高さが変わらないようにする。どちらも既存の2行
-// （タイトル行・メタ行）の中に収める形にし、行を増やさない（018確認観点）
+// （タイトル行・メタ行）の中に収める形にし、行を増やさない（018確認観点）。
+// 021: canEditがfalseの行はPressableにしない（押せてから断られる形にしない。
+// 相手の予定が編集できないことが画面から分かるよう、構造的に押せない形にする。
+// 017の「次フェーズ」パネルと同じ考え方）
 function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      testID={`event-row-${event.id}-${event.date}`}
-      style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: space.xs }}
-    >
+  const content = (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: space.xs }}>
       <RNText style={{ color: EVENT_KIND_COLORS[event.kind], fontSize: 14 }}>
         {EVENT_KIND_GLYPHS[event.kind]}
       </RNText>
@@ -53,8 +52,19 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
           {EVENT_KIND_LABELS[event.kind]}
           {event.repeatYearly ? "・毎年" : ""}
           {event.createdByName ? `・${event.createdByName}が設定` : ""}
+          {!event.canEdit ? "・編集は設定者のみ" : ""}
         </Text>
       </View>
+    </View>
+  );
+
+  if (!event.canEdit) {
+    return <View testID={`event-row-${event.id}-${event.date}`}>{content}</View>;
+  }
+
+  return (
+    <Pressable onPress={onPress} testID={`event-row-${event.id}-${event.date}`}>
+      {content}
     </Pressable>
   );
 }
@@ -228,6 +238,7 @@ export default function CalendarScreen() {
         defaultTitle={editingEvent?.title}
         defaultKind={editingEvent?.kind}
         defaultTime={editingEvent?.time}
+        defaultIsShared={editingEvent?.isShared}
         sourceDateNote={sourceDateNote}
         meetupByDate={meetupByDate}
         editingEventId={editingEvent?.id}

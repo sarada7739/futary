@@ -17,6 +17,7 @@ export type EventFormValues = {
   kind: EventKind;
   repeatYearly: boolean;
   time?: string;
+  isShared: boolean;
 };
 
 export type EventFormProps = {
@@ -26,6 +27,8 @@ export type EventFormProps = {
   defaultTitle?: string;
   defaultKind?: EventKind;
   defaultTime?: string | null;
+  // 「ふたりの予定」（021）。kind='plan'のときだけ意味を持つ
+  defaultIsShared?: boolean;
   // 射影された記念日（表示上の日付 ≠ 登録された日付）を編集しているときの注記
   sourceDateNote?: string;
   // 日付ごとの既存の「会った日」（自分自身は除く）。kind='meetup'を選んだときの
@@ -46,6 +49,7 @@ export function EventForm({
   defaultTitle,
   defaultKind,
   defaultTime,
+  defaultIsShared,
   sourceDateNote,
   meetupByDate,
   editingEventId,
@@ -59,6 +63,7 @@ export function EventForm({
   const [title, setTitle] = useState(defaultTitle ?? "");
   const [kind, setKind] = useState<EventKind>(defaultKind ?? "plan");
   const [time, setTime] = useState(defaultTime ?? "");
+  const [isShared, setIsShared] = useState(defaultIsShared ?? false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // 開くたび（別のイベントを編集し直す場合を含む）に初期値へ揃える
@@ -68,8 +73,16 @@ export function EventForm({
     setTitle(defaultTitle ?? "");
     setKind(defaultKind ?? "plan");
     setTime(defaultTime ?? "");
+    setIsShared(defaultIsShared ?? false);
     setConfirmingDelete(false);
-  }, [visible, defaultDate, defaultTitle, defaultKind, defaultTime]);
+  }, [visible, defaultDate, defaultTitle, defaultKind, defaultTime, defaultIsShared]);
+
+  // isSharedはkind='plan'のときだけ立てられる（入力スキーマのrefineと同じ判断。
+  // 021）。他のkindへ切り替えたら送信前にfalseへ戻す
+  function selectKind(nextKind: EventKind) {
+    setKind(nextKind);
+    if (nextKind !== "plan") setIsShared(false);
+  }
 
   const trimmedTitle = title.trim();
   const trimmedTime = time.trim();
@@ -96,6 +109,7 @@ export function EventForm({
       kind,
       repeatYearly: kind === "anniversary",
       time: isAnniversary || trimmedTime.length === 0 ? undefined : trimmedTime,
+      isShared: kind === "plan" && isShared,
     });
   }
 
@@ -181,7 +195,7 @@ export function EventForm({
                     <Button
                       key={k}
                       variant={kind === k ? "primary" : "secondary"}
-                      onPress={() => setKind(k)}
+                      onPress={() => selectKind(k)}
                       testID={`event-form-kind-${k}`}
                     >
                       {EVENT_KIND_LABELS[k]}
@@ -194,6 +208,26 @@ export function EventForm({
                   </Text>
                 )}
               </View>
+
+              {/* 021: is_sharedはkind='plan'のときだけ意味を持つ。3（翌日「会った日」に
+                  変わる）は公開後へ回したため、説明文には現時点でできることだけを書く
+                  （「翌日『会った日』になります」とは書かない。動かない機能を先に
+                  説明しない。020の「準備中です」を避けたのと同じ判断。
+                  docs/tasks/021-plan-ownership.md） */}
+              {kind === "plan" && (
+                <View style={{ gap: space.xs }}>
+                  <Button
+                    variant={isShared ? "primary" : "secondary"}
+                    onPress={() => setIsShared((v) => !v)}
+                    testID="event-form-is-shared"
+                  >
+                    {isShared ? "✓ ふたりの予定" : "ふたりの予定にする"}
+                  </Button>
+                  <Text size="xs" color="muted">
+                    チェックすると、相手も編集・削除できるようになります
+                  </Text>
+                </View>
+              )}
 
               {/* 記念日には時間を設定できない（入力スキーマのrefineと同じ判断。018）。
                   項目自体を隠す（「日」であって時刻を持つ概念ではないため） */}
