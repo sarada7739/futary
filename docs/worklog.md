@@ -3458,3 +3458,28 @@ docs PR を溜めると squash merge のたびに玉突きが起きることを�
 ### 詰まった点
 - `insertEvent`テストヘルパーで、`created_by`列に誤って`coupleId`を渡していた
   （`user.id`への外部キー制約違反で失敗）。引数を分離して修正した
+
+---
+
+## 2026-08-30 / セッションB（012 Rの受け入れ・マージ）
+
+### やったこと
+- Rから012（PR #96）の受け入れ連絡を受けた。**必須修正なし。**5つのクエリ
+  すべてが`couple_id`でスコープされていること、`computeDaysTogether`の境界
+  判定を純粋関数として切り出したことを評価された
+- Rのレビュー結果を一字一句そのまま`artifacts/012/review.md`に保存
+  （conventions.md 8節）。記録1件（L67の制約はZodの入力スキーマのみで
+  DBのCHECK制約は無い）は`docs/state.md`のL67エントリに追記した
+- CI緑（2m15s）を確認し、conventions.md 7節の手順でPR #96を`main`へ
+  squash merge（`Session: B`確認済み）
+- `main`をfast-forwardで更新し、`task/012-stats-card`ブランチをローカル・
+  リモートとも削除
+- `docs/state.md`（現在地・マイルストーン表・完了タスク・次の一手）を更新した。
+  **今回はマージ前に`git stash`でreview.md保存分を退避してからブランチを
+  切り替え、011の時のようなpush漏れを避けた**
+
+### 決定事項
+- なし
+
+### 詰まった点
+- なし
