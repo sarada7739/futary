@@ -477,6 +477,18 @@ SELECT type, name, sql FROM sqlite_master
 **期待値を減らす差分は、テストが守れない場所である**（`conventions.md` 6節）。
 **CHECK が1本減った差分は、この一覧から1行消える形で現れる。**
 
+##### CHECK には必ず名前を付ける
+
+**`CONSTRAINT <名前> CHECK (...)` の形で書く**（R の指摘）。
+
+`sqlite_master` の `sql` は `CREATE TABLE` の文をそのまま保存する。
+**一覧に拾えるのは、名前が付いている CHECK だけである。**
+
+**名前なしで `CHECK (...)` と書くと、一覧に出ない。消えても気づけない。**
+**網に入らないものを足せるということは、網が実際より細かく見えるということである。**
+
+drizzle は名前付きで生成する。**手で書き足すときに外れる。**
+
 `events_meetup_unique` から `WHERE kind = 'meetup'` が落ちても、**名前は変わらない。**
 落ちた瞬間 `UNIQUE (couple_id, date)` になる。**名前は同じで、意味だけが変わる。**
 
