@@ -7046,3 +7046,23 @@ Aへ送った。着手前にAの更新を待ってほしい」との指摘。A�
 「023までやらせておいて」だったため、014には着手せずここで区切る。
 `docs/state.md`を更新し、次のセッションがまずやること（人間への報告・
 実機確認依頼、リモートD1への0012適用、014はA待ち）を記録した。
+## 2026-08-31 セッションB: リモートD1へ0012適用完了
+
+人間の許可を得てリモートD1へ0012_couple_dating_date_optional.sqlを適用した。
+
+適用前: `couples`は1行のみ。`anniversary_date="1996-08-15"`・
+`married_date="1996-08-16"`・`primary_date="dating"`。TRIGGER 4本
+（`couples_married_after_anniversary_*`・`couples_married_date_required_*`）
+実在を確認済み。
+
+`wrangler d1 migrations apply DB --remote`で適用（8 commands executed）。
+適用後の実測: `dating_date="1996-08-15"`（適用前のanniversary_dateと完全
+一致）・`married_date`/`primary_date`不変。テーブル定義から`anniversary_date`
+列が消え`dating_date`列が入っていることを確認。TRIGGER 4本とも実在を再確認。
+`migrations list --remote`で未適用が無いことも確認済み。
+
+あわせてGitHubのDependabot警告4件（High 2・Medium 2: image-size・uuid・
+esbuild）を人間の指示で確認した。いずれもmetro/xcode/drizzle-kit/wrangler
+経由のdevDependency側の孫依存で、本番で動くWorker本体・配布アプリの
+バンドルには含まれない（`pnpm why`で経路を確認）。緊急対応は不要と判断、
+次にExpo SDK/wranglerを上げるタイミングで解消されるか見る扱いとした。
