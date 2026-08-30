@@ -39,6 +39,8 @@ export const space = {
   xxl: 32,
 } as const;
 
+// borderRadius と対で使う。web では影が要素の輪郭に沿って落ちるため、
+// 丸い要素に角丸を付け忘れると四角い影になる（fix/fab-shadow-square）
 export const shadow = {
   card: {
     shadowColor: "#000000",

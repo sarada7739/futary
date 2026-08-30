@@ -25,6 +25,10 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   );
 }
 
+// この1箇所でしか使わない寸法のためトークン化はしない（002の判断を維持）。
+// borderRadius はここから半径を導出し、2つの数値が別々にずれないようにする
+const FAB_SIZE = 56;
+
 /** 中央の「＋投稿」タブ。丸いFABとして浮かせる。押すと投稿作成モーダルを開く */
 function FabTabButton({
   children,
@@ -37,9 +41,18 @@ function FabTabButton({
     <View style={{ flex: 1, alignItems: "center" }}>
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => ({ marginTop: -20, opacity: pressed ? 0.85 : 1, ...shadow.fab })}
+        style={({ pressed }) => ({
+          marginTop: -20,
+          borderRadius: FAB_SIZE / 2,
+          opacity: pressed ? 0.85 : 1,
+          ...shadow.fab,
+        })}
       >
-        <Image source={iconFabPlus} style={{ width: 56, height: 56 }} resizeMode="contain" />
+        <Image
+          source={iconFabPlus}
+          style={{ width: FAB_SIZE, height: FAB_SIZE }}
+          resizeMode="contain"
+        />
       </Pressable>
       {children}
     </View>
