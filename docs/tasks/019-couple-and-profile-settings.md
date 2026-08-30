@@ -148,6 +148,8 @@ CHECK (primary_date <> 'married' OR married_date IS NOT NULL)
 - [ ] ホーム上部の表示を3通りから選べ、非表示が本当に隠れている
 - [ ] **結婚予定日（未来）を設定すると「結婚まであと N 日」が出る**
 - [ ] 上記のテストが緑
+- [ ] **`sqlite_master` の索引と TRIGGER の一覧を期待値と突き合わせるテストがある**
+      （`architecture.md` 4節。**014 で `events` を作り直す前に置く**）
 - [ ] `artifacts/019/` に**人間の実機確認の記録**を保存
 
 ## 停止条件
