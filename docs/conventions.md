@@ -208,13 +208,16 @@ squash merge は、PR が複数コミットのとき各メッセージを本文�
 マージする者が squash コミットのメッセージに明示的に書き込む。
 
 ```bash
-gh pr merge <番号> --squash --subject "003: 認証基盤 (#5)" --body "$(cat <<'EOF'
+gh pr merge <番号> --squash --delete-branch --subject "003: 認証基盤 (#5)" --body "$(cat <<'EOF'
 <変更の要約>
 
 Session: B
 EOF
 )"
 ```
+
+**`--delete-branch` を付ける。**リモートブランチを消すのはマージした者の担当である
+（`harness.md` 3節）。切った側はローカルしか消さない。
 
 マージ後、`main` 上でトレーラーが残っていることを確認する。
 
