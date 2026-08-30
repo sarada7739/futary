@@ -51,6 +51,18 @@ jobs:
       - name: pnpm audit（無視リストの陳腐化検出）
         run: node scripts/check-audit-ignore-staleness.mjs
 
+      # drizzleのスナップショット（packages/db/migrations/meta/）と
+      # スキーマ定義（packages/db/src/schema/）がずれていないかを見る
+      # （architecture.md 4節「CIでdrizzle-kit generateを走らせ、新しい
+      # ファイルが出ないことを確かめる」。021で実装すると書かれたまま
+      # 021・022とも未実装だった分をここで閉じる）。git diffではなく
+      # git statusを使う（git diffは未追跡ファイルを見ない。Rの指摘）
+      - name: drizzle スナップショットとスキーマのずれ検出
+        run: |
+          pnpm run db:generate
+          git status --porcelain packages/db
+          test -z "$(git status --porcelain packages/db)" || exit 1
+
       - run: pnpm run type-check
 
       - run: pnpm run lint

@@ -12,9 +12,11 @@ const TEST_MIGRATIONS = (env as unknown as { TEST_MIGRATIONS: Migration[] }).TES
 //
 // setupFile（apply-migrations.ts）がテスト開始前に全マイグレーションを
 // 適用済みのため、0011だけをd1_migrationsの記録から外し、eventsテーブルを
-// 0010時点の構造（time列を持つ。0010_event_is_shared.sqlの__new_eventsと同じ）へ
-// 一時的に戻してから、本物の0011_event_start_end_time.sqlを再適用する。
-// 書き写しではなく実物のファイルを通す（0008は書き写しに留まった。architecture.md 4節）
+// 0010時点の構造へ一時的に戻してから、本物の0011_event_start_end_time.sqlを
+// 再適用する。0011は実ファイルを通しているが、その出発点である「0010時点の
+// events」はこのテスト内に手で書き写している（下のCREATE TABLE文）。
+// 0010を変えたときは、この写しも直す（Rレビュー指摘。0008の_dedupe_testと
+// 半分同じ形が残っている）
 describe("0011マイグレーション: 既存行のtimeがstart_timeへ引き継がれる", () => {
   it("time列に値が入った既存行が、start_timeへそのまま移り、end_timeはNULLになる", async () => {
     const target = TEST_MIGRATIONS.find((m) => m.name === "0011_event_start_end_time.sql");
@@ -68,7 +70,9 @@ describe("0011マイグレーション: 既存行のtimeがstart_timeへ引き�
       expect(row?.end_time).toBeNull();
     } finally {
       // 後片付け: このテストで作ったevents（索引ごと）を消し、退避しておいた
-      // 本来のevents（0011適用後の構造）を戻して索引も作り直す
+      // 本来のevents（0011適用後の構造）を戻して索引も作り直す。この2本の
+      // CREATE INDEXも手書きの写しである。索引の定義が変わったら、ここも直す
+      // （Rレビュー指摘。いまはテストが1件だけなので実害はない）
       await db.exec(`DROP TABLE IF EXISTS events`);
       await db.exec(`ALTER TABLE events_after_0011 RENAME TO events`);
       await db.exec(`CREATE INDEX events_couple_date_idx ON events (couple_id,date)`);
