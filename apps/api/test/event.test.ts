@@ -52,6 +52,7 @@ async function createEvent(
     kind: "anniversary" | "plan" | "meetup";
     repeatYearly: boolean;
     time: string | null;
+    isShared: boolean;
   }> = {},
 ) {
   return call(
@@ -62,6 +63,7 @@ async function createEvent(
       kind: overrides.kind ?? "plan",
       repeatYearly: overrides.repeatYearly ?? false,
       time: overrides.time,
+      isShared: overrides.isShared ?? false,
     },
     { context: contextFor(user) },
   );
@@ -89,6 +91,8 @@ describe("event.create / event.list（基本のCRUD）", () => {
         repeatYearly: false,
         time: null,
         createdByName: user.name,
+        isShared: false,
+        canEdit: true,
       },
     ]);
   });
@@ -102,7 +106,7 @@ describe("event.create / event.list（基本のCRUD）", () => {
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true },
+        { date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -115,7 +119,7 @@ describe("event.create / event.list（基本のCRUD）", () => {
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: true },
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: true, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -127,7 +131,7 @@ describe("event.create / event.list（基本のCRUD）", () => {
 
     const created = await call(
       router.event.create,
-      { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true },
+      { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, isShared: false },
       { context: contextFor(user) },
     );
 
@@ -175,7 +179,7 @@ describe("event.update / event.delete", () => {
 
     const updated = await call(
       router.event.update,
-      { id: created.id, date: "2026-03-11", title: "変更後のタイトル", kind: "meetup", repeatYearly: false },
+      { id: created.id, date: "2026-03-11", title: "変更後のタイトル", kind: "meetup", repeatYearly: false, isShared: false },
       { context: contextFor(user) },
     );
 
@@ -188,6 +192,8 @@ describe("event.update / event.delete", () => {
       repeatYearly: false,
       time: null,
       createdByName: user.name,
+      isShared: false,
+      canEdit: true,
     });
   });
 
@@ -199,7 +205,7 @@ describe("event.update / event.delete", () => {
     await expect(
       call(
         router.event.update,
-        { id: created.id, date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true },
+        { id: created.id, date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -216,7 +222,7 @@ describe("event.update / event.delete", () => {
     await expect(
       call(
         router.event.update,
-        { id: eventA.id, date: "2099-01-01", title: "改ざん", kind: "plan", repeatYearly: false },
+        { id: eventA.id, date: "2099-01-01", title: "改ざん", kind: "plan", repeatYearly: false, isShared: false },
         { context: contextFor(userB) },
       ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -231,7 +237,7 @@ describe("event.update / event.delete", () => {
     await expect(
       call(
         router.event.update,
-        { id: crypto.randomUUID(), date: "2026-01-01", title: "存在しない", kind: "plan", repeatYearly: false },
+        { id: crypto.randomUUID(), date: "2026-01-01", title: "存在しない", kind: "plan", repeatYearly: false, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -263,6 +269,198 @@ describe("event.update / event.delete", () => {
 
     const row = await db.prepare("SELECT id FROM events WHERE id = ?1").bind(eventA.id).first();
     expect(row).not.toBeNull();
+  });
+});
+
+// 021: canEditはSQLのWHERE句とは別の言語（TypeScript）で計算される。
+// 「両方に同じことを書いた」ではなく「両方が同じ答えを出す」ことを固定する
+// （docs/tasks/021-plan-ownership.md）。組み合わせはkind3値×isShared2値×
+// 設定者かどうか2値の8通りだが、isSharedはkind='plan'のときしか立てられない
+// ため、anniversary/meetup×isShared=trueは作れない組み合わせとして除外する
+// （Rレビュー指摘: 作れない組み合わせを数えて「一致した」と主張しない）
+describe("021: event.list の canEdit と、event.update/delete の実際の可否が一致する", () => {
+  type Case = {
+    kind: "anniversary" | "plan" | "meetup";
+    isShared: boolean;
+    viewerIsOwner: boolean;
+    expectedCanEdit: boolean;
+  };
+
+  const cases: Case[] = [
+    { kind: "anniversary", isShared: false, viewerIsOwner: true, expectedCanEdit: true },
+    { kind: "anniversary", isShared: false, viewerIsOwner: false, expectedCanEdit: true },
+    { kind: "meetup", isShared: false, viewerIsOwner: true, expectedCanEdit: true },
+    { kind: "meetup", isShared: false, viewerIsOwner: false, expectedCanEdit: true },
+    { kind: "plan", isShared: false, viewerIsOwner: true, expectedCanEdit: true },
+    { kind: "plan", isShared: false, viewerIsOwner: false, expectedCanEdit: false },
+    { kind: "plan", isShared: true, viewerIsOwner: true, expectedCanEdit: true },
+    { kind: "plan", isShared: true, viewerIsOwner: false, expectedCanEdit: true },
+  ];
+
+  it.each(cases)(
+    "kind=$kind isShared=$isShared 設定者が見る=$viewerIsOwner → canEdit=$expectedCanEdit",
+    async ({ kind, isShared, viewerIsOwner, expectedCanEdit }) => {
+      const owner = await createUser();
+      await createCouple(owner);
+      const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+      const partner = await createUser();
+      await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+      const viewer = viewerIsOwner ? owner : partner;
+      const repeatYearly = kind === "anniversary";
+
+      const created = await createEvent(owner, { date: "2026-06-01", kind, isShared, repeatYearly });
+
+      // event.list が返す canEdit
+      const listResult = await call(
+        router.event.list,
+        { from: "2026-06-01", to: "2026-06-01" },
+        { context: contextFor(viewer) },
+      );
+      const listedEvent = listResult.items.find((e) => e.id === created.id);
+      expect(listedEvent?.canEdit).toBe(expectedCanEdit);
+
+      // event.update の実際の可否
+      const updateInput = {
+        id: created.id,
+        date: "2026-06-01",
+        title: "更新後",
+        kind,
+        repeatYearly,
+        isShared,
+      };
+      if (expectedCanEdit) {
+        const updated = await call(router.event.update, updateInput, { context: contextFor(viewer) });
+        expect(updated.title).toBe("更新後");
+      } else {
+        await expect(
+          call(router.event.update, updateInput, { context: contextFor(viewer) }),
+        ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      }
+
+      // event.delete の実際の可否（updateで状態が変わった対象とは別のイベントで検証）
+      const forDelete = await createEvent(owner, { date: "2026-06-02", kind, isShared, repeatYearly });
+      if (expectedCanEdit) {
+        const deleted = await call(router.event.delete, { id: forDelete.id }, { context: contextFor(viewer) });
+        expect(deleted.id).toBe(forDelete.id);
+      } else {
+        await expect(
+          call(router.event.delete, { id: forDelete.id }, { context: contextFor(viewer) }),
+        ).rejects.toMatchObject({ code: "NOT_FOUND" });
+      }
+    },
+  );
+});
+
+// 021: is_sharedはkind='plan'のときだけ立てられる。入力スキーマ・DBのCHECK
+// 制約の両方で保証する（docs/tasks/021-plan-ownership.md「テストで証明する
+// こと」。security-auditor指摘: どちらのテストも無かったため追加した）
+describe("021: is_shared は kind='plan' 以外に立てられない", () => {
+  it("event.create: kind='anniversary'にisShared:trueを指定すると入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, isShared: true },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("event.create: kind='meetup'にisShared:trueを指定すると入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: false, isShared: true },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("event.update: kind='anniversary'にisShared:trueを指定すると入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createEvent(user, { kind: "anniversary", repeatYearly: true });
+
+    await expect(
+      call(
+        router.event.update,
+        {
+          id: created.id,
+          date: "2026-03-10",
+          title: "記念日",
+          kind: "anniversary",
+          repeatYearly: true,
+          isShared: true,
+        },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  // シードのような入力スキーマを通らない書き込み口を想定したCHECK制約である
+  // 以上、Zodを経由せずeventsへ直接INSERTして確かめる（couple.test.tsの
+  // TRIGGER検証・018の重複解消テストと同じ形）
+  it("DB: kind<>'plan' かつ is_shared=1 のINSERTはCHECK制約で弾かれる", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+
+    await expect(
+      db
+        .prepare(
+          `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, created_by, is_shared, created_at)
+           VALUES (?1, ?2, '2026-03-10', 'テスト', 'anniversary', 1, ?3, 1, 0)`,
+        )
+        .bind(crypto.randomUUID(), couple.id, user.id)
+        .run(),
+    ).rejects.toThrow(/constraint failed/i);
+  });
+
+  it("DB: kind='plan' かつ is_shared=1 のINSERTは通る", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const id = crypto.randomUUID();
+
+    await db
+      .prepare(
+        `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, created_by, is_shared, created_at)
+         VALUES (?1, ?2, '2026-03-10', 'テスト', 'plan', 0, ?3, 1, 0)`,
+      )
+      .bind(id, couple.id, user.id)
+      .run();
+
+    const row = await db.prepare("SELECT is_shared FROM events WHERE id = ?1").bind(id).first<{ is_shared: number }>();
+    expect(row?.is_shared).toBe(1);
+  });
+});
+
+// 021: 未認証（デモ）閲覧者はwriteProcedureが即FORBIDDENで弾くため、
+// kindに関わらずcanEditは常にfalseになる（computeCanEditの防御線が
+// 消えたときに気づけるよう固定する。security-auditor指摘）
+describe("021: 未認証（デモ）閲覧者のcanEditは常にfalse", () => {
+  it("anniversary/meetup/plan いずれも canEdit:false で返る", async () => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    await db.prepare("UPDATE couples SET is_demo = 1 WHERE id = ?1").bind(couple.id).run();
+
+    await createEvent(owner, { date: "2026-04-01", kind: "anniversary", repeatYearly: true });
+    await createEvent(owner, { date: "2026-04-02", kind: "meetup" });
+    await createEvent(owner, { date: "2026-04-03", kind: "plan", isShared: true });
+
+    const result = await call(
+      router.event.list,
+      { from: "2026-04-01", to: "2026-04-03" },
+      { context: contextFor(null, couple.id) },
+    );
+
+    expect(result.items).toHaveLength(3);
+    for (const item of result.items) {
+      expect(item.canEdit).toBe(false);
+    }
   });
 });
 
@@ -393,7 +591,7 @@ describe("event.create / event.update の time（018）", () => {
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, time: "10:00" },
+        { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, time: "10:00", isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -414,6 +612,7 @@ describe("event.create / event.update の time（018）", () => {
           kind: "anniversary",
           repeatYearly: true,
           time: "10:00",
+          isShared: false,
         },
         { context: contextFor(user) },
       ),
@@ -438,7 +637,7 @@ describe("event.create / event.update の time（018）", () => {
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, time: "25:00" },
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, time: "25:00", isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -523,7 +722,7 @@ describe("「会った日」は1日1件（018）", () => {
     await expect(
       call(
         router.event.update,
-        { id: meetupOnDay2.id, date: "2026-05-01", title: "5/2から移動", kind: "meetup", repeatYearly: false },
+        { id: meetupOnDay2.id, date: "2026-05-01", title: "5/2から移動", kind: "meetup", repeatYearly: false, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
@@ -544,7 +743,7 @@ describe("「会った日」は1日1件（018）", () => {
 
     const updated = await call(
       router.event.update,
-      { id: meetup.id, date: "2026-05-01", title: "改題", kind: "meetup", repeatYearly: false },
+      { id: meetup.id, date: "2026-05-01", title: "改題", kind: "meetup", repeatYearly: false, isShared: false },
       { context: contextFor(user) },
     );
     expect(updated.title).toBe("改題");
