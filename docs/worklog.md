@@ -6908,3 +6908,22 @@ Chromeでいま確認、エンジンはiPhoneのSafariで016デプロイ後に�
 出さず朝にまとめる」との指示を受けている。022はこれで完全に閉じたため、
 続けて023（付き合った日を登録時に聞かない）に着手する。023のRの先読みは
 前セッションで済んでおり、タスク定義に取り込み済みのため頼み直さない。
+## 2026-08-31 セッションB: 023着手。ALTER TABLE couples DROP COLUMNがD1で通ることを確認
+
+023のタスクファイル「先に確かめること」に従い、ローカルD1に実際に流して
+確認した（「通るはずだ」で進めない。021のCron Triggersと同じ扱い）。
+
+1. `ALTER TABLE couples ADD COLUMN dating_date TEXT`
+2. `UPDATE couples SET dating_date = anniversary_date`（既存行を入れた状態で）
+3. `couples_married_after_anniversary_insert/update`の2本を`dating_date`参照へ
+   作り直し（3を飛ばすと4が`no such column: NEW.anniversary_date`で落ちることは
+   タスクファイル記載どおり、実際に確認はしていないが3を先に行う手順で進めた）
+4. `ALTER TABLE couples DROP COLUMN anniversary_date` → **成功**
+
+既存行のデータ（`dating_date`に元の`anniversary_date`の値）が保持されている
+ことも確認。あわせて`dating_date IS NULL`のまま`married_date`を設定できる
+（INSERT成功）・`married_date < dating_date`は新TRIGGERで正しく弾かれる
+（`CHECK constraint failed: couples_married_after_anniversary`）ことを実測した。
+検証に使ったローカルD1の状態（`.wrangler/state/v3/d1`）はリセット済み。
+
+**「通る場合」の手順で実装を進める。**代案（列を残す妥協案）は不要。
