@@ -192,3 +192,37 @@ Highは後日Rレビューで誤指摘と判明した（下記参照）。** 009
 （独立エントリは作らない。訂正は元の指摘の行に書く方が、その行だけを読んだ人が
 実在しない脆弱性を追ったり誤解したりしないため。以前は独立エントリを別途作っていたが、
 Rレビューで同じ事実の重複記録になっていると指摘され統合した）。
+
+---
+
+## [2026-08-31] 021 予定の持ち主とふたりの予定（`event`のkind別の行ごとの持ち主、`is_shared`）
+
+対象: `packages/db/src/schema/event.ts`, `packages/db/migrations/0010_event_is_shared.sql`,
+`packages/contract/src/event.ts`, `apps/api/src/procedures/event.ts`,
+`apps/app/components/event-form.tsx`, `apps/app/app/(tabs)/calendar.tsx`
+
+**ペアの内側で権限が分かれるのは021が初めて**（それまでは`couple_id`で絞れば
+ペアの2人は同じものに触れるという前提だった）。認可を触るため
+`security-requirements.md` 10節1により監査必須。
+
+生の返答: [`artifacts/021/security-audit-raw.md`](../artifacts/021/security-audit-raw.md)
+
+**High以上の指摘: 1件（マイグレーションのバグ。修正済み）。認可ロジック
+そのものからはHigh以上の検出なし。**Medium 3件、Low 3件。
+
+| 重大度 | 箇所 | 内容 | 推奨対応 | 対応 |
+|---|---|---|---|---|
+| High | `migrations/0010`（当時のファイル名`0010_lyrical_chronomancer.sql`） | 表の作り直しのINSERT...SELECTが、追加する新列`is_shared`を移行元の旧`events`からもSELECTしていた。旧`events`にはまだ無い列で、SQLiteのビルドによっては未解決の二重引用符識別子が文字列リテラルへ静かにフォールバックし（エラーにならず全既存行に文字列`"is_shared"`が入る）、厳格な設定では代わりにマイグレーションそのものが失敗する。apps/apiのvitestテストは`events`が空の状態で毎回マイグレーションを当てるため検出できなかった | SELECT側を新列の既定値`0`に直す | **対応済み**。ローカルD1で0000〜0009を適用→既存行相当のテスト行を`wrangler d1 execute`で直接INSERT→0010を適用→`is_shared`が`0`（integer）になることを実機で確認した（`artifacts/021/test-results.md`）。ファイル名も`0010_event_is_shared.sql`に改名した |
+| Medium | `event.ts`の`eventUpdate` | UPDATEのWHEREは更新前の行で評価されるため、同じUPDATE文で`kind`自体も変えられることを利用し、記念日・会った日（どちらでも編集できる）を非共有planに変えることで**片方の判断だけで**もう1人を締め出せた（自分が締め出されることもある）。021以前は無害だったが、持ち主の概念を入れたことで権限を奪う手段になっていた | AがWHERE句に条件を追加する設計を決定（security-requirements.md 3節項目8）。**当初案（「更新後も実行者が編集できること」を要求する条件を1つ追加）は「設定者本人が締め出す」経路を塞げておらず、その修正案も「共有planにしてから持ち主が非共有にする」2段階で迂回できた（Rが2回発見）。最終的に「操作が安全か」ではなく「状態遷移が許されるか」で書き直し、`kind<>'plan'`から`kind='plan'`への変換自体を拒む形にした** | **対応済み**（3回の往復を経て）。WHEREに条件を2つ追加: (1) 更新後の状態でも実行者が編集できること (2) `kind<>'plan'`から`kind='plan'`への変換を区分をまたぐ限り拒む（`AND NOT (kind <> 'plan' AND ?newKind = 'plan')`）。planの中の共有/非共有は持ち主が決めてよいため変えていない。画面側は、元がplan以外のときは種別の選択肢からplanそのものを外した（「ふたりの予定」を条件付きで固定する形は不要になった）。テストは設定者・設定者でない側の両方を主語にして8件、2回連続で呼ぶ迂回のテストも追加した |
+| Medium | `authorization.test.ts` | security-requirements.md 3節の項目6（`DEMO_COUPLE_ID`が実在するが`is_demo`でないペアを指すとき拒否）のテストが021以前からリポジトリ全体に1件も無かった | 実在の非デモペアを作り、未認証で`couple.get`/`event.list`が`FORBIDDEN`になることを固定するテストを追加する | **対応済み**。2件追加した |
+| Medium | `event.test.ts` / `schema-integrity.test.ts` | `is_shared`が`kind='plan'`以外に立てられないことを保証する入力スキーマ・DB CHECK制約が両方あるにもかかわらず、どちらもテストが無かった | 契約側（event.create/updateの2kind×INVALID_INPUT）とDB側（直接INSERTでCHECK違反）のテストを追加する | **対応済み**。5件追加した（契約側3件・DB側2件） |
+| Low | `event.ts`の`computeCanEdit` | 未認証（デモ）閲覧者に`canEdit=false`を返す唯一の防御線（`viewerId===null`の早期return）を守るテストが無かった | デモペアの`event.list`が返す全kindで`canEdit===false`になることを固定するテストを追加する | **対応済み**。1件追加した |
+| Low | `calendar.tsx` | `canEdit:false`のとき常に「編集は設定者のみ」と表示していたが、未認証デモ閲覧では記念日・会った日でも`canEdit:false`になりうり、「設定者のみ」という理由はplanにしか当てはまらない | 表示を`kind==='plan'`のときだけに絞る | **対応済み** |
+| Low | `migrations/0010`のファイル名 | drizzle-kitの自動生成名（`0010_lyrical_chronomancer.sql`）のままで、内容を表していない | 内容が分かる名前に改名する | **対応済み**。`0010_event_is_shared.sql`に改名 |
+
+### 指摘に至らなかった確認点
+
+`event.update`/`event.delete`のWHERE句の文言が一致していること、`computeCanEdit`
+とWHERE句が同じ規則を表現していること（kindの変更の遷移を除く）、未認証閲覧者への
+`canEdit`誤許可経路が無いこと、`is_shared`の不正な書き換えによる権限昇格経路が
+無いこと。詳細は生の返答を参照。

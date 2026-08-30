@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3f28492c-c1e1-4739-92d6-05efdcaf2395",
-  "prevId": "0d56a605-bbc9-482d-b939-aeaf6f9bbc72",
+  "id": "0a4a9ddf-7cc8-43e8-b646-b7d49d55b84e",
+  "prevId": "3f28492c-c1e1-4739-92d6-05efdcaf2395",
   "tables": {
     "account": {
       "name": "account",
@@ -891,6 +891,14 @@
           "notNull": true,
           "autoincrement": false
         },
+        "is_shared": {
+          "name": "is_shared",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -952,6 +960,10 @@
         "events_kind_check": {
           "name": "events_kind_check",
           "value": "\"events\".\"kind\" IN ('anniversary', 'plan', 'meetup')"
+        },
+        "events_is_shared_check": {
+          "name": "events_is_shared_check",
+          "value": "\"events\".\"is_shared\" = 0 OR \"events\".\"kind\" = 'plan'"
         }
       }
     }
