@@ -223,17 +223,20 @@ export default function ProfileScreen() {
                 <Text size="sm" color="muted">
                   ホーム上部の表示
                 </Text>
-                <View style={{ flexDirection: "row", gap: space.sm }}>
+                {/* flex:1で等分すると、iPhone幅ではボタンの中で文字が
+                    「付き合」「った日」のように単語の途中で折り返されて
+                    見苦しくなる（人間の実機確認で発覚）。ボタンを内容の幅で
+                    並べ、収まらない分だけ次の行へ折り返す形にした */}
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
                   {PRIMARY_DATE_VALUES.map((value) => (
-                    <View key={value} style={{ flex: 1 }}>
-                      <Button
-                        variant={primaryDate === value ? "primary" : "secondary"}
-                        onPress={() => setPrimaryDate(value)}
-                        testID={`profile-primary-date-${value}`}
-                      >
-                        {PRIMARY_DATE_LABELS[value]}
-                      </Button>
-                    </View>
+                    <Button
+                      key={value}
+                      variant={primaryDate === value ? "primary" : "secondary"}
+                      onPress={() => setPrimaryDate(value)}
+                      testID={`profile-primary-date-${value}`}
+                    >
+                      {PRIMARY_DATE_LABELS[value]}
+                    </Button>
                   ))}
                 </View>
               </View>

@@ -172,17 +172,20 @@ export function EventForm({
                 <Text size="sm" color="muted">
                   種別
                 </Text>
-                <View style={{ flexDirection: "row", gap: space.sm }}>
+                {/* flex:1で等分すると、狭い幅ではラベルが単語の途中で
+                    折り返される（profile.tsxの「ホーム上部の表示」と同じ形。
+                    Rレビュー指摘）。ボタンを内容の幅で並べ、収まらない分だけ
+                    次の行へ折り返す */}
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
                   {EVENT_KIND_ORDER.map((k) => (
-                    <View key={k} style={{ flex: 1 }}>
-                      <Button
-                        variant={kind === k ? "primary" : "secondary"}
-                        onPress={() => setKind(k)}
-                        testID={`event-form-kind-${k}`}
-                      >
-                        {EVENT_KIND_LABELS[k]}
-                      </Button>
-                    </View>
+                    <Button
+                      key={k}
+                      variant={kind === k ? "primary" : "secondary"}
+                      onPress={() => setKind(k)}
+                      testID={`event-form-kind-${k}`}
+                    >
+                      {EVENT_KIND_LABELS[k]}
+                    </Button>
                   ))}
                 </View>
                 {kind === "anniversary" && (
