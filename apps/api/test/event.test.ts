@@ -46,7 +46,13 @@ async function createCouple(user: { id: string; name: string; email: string }) {
 
 async function createEvent(
   user: { id: string; name: string; email: string },
-  overrides: Partial<{ date: string; title: string; kind: "anniversary" | "plan" | "meetup"; repeatYearly: boolean }> = {},
+  overrides: Partial<{
+    date: string;
+    title: string;
+    kind: "anniversary" | "plan" | "meetup";
+    repeatYearly: boolean;
+    time: string | null;
+  }> = {},
 ) {
   return call(
     router.event.create,
@@ -55,6 +61,7 @@ async function createEvent(
       title: overrides.title ?? "テストイベント",
       kind: overrides.kind ?? "plan",
       repeatYearly: overrides.repeatYearly ?? false,
+      time: overrides.time,
     },
     { context: contextFor(user) },
   );
@@ -80,6 +87,8 @@ describe("event.create / event.list（基本のCRUD）", () => {
         title: "水族館デート",
         kind: "meetup",
         repeatYearly: false,
+        time: null,
+        createdByName: user.name,
       },
     ]);
   });
@@ -177,6 +186,8 @@ describe("event.update / event.delete", () => {
       title: "変更後のタイトル",
       kind: "meetup",
       repeatYearly: false,
+      time: null,
+      createdByName: user.name,
     });
   });
 
@@ -370,5 +381,266 @@ describe("event.list の繰り返し記念日の射影", () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.date).toBe("2028-02-29");
+  });
+});
+
+// 018: 設定者の名前・時間・会った日の一意化
+describe("event.create / event.update の time（018）", () => {
+  it("anniversaryにtimeを付けるとINVALID_INPUTになる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, time: "10:00" },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("更新でもanniversaryにtimeを付けるとINVALID_INPUTになる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createEvent(user, { kind: "anniversary", repeatYearly: true });
+
+    await expect(
+      call(
+        router.event.update,
+        {
+          id: created.id,
+          date: "2026-03-10",
+          title: "記念日",
+          kind: "anniversary",
+          repeatYearly: true,
+          time: "10:00",
+        },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("planにはtimeを設定できる。省略するとnullで作れる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    const withTime = await createEvent(user, { kind: "plan", time: "18:30" });
+    expect(withTime.time).toBe("18:30");
+
+    const withoutTime = await createEvent(user, { date: "2020-01-16", kind: "plan" });
+    expect(withoutTime.time).toBeNull();
+  });
+
+  it("不正な形式のtimeはINVALID_INPUTになる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, time: "25:00" },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+});
+
+describe("event.create / event.list の createdByName（018）", () => {
+  it("event.createの結果とevent.listの両方に設定者の名前が出る", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createEvent(user, { date: "2026-03-10" });
+    expect(created.createdByName).toBe(user.name);
+
+    const result = await call(
+      router.event.list,
+      { from: "2026-03-01", to: "2026-03-31" },
+      { context: contextFor(user) },
+    );
+    expect(result.items[0]?.createdByName).toBe(user.name);
+  });
+
+  // created_by は user(id) への外部キー（ON DELETE no action）であり、D1はFK違反を
+  // 常に拒否するため「userが存在しない」状態を実際には作れない（L35・posts.authorNameと
+  // 同じ制約。architecture.md 5節）。null許容にしていることはコードとスキーマで担保する
+});
+
+describe("「会った日」は1日1件（018）", () => {
+  it("同じ日に2件目のmeetupをcreateすると、1件目が上書きされて1件のままになる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const first = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "1件目", time: "10:00" });
+    const second = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "2件目", time: "15:00" });
+
+    expect(second.date).toBe(first.date);
+    expect(second.title).toBe("2件目");
+    expect(second.time).toBe("15:00");
+
+    const result = await call(
+      router.event.list,
+      { from: "2026-05-01", to: "2026-05-01" },
+      { context: contextFor(user) },
+    );
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.title).toBe("2件目");
+  });
+
+  it("別の日のmeetupは上書きの影響を受けない", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "5/1" });
+    await createEvent(user, { date: "2026-05-02", kind: "meetup", title: "5/2" });
+    await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "5/1（上書き後）" });
+
+    const result = await call(
+      router.event.list,
+      { from: "2026-05-01", to: "2026-05-02" },
+      { context: contextFor(user) },
+    );
+    expect(result.items.map((e) => e.title).sort()).toEqual(["5/1（上書き後）", "5/2"]);
+  });
+
+  it("meetup以外（plan/anniversary）は同じ日に何件でも作れる（部分UNIQUEの対象外）", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    await createEvent(user, { date: "2026-05-01", kind: "plan", title: "予定1" });
+    await createEvent(user, { date: "2026-05-01", kind: "plan", title: "予定2" });
+
+    const result = await call(
+      router.event.list,
+      { from: "2026-05-01", to: "2026-05-01" },
+      { context: contextFor(user) },
+    );
+    expect(result.items.map((e) => e.title).sort()).toEqual(["予定1", "予定2"]);
+  });
+
+  it("event.updateで既にmeetupがある日へ移そうとするとINVALID_INPUTになり、両方とも変わらない", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const meetupOnDay1 = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "5/1の会った日" });
+    const meetupOnDay2 = await createEvent(user, { date: "2026-05-02", kind: "meetup", title: "5/2の会った日" });
+
+    await expect(
+      call(
+        router.event.update,
+        { id: meetupOnDay2.id, date: "2026-05-01", title: "5/2から移動", kind: "meetup", repeatYearly: false },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+
+    const result = await call(
+      router.event.list,
+      { from: "2026-05-01", to: "2026-05-02" },
+      { context: contextFor(user) },
+    );
+    expect(result.items.map((e) => e.title).sort()).toEqual(["5/1の会った日", "5/2の会った日"]);
+    expect(meetupOnDay1.id).not.toBe(meetupOnDay2.id);
+  });
+
+  it("event.updateで自分自身の日付・タイトルを変えずに更新するのは衝突にならない", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const meetup = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "元のタイトル" });
+
+    const updated = await call(
+      router.event.update,
+      { id: meetup.id, date: "2026-05-01", title: "改題", kind: "meetup", repeatYearly: false },
+      { context: contextFor(user) },
+    );
+    expect(updated.title).toBe("改題");
+  });
+});
+
+// 0008_event_time_and_meetup_unique.sql の重複解消（DELETE文）のロジックを
+// 単体で検証する。本番のevents表は部分UNIQUEインデックスが既に有効なため
+// 重複データをこの環境で再現できず、マイグレーションSQLそのものを実行する形の
+// テストは書けない（実際のマイグレーション適用はローカルD1で手動確認済み。
+// worklog.md参照）。同一のDELETE文を使い捨てのテーブルに対して実行し、
+// 「最新の1件（created_atが最大、同値ならidが大きい方）が残る」ことだけを検証する
+describe("重複したmeetupの解消ロジック（0008マイグレーションと同一のSQL）", () => {
+  it("同じcouple_id・dateの複数meetupのうち、最新の1件だけが残る", async () => {
+    await db.exec(
+      "CREATE TABLE _dedupe_test (id TEXT PRIMARY KEY, couple_id TEXT NOT NULL, date TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL)",
+    );
+    try {
+      await db
+        .prepare("INSERT INTO _dedupe_test VALUES (?1, 'c1', '2026-05-01', 'meetup', 100)")
+        .bind("old")
+        .run();
+      await db
+        .prepare("INSERT INTO _dedupe_test VALUES (?1, 'c1', '2026-05-01', 'meetup', 200)")
+        .bind("new")
+        .run();
+      await db
+        .prepare("INSERT INTO _dedupe_test VALUES (?1, 'c1', '2026-05-02', 'meetup', 100)")
+        .bind("other-day")
+        .run();
+      await db
+        .prepare("INSERT INTO _dedupe_test VALUES (?1, 'c1', '2026-05-01', 'plan', 999)")
+        .bind("plan-same-day")
+        .run();
+
+      await db
+        .prepare(
+          `DELETE FROM _dedupe_test
+            WHERE kind = 'meetup'
+              AND id NOT IN (
+                SELECT id FROM (
+                  SELECT id, ROW_NUMBER() OVER (
+                           PARTITION BY couple_id, date
+                           ORDER BY created_at DESC, id DESC
+                         ) AS rn
+                    FROM _dedupe_test
+                   WHERE kind = 'meetup'
+                )
+                WHERE rn = 1
+              )`,
+        )
+        .run();
+
+      const { results } = await db.prepare("SELECT id FROM _dedupe_test ORDER BY id").all<{ id: string }>();
+      expect(results.map((r) => r.id).sort()).toEqual(["new", "other-day", "plan-same-day"]);
+    } finally {
+      await db.exec("DROP TABLE _dedupe_test");
+    }
+  });
+
+  // created_atが同値のときのタイブレーク（idが大きい方を残す）。Rレビュー指摘。
+  // この場合だけ大小が結果を左右するため、created_atに差がある上のテストとは別に確認する
+  it("created_atが同値なら、idが大きい方が残る", async () => {
+    await db.exec(
+      "CREATE TABLE _dedupe_tiebreak_test (id TEXT PRIMARY KEY, couple_id TEXT NOT NULL, date TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL)",
+    );
+    try {
+      await db
+        .prepare("INSERT INTO _dedupe_tiebreak_test VALUES ('id-a', 'c1', '2026-05-01', 'meetup', 100)")
+        .run();
+      await db
+        .prepare("INSERT INTO _dedupe_tiebreak_test VALUES ('id-b', 'c1', '2026-05-01', 'meetup', 100)")
+        .run();
+
+      await db
+        .prepare(
+          `DELETE FROM _dedupe_tiebreak_test
+            WHERE kind = 'meetup'
+              AND id NOT IN (
+                SELECT id FROM (
+                  SELECT id, ROW_NUMBER() OVER (
+                           PARTITION BY couple_id, date
+                           ORDER BY created_at DESC, id DESC
+                         ) AS rn
+                    FROM _dedupe_tiebreak_test
+                   WHERE kind = 'meetup'
+                )
+                WHERE rn = 1
+              )`,
+        )
+        .run();
+
+      const { results } = await db.prepare("SELECT id FROM _dedupe_tiebreak_test").all<{ id: string }>();
+      expect(results.map((r) => r.id)).toEqual(["id-b"]);
+    } finally {
+      await db.exec("DROP TABLE _dedupe_tiebreak_test");
+    }
   });
 });
