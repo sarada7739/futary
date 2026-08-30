@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 import { couples } from "./couple";
 
@@ -20,6 +20,9 @@ export const events = sqliteTable(
     kind: text("kind").notNull(),
     // 記念日（repeat_yearly=1）のみ event.list が年ごとに射影する（architecture.md 5節）
     repeatYearly: integer("repeat_yearly", { mode: "boolean" }).notNull().default(false),
+    // HH:MM（JSTの壁時計）。任意。anniversary には設定できない（入力スキーマで拒否。
+    // architecture.md 5節）
+    time: text("time"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
@@ -30,5 +33,8 @@ export const events = sqliteTable(
     // （architecture.md 4節: INDEX (couple_id, date)）
     index("events_couple_date_idx").on(table.coupleId, table.date),
     check("events_kind_check", sql`${table.kind} IN ('anniversary', 'plan', 'meetup')`),
+    // 会った日（meetup）は1日1件。複数行の関係なのでCHECKではなく部分UNIQUE
+    // インデックスで表す（architecture.md 5節。posts.image_keyのUNIQUEと同じ方針）
+    uniqueIndex("events_meetup_unique").on(table.coupleId, table.date).where(sql`${table.kind} = 'meetup'`),
   ],
 );

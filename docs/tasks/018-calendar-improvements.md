@@ -145,9 +145,12 @@ CREATE UNIQUE INDEX events_meetup_unique
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] スキーマ + マイグレーション（`time`・部分 UNIQUE・重複の解消）
-- [ ] 契約の変更（`createdByName`・`time`）
-- [ ] `event.create` の upsert / `event.update` の衝突エラー
-- [ ] カレンダー UI
-- [ ] テスト
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] スキーマ + マイグレーション（`time`・部分 UNIQUE・重複の解消）
+- [x] 契約の変更（`createdByName`・`time`）
+- [x] `event.create` の upsert / `event.update` の衝突エラー
+- [x] カレンダー UI
+- [x] テスト
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+実装は完了。**完了条件の最後（人間の実機確認）だけ未達**（リモートD1への
+マイグレーション適用も含め、マージ後に行う）。`artifacts/018/manual-check.md`参照

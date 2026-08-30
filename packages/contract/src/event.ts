@@ -13,6 +13,11 @@ const eventKindSchema = z.enum(EVENT_KINDS);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const dateSchema = z.string().regex(DATE_PATTERN, "日付はYYYY-MM-DD形式で指定してください");
 
+// HH:MM の24時間表記。JSTの壁時計としての時刻であってある瞬間ではない
+// （date を YYYY-MM-DD の文字列で持つのと同じ理由。architecture.md 4節・5節）
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const timeSchema = z.string().regex(TIME_PATTERN, "時間はHH:MM形式で指定してください");
+
 const MAX_TITLE_LENGTH = 200;
 
 export const eventSchema = z.object({
@@ -24,6 +29,10 @@ export const eventSchema = z.object({
   title: z.string(),
   kind: eventKindSchema,
   repeatYearly: z.boolean(),
+  // HH:MM または null。anniversary には設定できない（018）
+  time: timeSchema.nullable(),
+  // 設定した人の名前。null許容（LEFT JOIN。post.authorName と同じ形。018）
+  createdByName: z.string().nullable(),
 });
 
 export type Event = z.infer<typeof eventSchema>;
@@ -46,6 +55,8 @@ const eventInputBaseSchema = z.object({
   title: z.string().trim().min(1, "タイトルを入力してください").max(MAX_TITLE_LENGTH),
   kind: eventKindSchema,
   repeatYearly: z.boolean(),
+  // HH:MM。任意。anniversary には設定できない（下のrefine。018・architecture.md 5節）
+  time: timeSchema.nullable().optional(),
 });
 
 // repeatYearly は kind='anniversary' のときだけ true にできる（L67・Aの決定）。
@@ -59,7 +70,16 @@ function refineRepeatYearlyKind<T extends z.ZodType<{ kind: string; repeatYearly
   });
 }
 
-const eventInputSchema = refineRepeatYearlyKind(eventInputBaseSchema);
+// timeはkind='anniversary'のときだけ設定できない（repeatYearlyと同じ形。018）。
+// 記念日は「日」であって時刻を持つ概念ではなく、毎年射影される性質とも噛み合わない
+function refineTimeKind<T extends z.ZodType<{ kind: string; time?: string | null }>>(schema: T) {
+  return schema.refine((value) => !(value.kind === "anniversary" && value.time != null), {
+    message: "timeはkindが記念日のときは設定できません",
+    path: ["time"],
+  });
+}
+
+const eventInputSchema = refineTimeKind(refineRepeatYearlyKind(eventInputBaseSchema));
 
 export const eventCreateContract = oc.input(eventInputSchema).output(eventSchema).errors({
   FORBIDDEN: {},
@@ -68,9 +88,11 @@ export const eventCreateContract = oc.input(eventInputSchema).output(eventSchema
 });
 
 // event.update: WHERE 句に couple_id を含めた1文で行う（006の post.delete と同じ形）。
-// 部分更新にはせず、create と同じ全項目を受け取って置き換える
+// 部分更新にはせず、create と同じ全項目を受け取って置き換える。
+// INVALID_INPUT は上記のバリデーションに加え、meetupを既に会った日がある
+// 日へ移そうとしたときにも返す（上書きしない。018・architecture.md 5節）
 export const eventUpdateContract = oc
-  .input(refineRepeatYearlyKind(eventInputBaseSchema.extend({ id: z.string() })))
+  .input(refineTimeKind(refineRepeatYearlyKind(eventInputBaseSchema.extend({ id: z.string() }))))
   .output(eventSchema)
   .errors({
     FORBIDDEN: {},
