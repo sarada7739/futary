@@ -5142,6 +5142,59 @@ R に伝えている。**確かめていない。**
 ### 詰まった点
 - なし
 
+## 2026-08-30 / セッションB（020実装）
+
+### やったこと
+- 019のレビュー中にRが020を先読みし、019の`hidden`（daysを含めない設計）と
+  020のタスク定義の食い違い2件を指摘。Aが判断（PR #126。CI緑を確認し
+  squash merge・`--delete-branch`）: (1) 統計ページは4つ、`hidden`のときは
+  3つ（「4つ全部」は書けない） (2) `hidden`で消すのは記念日の行だけ、
+  会った日数は残す（カードごとは消さない）
+- 020に着手。`apps/app/app/(tabs)/timeline.tsx`を新設し、旧ホーム
+  （`index.tsx`）の投稿一覧をそのまま移した（ロゴ・統計カード・思い出し
+  カードは外した）。`(tabs)/_layout.tsx`の`検索`タブを`タイムライン`タブに
+  置き換え（`search.tsx`は削除）
+- タイムラインタブのアイコンが素材シートに無かったため、カレンダー
+  （`fix/persistent-tab-bar`）と同じ手順でSVGから描き起こし、ブラウザの
+  canvasでラスタライズした（3本の横線、長さを変えてフィードらしさを
+  出す）。`docs/sample/README.md`に記録
+- `apps/app/components/feature-panel.tsx`を新設。動くパネルと次フェーズの
+  パネルを1つのコンポーネントで表す（`onPress`の有無だけで分岐）。
+  「準備中です」という文言は使わない
+- `apps/app/app/(tabs)/index.tsx`を全面書き換え。ロゴ→記念日カード
+  （既存の`StatsCard`をそのまま使う。**019時点で既にAの決定〈会った日数は
+  残す〉と一致する形で実装されていたことをこの場で確認した**）→機能パネル
+  8枚（タイムライン・カレンダー・思い出・統計は動く、残り4枚は次フェーズ）
+- `apps/app/app/memory.tsx`・`apps/app/app/stats.tsx`を新設。013の
+  `MemoryCard`・012の統計4項目をそれぞれ独立ページへ移した。
+  `stats.tsx`の記念日の行は`daysTogetherLabel`が`null`を返すとき
+  （`hidden`）出さない形にした。この関数は`stats-card.tsx`と共有するため
+  `apps/app/lib/stats.ts`へ切り出した
+- `apps/app/app/_layout.tsx`のルートStackに`memory`・`stats`を追加
+  （`compose`と違いモーダルではなく通常の画面遷移。ヘッダーの標準の
+  戻るボタンを使う）
+- テストを更新・追加。旧`home-timeline.test.tsx`を`timeline-screen.test.tsx`
+  に改名し`HomeScreen`→`TimelineScreen`に置き換え、統計/思い出しの
+  モックを削除（もう組み込まれていないため）。`home-screen.test.tsx`
+  （新設9件）・`memory-screen.test.tsx`（新設1件。MemoryCard自体の検証は
+  memory-card.test.tsxに任せ、ページが表示することだけ確認）・
+  `stats-screen.test.tsx`（新設4件。4件/3件の出し分けを含む）
+- ブラウザプレビューで未認証時のバンドルエラー・コンソールエラーが無いこと、
+  サインイン画面へ正しくリダイレクトされることを確認（認証必須画面自体は
+  確認できない制約は011以降と同じ）
+- `pnpm test`・`type-check`・`lint`をルートで実行しすべて緑を確認
+  （apps/app 81→96件）。生の16進カラーの混入もgrepで確認済み（無し）
+- `docs/tasks/020-home-panels.md`の完了条件・進捗を更新、
+  `artifacts/020/test-results.md`・`artifacts/020/manual-check.md`を作成、
+  `docs/state.md`のL79を更新しL80として020の実機確認待ちを起票した
+  （019単体の依頼を送った直後に020が完了したため、まとめて依頼する形に
+  変更）
+
+### 決定事項
+- なし（AとRの判断をそのまま実装した）
+
+### 詰まった点
+- なし
 ## 2026-08-30 A: 020 の `hidden` の扱いを2件直した（R の先読み）
 
 R が 020 を先読みし、**019 の `hidden` との食い違い**を2件見つけた。

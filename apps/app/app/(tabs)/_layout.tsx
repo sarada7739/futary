@@ -1,17 +1,17 @@
-import { colors, iconFabPlus, iconTabCalendar, iconTabHome, iconTabProfile, iconTabSearch, shadow, space } from "@futary/ui";
+import { colors, iconFabPlus, iconTabCalendar, iconTabHome, iconTabProfile, iconTabTimeline, shadow, space } from "@futary/ui";
 import { Tabs, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Image, type ImageSourcePropType, Pressable, View } from "react-native";
 
 // 002 の絵文字代用を、docs/sample/透過素材/dnUunrHG.png から切り出したアイコンに
 // 差し替え（008）。単色の線画のため tintColor でアクティブ/非アクティブを塗り分ける。
-// 「アルバム」タブは「カレンダー」に置き換えた（fix/persistent-tab-bar。
-// architecture.md「タブに出すのは動く機能」。アルバムは次フェーズでスコープ外、
-// カレンダーはMVPの機能でありタブに無かった）
+// 「アルバム」タブは「カレンダー」に置き換えた（fix/persistent-tab-bar）。
+// 「検索」タブは「タイムライン」に置き換えた（020。requirements.md 5節のとおり
+// 検索はスコープ外のままで、タブの枠自体を持たなくなった。L71が解消する）
 const tabIcons: Record<string, ImageSourcePropType> = {
   index: iconTabHome,
   calendar: iconTabCalendar,
-  search: iconTabSearch,
+  timeline: iconTabTimeline,
   profile: iconTabProfile,
 };
 
@@ -95,10 +95,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="search"
+        name="timeline"
         options={{
-          title: "検索",
-          tabBarIcon: ({ focused }) => <TabIcon name="search" focused={focused} />,
+          title: "タイムライン",
+          tabBarIcon: ({ focused }) => <TabIcon name="timeline" focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -108,6 +108,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} />,
         }}
       />
+      {/* 020: ホームの機能パネル「思い出」「統計」の行き先。href: null で
+          タブバーのボタンとしては出さないが、(tabs)navigator の内側に置くことで
+          遷移してもタブバーが消えない（Rレビュー指摘。L70でcalendar.tsxが
+          (tabs)の外にありタブが消えた不具合と同じ構造を、ここでも踏んでいた） */}
+      <Tabs.Screen name="memory" options={{ href: null, headerShown: true, title: "思い出" }} />
+      <Tabs.Screen name="stats" options={{ href: null, headerShown: true, title: "統計" }} />
     </Tabs>
   );
 }
