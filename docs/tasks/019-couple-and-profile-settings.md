@@ -143,13 +143,14 @@ CHECK (primary_date <> 'married' OR married_date IS NOT NULL)
 - 名前を変えたあと、**タイムラインとカレンダーの両方**で新しい名前が出るか
 
 ## 完了条件
-- [ ] 名前とアイコンを変更でき、**再ログインしても消えない**
-- [ ] 付き合った日・結婚した日を設定できる
-- [ ] ホーム上部の表示を3通りから選べ、非表示が本当に隠れている
-- [ ] **結婚予定日（未来）を設定すると「結婚まであと N 日」が出る**
-- [ ] 上記のテストが緑
-- [ ] **`sqlite_master` の索引と TRIGGER の一覧を期待値と突き合わせるテストがある**
-      （`architecture.md` 4節。**014 で `events` を作り直す前に置く**）
+- [x] 名前とアイコンを変更でき、**再ログインしても消えない**
+- [x] 付き合った日・結婚した日を設定できる
+- [x] ホーム上部の表示を3通りから選べ、非表示が本当に隠れている
+- [x] **結婚予定日（未来）を設定すると「結婚まであと N 日」が出る**（`married_upcoming`）
+- [x] 上記のテストが緑
+- [x] **`sqlite_master` の索引と TRIGGER の一覧を期待値と突き合わせるテストがある**
+      （`architecture.md` 4節。`apps/api/test/schema-integrity.test.ts`。
+      **014 で `events` を作り直す前に置いた**）
 - [ ] `artifacts/019/` に**人間の実機確認の記録**を保存
 
 ## 停止条件
@@ -157,9 +158,19 @@ CHECK (primary_date <> 'married' OR married_date IS NOT NULL)
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
-- [ ] Better Auth の上書き挙動を確認する
-- [ ] スキーマ + マイグレーション
-- [ ] 契約と手続き
-- [ ] マイページ UI
-- [ ] テスト
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] Better Auth の上書き挙動を確認する（`overrideUserInfoOnSignIn`未設定なら
+      上書きされない。ソース〈`oauth2/link-account.mjs`〉で確認済み）
+- [x] スキーマ + マイグレーション（0009。D1のFK制約でdrizzle-kit生成の
+      テーブル差し替え手順が使えず、ALTER TABLE ADD COLUMN + TRIGGERに
+      手で書き換えた。詳細はartifacts/019/test-results.md）
+- [x] 契約と手続き
+- [x] マイページ UI
+- [x] テスト
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+
+実装は完了。Aの判断（PR #123。union改名・married_upcoming・married_dateの
+上限2年後・married_dateの順序制約もTRIGGERに）とRのレビュー指摘
+（IMAGE_ID_PATTERN共有・TRIGGERを直接検証するテスト）をすべて反映した。
+`sqlite_master`の索引・TRIGGER一覧を突き合わせるテストも追加済み
+（`schema-integrity.test.ts`）。**完了条件の最後（人間の実機確認）だけ未達。**
+`artifacts/019/manual-check.md`参照

@@ -10,12 +10,62 @@ import {
 } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 
-export const couples = sqliteTable("couples", {
-  id: text("id").primaryKey(),
-  anniversaryDate: text("anniversary_date").notNull(),
-  isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
+export const couples = sqliteTable(
+  "couples",
+  {
+    id: text("id").primaryKey(),
+    anniversaryDate: text("anniversary_date").notNull(),
+    // 結婚した日。NULL許容（019）
+    marriedDate: text("married_date"),
+    // ホーム上部に何を表示するか。既定は'dating'（019・architecture.md 4節）
+    primaryDate: text("primary_date").notNull().default("dating"),
+    isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    // events.kindと同じ理由。未知の値が1件でも入るとstats.getの出力検証を
+    // 巻き込んで壊れる（architecture.md 4節）
+    check("couples_primary_date_check", sql`${table.primaryDate} IN ('dating', 'married', 'none')`),
+    // primary_date='married'なのにmarried_dateがNULL、という状態を作らない。
+    // 入力スキーマでも拒否するが、シードが入力スキーマを通らない2つ目の
+    // 書き込み口になるためDB側でも表す（014と同じ理由）。
+    //
+    // 【重要: 実際のDBにはこのCHECKは存在しない。TRIGGERで代替している】
+    // ここに書いてあるdrizzleの`check()`は、drizzle-kitの差分検出（スナップショット
+    // 追跡）のためだけに存在し、生成される素のマイグレーションSQLは実際には
+    // 使っていない。このスキーマ定義だけを読むと「CHECK制約がある」ように
+    // 見えるが、実体は`packages/db/migrations/0009_couple_dates.sql`の
+    // `couples_married_date_required_insert`（BEFORE INSERT）・
+    // `couples_married_date_required_update`（BEFORE UPDATE）の2本のTRIGGER。
+    // 両方無いとINSERT/UPDATEどちらか一方で不変条件を壊せる（片方だけでは
+    // 「marriedの行のmarried_dateを後からNULLに落とす」経路等が残る。実測確認済み）。
+    //
+    // なぜ素のCHECKにできないか: couplesはcouple_members/invites/
+    // invite_failures/events/postsからFOREIGN KEYで参照される親テーブル。
+    // drizzle-kitはCHECK追加を「新テーブルへ差し替える」手順
+    // （PRAGMA foreign_keys=OFF; ...; DROP TABLE）で生成するが、D1はこの
+    // PRAGMAを無視して常にFKを強制するため、親テーブルのDROPが
+    // FOREIGN KEY constraint failedで落ちる（実測。architecture.md 4節の
+    // 「子テーブルを持つ親テーブルには、あとからCHECKを足せない」参照。
+    // 「PRAGMA foreign_keys=OFFはD1で無視される」と同根の制約）。
+    // 自列だけを参照するprimary_dateのCHECK（上の行）はALTER TABLE ADD COLUMNに
+    // そのまま付けられたが、married_dateとの2列にまたがるこちらは同じ理由
+    // （テーブル作り直し禁止）でALTER TABLE ADD COLUMNのCHECK句にもできない
+    // （自列以外を参照するCHECKは追加できないため）
+    check(
+      "couples_married_date_required_check",
+      sql`${table.primaryDate} <> 'married' OR ${table.marriedDate} IS NOT NULL`,
+    ),
+    // married_date が anniversary_date より前にならない（結婚が交際開始より前には
+    // ならない）。上と同じ理由（シードが入力スキーマを通らない2つ目の書き込み口に
+    // なる）で、入力スキーマだけでなくDB側にも表す（019・Aの決定）。
+    // 実体はTRIGGER（上のcouples_married_date_required_checkと同じ事情）
+    check(
+      "couples_married_after_anniversary_check",
+      sql`${table.marriedDate} IS NULL OR ${table.marriedDate} >= ${table.anniversaryDate}`,
+    ),
+  ],
+);
 
 // slot は 1ペア2人までを DB に担保するための列（architecture.md 4節）。
 // 空きスロットが無いと INSERT 時に NOT NULL 違反で失敗する仕組みのため、

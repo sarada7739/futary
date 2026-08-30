@@ -31,7 +31,9 @@ describe("書き込み手続きは GET で実行できない（fix/reject-get-wr
       new Request("http://localhost/api/couple/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ json: { anniversaryDate: "2020-01-01" } }),
+        body: JSON.stringify({
+          json: { anniversaryDate: "2020-01-01", marriedDate: null, primaryDate: "dating" },
+        }),
       }),
       env as unknown as Bindings,
     );
