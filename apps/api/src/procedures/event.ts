@@ -18,7 +18,8 @@ interface EventRowBase {
   title: string;
   kind: string;
   repeat_yearly: number;
-  time: string | null;
+  start_time: string | null;
+  end_time: string | null;
   is_shared: number;
 }
 
@@ -52,7 +53,8 @@ function toEvent(row: EventRowBase, createdByName: string | null, canEdit: boole
     title: row.title,
     kind: row.kind as Event["kind"],
     repeatYearly: row.repeat_yearly === 1,
-    time: row.time,
+    startTime: row.start_time,
+    endTime: row.end_time,
     createdByName,
     isShared: row.is_shared === 1,
     canEdit,
@@ -99,7 +101,8 @@ const eventList = implementer.event.list.use(readProcedure).handler(async ({ con
   const { results } = await db
     .prepare(
       `SELECT events.id AS id, events.date AS date, events.title AS title, events.kind AS kind,
-              events.repeat_yearly AS repeat_yearly, events.time AS time, events.is_shared AS is_shared,
+              events.repeat_yearly AS repeat_yearly, events.start_time AS start_time,
+              events.end_time AS end_time, events.is_shared AS is_shared,
               events.created_by AS created_by, user.name AS created_by_name
          FROM events LEFT JOIN user ON user.id = events.created_by
         WHERE events.couple_id = ?1
@@ -116,7 +119,8 @@ const eventCreate = implementer.event.create.use(writeProcedure).handler(async (
   const { db, coupleId, userId } = context;
   const id = crypto.randomUUID();
   const repeatYearly = input.repeatYearly ? 1 : 0;
-  const time = input.time ?? null;
+  const startTime = input.startTime ?? null;
+  const endTime = input.endTime ?? null;
   const isShared = input.isShared ? 1 : 0;
   // context.user は resolveCoupleContext が mode="member" を返した時点で必ず
   // 非null（post.ts と同じ理由。base.ts冒頭コメント参照）
@@ -127,20 +131,35 @@ const eventCreate = implementer.event.create.use(writeProcedure).handler(async (
   // （「SELECTしてからUPDATE」の2段階にしない。security-requirements.md 3節・
   // D1にインタラクティブなトランザクションが無いため）。id は更新しない
   // （既存行の身元を保つ。他のkindでは対応する部分インデックスの対象外のため
-  // このON CONFLICT句自体が発火しない）
+  // このON CONFLICT句自体が発火しない）。end_timeもSET句に含める（022。忘れると
+  // 前の「会った日」の終了時刻が上書きされずに残る。Rレビュー指摘）
   const row = await db
     .prepare(
-      `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, time, created_by, is_shared, created_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+      `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, start_time, end_time, created_by, is_shared, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
        ON CONFLICT (couple_id, date) WHERE kind = 'meetup' DO UPDATE SET
          title = excluded.title,
-         time = excluded.time,
+         start_time = excluded.start_time,
+         end_time = excluded.end_time,
          created_by = excluded.created_by,
          created_at = excluded.created_at
        RETURNING id AS id, date AS date, title AS title, kind AS kind,
-                 repeat_yearly AS repeat_yearly, time AS time, is_shared AS is_shared`,
+                 repeat_yearly AS repeat_yearly, start_time AS start_time, end_time AS end_time,
+                 is_shared AS is_shared`,
     )
-    .bind(id, coupleId, input.date, input.title, input.kind, repeatYearly, time, userId, isShared, nowSeconds())
+    .bind(
+      id,
+      coupleId,
+      input.date,
+      input.title,
+      input.kind,
+      repeatYearly,
+      startTime,
+      endTime,
+      userId,
+      isShared,
+      nowSeconds(),
+    )
     .first<EventRowBase>();
 
   // 作成者自身の応答なので常に編集できる（kind='plan'でもcreated_by=userId）
@@ -174,7 +193,8 @@ const eventCreate = implementer.event.create.use(writeProcedure).handler(async (
 const eventUpdate = implementer.event.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
   const repeatYearly = input.repeatYearly ? 1 : 0;
-  const time = input.time ?? null;
+  const startTime = input.startTime ?? null;
+  const endTime = input.endTime ?? null;
   const isShared = input.isShared ? 1 : 0;
 
   let row: (EventRowBase & { created_by: string }) | null;
@@ -182,16 +202,27 @@ const eventUpdate = implementer.event.update.use(writeProcedure).handler(async (
     row = await db
       .prepare(
         `UPDATE events
-            SET date = ?1, title = ?2, kind = ?3, repeat_yearly = ?4, time = ?5, is_shared = ?6
-          WHERE id = ?7 AND couple_id = ?8
-            AND (kind <> 'plan' OR is_shared = 1 OR created_by = ?9)
-            AND (?3 <> 'plan' OR ?6 = 1 OR created_by = ?9)
+            SET date = ?1, title = ?2, kind = ?3, repeat_yearly = ?4, start_time = ?5, end_time = ?6, is_shared = ?7
+          WHERE id = ?8 AND couple_id = ?9
+            AND (kind <> 'plan' OR is_shared = 1 OR created_by = ?10)
+            AND (?3 <> 'plan' OR ?7 = 1 OR created_by = ?10)
             AND NOT (kind <> 'plan' AND ?3 = 'plan')
          RETURNING id AS id, date AS date, title AS title, kind AS kind,
-                   repeat_yearly AS repeat_yearly, time AS time, is_shared AS is_shared,
-                   created_by AS created_by`,
+                   repeat_yearly AS repeat_yearly, start_time AS start_time, end_time AS end_time,
+                   is_shared AS is_shared, created_by AS created_by`,
       )
-      .bind(input.date, input.title, input.kind, repeatYearly, time, isShared, input.id, coupleId, userId)
+      .bind(
+        input.date,
+        input.title,
+        input.kind,
+        repeatYearly,
+        startTime,
+        endTime,
+        isShared,
+        input.id,
+        coupleId,
+        userId,
+      )
       .first<EventRowBase & { created_by: string }>();
   } catch (error) {
     // events_meetup_unique 違反 = その日には既に別の「会った日」がある。

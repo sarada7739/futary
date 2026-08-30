@@ -7,7 +7,7 @@ const db = (env as unknown as Bindings).DB;
 // architecture.md 4節「実体とファイルのずれを、1つのテストで固定する」
 // （018・019・Rの提案）。
 //
-// これまでに見つかった3つの「DBに実在するものと、drizzleのスキーマファイルから
+// これまでに見つかった「DBに実在するものと、drizzleのスキーマファイルから
 // 読めるものがずれる」経路を、振る舞いのテストとは別に固定する:
 // - 018: events_meetup_unique（部分UNIQUEインデックス）は表を作り直せば消える。
 //   誰も宣言していない状態になりうる
@@ -15,6 +15,9 @@ const db = (env as unknown as Bindings).DB;
 //   現れない
 // - 019: 上記のTRIGGERはdrizzleのスナップショットではCHECKと記録されるため、
 //   drizzle-kit generateは差分を検出しない
+// - 022: 表を作り直すマイグレーションでCHECK制約が落ちても、名前だけ見る
+//   走査では気づけない（CHECKはsqlite_masterではtype='table'のCREATE TABLE文
+//   の中にしか現れない。architecture.md 4節「CHECKには必ず名前を付ける」）
 //
 // 振る舞いのテスト（例: event.test.tsの「同じ日に2件目のmeetupを作ると
 // 1件のまま」）は制約が効くことを証明するが、制約が存在することは証明しない。
@@ -38,6 +41,27 @@ async function listIndexesAndTriggers(): Promise<SchemaObjectRow[]> {
     )
     .all<SchemaObjectRow>();
   return results;
+}
+
+// CREATE TABLE の全文は比較しない。列を1つ足すだけで落ち、「CHECKが消えた」
+// ではなく「本文が違う」という原因の分からない壊れ方になる（Aの指摘）。
+// 名前の付いたCHECK制約だけを CONSTRAINT "<name>" CHECK(...) の形で抜き出す
+// （sqlite_masterのsqlから拾えるのは名前の付いたCHECKだけ。architecture.md
+// 4節「CHECKには必ず名前を付ける」）
+function extractNamedChecks(createTableSql: string): string[] {
+  const pattern = /CONSTRAINT "([^"]+)" CHECK/g;
+  return [...createTableSql.matchAll(pattern)]
+    .map((m) => m[1])
+    .filter((name): name is string => name !== undefined)
+    .sort();
+}
+
+async function listTableChecks(tableName: string): Promise<string[]> {
+  const row = await db
+    .prepare(`SELECT sql AS sql FROM sqlite_master WHERE type = 'table' AND name = ?1`)
+    .bind(tableName)
+    .first<{ sql: string }>();
+  return extractNamedChecks(row?.sql ?? "");
 }
 
 describe("実際のマイグレーションが生成したindex/triggerの一覧（DBの実体を固定する）", () => {
@@ -96,6 +120,23 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(insertTrigger?.sql).toContain("WHEN NEW.primary_date = 'married' AND NEW.married_date IS NULL");
     expect(updateTrigger?.sql).toContain("BEFORE UPDATE ON `couples`");
     expect(updateTrigger?.sql).toContain("WHEN NEW.primary_date = 'married' AND NEW.married_date IS NULL");
+  });
+
+  // 022: 表の作り直しでCHECKが1本でも落ちると、名前は変わらず制約だけが
+  // 消える（events_meetup_uniqueのWHERE句が落ちるのと同じ壊れ方）。
+  // events_kind_checkにはこれまでDBレベルのテストが1つも無かった（Aの指摘）
+  it("events のCHECK制約（名前の付いたもの）が全部そろっている", async () => {
+    const checks = await listTableChecks("events");
+
+    expect(checks).toEqual(
+      [
+        "events_end_time_after_start_check",
+        "events_end_time_requires_start_check",
+        "events_is_shared_check",
+        "events_kind_check",
+        "events_start_time_check",
+      ].sort(),
+    );
   });
 
   // 019: married_dateがanniversary_dateより前にならない制約も同じ理由でTRIGGER

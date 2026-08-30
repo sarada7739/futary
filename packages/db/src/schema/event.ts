@@ -21,8 +21,11 @@ export const events = sqliteTable(
     // 記念日（repeat_yearly=1）のみ event.list が年ごとに射影する（architecture.md 5節）
     repeatYearly: integer("repeat_yearly", { mode: "boolean" }).notNull().default(false),
     // HH:MM（JSTの壁時計）。任意。anniversary には設定できない（入力スキーマで拒否。
-    // architecture.md 5節）
-    time: text("time"),
+    // architecture.md 5節）。022で time から改名し、CHECK制約でも表す
+    startTime: text("start_time"),
+    // HH:MM。任意。start_timeが無いと立てられない。start_timeより後（同じ日の中だけ、
+    // 日をまたがない）。022で新設（architecture.md 5節）
+    endTime: text("end_time"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
@@ -45,5 +48,15 @@ export const events = sqliteTable(
     // 作り直す」形のCHECK追加マイグレーションがそのまま通る（architecture.md
     // 4節のcouplesの制約とは異なる。TRIGGERへの回避は不要）
     check("events_is_shared_check", sql`${table.isShared} = 0 OR ${table.kind} = 'plan'`),
+    // start_timeはkindがanniversary以外のときだけ設定できる（旧timeのCHECKを022で新設。
+    // 入力スキーマのrefineTimeKindと同じ判断をDB側でも表す。architecture.md 5節）
+    check("events_start_time_check", sql`${table.startTime} IS NULL OR ${table.kind} <> 'anniversary'`),
+    // end_timeはstart_timeが無いと立てられない（022。入力スキーマでも拒む）
+    check(
+      "events_end_time_requires_start_check",
+      sql`${table.endTime} IS NULL OR ${table.startTime} IS NOT NULL`,
+    ),
+    // 終了は開始より後。同じ日の中だけで日をまたがない（022）
+    check("events_end_time_after_start_check", sql`${table.endTime} IS NULL OR ${table.endTime} > ${table.startTime}`),
   ],
 );

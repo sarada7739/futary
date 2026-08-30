@@ -43,7 +43,8 @@ function makeEvent(overrides: Partial<Event> = {}): Event {
     title: "テストイベント",
     kind: "plan",
     repeatYearly: false,
-    time: null,
+    startTime: null,
+    endTime: null,
     createdByName: null,
     isShared: false,
     canEdit: true,
@@ -212,7 +213,7 @@ describe("018: 設定者の名前・時間・会った日の一意化", () => {
   });
 
   it("時間が設定されていれば、タイトルの前に添えて表示される", async () => {
-    listMock.mockResolvedValue({ items: [makeEvent({ title: "デート", time: "18:30" })] });
+    listMock.mockResolvedValue({ items: [makeEvent({ title: "デート", startTime: "18:30" })] });
 
     renderScreen();
 
@@ -221,16 +222,54 @@ describe("018: 設定者の名前・時間・会った日の一意化", () => {
     expect(row.textContent).toContain("デート");
   });
 
+  it("開始と終了の両方が設定されていれば「12:00〜13:00」の形で表示される", async () => {
+    listMock.mockResolvedValue({
+      items: [makeEvent({ title: "デート", startTime: "12:00", endTime: "13:00" })],
+    });
+
+    renderScreen();
+
+    const row = await screen.findByTestId(`event-row-event-1-${today}`);
+    expect(row.textContent).toContain("12:00〜13:00");
+  });
+});
+
+// 022・Aの決定: event.updateは部分更新ではなく全項目の置き換えのため、
+// ホイールの初期化で丸められると触っていないのに書き換わる。刻みに乗らない
+// 値は丸めず、選択肢の1行として差し込む形にした（docs/tasks/022-time-and-date-input.md）
+describe("022: 刻みに乗らない時刻は丸めずに保存される", () => {
+  it("12:07の予定をタイトルだけ変えて保存すると、startTimeが12:07のまま送られる", async () => {
+    const existing = makeEvent({ id: "event-time-1", startTime: "12:07", title: "元のタイトル" });
+    listMock.mockResolvedValue({ items: [existing] });
+    updateMock.mockResolvedValue(existing);
+
+    renderScreen();
+    fireEvent.click(await screen.findByTestId(`event-row-${existing.id}-${existing.date}`));
+    fireEvent.change(await screen.findByTestId("event-form-title"), { target: { value: "変更後のタイトル" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("event-form-submit"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: existing.id, title: "変更後のタイトル", startTime: "12:07" }),
+        expect.anything(),
+      ),
+    );
+  });
+
   it("記念日を選ぶと時間欄が隠れる（記念日には時間を設定できない）", async () => {
     listMock.mockResolvedValueOnce({ items: [] });
     renderScreen();
     await screen.findByText("予定はまだありません");
 
     fireEvent.click(screen.getByTestId("calendar-add-event"));
-    expect(screen.getByTestId("event-form-time")).toBeTruthy();
+    expect(screen.getByTestId("event-form-add-start-time")).toBeTruthy();
 
     fireEvent.click(screen.getByTestId("event-form-kind-anniversary"));
-    expect(screen.queryByTestId("event-form-time")).toBeNull();
+    expect(screen.queryByTestId("event-form-add-start-time")).toBeNull();
   });
 
   it("既に会った日がある日付でmeetupを選ぶと上書きの注記が出るが、送信はブロックされない", async () => {

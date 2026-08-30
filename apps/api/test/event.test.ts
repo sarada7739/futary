@@ -51,7 +51,8 @@ async function createEvent(
     title: string;
     kind: "anniversary" | "plan" | "meetup";
     repeatYearly: boolean;
-    time: string | null;
+    startTime: string | null;
+    endTime: string | null;
     isShared: boolean;
   }> = {},
 ) {
@@ -62,7 +63,8 @@ async function createEvent(
       title: overrides.title ?? "テストイベント",
       kind: overrides.kind ?? "plan",
       repeatYearly: overrides.repeatYearly ?? false,
-      time: overrides.time,
+      startTime: overrides.startTime,
+      endTime: overrides.endTime,
       isShared: overrides.isShared ?? false,
     },
     { context: contextFor(user) },
@@ -89,7 +91,8 @@ describe("event.create / event.list（基本のCRUD）", () => {
         title: "水族館デート",
         kind: "meetup",
         repeatYearly: false,
-        time: null,
+        startTime: null,
+        endTime: null,
         createdByName: user.name,
         isShared: false,
         canEdit: true,
@@ -190,7 +193,8 @@ describe("event.update / event.delete", () => {
       title: "変更後のタイトル",
       kind: "meetup",
       repeatYearly: false,
-      time: null,
+      startTime: null,
+      endTime: null,
       createdByName: user.name,
       isShared: false,
       canEdit: true,
@@ -582,22 +586,49 @@ describe("event.list の繰り返し記念日の射影", () => {
   });
 });
 
-// 018: 設定者の名前・時間・会った日の一意化
-describe("event.create / event.update の time（018）", () => {
-  it("anniversaryにtimeを付けるとINVALID_INPUTになる", async () => {
+// 018・022: 設定者の名前・開始/終了時刻・会った日の一意化
+describe("event.create / event.update の startTime/endTime（018・022でtimeから改名）", () => {
+  it("anniversaryにstartTimeを付けるとINVALID_INPUTになる", async () => {
     const user = await createUser();
     await createCouple(user);
 
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, time: "10:00", isShared: false },
+        {
+          date: "2026-03-10",
+          title: "記念日",
+          kind: "anniversary",
+          repeatYearly: true,
+          startTime: "10:00",
+          isShared: false,
+        },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
   });
 
-  it("更新でもanniversaryにtimeを付けるとINVALID_INPUTになる", async () => {
+  it("anniversaryにendTimeを付けるとINVALID_INPUTになる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        {
+          date: "2026-03-10",
+          title: "記念日",
+          kind: "anniversary",
+          repeatYearly: true,
+          endTime: "10:00",
+          isShared: false,
+        },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("更新でもanniversaryにstartTimeを付けるとINVALID_INPUTになる（変えていないこと）", async () => {
     const user = await createUser();
     await createCouple(user);
     const created = await createEvent(user, { kind: "anniversary", repeatYearly: true });
@@ -611,7 +642,7 @@ describe("event.create / event.update の time（018）", () => {
           title: "記念日",
           kind: "anniversary",
           repeatYearly: true,
-          time: "10:00",
+          startTime: "10:00",
           isShared: false,
         },
         { context: contextFor(user) },
@@ -619,28 +650,117 @@ describe("event.create / event.update の time（018）", () => {
     ).rejects.toThrow();
   });
 
-  it("planにはtimeを設定できる。省略するとnullで作れる", async () => {
+  it("planにはstartTime/endTimeを設定できる。省略するとnullで作れる", async () => {
     const user = await createUser();
     await createCouple(user);
 
-    const withTime = await createEvent(user, { kind: "plan", time: "18:30" });
-    expect(withTime.time).toBe("18:30");
+    const withTime = await createEvent(user, { kind: "plan", startTime: "18:30", endTime: "19:30" });
+    expect(withTime.startTime).toBe("18:30");
+    expect(withTime.endTime).toBe("19:30");
 
     const withoutTime = await createEvent(user, { date: "2020-01-16", kind: "plan" });
-    expect(withoutTime.time).toBeNull();
+    expect(withoutTime.startTime).toBeNull();
+    expect(withoutTime.endTime).toBeNull();
   });
 
-  it("不正な形式のtimeはINVALID_INPUTになる", async () => {
+  it("不正な形式のstartTimeはINVALID_INPUTになる", async () => {
     const user = await createUser();
     await createCouple(user);
 
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, time: "25:00", isShared: false },
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, startTime: "25:00", isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
+  });
+
+  // 022: end_timeはstart_timeが無いと立てられない（入力スキーマ）
+  it("startTimeが無いのにendTimeだけ指定するとINVALID_INPUTになる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, endTime: "10:00", isShared: false },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  // 022: 終了は開始より後。同じ日の中だけで、日をまたがない
+  it.each([
+    ["同じ時刻", "10:00", "10:00"],
+    ["開始より前", "10:00", "09:00"],
+  ])("endTimeがstartTimeと%s（%s→%s）だとINVALID_INPUTになる", async (_label, startTime, endTime) => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, startTime, endTime, isShared: false },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("endTimeがstartTimeより後なら作れる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    const created = await createEvent(user, { kind: "plan", startTime: "10:00", endTime: "10:05" });
+    expect(created.startTime).toBe("10:00");
+    expect(created.endTime).toBe("10:05");
+  });
+
+  // 022: シードのような入力スキーマを通らない書き込み口を想定したCHECK制約
+  // （021のis_shared検証と同じ理由。events直接INSERTで確かめる）
+  it("DB: kind='anniversary'でstart_timeがあるINSERTはCHECK制約で弾かれる", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+
+    await expect(
+      db
+        .prepare(
+          `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, start_time, created_by, is_shared, created_at)
+           VALUES (?1, ?2, '2026-03-10', 'テスト', 'anniversary', 1, '10:00', ?3, 0, 0)`,
+        )
+        .bind(crypto.randomUUID(), couple.id, user.id)
+        .run(),
+    ).rejects.toThrow(/constraint failed/i);
+  });
+
+  it("DB: end_timeがありstart_timeが無いINSERTはCHECK制約で弾かれる", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+
+    await expect(
+      db
+        .prepare(
+          `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, end_time, created_by, is_shared, created_at)
+           VALUES (?1, ?2, '2026-03-10', 'テスト', 'plan', 0, '10:00', ?3, 0, 0)`,
+        )
+        .bind(crypto.randomUUID(), couple.id, user.id)
+        .run(),
+    ).rejects.toThrow(/constraint failed/i);
+  });
+
+  it("DB: end_timeがstart_time以下のINSERTはCHECK制約で弾かれる", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+
+    await expect(
+      db
+        .prepare(
+          `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, start_time, end_time, created_by, is_shared, created_at)
+           VALUES (?1, ?2, '2026-03-10', 'テスト', 'plan', 0, '10:00', '10:00', ?3, 0, 0)`,
+        )
+        .bind(crypto.randomUUID(), couple.id, user.id)
+        .run(),
+    ).rejects.toThrow(/constraint failed/i);
   });
 });
 
@@ -668,12 +788,12 @@ describe("「会った日」は1日1件（018）", () => {
   it("同じ日に2件目のmeetupをcreateすると、1件目が上書きされて1件のままになる", async () => {
     const user = await createUser();
     await createCouple(user);
-    const first = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "1件目", time: "10:00" });
-    const second = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "2件目", time: "15:00" });
+    const first = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "1件目", startTime: "10:00" });
+    const second = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "2件目", startTime: "15:00" });
 
     expect(second.date).toBe(first.date);
     expect(second.title).toBe("2件目");
-    expect(second.time).toBe("15:00");
+    expect(second.startTime).toBe("15:00");
 
     const result = await call(
       router.event.list,
@@ -682,6 +802,23 @@ describe("「会った日」は1日1件（018）", () => {
     );
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.title).toBe("2件目");
+  });
+
+  // 022・Rレビュー指摘: ON CONFLICT DO UPDATEのSET句にend_timeを含め忘れると、
+  // 前の「会った日」の終了時刻が上書きされずに残ってしまう
+  it("同じ日に2件目のmeetupをcreateすると、endTimeも新しい値で上書きされる（前の終了時刻が残らない）", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    await createEvent(user, {
+      date: "2026-05-01",
+      kind: "meetup",
+      title: "1件目",
+      startTime: "10:00",
+      endTime: "12:00",
+    });
+    const second = await createEvent(user, { date: "2026-05-01", kind: "meetup", title: "2件目", startTime: "15:00" });
+
+    expect(second.endTime).toBeNull();
   });
 
   it("別の日のmeetupは上書きの影響を受けない", async () => {

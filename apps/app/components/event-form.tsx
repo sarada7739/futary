@@ -2,21 +2,25 @@ import { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, TextInput, View } from "react-native";
 import type { Event } from "@futary/contract";
 import { Button, Card, colors, radius, space, Text } from "@futary/ui";
+import { DateInput8 } from "./date-input8";
+import { TimeWheelPicker } from "./time-wheel-picker";
 import { EVENT_KIND_LABELS, EVENT_KIND_ORDER, type EventKind } from "../lib/event-kind";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-// eventInputSchema（packages/contract/src/event.ts）と同じ形式
-const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 // eventInputSchema（packages/contract/src/event.ts）と同じ下限。
 // 上限はここでは強制しない（超えたらサーバのエラーメッセージで気づく）
 const MAX_TITLE_LENGTH = 200;
+// 「時間を追加」を押した直後の初期値。5分刻みなのでbuildMinuteOptionsが
+// 特別扱いする必要はない
+const DEFAULT_TIME = "00:00";
 
 export type EventFormValues = {
   date: string;
   title: string;
   kind: EventKind;
   repeatYearly: boolean;
-  time?: string;
+  startTime?: string;
+  endTime?: string;
   isShared: boolean;
 };
 
@@ -26,7 +30,8 @@ export type EventFormProps = {
   defaultDate: string;
   defaultTitle?: string;
   defaultKind?: EventKind;
-  defaultTime?: string | null;
+  defaultStartTime?: string | null;
+  defaultEndTime?: string | null;
   // 「ふたりの予定」（021）。kind='plan'のときだけ意味を持つ
   defaultIsShared?: boolean;
   // 射影された記念日（表示上の日付 ≠ 登録された日付）を編集しているときの注記
@@ -48,7 +53,8 @@ export function EventForm({
   defaultDate,
   defaultTitle,
   defaultKind,
-  defaultTime,
+  defaultStartTime,
+  defaultEndTime,
   defaultIsShared,
   sourceDateNote,
   meetupByDate,
@@ -62,7 +68,12 @@ export function EventForm({
   const [date, setDate] = useState(defaultDate);
   const [title, setTitle] = useState(defaultTitle ?? "");
   const [kind, setKind] = useState<EventKind>(defaultKind ?? "plan");
-  const [time, setTime] = useState(defaultTime ?? "");
+  // null = 未設定。ここに入る値は丸めない（刻みに乗らない既存の時刻でも
+  // そのまま保持し、タイトルだけ直して保存しても書き換わらないようにする。
+  // event.updateは部分更新ではなく全項目の置き換えのため、画面が持っている
+  // 値がそのまま送られる。022・Aの決定）
+  const [startTime, setStartTime] = useState<string | null>(defaultStartTime ?? null);
+  const [endTime, setEndTime] = useState<string | null>(defaultEndTime ?? null);
   const [isShared, setIsShared] = useState(defaultIsShared ?? false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -72,10 +83,11 @@ export function EventForm({
     setDate(defaultDate);
     setTitle(defaultTitle ?? "");
     setKind(defaultKind ?? "plan");
-    setTime(defaultTime ?? "");
+    setStartTime(defaultStartTime ?? null);
+    setEndTime(defaultEndTime ?? null);
     setIsShared(defaultIsShared ?? false);
     setConfirmingDelete(false);
-  }, [visible, defaultDate, defaultTitle, defaultKind, defaultTime, defaultIsShared]);
+  }, [visible, defaultDate, defaultTitle, defaultKind, defaultStartTime, defaultEndTime, defaultIsShared]);
 
   // isSharedはkind='plan'のときだけ立てられる（入力スキーマのrefineと同じ判断。
   // 021）。他のkindへ切り替えたら送信前にfalseへ戻す
@@ -96,9 +108,11 @@ export function EventForm({
       : EVENT_KIND_ORDER;
 
   const trimmedTitle = title.trim();
-  const trimmedTime = time.trim();
   const isAnniversary = kind === "anniversary";
-  const timeValid = trimmedTime.length === 0 || TIME_PATTERN.test(trimmedTime);
+  // 終了は開始より後。同じ日の中だけで、日をまたがない（022）。HH:MMは
+  // ゼロ詰めなので文字列比較がそのまま時刻の前後になる（CHECK・入力スキーマと
+  // 同じ判断）
+  const endTimeValid = endTime == null || (startTime != null && endTime > startTime);
 
   // 同じ日に自分以外の「会った日」が既にあるか（018）
   const conflictingMeetup = kind === "meetup" ? meetupByDate[date] : undefined;
@@ -108,18 +122,28 @@ export function EventForm({
   const blockedByMeetupConflict = mode === "edit" && showMeetupNote;
 
   const canSubmit =
-    trimmedTitle.length > 0 && DATE_PATTERN.test(date) && (isAnniversary || timeValid) && !blockedByMeetupConflict;
+    trimmedTitle.length > 0 &&
+    DATE_PATTERN.test(date) &&
+    (isAnniversary || endTimeValid) &&
+    !blockedByMeetupConflict;
+
+  // 開始が無いと終了は持てない。削除すると終了も一緒に消す
+  function removeStartTime() {
+    setStartTime(null);
+    setEndTime(null);
+  }
 
   async function handleSubmit() {
     if (!canSubmit) return;
     // 記念日を選ぶと repeat_yearly が自動で true になる（タスク011）。
-    // 記念日には time を付けられない（018・入力スキーマのrefineと同じ判断）
+    // 記念日には時刻を付けられない（018・入力スキーマのrefineと同じ判断）
     await onSubmit({
       date,
       title: trimmedTitle,
       kind,
       repeatYearly: kind === "anniversary",
-      time: isAnniversary || trimmedTime.length === 0 ? undefined : trimmedTime,
+      startTime: isAnniversary || startTime == null ? undefined : startTime,
+      endTime: isAnniversary || startTime == null || endTime == null ? undefined : endTime,
       isShared: kind === "plan" && isShared,
     });
   }
@@ -149,21 +173,7 @@ export function EventForm({
                 <Text size="sm" color="muted">
                   日付
                 </Text>
-                <TextInput
-                  value={date}
-                  onChangeText={setDate}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={colors.textMuted}
-                  testID="event-form-date"
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: radius.input,
-                    padding: space.md,
-                    fontSize: 16,
-                    color: colors.text,
-                  }}
-                />
+                <DateInput8 value={date} onChange={setDate} testID="event-form-date" />
                 {sourceDateNote && (
                   <Text size="xs" color="muted">
                     {sourceDateNote}
@@ -240,32 +250,63 @@ export function EventForm({
                 </View>
               )}
 
-              {/* 記念日には時間を設定できない（入力スキーマのrefineと同じ判断。018）。
+              {/* 記念日には時刻を設定できない（入力スキーマのrefineと同じ判断。018）。
                   項目自体を隠す（「日」であって時刻を持つ概念ではないため） */}
               {!isAnniversary && (
-                <View style={{ gap: space.xs }}>
+                <View style={{ gap: space.sm }}>
                   <Text size="sm" color="muted">
                     時間（任意）
                   </Text>
-                  <TextInput
-                    value={time}
-                    onChangeText={setTime}
-                    placeholder="HH:MM"
-                    placeholderTextColor={colors.textMuted}
-                    testID="event-form-time"
-                    style={{
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                      borderRadius: radius.input,
-                      padding: space.md,
-                      fontSize: 16,
-                      color: colors.text,
-                    }}
-                  />
-                  {!timeValid && (
-                    <Text size="xs" color="muted">
-                      時間はHH:MM形式で指定してください
-                    </Text>
+
+                  {startTime == null ? (
+                    <Button
+                      variant="secondary"
+                      onPress={() => setStartTime(DEFAULT_TIME)}
+                      testID="event-form-add-start-time"
+                    >
+                      開始時刻を追加
+                    </Button>
+                  ) : (
+                    <View style={{ gap: space.sm }}>
+                      <View style={{ gap: space.xs }}>
+                        <Text size="xs" color="muted">
+                          開始
+                        </Text>
+                        <TimeWheelPicker value={startTime} onChange={setStartTime} testID="event-form-start-time" />
+                      </View>
+                      <Button variant="ghost" onPress={removeStartTime} testID="event-form-remove-start-time">
+                        時間を削除
+                      </Button>
+
+                      {/* 開始を選ぶ前に終了を選べない形にする（押せてから断られる形に
+                          しない。022）。startTimeがある場合にしかこの分岐へ来ない */}
+                      {endTime == null ? (
+                        <Button
+                          variant="secondary"
+                          onPress={() => setEndTime(DEFAULT_TIME)}
+                          testID="event-form-add-end-time"
+                        >
+                          終了時刻を追加
+                        </Button>
+                      ) : (
+                        <View style={{ gap: space.sm }}>
+                          <View style={{ gap: space.xs }}>
+                            <Text size="xs" color="muted">
+                              終了
+                            </Text>
+                            <TimeWheelPicker value={endTime} onChange={setEndTime} testID="event-form-end-time" />
+                          </View>
+                          <Button variant="ghost" onPress={() => setEndTime(null)} testID="event-form-remove-end-time">
+                            終了時刻を削除
+                          </Button>
+                          {!endTimeValid && (
+                            <Text size="xs" color="muted">
+                              終了は開始より後にしてください
+                            </Text>
+                          )}
+                        </View>
+                      )}
+                    </View>
                   )}
                 </View>
               )}
@@ -306,11 +347,7 @@ export function EventForm({
                     <Button variant="ghost" onPress={onCancel}>
                       閉じる
                     </Button>
-                    <Button
-                      onPress={handleSubmit}
-                      disabled={!canSubmit}
-                      testID="event-form-submit"
-                    >
+                    <Button onPress={handleSubmit} disabled={!canSubmit} testID="event-form-submit">
                       {isSubmitting ? "保存中…" : "保存する"}
                     </Button>
                   </>
