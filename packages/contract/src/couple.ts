@@ -15,10 +15,10 @@ const MIN_ANNIVERSARY_DATE = "1900-01-01";
 // 登録できる必要がある。1年後という上限は業務上の意味ではなく、
 // 1900-01-01の下限と同じ「打ち間違いを弾くための歯止め」（例: 2126-05-18）
 //
-// married_date にも同じ検証を当てる（019）。結婚した日も付き合った日と
-// 同じ性質（YYYY-MM-DDの暦日・打ち間違いの歯止め）を持つため、専用の
-// スキーマを新設せずこの関数を再利用する
-function dateWithinRangeSchema(fieldLabel: string) {
+// married_date にも同じ形の検証を当てるが、上限の年数だけ違う（019・Aの決定・
+// PR #123）。結婚した日も付き合った日と同じ性質（YYYY-MM-DDの暦日・
+// 打ち間違いの歯止め）を持つため、上限年数を引数にしてこの関数を再利用する
+function dateWithinRangeSchema(fieldLabel: string, yearsAhead: number) {
   return z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD 形式で指定してください")
@@ -28,13 +28,15 @@ function dateWithinRangeSchema(fieldLabel: string) {
     .refine((value) => value >= MIN_ANNIVERSARY_DATE, {
       message: `${MIN_ANNIVERSARY_DATE} 以降の日付を指定してください`,
     })
-    .refine((value) => value <= yearsBefore(todayJst(), -1), {
-      message: `${fieldLabel}に1年より先の日付は指定できません`,
+    .refine((value) => value <= yearsBefore(todayJst(), -yearsAhead), {
+      message: `${fieldLabel}に${yearsAhead}年より先の日付は指定できません`,
     });
 }
 
-const anniversaryDateSchema = dateWithinRangeSchema("付き合った日");
-const marriedDateSchema = dateWithinRangeSchema("結婚した日");
+const anniversaryDateSchema = dateWithinRangeSchema("付き合った日", 1);
+// 上限は2年後（anniversary_dateの1年後より緩い）。婚約から式まで1年半空くのは
+// 珍しくないため（019・Aの決定・PR #123。「違うこと自体が意図」と明記されている）
+const marriedDateSchema = dateWithinRangeSchema("結婚した日", 2);
 
 // ホーム上部に何を表示するか（019）。'none'は非表示。stats.getのdaysTogetherが
 // これを反映する（packages/contract/src/stats.ts）

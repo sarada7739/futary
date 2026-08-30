@@ -104,7 +104,7 @@ beforeEach(() => {
   // 既定値を用意する（このファイルの主眼は投稿一覧であり、統計カード自体の
   // 検証はstats-card.test.tsxで行う）
   statsGetMock.mockResolvedValue({
-    daysTogether: { status: "together", days: 1 },
+    daysTogether: { status: "dating", days: 1 },
     meetupDays: 0,
     postCount: 0,
     photoCount: 0,

@@ -308,3 +308,56 @@ describe("couple.update のmarried_date・primary_date検証（019）", () => {
     ).rejects.toThrow();
   });
 });
+
+// Rレビュー指摘: 上のdescribeはすべてZodのrefineを経由しており、DBのTRIGGER
+// （couples_married_date_required_insert/update。packages/db/src/schema/couple.ts）
+// が実際に効いているかを検証していなかった。TRIGGERが消えても壊れても全部緑に
+// なりうる状態だったため、Zodを経由せず`couples`へ直接INSERT/UPDATEして確かめる
+// （018の重複解消テストと同じ形）。シードのような入力スキーマを通らない
+// 書き込み口を想定したTRIGGERである以上、この検証には意味がある
+describe("couplesのTRIGGER（DB側の不変条件を直接確かめる）", () => {
+  it("INSERTでprimary_date='married'かつmarried_dateがNULLだと弾かれる", async () => {
+    await expect(
+      db
+        .prepare(
+          "INSERT INTO couples (id, anniversary_date, married_date, primary_date, is_demo, created_at) VALUES (?1, '2020-01-01', NULL, 'married', 0, 0)",
+        )
+        .bind(crypto.randomUUID())
+        .run(),
+    ).rejects.toThrow(/constraint failed/i);
+  });
+
+  it("UPDATEでprimary_date='dating'から'married'へ変えようとし、married_dateがNULLのままだと弾かれる", async () => {
+    const id = crypto.randomUUID();
+    await db
+      .prepare(
+        "INSERT INTO couples (id, anniversary_date, married_date, primary_date, is_demo, created_at) VALUES (?1, '2020-01-01', NULL, 'dating', 0, 0)",
+      )
+      .bind(id)
+      .run();
+
+    await expect(
+      db.prepare("UPDATE couples SET primary_date = 'married' WHERE id = ?1").bind(id).run(),
+    ).rejects.toThrow(/constraint failed/i);
+
+    const row = await db
+      .prepare("SELECT primary_date FROM couples WHERE id = ?1")
+      .bind(id)
+      .first<{ primary_date: string }>();
+    expect(row?.primary_date).toBe("dating");
+  });
+
+  it("married行のmarried_dateを後からNULLに落とそうとすると弾かれる（UPDATE側のTRIGGERが無いと通ってしまう経路）", async () => {
+    const id = crypto.randomUUID();
+    await db
+      .prepare(
+        "INSERT INTO couples (id, anniversary_date, married_date, primary_date, is_demo, created_at) VALUES (?1, '2020-01-01', '2022-01-01', 'married', 0, 0)",
+      )
+      .bind(id)
+      .run();
+
+    await expect(
+      db.prepare("UPDATE couples SET married_date = NULL WHERE id = ?1").bind(id).run(),
+    ).rejects.toThrow(/constraint failed/i);
+  });
+});

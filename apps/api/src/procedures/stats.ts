@@ -23,7 +23,10 @@ interface CountRow {
 // 019: couples.primary_date（'dating'/'married'/'none'）に従って daysTogether を
 // 出し分ける。記念日当日を1日目とする（境界条件。docs/tasks/012-stats-card.md）。
 // 未来の日付なら「あと○日」を返す（人間の決定。state.md L66）。
-// 「負の値を出さない」責任はここ（サーバ側）で閉じる
+// 「負の値を出さない」責任はここ（サーバ側）で閉じる。
+// dating/married それぞれに upcoming の対を持たせる（Aの決定・PR #123。
+// 「結婚まであと○日」も主役になりうる数字であり、married_upcomingが無いと
+// dating側だけが修飾された非対称な名前になる）
 export function computeDaysTogether(couple: CoupleDatesRow, today: string): DaysTogether {
   if (couple.primary_date === "none") return { status: "hidden" };
 
@@ -31,15 +34,13 @@ export function computeDaysTogether(couple: CoupleDatesRow, today: string): Days
     // primary_date='married'ならmarried_dateは非NULL（DBのTRIGGER・入力スキーマの
     // refine両方で保証済み。packages/db/src/schema/couple.ts）
     const diff = diffDays(couple.married_date!, today);
-    // 結婚した日が未来（結婚予定日をまだ迎えていない）のケースは019のタスク定義に
-    // 明示が無く、Aへ確認中。「負の値を出さない」という既存の制約だけは守り、
-    // 暫定的に1日目とする（要確認。docs/worklog.md参照）
-    return { status: "married", days: diff >= 0 ? diff + 1 : 1 };
+    if (diff >= 0) return { status: "married", days: diff + 1 };
+    return { status: "married_upcoming", days: -diff };
   }
 
   const diff = diffDays(couple.anniversary_date, today);
-  if (diff >= 0) return { status: "together", days: diff + 1 };
-  return { status: "upcoming", days: -diff };
+  if (diff >= 0) return { status: "dating", days: diff + 1 };
+  return { status: "dating_upcoming", days: -diff };
 }
 
 // stats.get は専用テーブルを持たず、既存テーブルから算出する（architecture.md 4節）。

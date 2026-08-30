@@ -137,12 +137,25 @@ describe("me.update", () => {
     expect(row?.image).toBe(userImageKeyFor(user.id, imageId));
   });
 
-  it("アップロードされていないimageIdを指定するとINVALID_INPUT", async () => {
+  it("アップロードされていないimageId（形式は正規）を指定するとINVALID_INPUT", async () => {
+    const user = await createUser();
+    // generateImageIdと同じ形式（26文字のULID）だが実際にはアップロードしていない
+    const notUploadedImageId = generateImageId();
+
+    await expect(
+      call(router.me.update, { name: user.name, imageId: notUploadedImageId }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  // Rレビュー指摘: post.createのimageId（007 security-auditor指摘）と同じ形で
+  // 鍵を組み立てる以上、形式検証も共有する（packages/contract/src/post.tsの
+  // IMAGE_ID_PATTERN）。パス区切り等を混入させる形式は入力段階で拒否される
+  it("不正な形式のimageIdは入力バリデーションで弾かれる", async () => {
     const user = await createUser();
 
     await expect(
-      call(router.me.update, { name: user.name, imageId: "not-uploaded" }, { context: contextFor(user) }),
-    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+      call(router.me.update, { name: user.name, imageId: "../../etc/passwd" }, { context: contextFor(user) }),
+    ).rejects.toThrow();
   });
 
   it("他人がアップロードした画像のimageIdを指定してもINVALID_INPUT（別ユーザーの鍵になるため実体が無い）", async () => {

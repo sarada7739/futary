@@ -33,7 +33,7 @@ function renderCard() {
 describe("StatsCard", () => {
   it("記念日が今日以前なら「付き合って○日目」を表示する", async () => {
     statsGetMock.mockResolvedValue({
-      daysTogether: { status: "together", days: 365 },
+      daysTogether: { status: "dating", days: 365 },
       meetupDays: 48,
       postCount: 10,
       photoCount: 5,
@@ -54,7 +54,7 @@ describe("StatsCard", () => {
 
   it("記念日が未来なら「あと○日」を表示する（負の値を出さない）", async () => {
     statsGetMock.mockResolvedValue({
-      daysTogether: { status: "upcoming", days: 5 },
+      daysTogether: { status: "dating_upcoming", days: 5 },
       meetupDays: 0,
       postCount: 0,
       photoCount: 0,
@@ -69,7 +69,7 @@ describe("StatsCard", () => {
 
   it("会った日ゼロでも「会った日数：0日」が出て、カード自体は表示される", async () => {
     statsGetMock.mockResolvedValue({
-      daysTogether: { status: "together", days: 1 },
+      daysTogether: { status: "dating", days: 1 },
       meetupDays: 0,
       postCount: 0,
       photoCount: 0,
@@ -83,7 +83,7 @@ describe("StatsCard", () => {
 
   it("ペアが1人だけなら、相手の枠に「招待中」が出る", async () => {
     statsGetMock.mockResolvedValue({
-      daysTogether: { status: "together", days: 1 },
+      daysTogether: { status: "dating", days: 1 },
       meetupDays: 0,
       postCount: 0,
       photoCount: 0,
@@ -108,6 +108,20 @@ describe("StatsCard", () => {
     renderCard();
 
     expect(await screen.findByText("結婚して 100日目")).toBeTruthy();
+  });
+
+  it("primaryDate='married'・結婚した日が未来なら「結婚まで あと○日」を表示する", async () => {
+    statsGetMock.mockResolvedValue({
+      daysTogether: { status: "married_upcoming", days: 30 },
+      meetupDays: 0,
+      postCount: 0,
+      photoCount: 0,
+      members: [{ userId: "u1", name: "Haruka", image: null }],
+    });
+
+    renderCard();
+
+    expect(await screen.findByText("結婚まで あと30日")).toBeTruthy();
   });
 
   it("primaryDate='none'（hidden）なら日数の表示が出ない", async () => {

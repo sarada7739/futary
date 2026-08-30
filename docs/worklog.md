@@ -4551,3 +4551,46 @@ B が3案を挙げた。**読み取り時に書き換える案 (b) は採れな�
   `UPDATE ... SET image = COALESCE(?, image)`でDBの現在値を直接使う形に
   設計を変えて解消した（テストの都合で見つかったが、直した理由は
   テストの都合ではなく設計自体の堅牢性）
+
+## 2026-08-30 / セッションB（019: Aの判断・Rのレビュー指摘を反映）
+
+### やったこと
+- AがL77・L78を判断（PR #123）。L77はarchitecture.md 4節の
+  `PRAGMA foreign_keys=OFF`の記述の隣に「子テーブルを持つ親テーブルには、
+  あとからCHECKを足せない」を追記し、TRIGGERの存在を`packages/db/src/schema/
+  couple.ts`にもコメントで明記するよう指示があった。L78は`married_upcoming`を
+  新設し、`together`/`upcoming`を`dating`/`dating_upcoming`に改名する判断
+  （`meetupCount`→`meetupDaysと`同じ理由）。あわせて`married_date`の上限を
+  2年後に緩和する判断も出た
+- 019がまだマージされていなかったため、指示どおりPR #122側で直接反映した。
+  `packages/contract/src/stats.ts`（union改名・married_upcoming追加）・
+  `apps/api/src/procedures/stats.ts`（computeDaysTogetherの分岐）・
+  `apps/app/components/stats-card.tsx`（ラベル）・関連テスト全箇所を修正
+- `packages/contract/src/couple.ts`の`dateWithinRangeSchema`に年数を
+  引数化し、`anniversaryDateSchema`は1年後・`marriedDateSchema`は2年後の
+  上限にした
+- `packages/db/src/schema/couple.ts`のTRIGGER関連コメントを拡充。
+  「このcheck()はdrizzle-kitの差分検出のためだけに存在し、実体はTRIGGER」
+  であることを明記した
+- Rが019（PR #122）をレビューし、2件の指摘を受けた。両方反映した
+  1. `me.update`の`imageId`に007のIMAGE_ID_PATTERN検証が無かった
+     （post.createと同じ鍵組み立てをしているのに検証だけが無い。現状は
+     他の仕組みが偶然噛み合って悪用を防いでいるだけだった）。
+     `packages/contract/src/post.ts`のIMAGE_ID_PATTERNをexportして
+     `me.ts`で共有する形にした
+  2. TRIGGERを直接検証するテストが無く、Zodのrefineだけを通るテストしか
+     無かった（TRIGGERが消えても壊れても全部緑になりうる状態）。
+     018の重複解消テストと同じ形で、`couples`へ直接INSERT/UPDATEして
+     弾かれることを確認するテストを`couple.test.ts`に3件追加した
+- Rが独立に0009マイグレーション全体をSQLiteで実測検証済み（4経路の
+  INSERT/UPDATE・エラーメッセージの一致）だったことも報告を受けた
+- PR #123（CI緑）をsquash mergeし、mainを取り込んでから上記の修正を
+  コミット。`docs/state.md`のL77・L78を解決済みに更新
+- `pnpm test`・`type-check`・`lint`をルートで実行しすべて緑を確認
+  （apps/api 234→240件・apps/app 80→81件）
+
+### 決定事項
+- なし（AとRの指摘をそのまま反映した）
+
+### 詰まった点
+- なし

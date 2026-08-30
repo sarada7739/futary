@@ -48,11 +48,13 @@ function MemberAvatar({ member }: { member?: Member }) {
   );
 }
 
-// 019: primary_date='none'（hidden）は非表示。'married'は「結婚して○日目」
+// 019: primary_date='none'（hidden）は非表示。dating/marriedそれぞれに
+// upcoming（あと○日）の対がある（Aの決定・PR #123）
 function daysTogetherLabel(daysTogether: Stats["daysTogether"]): string | null {
-  if (daysTogether.status === "together") return `付き合って ${daysTogether.days}日目`;
+  if (daysTogether.status === "dating") return `付き合って ${daysTogether.days}日目`;
+  if (daysTogether.status === "dating_upcoming") return `記念日まで あと${daysTogether.days}日`;
   if (daysTogether.status === "married") return `結婚して ${daysTogether.days}日目`;
-  if (daysTogether.status === "upcoming") return `記念日まで あと${daysTogether.days}日`;
+  if (daysTogether.status === "married_upcoming") return `結婚まで あと${daysTogether.days}日`;
   return null;
 }
 

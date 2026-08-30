@@ -28,18 +28,30 @@ export const couples = sqliteTable(
     check("couples_primary_date_check", sql`${table.primaryDate} IN ('dating', 'married', 'none')`),
     // primary_date='married'なのにmarried_dateがNULL、という状態を作らない。
     // 入力スキーマでも拒否するが、シードが入力スキーマを通らない2つ目の
-    // 書き込み口になるためCHECKでも表す（014と同じ理由）。
-    // 【実際のマイグレーションはこのCHECKをそのまま生成していない】
-    // couplesはcouple_members/invites/invite_failures/events/postsから
-    // FOREIGN KEYで参照される親テーブル。drizzle-kitはCHECK追加を
-    // 「新テーブルへ差し替える」手順（PRAGMA foreign_keys=OFF; ...; DROP TABLE）
-    // で生成するが、D1はこのPRAGMAを無視して常にFKを強制するため、親テーブルの
-    // DROPがFOREIGN KEY constraint failedで落ちる（実測。architecture.md 4節の
+    // 書き込み口になるためDB側でも表す（014と同じ理由）。
+    //
+    // 【重要: 実際のDBにはこのCHECKは存在しない。TRIGGERで代替している】
+    // ここに書いてあるdrizzleの`check()`は、drizzle-kitの差分検出（スナップショット
+    // 追跡）のためだけに存在し、生成される素のマイグレーションSQLは実際には
+    // 使っていない。このスキーマ定義だけを読むと「CHECK制約がある」ように
+    // 見えるが、実体は`packages/db/migrations/0009_couple_dates.sql`の
+    // `couples_married_date_required_insert`（BEFORE INSERT）・
+    // `couples_married_date_required_update`（BEFORE UPDATE）の2本のTRIGGER。
+    // 両方無いとINSERT/UPDATEどちらか一方で不変条件を壊せる（片方だけでは
+    // 「marriedの行のmarried_dateを後からNULLに落とす」経路等が残る。実測確認済み）。
+    //
+    // なぜ素のCHECKにできないか: couplesはcouple_members/invites/
+    // invite_failures/events/postsからFOREIGN KEYで参照される親テーブル。
+    // drizzle-kitはCHECK追加を「新テーブルへ差し替える」手順
+    // （PRAGMA foreign_keys=OFF; ...; DROP TABLE）で生成するが、D1はこの
+    // PRAGMAを無視して常にFKを強制するため、親テーブルのDROPが
+    // FOREIGN KEY constraint failedで落ちる（実測。architecture.md 4節の
+    // 「子テーブルを持つ親テーブルには、あとからCHECKを足せない」参照。
     // 「PRAGMA foreign_keys=OFFはD1で無視される」と同根の制約）。
-    // 019のマイグレーション（0009_couple_dates.sql）はこの1点だけ手で
-    // ALTER TABLE ADD COLUMN + TRIGGER に書き換えている。この2列にまたがる
-    // 制約は同じ理由（テーブル作り直し禁止）でALTER TABLE ADD COLUMNの
-    // CHECK句にもできない（自列以外を参照するCHECKは追加できないため）
+    // 自列だけを参照するprimary_dateのCHECK（上の行）はALTER TABLE ADD COLUMNに
+    // そのまま付けられたが、married_dateとの2列にまたがるこちらは同じ理由
+    // （テーブル作り直し禁止）でALTER TABLE ADD COLUMNのCHECK句にもできない
+    // （自列以外を参照するCHECKは追加できないため）
     check(
       "couples_married_date_required_check",
       sql`${table.primaryDate} <> 'married' OR ${table.marriedDate} IS NOT NULL`,

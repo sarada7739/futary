@@ -85,42 +85,45 @@ function couple(overrides: Partial<{ anniversaryDate: string; marriedDate: strin
   };
 }
 
-// 判別可能なunion（{status:"together"} | {status:"upcoming"} | {status:"married"} |
-// {status:"hidden"}）の境界。「together」の下端（今日→1日目）と「upcoming」の
-// 下端（明日→あと1日。0日にならない）の両方を押さえる（Rレビュー指摘: 片側だけ
-// だとoff-by-oneを見逃す）。019でprimary_dateの分岐を追加した
+// 判別可能なunion（{status:"dating"} | {status:"dating_upcoming"} |
+// {status:"married"} | {status:"married_upcoming"} | {status:"hidden"}）の境界。
+// 「dating」の下端（今日→1日目）と「dating_upcoming」の下端（明日→あと1日。
+// 0日にならない）の両方を押さえる（Rレビュー指摘: 片側だけだとoff-by-oneを
+// 見逃す）。019でprimary_dateの分岐を追加した。dating/marriedそれぞれに
+// upcomingの対を持たせる形に改名した（Aの決定・PR #123。旧together→dating、
+// 旧upcoming→dating_upcoming）
 describe("computeDaysTogether", () => {
   it("primary_date='dating'・記念日が今日なら1日目", () => {
     expect(computeDaysTogether(couple({ anniversaryDate: "2026-01-01" }), "2026-01-01")).toEqual({
-      status: "together",
+      status: "dating",
       days: 1,
     });
   });
 
   it("primary_date='dating'・記念日が昨日なら2日目", () => {
     expect(computeDaysTogether(couple({ anniversaryDate: "2025-12-31" }), "2026-01-01")).toEqual({
-      status: "together",
+      status: "dating",
       days: 2,
     });
   });
 
   it("primary_date='dating'・記念日が明日なら「あと1日」（0日にならない）", () => {
     expect(computeDaysTogether(couple({ anniversaryDate: "2026-01-02" }), "2026-01-01")).toEqual({
-      status: "upcoming",
+      status: "dating_upcoming",
       days: 1,
     });
   });
 
   it("primary_date='dating'・記念日が2日後なら「あと2日」", () => {
     expect(computeDaysTogether(couple({ anniversaryDate: "2026-01-03" }), "2026-01-01")).toEqual({
-      status: "upcoming",
+      status: "dating_upcoming",
       days: 2,
     });
   });
 
   it("primary_date='dating'・年をまたいでも正しい", () => {
     expect(computeDaysTogether(couple({ anniversaryDate: "2025-12-31" }), "2026-01-02")).toEqual({
-      status: "together",
+      status: "dating",
       days: 3,
     });
   });
@@ -137,6 +140,18 @@ describe("computeDaysTogether", () => {
     ).toEqual({ status: "married", days: 2 });
   });
 
+  it("primary_date='married'・結婚した日が明日なら「結婚まであと1日」（married_upcoming。0日にならない）", () => {
+    expect(
+      computeDaysTogether(couple({ primaryDate: "married", marriedDate: "2026-01-02" }), "2026-01-01"),
+    ).toEqual({ status: "married_upcoming", days: 1 });
+  });
+
+  it("primary_date='married'・結婚した日が2日後なら「結婚まであと2日」", () => {
+    expect(
+      computeDaysTogether(couple({ primaryDate: "married", marriedDate: "2026-01-03" }), "2026-01-01"),
+    ).toEqual({ status: "married_upcoming", days: 2 });
+  });
+
   it("primary_date='none'ならhidden（daysを含まない）", () => {
     const result = computeDaysTogether(couple({ primaryDate: "none" }), "2026-01-01");
     expect(result).toEqual({ status: "hidden" });
@@ -151,19 +166,19 @@ describe("stats.get", () => {
 
     const stats = await call(router.stats.get, undefined, { context: contextFor(user) });
 
-    expect(stats.daysTogether).toEqual({ status: "together", days: 1 });
+    expect(stats.daysTogether).toEqual({ status: "dating", days: 1 });
   });
 
   // L66（Aの決定）: anniversaryDateSchemaの上限緩和（1年後まで）によりupcomingへ
   // 実際に到達できることを、入力から出力まで通しで確認する
-  it("記念日が未来（1ヶ月後）のペアはdaysTogetherがupcoming・daysが正の値になる", async () => {
+  it("記念日が未来（1ヶ月後）のペアはdaysTogetherがdating_upcoming・daysが正の値になる", async () => {
     const user = await createUser();
     const nearFuture = addDays(todayJst(), 30);
     await createCouple(user, nearFuture);
 
     const stats = await call(router.stats.get, undefined, { context: contextFor(user) });
 
-    expect(stats.daysTogether).toEqual({ status: "upcoming", days: 30 });
+    expect(stats.daysTogether).toEqual({ status: "dating_upcoming", days: 30 });
   });
 
   // 019: couple.updateでprimary_dateを変えると、stats.getのdaysTogetherに反映される

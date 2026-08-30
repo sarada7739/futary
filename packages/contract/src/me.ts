@@ -1,5 +1,6 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
+import { IMAGE_ID_PATTERN } from "./post";
 
 const MAX_NAME_LENGTH = 20;
 
@@ -22,14 +23,18 @@ export const meGetContract = oc.output(
 // （ペア未所属でも自分のプロフィールは設定できるため authedProcedure の上に
 // 載せる。couple.create/invite.acceptと同じ理由）。
 // imageId は me.uploadImageUrl がサーバ側で発行したものだけが有効
-// （post.createのimageIdと同じ形。architecture.md 5節）。
+// （post.createのimageIdと同じ形。architecture.md 5節）。形式の検証
+// （IMAGE_ID_PATTERN）もpost.createと共有する（Rレビュー指摘: 同じ形で鍵を
+// 組み立てる〈users/{userId}/profile/{imageId}.jpg〉以上、007の「入力で
+// 構造的に閉じる」判断をこちらにも引き継ぐ必要がある。現状は他の仕組みが
+// たまたま噛み合って悪用を防いでいるだけで、それに頼らない）。
 // 省略時は既存の画像を変更しない（外す操作は用意しない。要望に無いものを
 // 先回りして作らない）
 export const meUpdateContract = oc
   .input(
     z.object({
       name: z.string().trim().min(1, "名前を入力してください").max(MAX_NAME_LENGTH),
-      imageId: z.string().optional(),
+      imageId: z.string().regex(IMAGE_ID_PATTERN).optional(),
     }),
   )
   .output(
