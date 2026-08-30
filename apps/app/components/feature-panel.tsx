@@ -1,6 +1,6 @@
 import type { ImageSourcePropType } from "react-native";
 import { Image, Pressable, View } from "react-native";
-import { colors, space, Text } from "@futary/ui";
+import { colors, lineHeights, space, Text } from "@futary/ui";
 
 export type FeaturePanelProps = {
   label: string;
@@ -9,9 +9,20 @@ export type FeaturePanelProps = {
 };
 
 const ICON_SIZE = 32;
+const LABEL_LINES = 2;
+const BADGE_LINES = 1;
 // ラベルが2行に折り返しても8枚の高さが揃うよう固定する（「今日どうだった？」が
-// スマホ幅の4列で1行に入らないため。docs/tasks/020-home-panels.md）
-const CELL_HEIGHT = 92;
+// スマホ幅の4列で1行に入らないため。docs/tasks/020-home-panels.md）。
+// 一番きついのは、2行に折り返すラベルと「次フェーズ」の行を両方持つパネル
+// （「今日どうだった？」）。数値を積み上げて導出する（勘で決めない。
+// Rレビュー指摘: 92では文字の行の高さを明示していないぶんの余白が足りなかった）
+const CELL_HEIGHT =
+  space.sm + // paddingTop
+  ICON_SIZE +
+  space.xs + // アイコンとラベルの間のgap
+  lineHeights.xs * LABEL_LINES +
+  space.xs + // ラベルと次フェーズ行の間のgap
+  lineHeights.xs * BADGE_LINES;
 
 // 020: ホームの機能パネル。モックアップの4列グリッドに合わせ、枠線も背景も
 // 持たない（押せる/押せないの差を枠ではなく濃さで見せるため。薄い枠は
