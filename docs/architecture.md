@@ -330,7 +330,7 @@ R2 に取り込んで自前配信する案は取らない。プロフィール�
 
 ### 日付計算は `packages/date` に置く
 
-**`new Date()` と `Date.now()` を `packages/date` の外で書かない。ESLint で禁止する。**
+**`new Date(...)` を `packages/date` の外で書かない。ESLint で禁止する。**
 
 011 の実装で、`todayJst` が `apps/app/lib/calendar.ts` と `apps/api/src/lib/date.ts` の
 **2箇所に同名で存在する**状態になった（L63）。`apps/app` は `apps/api` に依存しない
@@ -351,6 +351,38 @@ R2 に取り込んで自前配信する案は取らない。プロフィール�
 
 `packages/contract` に入れない。**あれは「型の単一の源」であって道具箱ではない。**
 用途を混ぜると、次に共有したいものが出たときも同じ場所に積まれる。
+
+#### 禁止するのは `new Date(...)` だけ。`Date.now()` は禁止しない
+
+当初「`new Date()` と `Date.now()` を禁止する」と書いた。**雑だった。**
+実装したところ、暦と無関係な既存コードまで止まった（B の報告）。
+
+**`Date.now()` は数値を1つ返すだけで、暦日を作れない。**
+タイムゾーンも日付境界も関与しないので、重複しても「今日が何日か」の答えは割れない。
+
+**`new Date(...)` が境界である。**ここで初めて暦とタイムゾーンの解釈が入る
+（`getFullYear`・`toISOString`・`toLocaleDateString`）。禁止するのはこちらだけでよい。
+
+| 書き方 | 扱い |
+|---|---|
+| `Date.now()` / `Math.floor(Date.now()/1000)` | **禁止しない。**`created_at` や ULID の種はこれで足りる |
+| `new Date(...)` | **`packages/date` の外で禁止** |
+| テストファイル | 対象外。固定値の生成であって暦日計算ではない |
+
+**`eslint-disable` を並べて通す形にしない。**必要なものは `packages/date` に
+関数として置き、そこを通す。除外が増え続ける規則は、いずれ本物の違反を隠す
+（`conventions.md` 8節でスクリーンショット要件を撤回したのと同じ理由）。
+
+#### 表示のための整形も `packages/date` に置く
+
+`toLocaleDateString` / `toLocaleString` は、**`timeZone` を指定しなければ
+端末のタイムゾーンで解釈される。**このアプリは JST 固定である
+（`conventions.md` 6節）。端末が別のタイムゾーンなら、
+**投稿の日付が1日ずれて表示される。**
+
+整形も `packages/date` に置き、**JST を明示する。**
+`new Date(...)` を外で書かせない規則は、これも自動的に拾う。
+
 
 ### 存在しない日付は、その月の末日に寄せる
 
