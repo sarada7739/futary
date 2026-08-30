@@ -52,7 +52,11 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
           {EVENT_KIND_LABELS[event.kind]}
           {event.repeatYearly ? "・毎年" : ""}
           {event.createdByName ? `・${event.createdByName}が設定` : ""}
-          {!event.canEdit ? "・編集は設定者のみ" : ""}
+          {/* canEdit:falseは「共有でないplanの非設定者」だけでなく、未認証の
+              デモ閲覧者（全kind）でも起きる。「編集は設定者のみ」はplanにしか
+              当てはまらない理由なので、記念日・会った日には出さない
+              （security-auditor指摘） */}
+          {event.kind === "plan" && !event.canEdit ? "・編集は設定者のみ" : ""}
         </Text>
       </View>
     </View>

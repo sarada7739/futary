@@ -425,6 +425,32 @@ describe("5. DEMO_COUPLE_ID が未設定のとき、未認証アクセスが拒�
   });
 });
 
+// L5とは別経路。L5は値が無い場合、6は値が有るが指す先が違う場合
+// （security-requirements.md 3節）。`resolveCoupleContext`は冒頭で
+// `if (!demoCoupleId)`を弾くため、5のテスト（nullと空文字）だけでは
+// `AND is_demo = 1`を誰かが外しても1件も落ちない（Rが走査して確認済み）。
+// security-auditor指摘: 021（認可を触るタスク）でこの項目のテストが
+// リポジトリ全体に1件も存在しないと判明したため、ここで追加する
+describe("6. DEMO_COUPLE_ID が実在するが is_demo でないペアを指すとき、未認証アクセスが拒否される", () => {
+  it("couple.get は実在の非デモペアを指しても FORBIDDEN", async () => {
+    const owner = await createUser();
+    const realCouple = await createCouple(owner);
+
+    await expect(
+      call(router.couple.get, undefined, { context: contextFor(null, realCouple.id) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("event.list は実在の非デモペアを指しても FORBIDDEN（読み取りも拒否）", async () => {
+    const owner = await createUser();
+    const realCouple = await createCouple(owner);
+
+    await expect(
+      call(router.event.list, { from: "2026-01-01", to: "2026-01-31" }, { context: contextFor(null, realCouple.id) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
 // 021: ペアの内側で権限が分かれるのは plan だけ（docs/tasks/021-plan-ownership.md）。
 // 1〜6は「他のペアに触れない」か「未認証を通さない」の話で、ペアの内側は
 // 同じ権限という前提に立っていた。7はその前提が変わったことを確認する

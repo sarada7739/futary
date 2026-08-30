@@ -351,6 +351,119 @@ describe("021: event.list の canEdit と、event.update/delete の実際の可�
   );
 });
 
+// 021: is_sharedはkind='plan'のときだけ立てられる。入力スキーマ・DBのCHECK
+// 制約の両方で保証する（docs/tasks/021-plan-ownership.md「テストで証明する
+// こと」。security-auditor指摘: どちらのテストも無かったため追加した）
+describe("021: is_shared は kind='plan' 以外に立てられない", () => {
+  it("event.create: kind='anniversary'にisShared:trueを指定すると入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, isShared: true },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("event.create: kind='meetup'にisShared:trueを指定すると入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(
+        router.event.create,
+        { date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: false, isShared: true },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("event.update: kind='anniversary'にisShared:trueを指定すると入力バリデーションで弾かれる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createEvent(user, { kind: "anniversary", repeatYearly: true });
+
+    await expect(
+      call(
+        router.event.update,
+        {
+          id: created.id,
+          date: "2026-03-10",
+          title: "記念日",
+          kind: "anniversary",
+          repeatYearly: true,
+          isShared: true,
+        },
+        { context: contextFor(user) },
+      ),
+    ).rejects.toThrow();
+  });
+
+  // シードのような入力スキーマを通らない書き込み口を想定したCHECK制約である
+  // 以上、Zodを経由せずeventsへ直接INSERTして確かめる（couple.test.tsの
+  // TRIGGER検証・018の重複解消テストと同じ形）
+  it("DB: kind<>'plan' かつ is_shared=1 のINSERTはCHECK制約で弾かれる", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+
+    await expect(
+      db
+        .prepare(
+          `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, created_by, is_shared, created_at)
+           VALUES (?1, ?2, '2026-03-10', 'テスト', 'anniversary', 1, ?3, 1, 0)`,
+        )
+        .bind(crypto.randomUUID(), couple.id, user.id)
+        .run(),
+    ).rejects.toThrow(/constraint failed/i);
+  });
+
+  it("DB: kind='plan' かつ is_shared=1 のINSERTは通る", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const id = crypto.randomUUID();
+
+    await db
+      .prepare(
+        `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, created_by, is_shared, created_at)
+         VALUES (?1, ?2, '2026-03-10', 'テスト', 'plan', 0, ?3, 1, 0)`,
+      )
+      .bind(id, couple.id, user.id)
+      .run();
+
+    const row = await db.prepare("SELECT is_shared FROM events WHERE id = ?1").bind(id).first<{ is_shared: number }>();
+    expect(row?.is_shared).toBe(1);
+  });
+});
+
+// 021: 未認証（デモ）閲覧者はwriteProcedureが即FORBIDDENで弾くため、
+// kindに関わらずcanEditは常にfalseになる（computeCanEditの防御線が
+// 消えたときに気づけるよう固定する。security-auditor指摘）
+describe("021: 未認証（デモ）閲覧者のcanEditは常にfalse", () => {
+  it("anniversary/meetup/plan いずれも canEdit:false で返る", async () => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    await db.prepare("UPDATE couples SET is_demo = 1 WHERE id = ?1").bind(couple.id).run();
+
+    await createEvent(owner, { date: "2026-04-01", kind: "anniversary", repeatYearly: true });
+    await createEvent(owner, { date: "2026-04-02", kind: "meetup" });
+    await createEvent(owner, { date: "2026-04-03", kind: "plan", isShared: true });
+
+    const result = await call(
+      router.event.list,
+      { from: "2026-04-01", to: "2026-04-03" },
+      { context: contextFor(null, couple.id) },
+    );
+
+    expect(result.items).toHaveLength(3);
+    for (const item of result.items) {
+      expect(item.canEdit).toBe(false);
+    }
+  });
+});
+
 // architecture.md 5節「繰り返し記念日の射影」。完了条件・タスクファイルの
 // 「テストで証明すること」に列挙された観点をそれぞれ1テストずつ対応させる
 describe("event.list の繰り返し記念日の射影", () => {

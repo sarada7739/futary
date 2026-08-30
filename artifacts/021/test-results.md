@@ -36,7 +36,7 @@ apps/app 96件→101件（+5）すべて緑。詳細は`test-results-app.txt`
 
 ## `pnpm --filter @futary/db run generate`（drizzle-kitのスナップショット同期確認）
 
-`events`単体の差分（`0010_lyrical_chronomancer.sql`）になることを確認済み。
+`events`単体の差分（`0010_event_is_shared.sql`）になることを確認済み。
 `couples`（親テーブル）を巻き込む差分が出ないことを確認した（詳細は
 worklog.md参照。0009スナップショットの欠落エントリを修正済み）。
 
