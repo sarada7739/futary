@@ -214,9 +214,15 @@ event.update        { id, ... }
 event.delete        { id }
 stats.get           -> { daysTogether, meetupDays, postCount, photoCount }
                     daysTogether は判別可能な union
-                      { status: "together", days }  記念日が今日以前
-                      { status: "upcoming", days }  記念日が未来（「あと○日」）
-                    記念日は1年後まで登録できる（打ち間違いの歯止め）
+                      { status: "dating",           days }  付き合って N 日目
+                      { status: "dating_upcoming",  days }  その日まであと N 日
+                      { status: "married",          days }  結婚して N 日目
+                      { status: "married_upcoming", days }  結婚まであと N 日
+                      { status: "hidden" }                  非表示
+                    hidden には days を入れない（非表示が応答にも残らない）
+                    未来の上限は日付ごとに違う（意図。019 のタスク定義に理由）
+                      anniversary_date  1年後まで
+                      married_date      2年後まで
 memory.get          -> { post, label } | null
 ```
 
@@ -284,6 +290,106 @@ memory.get          -> { post, label } | null
 参照されている `user` 行は削除できないため、**「投稿は在るが投稿者が引けない」状態は
 現在のスキーマでは作れない。**この経路を再現するテストは書けない。書こうとしても
 FK 違反で INSERT 自体が失敗する（`PRAGMA foreign_keys = OFF` は D1 側で無視される）。
+
+#### 子テーブルを持つ親テーブルに、あとから CHECK を足せない
+
+**`PRAGMA foreign_keys = OFF` を D1 が無視することの帰結である**（019 で B が実測）。
+
+SQLite に `ALTER TABLE ... ADD CONSTRAINT` は無い。drizzle-kit は
+**新テーブルを作って全行コピーし、旧テーブルを DROP して改名**する。
+その手順は `PRAGMA foreign_keys = OFF` を前提にしている。
+
+**D1 はそれを無視して常に FK を強制するため、`DROP TABLE` の時点で失敗する。**
+`couples` は `couple_members` / `invites` / `invite_failures` / `events` / `posts` から
+参照されており、**実際に `FOREIGN KEY constraint failed` になった。**
+
+**参照されている表は3つだけである**（実測）。
+
+| 親表 | 参照される数 | あとから CHECK を足せるか |
+|---|---|---|
+| `user` | 8 | **足せない** |
+| `couples` | 4 | **足せない** |
+| **`posts`** | 1（`reactions` から） | **足せない** |
+| 上記以外（`events`・`reactions`・`invites` 等） | 0 | **表を作り直す形が通る**（0006・0009） |
+
+**`events` は参照されていない。**014 の CHECK 追加（0009）は**通る。**
+`reactions` の 0006 が通ったのと同じである。
+
+親表に制約を足すときは、
+
+| 制約の形 | 書き方 |
+|---|---|
+| 自列だけを見る | `ALTER TABLE ADD COLUMN` の CHECK 句に付けられる |
+| **複数列にまたがる** | **TRIGGER**（`BEFORE INSERT` と `BEFORE UPDATE` の両方） |
+
+**TRIGGER は drizzle のスキーマファイルに現れない。**
+`packages/db/src/schema/*.ts` を読んだ人には見えないので、
+**そこにコメントで書く。**書かないと、スキーマファイルが実態より弱く見える。
+
+**drizzle のスナップショットは CHECK と記録するが、実体は TRIGGER である。**
+`drizzle-kit` から見ると**差分が出ない。**将来 `generate` を走らせた人が、
+「CHECK が無い」と判断して**それを足すマイグレーションを作る**可能性がある。
+**通らない**（親表だから）が、原因に辿り着くまで時間を使う。
+
+#### 実体とファイルのずれを、1つのテストで固定する
+
+**ここまでの3つは、すべて同じ形である。**
+
+| | 実体 | ファイルから読めるもの |
+|---|---|---|
+| 018 の部分 UNIQUE | 索引として存在 | **表を作り直せば消える。**誰も宣言していない |
+| 019 の TRIGGER | 2本存在 | drizzle のスキーマに現れない |
+| 同上 | 実体は TRIGGER | スナップショットは CHECK。**差分が出ない** |
+
+**「DB に実在するものと、ファイルから読めるものがずれる」**である。
+**人間の注意力で埋めない。**1つのクエリで両方向とも固定できる（R の提案）。
+
+```sql
+SELECT type, name, sql FROM sqlite_master
+ WHERE type IN ('index','trigger') AND name NOT LIKE 'sqlite_%'
+ ORDER BY type, name;
+```
+
+**`sql` 列まで突き合わせる。名前だけでは足りない**（R の指摘）。
+
+`events_meetup_unique` から `WHERE kind = 'meetup'` が落ちても、**名前は変わらない。**
+そして落ちた瞬間、`UNIQUE (couple_id, date)` になり、
+**同じ日に記念日と予定を両方置けなくなる。**
+「会った日が1日1件」のテストは**通ったまま**である。
+
+テストは実マイグレーションを適用した DB に対して走るので、
+**この一覧を期待値と突き合わせるテストを1つ置く。**
+
+- **消えたら落ちる。**表の作り直しで索引や TRIGGER が飛んだとき
+- **増えても落ちる。**誰かが宣言せずに足したとき。
+  期待値に足す作業が、そのまま「スキーマファイルに書く」への入口になる
+
+**振る舞いのテストとは別物である。**
+「同じ日に2件目の `meetup` を作ると1件のまま」は**制約が効くこと**を証明する。
+この一覧は**制約が存在すること**を証明する。**両方あって初めて揃う。**
+
+**`events_couple_date_idx` にはこれが要る。**あれは純粋な性能用の索引で、
+**消えてもどのテストも落ちない。**R が実行計画を取って確認した。
+
+```
+索引あり:  SEARCH events USING INDEX events_couple_date_idx (couple_id=?)
+索引なし:  SCAN events
+```
+
+**ただし効いているのは `couple_id` の絞り込みだけで、日付の範囲には効いていない。**
+`OR repeat_yearly = 1` があるため、SQLite は範囲条件を索引で使えない。
+繰り返す記念日は登録年に関わらず表示されうるので、**設計として正しい形である。**
+
+**帰結として、この索引の価値はペアの数に比例する。**
+
+`requirements.md` 6節の想定規模（**2人 × 1日数投稿**）では、
+**消えても実害はほぼ無い。**「黙って遅くなり、黙って高くなる」は、
+この製品の規模に対しては**言い過ぎだった。**
+
+それでも一覧テストは置く。**理由は性能ではなく、上の部分索引の方にある。**
+`WHERE` が落ちる形は**この規模でも即座に壊れる。**
+テストの費用がほぼゼロで、**壊れ方の重い方を同じ網で捕まえられる。**
+
 
 それでも LEFT JOIN と null 許容を採る。**理由は「いま起きるから」ではなく、
 これが崩れたときの壊れ方が悪いからである。**
