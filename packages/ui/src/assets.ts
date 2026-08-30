@@ -10,3 +10,7 @@ export { default as logoMark } from "../assets/logo-mark.png";
 // 新規に描き起こした。既存4つ（単線・角丸・塗りなし・同じ線色）に合わせた
 // モノライン。日付の数字は入れていない（24px表示では潰れて読めないため）
 export { default as iconTabCalendar } from "../assets/tab-calendar.png";
+// タイムラインタブ（020。検索タブを置き換えた）。素材シートに該当する図案が
+// 無いため、カレンダーと同じ手順で新規に描き起こした。3本の横線（長さを
+// 変えてフィードらしさを出す）。他のタブアイコンと同じ単線・角丸・塗りなし
+export { default as iconTabTimeline } from "../assets/tab-timeline.png";

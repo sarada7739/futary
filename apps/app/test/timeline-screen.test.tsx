@@ -2,26 +2,18 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 008: ホーム画面・投稿作成画面の画面結合テスト。Playwright は014まで入れない
+// 008: タイムライン画面・投稿作成画面の画面結合テスト。020でホームから
+// 独立したタブになった（旧home-timeline.test.tsx。統計カード・思い出しカードは
+// ホームへ移り、それぞれhome-screen.test.tsx・stats-card.test.tsx・
+// memory-card.test.tsxで検証する）。Playwright は014まで入れない
 // （007の決定。conventions.md 6節）ため、oRPC クライアントをモックして
 // react-native-web + jsdom 上でTanStack Queryの実挙動と組み合わせて検証する。
 // モックする以上サーバとの契約自体は検証していない（実機確認で見る）
-const {
-  listMock,
-  createMock,
-  deleteMock,
-  toggleReactionMock,
-  statsGetMock,
-  memoryGetMock,
-  pushMock,
-  backMock,
-} = vi.hoisted(() => ({
+const { listMock, createMock, deleteMock, toggleReactionMock, pushMock, backMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
   deleteMock: vi.fn(),
   toggleReactionMock: vi.fn(),
-  statsGetMock: vi.fn(),
-  memoryGetMock: vi.fn(),
   pushMock: vi.fn(),
   backMock: vi.fn(),
 }));
@@ -67,17 +59,11 @@ vi.mock("../lib/orpc", async () => {
     reaction: {
       toggle: toggleReactionMock,
     },
-    stats: {
-      get: statsGetMock,
-    },
-    memory: {
-      get: memoryGetMock,
-    },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-const { default: HomeScreen } = await import("../app/(tabs)/index");
+const { default: TimelineScreen } = await import("../app/(tabs)/timeline");
 const { default: ComposeScreen } = await import("../app/compose");
 const { queryClient } = await import("../lib/query");
 
@@ -100,28 +86,15 @@ function makePost(overrides: Partial<Record<string, unknown>> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   queryClient.clear();
-  // ホーム画面が012でStatsCardを組み込んだため、投稿一覧のテストが壊れないよう
-  // 既定値を用意する（このファイルの主眼は投稿一覧であり、統計カード自体の
-  // 検証はstats-card.test.tsxで行う）
-  statsGetMock.mockResolvedValue({
-    daysTogether: { status: "dating", days: 1 },
-    meetupDays: 0,
-    postCount: 0,
-    photoCount: 0,
-    members: [{ userId: "me", name: "自分", image: null }],
-  });
-  // 013でMemoryCardも組み込まれたため、同じ理由で既定値を用意する
-  // （検証はmemory-card.test.tsxで行う）
-  memoryGetMock.mockResolvedValue(null);
 });
 
-describe("HomeScreen", () => {
+describe("TimelineScreen", () => {
   it("投稿一覧が表示される", async () => {
     listMock.mockResolvedValue({ items: [makePost()], nextCursor: null });
 
     render(
       <QueryClientProvider client={queryClient}>
-        <HomeScreen />
+        <TimelineScreen />
       </QueryClientProvider>,
     );
 
@@ -133,7 +106,7 @@ describe("HomeScreen", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <HomeScreen />
+        <TimelineScreen />
       </QueryClientProvider>,
     );
 
@@ -151,7 +124,7 @@ describe("投稿作成 → 一覧反映", () => {
 
     const { rerender } = render(
       <QueryClientProvider client={queryClient}>
-        <HomeScreen />
+        <TimelineScreen />
       </QueryClientProvider>,
     );
     expect(await screen.findByText("まだ投稿がありません")).toBeTruthy();
@@ -176,7 +149,7 @@ describe("投稿作成 → 一覧反映", () => {
 
     rerender(
       <QueryClientProvider client={queryClient}>
-        <HomeScreen />
+        <TimelineScreen />
       </QueryClientProvider>,
     );
 
@@ -215,7 +188,7 @@ describe("投稿の削除", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <HomeScreen />
+        <TimelineScreen />
       </QueryClientProvider>,
     );
     expect(await screen.findByText("消される投稿")).toBeTruthy();
@@ -246,7 +219,7 @@ describe("リアクション（楽観的更新）", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <HomeScreen />
+        <TimelineScreen />
       </QueryClientProvider>,
     );
     const button = await screen.findByTestId("post-card-reaction-heart");
@@ -279,7 +252,7 @@ describe("リアクション（楽観的更新）", () => {
 
     render(
       <QueryClientProvider client={queryClient}>
-        <HomeScreen />
+        <TimelineScreen />
       </QueryClientProvider>,
     );
     const button = await screen.findByTestId("post-card-reaction-heart");
