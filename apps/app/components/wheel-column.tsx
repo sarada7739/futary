@@ -23,7 +23,12 @@ export function WheelColumn({ options, value, onChange, testID }: WheelColumnPro
   // 直前にcommit()で自分から通知したvalueを覚えておく。位置合わせの
   // scrollToは「外からvalueが変わったとき」だけ走らせ、自分のonChangeが
   // 一往復して戻ってきたとき（利用者がスクロール中）には走らせない
-  // （Rの指摘・Aの決定。PR #156レビュー）
+  // （Rの指摘・Aの決定。PR #156レビュー）。selfCommittedValueRefは一度
+  // 立てたら戻さない。マウント中に「自分の値→別の値→また同じ値」と往復
+  // すると、その最後の外部変化を自分由来と誤認して位置がずれる余地がある。
+  // このコンポーネントを使うevent-form.tsxのModalが`animationType="none"`
+  // で閉じるたびアンマウントする前提で害が出ないようにしている
+  // （前提が崩れる条件はevent-form.tsx側のコメント参照）
   const selfCommittedValueRef = useRef<string | null>(null);
   // タップ（selectByPress）できた行の位置合わせだけは、確定後の最新optionsで
   // 出したselectedIndexへアニメーション移動したい（タップ時点のindexで

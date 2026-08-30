@@ -112,17 +112,23 @@ describe("WheelColumn 位置合わせのscrollTo", () => {
     expect(setSpy).toHaveBeenCalledWith(ITEM_HEIGHT * 6);
   });
 
-  it("R-4: 刻みに乗らない値から離れた行をタップしたら、その行の値になる", () => {
+  it("R-4: 刻みに乗らない値から離れた行をタップしたら、アニメーションの飛び先も確定後のoptionsで引き直す", () => {
     const onChangeSpy = vi.fn();
     const { getByTestId } = render(<ControlledMinuteWheel initialValue="03" onChangeSpy={onChangeSpy} />);
+    const node = getByTestId("minute-scroll") as unknown as HTMLElement;
+    const { setSpy } = attachScrollTopSpy(node);
+    setSpy.mockClear();
 
-    // buildMinuteOptions("03")は13個。"30"をタップする
-    // （タップ時点のindexで飛び先を決めると、commit後に"03"が消えて
-    // optionsが13->12に縮み、アニメーション終点が1行ずれた"35"に
-    // 着地してしまっていた。Rの指摘）
+    // buildMinuteOptions("03")は13個で"30"はindex=7（y=280）。タップ時点の
+    // indexで飛び先を固定すると、commit後に"03"が消えてoptionsが13->12に
+    // 縮み、"30"の正しい位置はindex=6（y=240）になる。飛び先をy=280に固定した
+    // まま動かすと、アニメーションの終端がずれたoptionsを読んで違う値
+    // （"35"）に着地する（Rの指摘。jsdomはscrollイベントを発火しないため、
+    // onChangeの引数だけを見るテストではこの経路を判別できない。実測済み）
     fireEvent.click(getByTestId("minute-option-30"));
 
     expect(onChangeSpy).toHaveBeenCalledWith("30");
-    expect(onChangeSpy).not.toHaveBeenCalledWith("35");
+    expect(setSpy).toHaveBeenCalledWith(ITEM_HEIGHT * 6);
+    expect(setSpy).not.toHaveBeenCalledWith(ITEM_HEIGHT * 7);
   });
 });
