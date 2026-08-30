@@ -49,8 +49,8 @@ CHECK (primary_date IN ('dating','married','none'))
 CHECK (primary_date <> 'married' OR married_date IS NOT NULL)
 ```
 
-- `married_date` にも `anniversary_date` と**同じ検証**を当てる
-  （`1900-01-01` 以降、1年後まで、存在する日付）
+- `married_date` にも `anniversary_date` と同じ検証を当てる
+  （`1900-01-01` 以降、存在する日付）。**ただし未来の上限だけ違う**（下記）
 - **`married_date` が `anniversary_date` より前になることを許さない。**
   結婚が交際開始より前にはならない
 
@@ -59,11 +59,34 @@ CHECK (primary_date <> 'married' OR married_date IS NOT NULL)
 `daysTogether` は**判別可能な union のまま**（012・L66）。`primary_date` を反映する。
 
 ```
-{ status: "together",  days }   primary_date='dating' で今日以前
-{ status: "upcoming",  days }   同上で未来
-{ status: "married",   days }   primary_date='married'
-{ status: "hidden" }            primary_date='none'
+{ status: "dating",           days }   付き合って N 日目
+{ status: "dating_upcoming",  days }   その日まであと N 日
+{ status: "married",          days }   結婚して N 日目
+{ status: "married_upcoming", days }   結婚まであと N 日
+{ status: "hidden" }                   非表示
 ```
+
+### 名前を `together` / `upcoming` から変える
+
+012 では `together` / `upcoming` の2つだった。**結婚の側が増えると破綻する。**
+
+`upcoming` は**どちらの日に向かっているのかを名前が言っていない。**
+`married_upcoming` を足すなら、`upcoming` も `dating_upcoming` でなければ、
+**同じ意味の名前が片方だけ修飾されている**状態になる。
+
+`meetupCount` → `meetupDays` と同じ理由である。
+**名前が中身を言っていない状態を残さない。**019 はまだマージされていないので、
+**いま直す方が安い。**
+
+### 結婚予定日は未来を許す
+
+**`married_upcoming` は例外的な状態ではない。**結婚式の日が決まっている
+ふたりにとって、「**結婚まであと N 日**」は主役になりうる数字である。
+
+- `anniversary_date` の上限は**1年後まで**のまま（打ち間違いを弾くため）
+- **`married_date` の上限は2年後まで。**婚約から式まで1年半ほど空くことは珍しくない。
+  `2126-05-18` のような打ち間違いは2年でも十分弾ける
+- **上限が違う理由をここに書いた。**違うこと自体は意図であって、揃え忘れではない
 
 **`hidden` に `days` を入れない。**入れると、非表示にしたはずの数字が
 レスポンスに乗って**開発者ツールから見える。**
@@ -118,6 +141,7 @@ CHECK (primary_date <> 'married' OR married_date IS NOT NULL)
 - [ ] 名前とアイコンを変更でき、**再ログインしても消えない**
 - [ ] 付き合った日・結婚した日を設定できる
 - [ ] ホーム上部の表示を3通りから選べ、非表示が本当に隠れている
+- [ ] **結婚予定日（未来）を設定すると「結婚まであと N 日」が出る**
 - [ ] 上記のテストが緑
 - [ ] `artifacts/019/` に**人間の実機確認の記録**を保存
 

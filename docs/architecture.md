@@ -214,6 +214,9 @@ event.update        { id, ... }
 event.delete        { id }
 stats.get           -> { daysTogether, meetupDays, postCount, photoCount }
                     daysTogether は判別可能な union
+                      dating / dating_upcoming / married / married_upcoming / hidden
+                      hidden には days を入れない（非表示が応答にも残らない）
+                    daysTogether は判別可能な union
                       { status: "together", days }  記念日が今日以前
                       { status: "upcoming", days }  記念日が未来（「あと○日」）
                     記念日は1年後まで登録できる（打ち間違いの歯止め）
@@ -284,6 +287,29 @@ memory.get          -> { post, label } | null
 参照されている `user` 行は削除できないため、**「投稿は在るが投稿者が引けない」状態は
 現在のスキーマでは作れない。**この経路を再現するテストは書けない。書こうとしても
 FK 違反で INSERT 自体が失敗する（`PRAGMA foreign_keys = OFF` は D1 側で無視される）。
+
+#### 子テーブルを持つ親テーブルに、あとから CHECK を足せない
+
+**`PRAGMA foreign_keys = OFF` を D1 が無視することの帰結である**（019 で B が実測）。
+
+SQLite に `ALTER TABLE ... ADD CONSTRAINT` は無い。drizzle-kit は
+**新テーブルを作って全行コピーし、旧テーブルを DROP して改名**する。
+その手順は `PRAGMA foreign_keys = OFF` を前提にしている。
+
+**D1 はそれを無視して常に FK を強制するため、`DROP TABLE` の時点で失敗する。**
+`couples` は `couple_members` / `invites` / `invite_failures` / `events` / `posts` から
+参照されており、**実際に `FOREIGN KEY constraint failed` になった。**
+
+| 状況 | 使えるか |
+|---|---|
+| 子テーブルを持たない表（`reactions`・`events`） | **表を作り直す形が通る**（0006・0009） |
+| **子テーブルを持つ親表**（`couples`・`user`） | **通らない** |
+| 自列だけを見る制約 | `ALTER TABLE ADD COLUMN` に付けられる |
+| **複数列にまたがる制約**（親表の場合） | **TRIGGER で書く**（`BEFORE INSERT` と `BEFORE UPDATE` の両方） |
+
+**TRIGGER は drizzle のスキーマファイルに現れない。**
+`packages/db/src/schema/*.ts` を読んだ人には見えないので、
+**そこにコメントで書く。**書かないと、スキーマファイルが実態より弱く見える。
 
 それでも LEFT JOIN と null 許容を採る。**理由は「いま起きるから」ではなく、
 これが崩れたときの壊れ方が悪いからである。**
