@@ -233,6 +233,9 @@ event.list          { from, to } -> { items }
                     items[].sourceDate    登録された日付。repeatYearly でなければ date と同じ
                     items[].time          HH:MM または null
                     items[].createdByName 設定した人の名前。null 許容（LEFT JOIN）
+                    items[].canEdit       この利用者が更新・削除できるか（021）
+                                          サーバが計算する。判定をクライアントに持たせない
+                                          created_by（ユーザーID）は返さない
 event.create        { date, title, kind, repeatYearly, time? }
                     time は HH:MM。anniversary には付けられない
                     kind='meetup' は同じ日の既存行を上書きする
