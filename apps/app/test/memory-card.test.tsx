@@ -78,6 +78,23 @@ describe("MemoryCard", () => {
     expect(await screen.findByTestId("image-viewer-image")).toBeTruthy();
   });
 
+  // Aが013の仕様に追加した挙動（PR #101。Rレビューでも同じ穴を指摘された）:
+  // テキストのみの思い出（画像を優先しない探索4段目のランダム選択で起こりうる）
+  // には画像側のタップ先が無く、本文を最後まで読む手段が無くなる穴があった。
+  // 本文タップでの展開/折りたたみで塞いだ
+  it("本文をタップすると展開/折りたたみが切り替わる（画像が無い思い出でも読み返せる）", async () => {
+    memoryGetMock.mockResolvedValue(makeResult({ post: { ...makeResult().post, imageUrl: null } }));
+
+    renderCard();
+    const body = await screen.findByLabelText("本文をすべて表示");
+
+    fireEvent.click(body);
+    expect(await screen.findByLabelText("本文を折りたたむ")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("本文を折りたたむ"));
+    expect(await screen.findByLabelText("本文をすべて表示")).toBeTruthy();
+  });
+
   it("nullが返るとカード自体を表示しない（該当なし）", async () => {
     memoryGetMock.mockResolvedValue(null);
 

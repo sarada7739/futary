@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import type { MemoryLabel } from "@futary/contract";
 import { formatJstDate } from "@futary/date";
@@ -17,6 +17,14 @@ const LABELS: Record<MemoryLabel, string> = {
 export function MemoryCard() {
   const query = useQuery(orpc.memory.get.queryOptions());
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [bodyExpanded, setBodyExpanded] = useState(false);
+  const postId = query.data?.post.id;
+
+  // 日をまたいでmemory.getが再取得され別の投稿に変わったとき、前の投稿で
+  // 展開していた状態を持ち越さない
+  useEffect(() => {
+    setBodyExpanded(false);
+  }, [postId]);
 
   // 該当なし（null）・読み込み中・通信エラーはすべてカードごと非表示にする
   // （タスク定義の確認観点「nullのときにカードが消え、ホームのレイアウトが
@@ -60,9 +68,22 @@ export function MemoryCard() {
         )}
 
         {hasBody && (
-          <Text size="sm" numberOfLines={2}>
-            {post.body}
-          </Text>
+          // 画像タップ（全画面表示）とは別の当たり判定。テキストのみの思い出
+          // （探索4段目のランダム選択は画像を優先しないため起こりうる）には
+          // タップできる要素が画像側に無く、本文を最後まで読む手段が無くなる
+          // 穴があった（Rレビュー指摘・Aのタスク定義更新）。当たり判定の
+          // 正確さに依存させない（conventions.md 6節）ため、実際に省略が
+          // 起きているかどうかを判定せず、本文があれば常にタップで
+          // 展開/折りたたみできる形にした
+          <Pressable
+            onPress={() => setBodyExpanded((expanded) => !expanded)}
+            accessibilityRole="button"
+            accessibilityLabel={bodyExpanded ? "本文を折りたたむ" : "本文をすべて表示"}
+          >
+            <Text size="sm" numberOfLines={bodyExpanded ? undefined : 2}>
+              {post.body}
+            </Text>
+          </Pressable>
         )}
       </View>
 
