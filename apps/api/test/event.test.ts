@@ -52,6 +52,7 @@ async function createEvent(
     kind: "anniversary" | "plan" | "meetup";
     repeatYearly: boolean;
     time: string | null;
+    isShared: boolean;
   }> = {},
 ) {
   return call(
@@ -62,6 +63,7 @@ async function createEvent(
       kind: overrides.kind ?? "plan",
       repeatYearly: overrides.repeatYearly ?? false,
       time: overrides.time,
+      isShared: overrides.isShared ?? false,
     },
     { context: contextFor(user) },
   );
@@ -89,6 +91,8 @@ describe("event.create / event.list（基本のCRUD）", () => {
         repeatYearly: false,
         time: null,
         createdByName: user.name,
+        isShared: false,
+        canEdit: true,
       },
     ]);
   });
@@ -102,7 +106,7 @@ describe("event.create / event.list（基本のCRUD）", () => {
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true },
+        { date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -115,7 +119,7 @@ describe("event.create / event.list（基本のCRUD）", () => {
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: true },
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: true, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -127,7 +131,7 @@ describe("event.create / event.list（基本のCRUD）", () => {
 
     const created = await call(
       router.event.create,
-      { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true },
+      { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, isShared: false },
       { context: contextFor(user) },
     );
 
@@ -175,7 +179,7 @@ describe("event.update / event.delete", () => {
 
     const updated = await call(
       router.event.update,
-      { id: created.id, date: "2026-03-11", title: "変更後のタイトル", kind: "meetup", repeatYearly: false },
+      { id: created.id, date: "2026-03-11", title: "変更後のタイトル", kind: "meetup", repeatYearly: false, isShared: false },
       { context: contextFor(user) },
     );
 
@@ -188,6 +192,8 @@ describe("event.update / event.delete", () => {
       repeatYearly: false,
       time: null,
       createdByName: user.name,
+      isShared: false,
+      canEdit: true,
     });
   });
 
@@ -199,7 +205,7 @@ describe("event.update / event.delete", () => {
     await expect(
       call(
         router.event.update,
-        { id: created.id, date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true },
+        { id: created.id, date: "2026-03-10", title: "会った日", kind: "meetup", repeatYearly: true, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -216,7 +222,7 @@ describe("event.update / event.delete", () => {
     await expect(
       call(
         router.event.update,
-        { id: eventA.id, date: "2099-01-01", title: "改ざん", kind: "plan", repeatYearly: false },
+        { id: eventA.id, date: "2099-01-01", title: "改ざん", kind: "plan", repeatYearly: false, isShared: false },
         { context: contextFor(userB) },
       ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -231,7 +237,7 @@ describe("event.update / event.delete", () => {
     await expect(
       call(
         router.event.update,
-        { id: crypto.randomUUID(), date: "2026-01-01", title: "存在しない", kind: "plan", repeatYearly: false },
+        { id: crypto.randomUUID(), date: "2026-01-01", title: "存在しない", kind: "plan", repeatYearly: false, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -393,7 +399,7 @@ describe("event.create / event.update の time（018）", () => {
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, time: "10:00" },
+        { date: "2026-03-10", title: "記念日", kind: "anniversary", repeatYearly: true, time: "10:00", isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -414,6 +420,7 @@ describe("event.create / event.update の time（018）", () => {
           kind: "anniversary",
           repeatYearly: true,
           time: "10:00",
+          isShared: false,
         },
         { context: contextFor(user) },
       ),
@@ -438,7 +445,7 @@ describe("event.create / event.update の time（018）", () => {
     await expect(
       call(
         router.event.create,
-        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, time: "25:00" },
+        { date: "2026-03-10", title: "予定", kind: "plan", repeatYearly: false, time: "25:00", isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -523,7 +530,7 @@ describe("「会った日」は1日1件（018）", () => {
     await expect(
       call(
         router.event.update,
-        { id: meetupOnDay2.id, date: "2026-05-01", title: "5/2から移動", kind: "meetup", repeatYearly: false },
+        { id: meetupOnDay2.id, date: "2026-05-01", title: "5/2から移動", kind: "meetup", repeatYearly: false, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
@@ -544,7 +551,7 @@ describe("「会った日」は1日1件（018）", () => {
 
     const updated = await call(
       router.event.update,
-      { id: meetup.id, date: "2026-05-01", title: "改題", kind: "meetup", repeatYearly: false },
+      { id: meetup.id, date: "2026-05-01", title: "改題", kind: "meetup", repeatYearly: false, isShared: false },
       { context: contextFor(user) },
     );
     expect(updated.title).toBe("改題");

@@ -187,7 +187,7 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     await expect(
       call(
         router.event.create,
-        { date: "2026-01-01", title: "デモから登録", kind: "plan", repeatYearly: false },
+        { date: "2026-01-01", title: "デモから登録", kind: "plan", repeatYearly: false, isShared: false },
         { context: contextFor(null, demoCoupleId) },
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -199,7 +199,7 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     await expect(
       call(
         router.event.update,
-        { id: crypto.randomUUID(), date: "2026-01-01", title: "デモから更新", kind: "plan", repeatYearly: false },
+        { id: crypto.randomUUID(), date: "2026-01-01", title: "デモから更新", kind: "plan", repeatYearly: false, isShared: false },
         { context: contextFor(null, demoCoupleId) },
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -372,7 +372,7 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
     await expect(
       call(
         router.event.create,
-        { date: "2026-01-01", title: "予定", kind: "plan", repeatYearly: false },
+        { date: "2026-01-01", title: "予定", kind: "plan", repeatYearly: false, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
@@ -383,7 +383,7 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
     await expect(
       call(
         router.event.update,
-        { id: crypto.randomUUID(), date: "2026-01-01", title: "予定", kind: "plan", repeatYearly: false },
+        { id: crypto.randomUUID(), date: "2026-01-01", title: "予定", kind: "plan", repeatYearly: false, isShared: false },
         { context: contextFor(user) },
       ),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
