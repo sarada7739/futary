@@ -451,11 +451,31 @@ CI が同じことを見るが、**手元で気づく方が安い。**
 
 ```sql
 SELECT type, name, sql FROM sqlite_master
- WHERE type IN ('index','trigger') AND name NOT LIKE 'sqlite_%'
+ WHERE type IN ('index','trigger','table') AND name NOT LIKE 'sqlite_%'
  ORDER BY type, name;
 ```
 
 **`sql` 列まで突き合わせる。名前だけでは足りない。**
+
+##### 表の CHECK も見る（022 で追加。R の指摘）
+
+**当初この走査は `index` と `trigger` だけだった。表に付いた CHECK は網の外にいた。**
+
+021 の監査が「`type='table'` の `sql` 突き合わせを加える」と勧めていたが、
+入ったのは直接 INSERT の2件だけで、**走査は広がっていなかった。**
+`events` の `events_kind_check` には **DB レベルのテストが1つも無い。**
+
+**022 はまさに表を作り直す操作である。**落ちても、いま緑になるテストは無い。
+**018 で索引について指摘された形と同じで、索引は 019 で塞ぎ、CHECK は塞いでいなかった。**
+
+**比べるのは、名前の付いた CHECK 制約の一覧である。**
+
+- `CREATE TABLE` の `sql` 全体を期待値に置かない。**列を1つ足すだけで落ちる**
+- **`CONSTRAINT <名前> CHECK` の名前を取り出して、期待する一覧と突き合わせる**
+- 索引・TRIGGER は今までどおり `sql` 全体で見る（**本文が短く、変われば意味が変わる**）
+
+**期待値を減らす差分は、テストが守れない場所である**（`conventions.md` 6節）。
+**CHECK が1本減った差分は、この一覧から1行消える形で現れる。**
 
 `events_meetup_unique` から `WHERE kind = 'meetup'` が落ちても、**名前は変わらない。**
 落ちた瞬間 `UNIQUE (couple_id, date)` になる。**名前は同じで、意味だけが変わる。**
