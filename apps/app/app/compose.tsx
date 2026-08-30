@@ -124,10 +124,20 @@ export default function ComposeScreen() {
           {errorMessage && <Text color="muted">{errorMessage}</Text>}
         </ScrollView>
 
-        <View style={{ padding: space.lg }}>
-          <Button onPress={handleSubmit} disabled={!canSubmit}>
-            {isSubmitting ? "投稿中…" : "投稿する"}
-          </Button>
+        <View style={{ flexDirection: "row", gap: space.sm, padding: space.lg }}>
+          {/* モーダルは閉じる導線を自前で持つ（headerShownのヘッダー戻るに
+              依存しない。Webでは確実に出るとは限らないため。
+              architecture.md「画面の外枠は常に出す」の規則と同じ考え方） */}
+          <View style={{ flex: 1 }}>
+            <Button variant="ghost" onPress={() => router.back()}>
+              キャンセル
+            </Button>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Button onPress={handleSubmit} disabled={!canSubmit}>
+              {isSubmitting ? "投稿中…" : "投稿する"}
+            </Button>
+          </View>
         </View>
       </View>
     </Screen>
