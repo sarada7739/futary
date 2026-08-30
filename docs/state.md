@@ -3,8 +3,8 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-08-30 / セッションB（**012（ペア統計カード）を実装し、
-Rへレビュー依頼済み**（ブランチ`task/012-stats-card`）。`stats.get`（新規。
+**最終更新**: 2026-08-30 / セッションB（**012（ペア統計カード）、Rの受け入れを
+得てmainへマージ済み（PR #96）。ブランチも削除済み。** `stats.get`（新規。
 `daysTogether`を判別可能なunion`{status:"together",days}` /
 `{status:"upcoming",days}`で返す）・`apps/app/components/stats-card.tsx`
 （2人のアバター・ハート・大きい日数表示）を実装し、ホーム最上部に組み込んだ。
@@ -14,12 +14,16 @@ Rへレビュー依頼済み**（ブランチ`task/012-stats-card`）。`stats.g
 `anniversaryDateSchema`の上限を「今日まで」から「1年後まで」に緩和する判断を
 追加し、`upcoming`分岐を実際に到達可能にした）・L67（`repeatYearly`が`kind`に
 依存せず立てられる件。入力スキーマで`kind==='anniversary' || !repeatYearly`を
-強制する形で解決）。**3件とも実装まで完了。**`computeDaysTogether`をexportし、
-off-by-onの境界（today/tomorrow双方）を純粋関数として直接テストした
-（Rの指摘: 片側だけだと見逃す）。テストはapps/api 176件（+22）・
-apps/app 56件（+5）すべて緑、型チェック・lint通過。**カレンダー画面と同様、
-ホーム画面は認証必須のためB（自動化）は実機確認ができない**
-（`artifacts/012/manual-check.md`。L68として起票。M3受け入れでまとめて回収）。
+強制する形で解決）。**3件とも実装完了。Rの受け入れでは必須修正なし。**
+`computeDaysTogether`をexportし、off-by-oneの境界（today/tomorrow双方）を
+純粋関数として直接テストした点をRが評価。記録1件（L67の制約はZodの入力
+スキーマのみで、DBのCHECK制約は無い。実害なし・将来DB直接操作の経路が
+できたときのため記録）。テストはapps/api 176件（+22）・apps/app 56件（+5）
+すべて緑、型チェック・lint通過。**カレンダー画面と同様、ホーム画面は認証
+必須のためB（自動化）は実機確認ができない**（`artifacts/012/manual-check.md`。
+L68として起票。M3受け入れでまとめて回収）。**M3の残りは013（思い出し）
+のみ。**Rから先読み: 013は`monthsBefore`の月末クランプ（L61）が初めて
+利用者から見える形になる（「1ヶ月前の思い出」で3/31に2/28の投稿が出る）。
 
 以下は011・packages/date移行の完了記録（過去の記録として残す）。
 
@@ -294,7 +298,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 |---|---|---|---|
 | M1 | 001〜005 | 足回り・デザイン基盤・認証・ペア成立・認可 | **完了**（2026-08-29、人間の受け入れ確認済み） |
 | M2 | 006〜009 | 投稿・画像・タイムライン・リアクション | **完了**（2026-08-30、人間の明示的な受け入れ確認済み。L4 も同時に決定） |
-| M3 | **017** → 010〜013 | **画像の全画面表示** → カレンダー・統計・思い出し | 着手中（017・010・011完了。012実装完了・R待ち。次は013） |
+| M3 | **017** → 010〜013 | **画像の全画面表示** → カレンダー・統計・思い出し | 着手中（017・010・011・012完了。次は013） |
 | M4 | 014〜016 | ゲストデモ・LP・仕上げと公開 | 未着手 |
 
 各マイルストーンの区切りで**人間が実際に触って**受け入れを判定する。
@@ -340,13 +344,23 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
   M3の他タスクとまとめて監査する。**人間の実機確認は未実施**（認証必須画面のため
   Bは実機確認不可。L62として起票。M3受け入れでまとめて回収）
 
+- 012-stats-card（PR #96。Rの受け入れを得てmainへsquash merge済み（ブランチも
+  削除済み）。**必須修正なし。**`computeDaysTogether`をexportしoff-by-oneの
+  境界を純粋関数として直接テストした点、L65の対応理由がコメントに残っている点、
+  `anniversaryDateSchema`の上限緩和で古いテストを消さず境界テストに置き換えた
+  点をRが評価。記録1件（L67の制約はZodの入力スキーマのみでDBのCHECK制約は
+  無い→state.md L67に追記）。`artifacts/012/test-results.md`・
+  `artifacts/012/review.md`参照。単体でのsecurity-auditor監査は必須対象外
+  〈006・008・010・011と同じ扱い〉のため未実施。M3の他タスクとまとめて監査する。
+  **人間の実機確認は未実施**（認証必須画面のためBは実機確認不可。L68として
+  起票。M3受け入れでまとめて回収）
+
 **M1（001〜005）完了。2026-08-29、人間の明示的な受け入れ確認を得た。**
 **M2（006〜009）実装完了。2026-08-30、人間の受け入れ判定待ち。**
 
 ## 進行中タスク
 
-- 012-stats-card（ブランチ`task/012-stats-card`）— 実装完了。Rへレビュー依頼中。
-  詳細は`artifacts/012/test-results.md`・`docs/tasks/012-stats-card.md`実装メモ
+（現在、実装が進行中のタスクは無い）
 
 ## 環境
 
@@ -392,10 +406,13 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
     （PR #91）。B（このセッション）が`fix/date-package-migration`で実装した。**
 13. ~~`fix/date-package-migration`のRレビューを待つ~~ → **完了。Rの受け入れを
     得てmainへマージ済み（PR #92）。ブランチも削除済み**
-14. ~~次はM3の012（統計カード）に着手する~~ → **実装完了。Rへレビュー依頼中**
-    （ブランチ`task/012-stats-card`）
-15. **012のRレビュー結果を待つ。** 対応後は`artifacts/012/review.md`に保存する
-    （conventions.md 8節）
+14. ~~次はM3の012（統計カード）に着手する~~ → **完了。Rの受け入れを得てmainへ
+    マージ済み（PR #96）。ブランチも削除済み**
+15. ~~012のRレビュー結果を待つ~~ → **完了。**`artifacts/012/review.md`に保存済み
+16. **次はM3の013（思い出し）に着手する。** 着手前にタスク定義を読む。Rの先読み:
+    `memory.get`の探索順（1ヶ月前→1年前→…）で`packages/date`の
+    `monthsBefore`の月末クランプ（L61）が初めて利用者から見える形になる
+    （「1ヶ月前の思い出」で3/31に2/28の投稿が出る）
 
 ## 未解決の論点
 
@@ -466,7 +483,7 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 
 | ~~L65~~ | ~~012タスク定義の`photoCount`算出に`postCount`と違い`deleted_at IS NULL`が無い~~ → **解決・実装済み（`task/012-stats-card`）。**Aが自身の誤りと認め、タスクファイル・`architecture.md`4節の統計表両方を修正した（「恒久側が誤っていたので、そちらも直した」）。`apps/api/src/procedures/stats.ts`の`photoCount`クエリに`AND deleted_at IS NULL`を含めて実装し、テストで固定した（削除済み画像投稿を含めないことを確認） | | 解決済み・実装済み |
 | ~~L66~~ | ~~012タスク定義「記念日が未来の日付」の境界条件が「あと○日」/「非表示」の2択のまま未決定~~ → **解決・実装済み（`task/012-stats-card`）。人間が「あと◯日の方が親切」と判断**（Rから伝達）。**契約の形はB設計**（Rの助言「負の値を出さない責任をサーバ側で閉じる」）: `daysTogether`を`{status:"together",days}` / `{status:"upcoming",days}`の判別可能なunionにした（`packages/contract/src/stats.ts`）。**Aが追加で指摘: `anniversaryDateSchema`の`value <= todayJst()`を残したままでは`upcoming`が永久に到達不能になる。**「到達不能だから作らない」（`Math.max(1,...)`は入れない）と「到達可能にしてから作る」（`upcoming`分岐）は別、という基準をAが明示。上限を「今日まで」から「1年後まで」に緩和（打ち間違いの歯止め。業務上の意味は無い）。`couple.create`/`update`両方に適用し、`upcoming`へ実際に到達することをテストで固定した | | 解決済み・実装済み |
-| ~~L67~~ | ~~`packages/contract/src/event.ts`の`eventInputSchema`は`repeatYearly: z.boolean()`が`kind`に依存せず、`meetup`/`plan`にも`repeatYearly: true`を立てられる~~ → **解決・実装済み（`task/012-stats-card`）。**Aが「012で`meetupCount`という2人目の消費者ができた」ことを理由に対応を決定（`docs/tasks/012-stats-card.md`・`architecture.md`4節に反映）。`eventInputSchema`に`kind==='anniversary' \|\| !repeatYearly`の`refine`を追加し、`event.create`/`event.update`両方で入力スキーマレベルで拒否する形にした。DBのCHECK制約は置かない（書き込み口が入力スキーマの1つのみのため）。テストで固定済み | | 解決済み・実装済み |
+| ~~L67~~ | ~~`packages/contract/src/event.ts`の`eventInputSchema`は`repeatYearly: z.boolean()`が`kind`に依存せず、`meetup`/`plan`にも`repeatYearly: true`を立てられる~~ → **解決・実装済み（`task/012-stats-card`。PR #96）。**Aが「012で`meetupCount`という2人目の消費者ができた」ことを理由に対応を決定（`docs/tasks/012-stats-card.md`・`architecture.md`4節に反映）。`eventInputSchema`に`kind==='anniversary' \|\| !repeatYearly`の`refine`を追加し、`event.create`/`event.update`両方で入力スキーマレベルで拒否する形にした。DBのCHECK制約は置かない（書き込み口が入力スキーマの1つのみのため）。テストで固定済み。**Rの受け入れ記録**: この不変条件はZodの入力スキーマのみで守られており、`couple_members.slot`や`events.kind`のようなDB側のCHECK制約は無い（1段弱い形）。全書き込みが契約を通る以上実害は無いが、将来DBを直接触る経路（シード・マイグレーション・014のデモデータ）ができたときに差が出るため記録 | | 解決済み・実装済み |
 
 | L68 | 012（統計カード）はコード側完了だが、画面が認証必須のためB（自動化）は実機確認ができない。自動テストはoRPCクライアントをモックしており、サーバとの契約・実際の見た目（デザインサンプルとの近さ）は未検証 | カードのレイアウト、「あと○日」表示の自然さ、「招待中」表示の分かりやすさが未確認のままM3の他タスクへ進むことになる | **M3の受け入れでまとめて回収する**（L59・017・L62・R-37と同じ回収。Rの提案）。確認項目は`artifacts/012/manual-check.md`参照 |
 
