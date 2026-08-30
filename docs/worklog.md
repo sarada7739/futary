@@ -6586,14 +6586,18 @@ SELECT COUNT(*) AS total,
 0だったことも記録として残す（次に同じ形のCHECK制約を足す人のため）。
 
 **適用前に数えたのは「違反の有無」、適用後に数えるのは「移行の完全性」で、
-別のものを数える**（Rの指摘）。適用後は以下を確認する。
+別のものを数える**（Rの指摘）。**以下はまだ実測ではなく、適用前に立てた
+期待値**（Rの指摘: 当てたあとに数字を見てから期待値を決めると、出た値に
+合わせてしまう。先に書いておく）。
 
 ```sql
-SELECT COUNT(*) FROM events;                     -- 5のまま（行が消えていない）
-SELECT COUNT(*) FROM events WHERE start_time IS NOT NULL;  -- 2（timeの値が移った）
-SELECT COUNT(*) FROM events WHERE end_time IS NOT NULL;    -- 0（新設列。SELECT側にNULLを直接書いた）
+-- 期待値（0011適用後）
+SELECT COUNT(*) FROM events;                                -- 期待値: 5（行が消えていない）
+SELECT COUNT(*) FROM events WHERE start_time IS NOT NULL;   -- 期待値: 2（timeの値が移った）
+SELECT COUNT(*) FROM events WHERE end_time IS NOT NULL;     -- 期待値: 0（新設列。SELECT側にNULLを直接書いた）
 ```
 
 人間へ(1)リモートD1への0011適用の許可 (2)適用後の実機確認、の2つを
-一度に依頼する（architecture.md 8節。マージ後・実機確認前にリモートを
-最新にする）。
+一度に依頼した（architecture.md 8節。マージ後・実機確認前にリモートを
+最新にする）。**この時点ではまだ0011を適用していない**（人間の許可待ち）。
+実測値は許可が得られ次第、適用後にこの節へ追記する。
