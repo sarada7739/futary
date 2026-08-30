@@ -345,10 +345,17 @@ SQLite に `ALTER TABLE ... ADD CONSTRAINT` は無い。drizzle-kit は
 **人間の注意力で埋めない。**1つのクエリで両方向とも固定できる（R の提案）。
 
 ```sql
-SELECT type, name FROM sqlite_master
+SELECT type, name, sql FROM sqlite_master
  WHERE type IN ('index','trigger') AND name NOT LIKE 'sqlite_%'
  ORDER BY type, name;
 ```
+
+**`sql` 列まで突き合わせる。名前だけでは足りない**（R の指摘）。
+
+`events_meetup_unique` から `WHERE kind = 'meetup'` が落ちても、**名前は変わらない。**
+そして落ちた瞬間、`UNIQUE (couple_id, date)` になり、
+**同じ日に記念日と予定を両方置けなくなる。**
+「会った日が1日1件」のテストは**通ったまま**である。
 
 テストは実マイグレーションを適用した DB に対して走るので、
 **この一覧を期待値と突き合わせるテストを1つ置く。**
@@ -362,8 +369,26 @@ SELECT type, name FROM sqlite_master
 この一覧は**制約が存在すること**を証明する。**両方あって初めて揃う。**
 
 **`events_couple_date_idx` にはこれが要る。**あれは純粋な性能用の索引で、
-**消えてもどのテストも落ちない。**D1 は読んだ行数で課金するので、
-**黙って遅くなり、黙って高くなる。**
+**消えてもどのテストも落ちない。**R が実行計画を取って確認した。
+
+```
+索引あり:  SEARCH events USING INDEX events_couple_date_idx (couple_id=?)
+索引なし:  SCAN events
+```
+
+**ただし効いているのは `couple_id` の絞り込みだけで、日付の範囲には効いていない。**
+`OR repeat_yearly = 1` があるため、SQLite は範囲条件を索引で使えない。
+繰り返す記念日は登録年に関わらず表示されうるので、**設計として正しい形である。**
+
+**帰結として、この索引の価値はペアの数に比例する。**
+
+`requirements.md` 6節の想定規模（**2人 × 1日数投稿**）では、
+**消えても実害はほぼ無い。**「黙って遅くなり、黙って高くなる」は、
+この製品の規模に対しては**言い過ぎだった。**
+
+それでも一覧テストは置く。**理由は性能ではなく、上の部分索引の方にある。**
+`WHERE` が落ちる形は**この規模でも即座に壊れる。**
+テストの費用がほぼゼロで、**壊れ方の重い方を同じ網で捕まえられる。**
 
 
 それでも LEFT JOIN と null 許容を採る。**理由は「いま起きるから」ではなく、
