@@ -4,8 +4,8 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-08-30 / セッションB（**`packages/date`への日付計算の集約
-（L63・L64）を実装した（ブランチ`fix/date-package-migration`。Aの設計をPR #91で
-mainへ反映済み、実装はこのブランチ）。** `todayJst`/`diffDays`/`addDays`/
+（L63・L64）、Rの受け入れを得てmainへマージ済み（PR #92）。ブランチも削除済み。**
+`todayJst`/`diffDays`/`addDays`/
 `dayOfWeek`/`isLeapYear`/`daysInMonth`/`addMonths`/`monthsBefore`/`yearsBefore`/
 `monthDayOf`/`yearsBetween`/`projectMonthDay`/`isValidDate`/`formatJstDate`/
 `formatJstDateTime`を新パッケージへ集約し、`apps/api`（`event.ts`）・
@@ -25,8 +25,12 @@ eslint-disable」も不要になり、`invite.tsx`・`post-card.tsx`の2箇所�
 （011でのB自身の気づき・R-36に続く3例目）。こちらも`@futary/date`
 （`todayJst`・新設した`isValidDate`）を使う形に直した。テストは
 packages/date 44件（新設）・apps/app 51件（-4）・apps/api 154件（-27）・
-packages/ui 7件すべて緑、型チェック・lint通過。
-**次はRへ再度確認を依頼し、マージ後にM3の012（統計カード）に着手する。**
+packages/ui 7件すべて緑、型チェック・lint通過。**Rの受け入れでは必須修正なし。**
+本番コードの`eslint-disable`が0件であることをRが`git grep`で確認済み。
+JST/UTC境界時刻のテスト（`timeZone`指定を外すとCI環境〈UTC〉では落ちる形）を
+Rが「環境から借りた正しさではなく、明示した正しさを固定している」と評価。
+**次はM3の012（統計カード）に着手する。** `daysTogether`は`packages/date`の
+`diffDays`を使う想定（012タスクファイルはAが既に参照先を書き換え済み）。
 
 011（カレンダーUI）はRの受け入れを得てmainへマージ済み（PR #89）。ブランチも
 削除済み。`apps/app/lib/calendar.ts`（月グリッドの日付計算。日〜土、A実測の
@@ -367,9 +371,10 @@ futary — ふたり専用SNS。「ふたりの毎日を、もっと特別に。
 12. ~~次はM3の012（統計カード）に着手する。着手前にL63（日付計算の置き場所）
     についてAの判断を確認すること~~ → **Aが`packages/date`新設を判断済み
     （PR #91）。B（このセッション）が`fix/date-package-migration`で実装した。**
-    Rのレビュー・マージを待つ
-13. **`fix/date-package-migration`のRレビューを待つ。** マージ後、次はM3の
-    012（統計カード）に着手する
+13. ~~`fix/date-package-migration`のRレビューを待つ~~ → **完了。Rの受け入れを
+    得てmainへマージ済み（PR #92）。ブランチも削除済み**
+14. **次はM3の012（統計カード）に着手する。** `daysTogether`は`packages/date`の
+    `diffDays`を使う（012タスクファイルはAが参照先を書き換え済み）
 
 ## 未解決の論点
 
