@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ORPCError } from "@orpc/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event } from "@futary/contract";
@@ -42,6 +43,8 @@ function makeEvent(overrides: Partial<Event> = {}): Event {
     title: "テストイベント",
     kind: "plan",
     repeatYearly: false,
+    time: null,
+    createdByName: null,
     ...overrides,
   };
 }
@@ -193,6 +196,94 @@ describe("編集は射影日ではなく登録日（sourceDate）を対象にす
         expect.anything(),
       ),
     );
+  });
+});
+
+describe("018: 設定者の名前・時間・会った日の一意化", () => {
+  it("予定に設定者の名前が表示される", async () => {
+    listMock.mockResolvedValue({ items: [makeEvent({ title: "デート", createdByName: "たろう" })] });
+
+    renderScreen();
+
+    const row = await screen.findByTestId(`event-row-event-1-${today}`);
+    expect(row.textContent).toContain("たろうが設定");
+  });
+
+  it("時間が設定されていれば、タイトルの前に添えて表示される", async () => {
+    listMock.mockResolvedValue({ items: [makeEvent({ title: "デート", time: "18:30" })] });
+
+    renderScreen();
+
+    const row = await screen.findByTestId(`event-row-event-1-${today}`);
+    expect(row.textContent).toContain("18:30");
+    expect(row.textContent).toContain("デート");
+  });
+
+  it("記念日を選ぶと時間欄が隠れる（記念日には時間を設定できない）", async () => {
+    listMock.mockResolvedValueOnce({ items: [] });
+    renderScreen();
+    await screen.findByText("予定はまだありません");
+
+    fireEvent.click(screen.getByTestId("calendar-add-event"));
+    expect(screen.getByTestId("event-form-time")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("event-form-kind-anniversary"));
+    expect(screen.queryByTestId("event-form-time")).toBeNull();
+  });
+
+  it("既に会った日がある日付でmeetupを選ぶと上書きの注記が出るが、送信はブロックされない", async () => {
+    const existing = makeEvent({ id: "existing-meetup", kind: "meetup", title: "水族館" });
+    listMock.mockResolvedValue({ items: [existing] });
+    createMock.mockResolvedValue(makeEvent({ id: "existing-meetup", kind: "meetup", title: "映画" }));
+
+    renderScreen();
+    await screen.findByText("水族館");
+
+    fireEvent.click(screen.getByTestId("calendar-add-event"));
+    fireEvent.change(screen.getByTestId("event-form-title"), { target: { value: "映画" } });
+    fireEvent.click(screen.getByTestId("event-form-kind-meetup"));
+
+    expect(await screen.findByText(/上書きされます/)).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("event-form-submit"));
+      await Promise.resolve();
+    });
+    expect(createMock).toHaveBeenCalled();
+  });
+
+  it("編集で既にmeetupがある日付へ変更しようとすると、注記が出て送信がブロックされる", async () => {
+    const meetupA = makeEvent({ id: "meetup-a", date: "2026-01-01", sourceDate: "2026-01-01", kind: "meetup", title: "会った日A" });
+    const meetupB = makeEvent({ id: "meetup-b", kind: "meetup", title: "会った日B" });
+    listMock.mockResolvedValue({ items: [meetupA, meetupB] });
+
+    renderScreen();
+    fireEvent.click(await screen.findByTestId(`event-row-${meetupB.id}-${meetupB.date}`));
+    fireEvent.change(await screen.findByTestId("event-form-date"), { target: { value: "2026-01-01" } });
+
+    expect(await screen.findByText(/保存できません/)).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("event-form-submit"));
+    await Promise.resolve();
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("event.updateがINVALID_INPUTで失敗すると、会った日の重複専用のメッセージが出る", async () => {
+    const target = makeEvent({ id: "to-update", title: "元のタイトル" });
+    listMock.mockResolvedValue({ items: [target] });
+    updateMock.mockRejectedValue(new ORPCError("INVALID_INPUT", { defined: true }));
+
+    renderScreen();
+    fireEvent.click(await screen.findByTestId(`event-row-${target.id}-${target.date}`));
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("event-form-submit"));
+      await Promise.resolve();
+    });
+
+    expect(
+      await screen.findByText("その日には既に「会った日」が登録されています。日付を変えてください"),
+    ).toBeTruthy();
   });
 });
 

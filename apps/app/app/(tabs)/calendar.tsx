@@ -3,6 +3,7 @@ import { Pressable, Text as RNText, ScrollView, View } from "react-native";
 import type { Event } from "@futary/contract";
 import { addMonths, todayJst } from "@futary/date";
 import { Button, Card, Screen, space, Text } from "@futary/ui";
+import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { EventForm, type EventFormValues } from "../../components/event-form";
 import { MonthGrid } from "../../components/month-grid";
@@ -21,6 +22,18 @@ function groupByDate(events: Event[]): Record<string, Event[]> {
   return result;
 }
 
+// kind='meetup' は1日1件（018）。event.date（=sourceDate。meetupは繰り返さない）を
+// キーにする。EventFormの上書き注記に使う
+function meetupByDateOf(events: Event[]): Record<string, Event> {
+  const result: Record<string, Event> = {};
+  for (const event of events) {
+    if (event.kind === "meetup") result[event.date] = event;
+  }
+  return result;
+}
+
+// 時間・設定者の有無で行の高さが変わらないようにする。どちらも既存の2行
+// （タイトル行・メタ行）の中に収める形にし、行を増やさない（018確認観点）
 function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
   return (
     <Pressable
@@ -32,10 +45,14 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
         {EVENT_KIND_GLYPHS[event.kind]}
       </RNText>
       <View style={{ flex: 1 }}>
-        <Text>{event.title}</Text>
+        <Text>
+          {event.time ? `${event.time} ` : ""}
+          {event.title}
+        </Text>
         <Text size="xs" color="muted">
           {EVENT_KIND_LABELS[event.kind]}
           {event.repeatYearly ? "・毎年" : ""}
+          {event.createdByName ? `・${event.createdByName}が設定` : ""}
         </Text>
       </View>
     </Pressable>
@@ -61,6 +78,7 @@ export default function CalendarScreen() {
 
   const events = query.data?.items ?? [];
   const eventsByDate = useMemo(() => groupByDate(events), [events]);
+  const meetupByDate = useMemo(() => meetupByDateOf(events), [events]);
   const selectedDayEvents = eventsByDate[selectedDate] ?? [];
   const isSubmitting = createEvent.isPending || updateEvent.isPending;
 
@@ -93,8 +111,17 @@ export default function CalendarScreen() {
         await createEvent.mutateAsync(values);
       }
       setFormState(null);
-    } catch {
-      setFormError("保存できませんでした。もう一度お試しください");
+    } catch (error) {
+      // event.update の INVALID_INPUT は events_meetup_unique 違反（＝その日には
+      // 既に別の「会った日」がある）のときだけ返る（018・apps/api/src/procedures/event.ts）。
+      // create はここに来ない（ON CONFLICT DO UPDATE で上書きするため）。
+      // isDefinedError は catch 節の error（unknown）だと型が never に潰れて絞り込めない
+      // ため、ORPCError の instanceof で判定する
+      if (error instanceof ORPCError && error.code === "INVALID_INPUT") {
+        setFormError("その日には既に「会った日」が登録されています。日付を変えてください");
+      } else {
+        setFormError("保存できませんでした。もう一度お試しください");
+      }
     }
   }
 
@@ -200,7 +227,10 @@ export default function CalendarScreen() {
         defaultDate={formState?.date ?? selectedDate}
         defaultTitle={editingEvent?.title}
         defaultKind={editingEvent?.kind}
+        defaultTime={editingEvent?.time}
         sourceDateNote={sourceDateNote}
+        meetupByDate={meetupByDate}
+        editingEventId={editingEvent?.id}
         isSubmitting={isSubmitting}
         errorMessage={formError}
         onSubmit={handleSubmit}
