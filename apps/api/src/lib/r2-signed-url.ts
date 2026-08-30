@@ -48,6 +48,26 @@ export function imageKeyFor(coupleId: string, imageId: string): string {
   return `couples/${coupleId}/posts/${imageId}.jpg`;
 }
 
+// プロフィール画像はペアに属さない個人の持ち物のため、couples/... とは
+// 別の前綴りにする（019・タスク定義）
+const USER_IMAGE_PREFIX = "users/";
+
+export function userImageKeyFor(userId: string, imageId: string): string {
+  return `${USER_IMAGE_PREFIX}${userId}/profile/${imageId}.jpg`;
+}
+
+// user.image は Google のプロフィール画像URL（外部の直接使えるURL）と、
+// 自分でアップロードした画像のR2キー（userImageKeyForの形式）の両方がありうる
+// （019）。前綴りで判別し、R2キーのときだけ署名付きGET URLへ解決する。
+// この判定はme.get・post.list（authorImage）・stats.get（メンバーのimage）の
+// 3箇所で使う（019タスク定義: 「表示名の決め方を2箇所に持たない」と同じ理由で
+// 画像の解決も1箇所に集約する）
+export async function resolveUserImage(config: R2SignConfig, image: string | null): Promise<string | null> {
+  if (!image) return null;
+  if (!image.startsWith(USER_IMAGE_PREFIX)) return image;
+  return createGetUrl(config, image);
+}
+
 // アップロード用の署名付き PUT URL（有効期限5分）。
 // 署名付きURL（クエリ文字列署名）は host 以外のヘッダーを署名対象に含めない
 // （aws4fetch は content-type を UNSIGNABLE_HEADERS として扱う）ため、

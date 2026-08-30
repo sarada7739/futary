@@ -13,12 +13,13 @@ export const reactionSummarySchema = z.object({
   reactedByMe: z.boolean(),
 });
 
-// imageId は post.uploadUrl がサーバ側で生成する ULID（apps/api/src/lib/ulid.ts と
-// 同じ文字集合・長さ）。形式を絞ることで、鍵の組み立て（couples/{coupleId}/posts/
-// {imageId}.jpg）に混入しうる文字（パス区切り等）を構造的に閉じる
+// imageId は post.uploadUrl/me.uploadImageUrl がサーバ側で生成する ULID
+// （apps/api/src/lib/ulid.ts と同じ文字集合・長さ）。形式を絞ることで、
+// 鍵の組み立て（couples/{coupleId}/posts/{imageId}.jpg・users/{userId}/
+// profile/{imageId}.jpg）に混入しうる文字（パス区切り等）を構造的に閉じる
 // （007 security-auditor 指摘: 検証が無いと理論上 imageId 経由でキーのパスを
-// 操作できてしまう余地があった）
-const IMAGE_ID_PATTERN = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;
+// 操作できてしまう余地があった）。me.ts でも使うため export する
+export const IMAGE_ID_PATTERN = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;
 
 export const postSchema = z.object({
   id: z.string(),

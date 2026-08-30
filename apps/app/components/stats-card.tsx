@@ -48,9 +48,14 @@ function MemberAvatar({ member }: { member?: Member }) {
   );
 }
 
-function daysTogetherLabel(daysTogether: Stats["daysTogether"]): string {
-  if (daysTogether.status === "together") return `付き合って ${daysTogether.days}日目`;
-  return `記念日まで あと${daysTogether.days}日`;
+// 019: primary_date='none'（hidden）は非表示。dating/marriedそれぞれに
+// upcoming（あと○日）の対がある（Aの決定・PR #123）
+function daysTogetherLabel(daysTogether: Stats["daysTogether"]): string | null {
+  if (daysTogether.status === "dating") return `付き合って ${daysTogether.days}日目`;
+  if (daysTogether.status === "dating_upcoming") return `記念日まで あと${daysTogether.days}日`;
+  if (daysTogether.status === "married") return `結婚して ${daysTogether.days}日目`;
+  if (daysTogether.status === "married_upcoming") return `結婚まで あと${daysTogether.days}日`;
+  return null;
 }
 
 export function StatsCard() {
@@ -106,9 +111,11 @@ export function StatsCard() {
           <MemberAvatar member={stats.members[1]} />
         </View>
         <View style={{ alignItems: "center" }}>
-          <Text size="xl" weight="bold" color="brand">
-            {daysTogetherLabel(stats.daysTogether)}
-          </Text>
+          {daysTogetherLabel(stats.daysTogether) && (
+            <Text size="xl" weight="bold" color="brand">
+              {daysTogetherLabel(stats.daysTogether)}
+            </Text>
+          )}
           <Text size="sm" color="muted">
             会った日数：{stats.meetupDays}日
           </Text>

@@ -88,7 +88,7 @@ describe("1. ペアAのユーザーがペアBのレコードを取得・更新�
 
     await call(
       router.couple.update,
-      { anniversaryDate: "2022-02-02" },
+      { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
       { context: contextFor(userA) },
     );
 
@@ -131,7 +131,7 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     await expect(
       call(
         router.couple.update,
-        { anniversaryDate: "2022-02-02" },
+        { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
         { context: contextFor(null, demoCoupleId) },
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -210,6 +210,25 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
 
     await expect(
       call(router.event.delete, { id: crypto.randomUUID() }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  // me.update/me.uploadImageUrlはcouple_idを持たず authedProcedure の上に載る
+  // （couple_idの有無に関わらず未認証を弾く。019）ため、DEMO_COUPLE_IDの
+  // 設定有無を問わずFORBIDDENになることだけを確認する
+  it("me.update は未認証なら FORBIDDEN（019）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.me.update, { name: "デモから変更" }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("me.uploadImageUrl は未認証なら FORBIDDEN（019）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.me.uploadImageUrl, { contentType: "image/jpeg" }, { context: contextFor(null, demoCoupleId) }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
@@ -291,7 +310,11 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
   it("couple.update", async () => {
     const user = await createUser();
     await expect(
-      call(router.couple.update, { anniversaryDate: "2022-02-02" }, { context: contextFor(user) }),
+      call(
+        router.couple.update,
+        { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
+        { context: contextFor(user) },
+      ),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 
@@ -426,9 +449,9 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （013時点: health.get/me.get + couple 3 + invite 2 + post 4 + reaction 1 + event 4
-    // + stats 1 + memory 1 = 18）
-    expect(procedures.length).toBeGreaterThanOrEqual(18);
+    // （019時点: health.get/me.get/me.update/me.uploadImageUrl + couple 3 + invite 2 +
+    // post 4 + reaction 1 + event 4 + stats 1 + memory 1 = 20）
+    expect(procedures.length).toBeGreaterThanOrEqual(20);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの
