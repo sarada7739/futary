@@ -6,6 +6,7 @@
 「動くプロダクトのURL」という評価軸そのものを支える。
 
 ## 変更対象ファイル
+- （新規）`packages/db/migrations/xxxx_event_checks.sql` — `events` に CHECK を2本
 - （新規）`packages/db/seed/demo.ts` — デモペアのシードデータ投入
 - （新規）`apps/app/components/demo-banner.tsx`
 - `apps/app/app/(auth)/sign-in.tsx` — 「ゲストではじめる」を有効化
@@ -24,6 +25,56 @@
 - 過去1年半にわたる投稿を30〜50件（画像付きを含む）
 - リアクションを散らす
 
+### `events` に CHECK を足すマイグレーション
+
+シードが**入力スキーマを通らない2つ目の書き込み口**になるため、
+`architecture.md` 5節のとおり CHECK を2本足す。**このタスクの作業である。**
+
+```sql
+CHECK (repeat_yearly = 0 OR kind = 'anniversary')
+CHECK (time IS NULL OR kind <> 'anniversary')
+```
+
+#### 生成された SQL に `CREATE INDEX` が2本入っていることを目視で確認する
+
+**SQLite に `ALTER TABLE ... ADD CONSTRAINT` は無い。**
+drizzle-kit は**新テーブルを作って全行コピーし、旧テーブルを DROP して改名**する
+（0006 の `reactions.kind` がその形だった）。
+
+**`DROP TABLE events` で、表定義の外にある索引2本が消える。**
+
+```
+events_couple_date_idx    (couple_id, date)                      -- 0007
+events_meetup_unique      (couple_id, date) WHERE kind='meetup'  -- 0008
+```
+
+再作成の `CREATE INDEX` が生成物に入っていなければ、
+**018 で入れたばかりの一意化が黙って消える。**
+
+テストは全マイグレーションを適用してから走るので、
+「同じ日に2件目の `meetup` を作ると1件のまま」が失敗して気づける。**安全網は効く。**
+それでも**生成物を読まずに通さない。**
+
+#### 適用の前に、CHECK に違反する既存行を数える
+
+`INSERT INTO __new_events SELECT ... FROM events` は、
+**1行でも CHECK に違反すれば失敗する。**0008 で重複を先に潰したのと同じ構造である。
+
+```sql
+SELECT COUNT(*) FROM events WHERE repeat_yearly = 1 AND kind <> 'anniversary';
+```
+
+- `time` の方は 0008 で追加した列であり、その時点で既に検証があったため
+  **違反する行は存在しえない**
+- 上の行が作れたのは **PR #96 で検証を入れる前に API を直接叩いた場合だけ**で、
+  011 の UI は常に `kind === "anniversary"` を送る。**おそらくゼロ**
+
+**見つかった場合、0008 と同じ「消す」は採らない。人間が入れた本物の予定である。**
+`UPDATE events SET repeat_yearly = 0 WHERE ...` にする。
+
+**0008 もまだリモート未適用**（L73）なので、0008 と 0009 が一緒に走る。
+片方だけ通って片方が落ちる形になるため、**この確認は 0008 の適用前に済ませる。**
+
 #### シードは何度でも実行できること
 
 **最低2回走る。**014 のローカルと、016 の本番である。
@@ -35,7 +86,15 @@
 **投入の前にデモペアの既存行を消す。**
 
 - 消すのは **`is_demo = 1` の couple に属する行だけ。**他のペアに触れない
-- 外部キーの順に消す（`reactions` → `posts` → `events` → `couple_members` → `couples` → `user`）
+- 外部キーの順に、**`couple_id` を持つ全ての表**を消す
+  （`reactions` → `posts` → `events` → `invites` → `couple_members` → `couples` → `user`）。
+  **表が増えたときにここへ足す**
+- **デモの couple と架空の2人の user の id は、シード内の定数として宣言する。**
+  `crypto.randomUUID()` で作らない。実行のたびに id が変わると、
+  `wrangler.toml` の `DEMO_COUPLE_ID` が古い id を指したまま**ゲストデモが
+  `FORBIDDEN` になる**（005 の項目6が正しく効いて拒否される）。
+  R2 の鍵 `couples/{coupleId}/...` も変わり、**上書きにならず孤児が溜まる。**
+  再実行のたびに `wrangler.toml` を書き換えて再デプロイする運用は現実的でない
 - **R2 の画像は消さなくてよい。**孤児が残るが、鍵は `couples/{coupleId}/...` で
   同じ `coupleId` を使い回せば上書きになる（`architecture.md` 6節）
 
@@ -136,6 +195,8 @@
       （`security-requirements.md` 3節の項目6。**この値に初めて実在の ID が入るのがこのタスク**）
 - [ ] シードデータの出典が記録されている
 - [ ] **シードを2回連続で実行して、2回目も成功し結果が同じである**
+- [ ] **生成されたマイグレーションに `CREATE INDEX` が2本入っている**（目視）
+- [ ] **適用前に CHECK 違反行を数え、結果を記録した**
 - [ ] `meetupDays` が実際に触って自然に見える数字になっている
 - [ ] カレンダーに**2人の名前**と、**時間ありと時間なしの予定**が混ざって出る
 - [ ] **security-auditor の指摘で High 以上がゼロ**（デモ経路は本番データ漏洩の主要脅威 T4/T5）
