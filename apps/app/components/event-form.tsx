@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import type { Event } from "@futary/contract";
 import { Button, Card, colors, radius, space, Text } from "@futary/ui";
 import { DateInput8 } from "./date-input8";
@@ -127,6 +127,20 @@ export function EventForm({
     (isAnniversary || endTimeValid) &&
     !blockedByMeetupConflict;
 
+  // 終了時刻・会った日の重複は既に個別のメッセージを常時表示している
+  // （endTimeValid・showMeetupNote）ため、ここではタイトル・日付だけを見る
+  // （人間の指摘: 必須項目未入力で保存を押したとき理由が分かるようにする）
+  const missingFieldMessage =
+    trimmedTitle.length === 0
+      ? "タイトルを入力してください"
+      : !DATE_PATTERN.test(date)
+        ? "日付を正しく入力してください"
+        : null;
+
+  // 押しても何も起きない、にしない（020と同じ判断）。ボタン自体は常に押せる
+  // ようにし、条件が満たされていなければ理由を表示する
+  const [showValidation, setShowValidation] = useState(false);
+
   // 開始が無いと終了は持てない。削除すると終了も一緒に消す
   function removeStartTime() {
     setStartTime(null);
@@ -134,7 +148,10 @@ export function EventForm({
   }
 
   async function handleSubmit() {
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      setShowValidation(true);
+      return;
+    }
     // 記念日を選ぶと repeat_yearly が自動で true になる（タスク011）。
     // 記念日には時刻を付けられない（018・入力スキーマのrefineと同じ判断）
     await onSubmit({
@@ -162,199 +179,215 @@ export function EventForm({
           style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}
         />
 
-        <View style={{ width: "100%", maxWidth: 480 }}>
-          <Card>
-            <View style={{ gap: space.md }}>
-              <Text weight="bold" size="lg">
-                {mode === "edit" ? "イベントを編集" : "イベントを追加"}
-              </Text>
-
-              <View style={{ gap: space.xs }}>
-                <Text size="sm" color="muted">
-                  日付
+        {/* 時刻ホイールを2つ足したことでモーダルが画面の高さを超えうる
+            （人間の実機確認で発覚）。ScrollViewで中身全体をスクロール可能にする */}
+        <View style={{ width: "100%", maxWidth: 480, maxHeight: "100%" }}>
+          <ScrollView>
+            <Card>
+              <View style={{ gap: space.md }}>
+                <Text weight="bold" size="lg">
+                  {mode === "edit" ? "イベントを編集" : "イベントを追加"}
                 </Text>
-                <DateInput8 value={date} onChange={setDate} testID="event-form-date" />
-                {sourceDateNote && (
-                  <Text size="xs" color="muted">
-                    {sourceDateNote}
-                  </Text>
-                )}
-              </View>
 
-              <View style={{ gap: space.xs }}>
-                <Text size="sm" color="muted">
-                  タイトル
-                </Text>
-                <TextInput
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="イベントの名前"
-                  placeholderTextColor={colors.textMuted}
-                  maxLength={MAX_TITLE_LENGTH}
-                  testID="event-form-title"
-                  style={{
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: radius.input,
-                    padding: space.md,
-                    fontSize: 16,
-                    color: colors.text,
-                  }}
-                />
-              </View>
-
-              <View style={{ gap: space.xs }}>
-                <Text size="sm" color="muted">
-                  種別
-                </Text>
-                {/* flex:1で等分すると、狭い幅ではラベルが単語の途中で
-                    折り返される（profile.tsxの「ホーム上部の表示」と同じ形。
-                    Rレビュー指摘）。ボタンを内容の幅で並べ、収まらない分だけ
-                    次の行へ折り返す */}
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
-                  {availableKinds.map((k) => (
-                    <Button
-                      key={k}
-                      variant={kind === k ? "primary" : "secondary"}
-                      onPress={() => selectKind(k)}
-                      testID={`event-form-kind-${k}`}
-                    >
-                      {EVENT_KIND_LABELS[k]}
-                    </Button>
-                  ))}
-                </View>
-                {kind === "anniversary" && (
-                  <Text size="xs" color="muted">
-                    記念日は毎年繰り返し表示されます
-                  </Text>
-                )}
-              </View>
-
-              {/* 021: is_sharedはkind='plan'のときだけ意味を持つ。3（翌日「会った日」に
-                  変わる）は公開後へ回したため、説明文には現時点でできることだけを書く
-                  （「翌日『会った日』になります」とは書かない。動かない機能を先に
-                  説明しない。020の「準備中です」を避けたのと同じ判断。
-                  docs/tasks/021-plan-ownership.md） */}
-              {kind === "plan" && (
                 <View style={{ gap: space.xs }}>
-                  <Button
-                    variant={isShared ? "primary" : "secondary"}
-                    onPress={() => setIsShared((v) => !v)}
-                    testID="event-form-is-shared"
-                  >
-                    {isShared ? "✓ ふたりの予定" : "ふたりの予定にする"}
-                  </Button>
-                  <Text size="xs" color="muted">
-                    チェックすると、相手も編集・削除できるようになります
-                  </Text>
-                </View>
-              )}
-
-              {/* 記念日には時刻を設定できない（入力スキーマのrefineと同じ判断。018）。
-                  項目自体を隠す（「日」であって時刻を持つ概念ではないため） */}
-              {!isAnniversary && (
-                <View style={{ gap: space.sm }}>
                   <Text size="sm" color="muted">
-                    時間（任意）
+                    日付
                   </Text>
-
-                  {startTime == null ? (
-                    <Button
-                      variant="secondary"
-                      onPress={() => setStartTime(DEFAULT_TIME)}
-                      testID="event-form-add-start-time"
-                    >
-                      開始時刻を追加
-                    </Button>
-                  ) : (
-                    <View style={{ gap: space.sm }}>
-                      <View style={{ gap: space.xs }}>
-                        <Text size="xs" color="muted">
-                          開始
-                        </Text>
-                        <TimeWheelPicker value={startTime} onChange={setStartTime} testID="event-form-start-time" />
-                      </View>
-                      <Button variant="ghost" onPress={removeStartTime} testID="event-form-remove-start-time">
-                        時間を削除
-                      </Button>
-
-                      {/* 開始を選ぶ前に終了を選べない形にする（押せてから断られる形に
-                          しない。022）。startTimeがある場合にしかこの分岐へ来ない */}
-                      {endTime == null ? (
-                        <Button
-                          variant="secondary"
-                          onPress={() => setEndTime(DEFAULT_TIME)}
-                          testID="event-form-add-end-time"
-                        >
-                          終了時刻を追加
-                        </Button>
-                      ) : (
-                        <View style={{ gap: space.sm }}>
-                          <View style={{ gap: space.xs }}>
-                            <Text size="xs" color="muted">
-                              終了
-                            </Text>
-                            <TimeWheelPicker value={endTime} onChange={setEndTime} testID="event-form-end-time" />
-                          </View>
-                          <Button variant="ghost" onPress={() => setEndTime(null)} testID="event-form-remove-end-time">
-                            終了時刻を削除
-                          </Button>
-                          {!endTimeValid && (
-                            <Text size="xs" color="muted">
-                              終了は開始より後にしてください
-                            </Text>
-                          )}
-                        </View>
-                      )}
-                    </View>
+                  <DateInput8 value={date} onChange={setDate} testID="event-form-date" />
+                  {sourceDateNote && (
+                    <Text size="xs" color="muted">
+                      {sourceDateNote}
+                    </Text>
                   )}
                 </View>
-              )}
 
-              {showMeetupNote && (
-                <Text size="xs" color="muted">
-                  {mode === "create"
-                    ? `この日はすでに「会った日」が登録されています（${conflictingMeetup?.title}）。保存すると上書きされます`
-                    : `この日には既に別の「会った日」があります（${conflictingMeetup?.title}）。保存できません`}
-                </Text>
-              )}
+                <View style={{ gap: space.xs }}>
+                  <Text size="sm" color="muted">
+                    タイトル
+                  </Text>
+                  <TextInput
+                    value={title}
+                    onChangeText={setTitle}
+                    placeholder="イベントの名前"
+                    placeholderTextColor={colors.textMuted}
+                    maxLength={MAX_TITLE_LENGTH}
+                    testID="event-form-title"
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: radius.input,
+                      padding: space.md,
+                      fontSize: 16,
+                      color: colors.text,
+                    }}
+                  />
+                </View>
 
-              {errorMessage && (
-                <Text size="sm" color="muted">
-                  {errorMessage}
-                </Text>
-              )}
-
-              <View style={{ flexDirection: "row", gap: space.sm, justifyContent: "flex-end" }}>
-                {mode === "edit" &&
-                  onDelete &&
-                  (confirmingDelete ? (
-                    <>
-                      <Button variant="ghost" onPress={() => setConfirmingDelete(false)}>
-                        キャンセル
+                <View style={{ gap: space.xs }}>
+                  <Text size="sm" color="muted">
+                    種別
+                  </Text>
+                  {/* flex:1で等分すると、狭い幅ではラベルが単語の途中で
+                      折り返される（profile.tsxの「ホーム上部の表示」と同じ形。
+                      Rレビュー指摘）。ボタンを内容の幅で並べ、収まらない分だけ
+                      次の行へ折り返す */}
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+                    {availableKinds.map((k) => (
+                      <Button
+                        key={k}
+                        variant={kind === k ? "primary" : "secondary"}
+                        onPress={() => selectKind(k)}
+                        testID={`event-form-kind-${k}`}
+                      >
+                        {EVENT_KIND_LABELS[k]}
                       </Button>
-                      <Button variant="secondary" onPress={onDelete} testID="event-form-delete-confirm">
-                        削除する
+                    ))}
+                  </View>
+                  {kind === "anniversary" && (
+                    <Text size="xs" color="muted">
+                      記念日は毎年繰り返し表示されます
+                    </Text>
+                  )}
+                </View>
+
+                {/* 021: is_sharedはkind='plan'のときだけ意味を持つ。3（翌日「会った日」に
+                    変わる）は公開後へ回したため、説明文には現時点でできることだけを書く
+                    （「翌日『会った日』になります」とは書かない。動かない機能を先に
+                    説明しない。020の「準備中です」を避けたのと同じ判断。
+                    docs/tasks/021-plan-ownership.md） */}
+                {kind === "plan" && (
+                  <View style={{ gap: space.xs }}>
+                    <Button
+                      variant={isShared ? "primary" : "secondary"}
+                      onPress={() => setIsShared((v) => !v)}
+                      testID="event-form-is-shared"
+                    >
+                      {isShared ? "✓ ふたりの予定" : "ふたりの予定にする"}
+                    </Button>
+                    <Text size="xs" color="muted">
+                      チェックすると、相手も編集・削除できるようになります
+                    </Text>
+                  </View>
+                )}
+
+                {/* 記念日には時刻を設定できない（入力スキーマのrefineと同じ判断。018）。
+                    項目自体を隠す（「日」であって時刻を持つ概念ではないため） */}
+                {!isAnniversary && (
+                  <View style={{ gap: space.sm }}>
+                    <Text size="sm" color="muted">
+                      時間（任意）
+                    </Text>
+
+                    {startTime == null ? (
+                      <Button
+                        variant="secondary"
+                        onPress={() => setStartTime(DEFAULT_TIME)}
+                        testID="event-form-add-start-time"
+                      >
+                        開始時刻を追加
+                      </Button>
+                    ) : (
+                      <View style={{ gap: space.sm }}>
+                        <View style={{ gap: space.xs }}>
+                          <Text size="xs" color="muted">
+                            開始
+                          </Text>
+                          <TimeWheelPicker value={startTime} onChange={setStartTime} testID="event-form-start-time" />
+                        </View>
+                        <Button variant="ghost" onPress={removeStartTime} testID="event-form-remove-start-time">
+                          時間を削除
+                        </Button>
+
+                        {/* 開始を選ぶ前に終了を選べない形にする（押せてから断られる形に
+                            しない。022）。startTimeがある場合にしかこの分岐へ来ない */}
+                        {endTime == null ? (
+                          <Button
+                            variant="secondary"
+                            onPress={() => setEndTime(DEFAULT_TIME)}
+                            testID="event-form-add-end-time"
+                          >
+                            終了時刻を追加
+                          </Button>
+                        ) : (
+                          <View style={{ gap: space.sm }}>
+                            <View style={{ gap: space.xs }}>
+                              <Text size="xs" color="muted">
+                                終了
+                              </Text>
+                              <TimeWheelPicker value={endTime} onChange={setEndTime} testID="event-form-end-time" />
+                            </View>
+                            <Button
+                              variant="ghost"
+                              onPress={() => setEndTime(null)}
+                              testID="event-form-remove-end-time"
+                            >
+                              終了時刻を削除
+                            </Button>
+                            {!endTimeValid && (
+                              <Text size="xs" color="muted">
+                                終了は開始より後にしてください
+                              </Text>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {showMeetupNote && (
+                  <Text size="xs" color="muted">
+                    {mode === "create"
+                      ? `この日はすでに「会った日」が登録されています（${conflictingMeetup?.title}）。保存すると上書きされます`
+                      : `この日には既に別の「会った日」があります（${conflictingMeetup?.title}）。保存できません`}
+                  </Text>
+                )}
+
+                {/* 押しても何も起きない、にしない（020と同じ判断）。保存を一度
+                    押したあとだけ、足りない項目を表示する */}
+                {showValidation && missingFieldMessage && (
+                  <Text size="sm" color="muted">
+                    {missingFieldMessage}
+                  </Text>
+                )}
+
+                {errorMessage && (
+                  <Text size="sm" color="muted">
+                    {errorMessage}
+                  </Text>
+                )}
+
+                <View style={{ flexDirection: "row", gap: space.sm, justifyContent: "flex-end" }}>
+                  {mode === "edit" &&
+                    onDelete &&
+                    (confirmingDelete ? (
+                      <>
+                        <Button variant="ghost" onPress={() => setConfirmingDelete(false)}>
+                          キャンセル
+                        </Button>
+                        <Button variant="secondary" onPress={onDelete} testID="event-form-delete-confirm">
+                          削除する
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="ghost" onPress={() => setConfirmingDelete(true)} testID="event-form-delete">
+                        削除
+                      </Button>
+                    ))}
+                  {!confirmingDelete && (
+                    <>
+                      <Button variant="ghost" onPress={onCancel}>
+                        閉じる
+                      </Button>
+                      <Button onPress={handleSubmit} disabled={isSubmitting} testID="event-form-submit">
+                        {isSubmitting ? "保存中…" : "保存する"}
                       </Button>
                     </>
-                  ) : (
-                    <Button variant="ghost" onPress={() => setConfirmingDelete(true)} testID="event-form-delete">
-                      削除
-                    </Button>
-                  ))}
-                {!confirmingDelete && (
-                  <>
-                    <Button variant="ghost" onPress={onCancel}>
-                      閉じる
-                    </Button>
-                    <Button onPress={handleSubmit} disabled={!canSubmit} testID="event-form-submit">
-                      {isSubmitting ? "保存中…" : "保存する"}
-                    </Button>
-                  </>
-                )}
+                  )}
+                </View>
               </View>
-            </View>
-          </Card>
+            </Card>
+          </ScrollView>
         </View>
       </View>
     </Modal>

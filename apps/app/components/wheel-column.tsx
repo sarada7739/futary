@@ -92,6 +92,23 @@ export function WheelColumn({ options, value, onChange, testID }: WheelColumnPro
           : null,
       ]}
     >
+      {/* 中央の選択帯。ScrollViewより先に置いて背景に回す（あとに置くとDOM順で
+          前面に来て数字を覆い隠す。人間の実機確認で発覚）。
+          pointerEvents="none"で下のScrollViewへのタップを妨げない */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: ITEM_HEIGHT * PADDING_COUNT,
+          left: 0,
+          right: 0,
+          height: ITEM_HEIGHT,
+          borderTopWidth: 1,
+          borderBottomWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.primarySubtle,
+        }}
+      />
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
@@ -121,21 +138,6 @@ export function WheelColumn({ options, value, onChange, testID }: WheelColumnPro
           </Pressable>
         ))}
       </ScrollView>
-      {/* 中央の選択帯。pointerEvents="none"で下のScrollViewへのタップを妨げない */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          top: ITEM_HEIGHT * PADDING_COUNT,
-          left: 0,
-          right: 0,
-          height: ITEM_HEIGHT,
-          borderTopWidth: 1,
-          borderBottomWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.primarySubtle,
-        }}
-      />
     </View>
   );
 }
