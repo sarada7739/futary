@@ -34,6 +34,10 @@ function RootNavigator() {
           name="compose"
           options={{ presentation: "modal", headerShown: true, title: "投稿する" }}
         />
+        {/* 020: ホームの機能パネル「思い出」「統計」の行き先。モーダルではなく
+            通常の画面遷移（戻る導線はヘッダーの標準の戻るボタン） */}
+        <Stack.Screen name="memory" options={{ headerShown: true, title: "思い出" }} />
+        <Stack.Screen name="stats" options={{ headerShown: true, title: "統計" }} />
       </Stack.Protected>
       <Stack.Protected guard={needsOnboarding}>
         <Stack.Screen name="(onboarding)" />
