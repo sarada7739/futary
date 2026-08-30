@@ -1,6 +1,6 @@
 import { Screen, space } from "@futary/ui";
 import { ScrollView } from "react-native";
-import { MemoryCard } from "../components/memory-card";
+import { MemoryCard } from "../../components/memory-card";
 
 // 020: 013の思い出しカードをホームから独立したページへ移した。
 // ホームの機能パネル「思い出」の行き先。新しいカードは作らず、

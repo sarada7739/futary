@@ -15,7 +15,7 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-const { default: StatsScreen } = await import("../app/stats");
+const { default: StatsScreen } = await import("../app/(tabs)/stats");
 const { queryClient } = await import("../lib/query");
 
 function makeStats(overrides: Partial<Record<string, unknown>> = {}) {

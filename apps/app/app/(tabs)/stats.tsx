@@ -1,8 +1,8 @@
 import { Card, Screen, space, Text } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
 import { ScrollView, View } from "react-native";
-import { daysTogetherLabel } from "../lib/stats";
-import { orpc } from "../lib/orpc";
+import { daysTogetherLabel } from "../../lib/stats";
+import { orpc } from "../../lib/orpc";
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (

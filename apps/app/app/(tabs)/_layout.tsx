@@ -108,6 +108,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} />,
         }}
       />
+      {/* 020: ホームの機能パネル「思い出」「統計」の行き先。href: null で
+          タブバーのボタンとしては出さないが、(tabs)navigator の内側に置くことで
+          遷移してもタブバーが消えない（Rレビュー指摘。L70でcalendar.tsxが
+          (tabs)の外にありタブが消えた不具合と同じ構造を、ここでも踏んでいた） */}
+      <Tabs.Screen name="memory" options={{ href: null, headerShown: true, title: "思い出" }} />
+      <Tabs.Screen name="stats" options={{ href: null, headerShown: true, title: "統計" }} />
     </Tabs>
   );
 }

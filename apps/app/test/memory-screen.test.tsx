@@ -16,7 +16,7 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-const { default: MemoryScreen } = await import("../app/memory");
+const { default: MemoryScreen } = await import("../app/(tabs)/memory");
 const { queryClient } = await import("../lib/query");
 
 beforeEach(() => {
