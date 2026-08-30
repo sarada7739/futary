@@ -42,7 +42,7 @@ function contextFor(
 }
 
 async function createCouple(user: { id: string; name: string; email: string }) {
-  return call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+  return call(router.couple.create, {}, { context: contextFor(user) });
 }
 
 describe("reaction.toggle", () => {
@@ -260,7 +260,7 @@ describe("post.list のリアクション集計（N+1回避）", () => {
     const demoCoupleId = crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
     await db
-      .prepare("INSERT INTO couples (id, anniversary_date, is_demo, created_at) VALUES (?1, '2019-01-01', 1, ?2)")
+      .prepare("INSERT INTO couples (id, dating_date, is_demo, created_at) VALUES (?1, '2019-01-01', 1, ?2)")
       .bind(demoCoupleId, now)
       .run();
     const demoAuthor = await createUser();

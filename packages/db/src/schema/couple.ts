@@ -14,7 +14,11 @@ export const couples = sqliteTable(
   "couples",
   {
     id: text("id").primaryKey(),
-    anniversaryDate: text("anniversary_date").notNull(),
+    // 付き合った日。NULL許容（023）。登録時には聞かず、マイページで
+    // あとから設定する。旧anniversary_date（NOT NULL）から改名し
+    // NULL許容にした。「まだ設定していない」はNULLで表す
+    // （stats.getのdaysTogetherが'unset'を返す。packages/contract/src/stats.ts）
+    datingDate: text("dating_date"),
     // 結婚した日。NULL許容（019）
     marriedDate: text("married_date"),
     // ホーム上部に何を表示するか。既定は'dating'（019・architecture.md 4節）
@@ -56,13 +60,16 @@ export const couples = sqliteTable(
       "couples_married_date_required_check",
       sql`${table.primaryDate} <> 'married' OR ${table.marriedDate} IS NOT NULL`,
     ),
-    // married_date が anniversary_date より前にならない（結婚が交際開始より前には
+    // married_date が dating_date より前にならない（結婚が交際開始より前には
     // ならない）。上と同じ理由（シードが入力スキーマを通らない2つ目の書き込み口に
     // なる）で、入力スキーマだけでなくDB側にも表す（019・Aの決定）。
-    // 実体はTRIGGER（上のcouples_married_date_required_checkと同じ事情）
+    // 実体はTRIGGER（上のcouples_married_date_required_checkと同じ事情）。
+    // dating_dateがNULL（023: まだ設定していない）のときは比較しようがないため
+    // 通す。「付き合った日を覚えていない人が結婚した日だけ設定できる」が
+    // 023の要望の本体（docs/tasks/023-anniversary-optional.md）
     check(
       "couples_married_after_anniversary_check",
-      sql`${table.marriedDate} IS NULL OR ${table.marriedDate} >= ${table.anniversaryDate}`,
+      sql`${table.marriedDate} IS NULL OR ${table.datingDate} IS NULL OR ${table.marriedDate} >= ${table.datingDate}`,
     ),
   ],
 );

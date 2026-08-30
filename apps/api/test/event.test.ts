@@ -41,7 +41,7 @@ function contextFor(
 }
 
 async function createCouple(user: { id: string; name: string; email: string }) {
-  return call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+  return call(router.couple.create, {}, { context: contextFor(user) });
 }
 
 async function createEvent(

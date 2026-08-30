@@ -46,11 +46,19 @@ function contextFor(
   return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId };
 }
 
+// 023: couple.createは日付を受け取らないため、作成後にcouple.updateで
+// datingDateを設定する（テストがペアを日付で区別できるよう、旧来どおり
+// 引数で指定させる）
 async function createCouple(
   user: { id: string; name: string; email: string },
-  anniversaryDate = "2020-01-01",
+  datingDate = "2020-01-01",
 ) {
-  return call(router.couple.create, { anniversaryDate }, { context: contextFor(user) });
+  await call(router.couple.create, {}, { context: contextFor(user) });
+  return call(
+    router.couple.update,
+    { datingDate, marriedDate: null, primaryDate: "dating" },
+    { context: contextFor(user) },
+  );
 }
 
 // couple.get が SELECT できるよう、is_demo=1 の couples 行を直接作る
@@ -59,9 +67,7 @@ async function createDemoCouple(): Promise<string> {
   const id = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
   await db
-    .prepare(
-      "INSERT INTO couples (id, anniversary_date, is_demo, created_at) VALUES (?1, '2019-01-01', 1, ?2)",
-    )
+    .prepare("INSERT INTO couples (id, dating_date, is_demo, created_at) VALUES (?1, '2019-01-01', 1, ?2)")
     .bind(id, now)
     .run();
   return id;
@@ -77,7 +83,7 @@ describe("1. ペアAのユーザーがペアBのレコードを取得・更新�
     const fetched = await call(router.couple.get, undefined, { context: contextFor(userA) });
 
     expect(fetched.id).toBe(coupleA.id);
-    expect(fetched.anniversaryDate).toBe("2020-01-01");
+    expect(fetched.datingDate).toBe("2020-01-01");
   });
 
   it("couple.update は自分の所属ペアしか変更できず、他ペアのレコードは変わらない", async () => {
@@ -88,13 +94,13 @@ describe("1. ペアAのユーザーがペアBのレコードを取得・更新�
 
     await call(
       router.couple.update,
-      { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
+      { datingDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
       { context: contextFor(userA) },
     );
 
     const bAfter = await call(router.couple.get, undefined, { context: contextFor(userB) });
-    expect(bAfter.anniversaryDate).toBe(coupleB.anniversaryDate);
-    expect(bAfter.anniversaryDate).not.toBe("2022-02-02");
+    expect(bAfter.datingDate).toBe(coupleB.datingDate);
+    expect(bAfter.datingDate).not.toBe("2022-02-02");
   });
 
   // 006: post.list/post.delete も ctx.coupleId のみを使う（引数に coupleId を
@@ -131,7 +137,7 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     await expect(
       call(
         router.couple.update,
-        { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
+        { datingDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
         { context: contextFor(null, demoCoupleId) },
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -242,7 +248,7 @@ describe("3. 未認証アクセスで読み取れるのがデモペアのデー�
     const result = await call(router.couple.get, undefined, { context: contextFor(null, demoCoupleId) });
 
     expect(result.id).toBe(demoCoupleId);
-    expect(result.anniversaryDate).toBe("2019-01-01");
+    expect(result.datingDate).toBe("2019-01-01");
   });
 
   it("post.list は DEMO_COUPLE_ID のペアの投稿だけを返す。他ペアの投稿は混ざらない", async () => {
@@ -312,7 +318,7 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
     await expect(
       call(
         router.couple.update,
-        { anniversaryDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
+        { datingDate: "2022-02-02", marriedDate: null, primaryDate: "dating" },
         { context: contextFor(user) },
       ),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });

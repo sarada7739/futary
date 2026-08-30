@@ -15,7 +15,7 @@ import type { Bindings } from "../src/index";
 // ごと確認する）
 describe("書き込み手続きは GET で実行できない（fix/reject-get-writes）", () => {
   it("GET経由で couple.update を呼ぶと METHOD_NOT_SUPPORTED（405）になり、手続きは実行されない", async () => {
-    const data = encodeURIComponent(JSON.stringify({ json: { anniversaryDate: "2020-01-01" } }));
+    const data = encodeURIComponent(JSON.stringify({ json: { datingDate: "2020-01-01" } }));
     const response = await app.fetch(
       new Request(`http://localhost/api/couple/update?data=${data}`, { method: "GET" }),
       env as unknown as Bindings,
@@ -32,7 +32,7 @@ describe("書き込み手続きは GET で実行できない（fix/reject-get-wr
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          json: { anniversaryDate: "2020-01-01", marriedDate: null, primaryDate: "dating" },
+          json: { datingDate: "2020-01-01", marriedDate: null, primaryDate: "dating" },
         }),
       }),
       env as unknown as Bindings,

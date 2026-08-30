@@ -68,7 +68,7 @@ function makeMe(overrides: Partial<Record<string, unknown>> = {}) {
 function makeCouple(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: "couple-1",
-    anniversaryDate: "2020-01-01",
+    datingDate: "2020-01-01",
     marriedDate: null,
     primaryDate: "dating",
     createdAt: 0,
@@ -96,7 +96,7 @@ function renderScreen() {
 // 読み込み完了を保証できない（初期化useEffectがクリック後に走ると
 // 入力内容が上書きされてしまう）
 async function waitForLoaded() {
-  const dateInput = (await screen.findByTestId("profile-anniversary-date")) as HTMLInputElement;
+  const dateInput = (await screen.findByTestId("profile-dating-date")) as HTMLInputElement;
   await waitFor(() => expect(dateInput.value).toBe("2020-01-01"));
   return dateInput;
 }
@@ -142,7 +142,7 @@ describe("ProfileScreen: 保存", () => {
 
   it("記念日を変更して保存すると couple.update が呼ばれる", async () => {
     meUpdateMock.mockResolvedValue(makeMe());
-    coupleUpdateMock.mockResolvedValue(makeCouple({ anniversaryDate: "2019-06-15" }));
+    coupleUpdateMock.mockResolvedValue(makeCouple({ datingDate: "2019-06-15" }));
 
     renderScreen();
     const dateInput = await waitForLoaded();
@@ -155,7 +155,7 @@ describe("ProfileScreen: 保存", () => {
 
     await waitFor(() =>
       expect(coupleUpdateMock).toHaveBeenCalledWith(
-        { anniversaryDate: "2019-06-15", marriedDate: null, primaryDate: "dating" },
+        { datingDate: "2019-06-15", marriedDate: null, primaryDate: "dating" },
         expect.anything(),
       ),
     );
@@ -228,7 +228,7 @@ describe("ProfileScreen: ホーム上部の表示（primaryDate）", () => {
 
     await waitFor(() =>
       expect(coupleUpdateMock).toHaveBeenCalledWith(
-        { anniversaryDate: "2020-01-01", marriedDate: "2023-05-01", primaryDate: "married" },
+        { datingDate: "2020-01-01", marriedDate: "2023-05-01", primaryDate: "married" },
         expect.anything(),
       ),
     );
@@ -249,7 +249,65 @@ describe("ProfileScreen: ホーム上部の表示（primaryDate）", () => {
 
     await waitFor(() =>
       expect(coupleUpdateMock).toHaveBeenCalledWith(
-        { anniversaryDate: "2020-01-01", marriedDate: null, primaryDate: "none" },
+        { datingDate: "2020-01-01", marriedDate: null, primaryDate: "none" },
+        expect.anything(),
+      ),
+    );
+  });
+});
+
+// 023: 登録時に付き合った日を聞かなくなったため、datingDateがnullのまま届く
+// ケースが生じる。「マイページであとから設定する」が目的なので、そのマイページが
+// 日付前提で動かなくなってはいけない（タスク定義の要望本体）
+describe("ProfileScreen: datingDateが未設定（023）", () => {
+  it("datingDateがnullのまま、名前だけ変更して保存できる", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ datingDate: null }));
+    meUpdateMock.mockResolvedValue(makeMe({ name: "新しい名前" }));
+    coupleUpdateMock.mockResolvedValue(makeCouple({ datingDate: null }));
+
+    renderScreen();
+    const nameInput = (await screen.findByTestId("profile-name")) as HTMLInputElement;
+    await waitFor(() => expect(nameInput.value).toBe("自分"));
+
+    fireEvent.change(nameInput, { target: { value: "新しい名前" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("profile-save"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(meUpdateMock).toHaveBeenCalledWith({ name: "新しい名前", imageId: undefined }, expect.anything()),
+    );
+    await waitFor(() =>
+      expect(coupleUpdateMock).toHaveBeenCalledWith(
+        { datingDate: null, marriedDate: null, primaryDate: "dating" },
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("datingDateがnullのまま、marriedDateだけ設定して保存できる", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ datingDate: null }));
+    meUpdateMock.mockResolvedValue(makeMe());
+    coupleUpdateMock.mockResolvedValue(
+      makeCouple({ datingDate: null, marriedDate: "2023-05-01", primaryDate: "married" }),
+    );
+
+    renderScreen();
+    const nameInput = (await screen.findByTestId("profile-name")) as HTMLInputElement;
+    await waitFor(() => expect(nameInput.value).toBe("自分"));
+
+    fireEvent.click(screen.getByTestId("profile-primary-date-married"));
+    fireEvent.change(screen.getByTestId("profile-married-date"), { target: { value: "2023-05-01" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("profile-save"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(coupleUpdateMock).toHaveBeenCalledWith(
+        { datingDate: null, marriedDate: "2023-05-01", primaryDate: "married" },
         expect.anything(),
       ),
     );

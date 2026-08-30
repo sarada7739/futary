@@ -1,7 +1,8 @@
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import type { Stats } from "@futary/contract";
 import { Avatar, Card, colors, space, Text } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { daysTogetherLabel } from "../lib/stats";
 import { orpc } from "../lib/orpc";
 
@@ -50,6 +51,7 @@ function MemberAvatar({ member }: { member?: Member }) {
 }
 
 export function StatsCard() {
+  const router = useRouter();
   const query = useQuery(orpc.stats.get.queryOptions());
 
   // 通信エラー時はカード自体を出さない（ホーム画面の主役は投稿一覧のため、
@@ -106,6 +108,16 @@ export function StatsCard() {
             <Text size="xl" weight="bold" color="brand">
               {daysTogetherLabel(stats.daysTogether)}
             </Text>
+          )}
+          {/* 023: unset（まだ決めていない）のときだけマイページへの導線を出す。
+              hidden（本人が隠すと決めた）のときは何も出さない
+              （同じにすると隠すと決めた人に「設定してください」と出し続けることになる） */}
+          {stats.daysTogether.status === "unset" && (
+            <Pressable onPress={() => router.push("/profile")} testID="stats-card-set-dating-date">
+              <Text size="sm" color="brand">
+                付き合った日を設定する
+              </Text>
+            </Pressable>
           )}
           <Text size="sm" color="muted">
             会った日数：{stats.meetupDays}日

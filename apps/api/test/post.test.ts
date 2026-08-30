@@ -45,7 +45,7 @@ function contextFor(
 }
 
 async function createCouple(user: { id: string; name: string; email: string }) {
-  return call(router.couple.create, { anniversaryDate: "2020-01-01" }, { context: contextFor(user) });
+  return call(router.couple.create, {}, { context: contextFor(user) });
 }
 
 // created_at を直接指定して投稿を作る（同一秒の重複・欠落テストのため、

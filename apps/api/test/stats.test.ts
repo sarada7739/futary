@@ -38,8 +38,15 @@ function contextFor(user: { id: string; name: string; email: string } | null): R
   return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId: null };
 }
 
-async function createCouple(user: { id: string; name: string; email: string }, anniversaryDate: string) {
-  return call(router.couple.create, { anniversaryDate }, { context: contextFor(user) });
+// 023: couple.createは日付を受け取らないため、作成後にcouple.updateでdatingDateを
+// 設定する（テストがペアを日付で区別できるよう、旧来どおり引数で指定させる）
+async function createCouple(user: { id: string; name: string; email: string }, datingDate: string) {
+  await call(router.couple.create, {}, { context: contextFor(user) });
+  return call(
+    router.couple.update,
+    { datingDate, marriedDate: null, primaryDate: "dating" },
+    { context: contextFor(user) },
+  );
 }
 
 async function joinCouple(coupleId: string, user: { id: string; name: string; email: string }, slot: number) {
@@ -77,52 +84,55 @@ async function insertPost(
     .run();
 }
 
-function couple(overrides: Partial<{ anniversaryDate: string; marriedDate: string | null; primaryDate: string }> = {}) {
+function couple(
+  overrides: Partial<{ datingDate: string | null; marriedDate: string | null; primaryDate: string }> = {},
+) {
   return {
-    anniversary_date: overrides.anniversaryDate ?? "2026-01-01",
+    dating_date: overrides.datingDate === undefined ? "2026-01-01" : overrides.datingDate,
     married_date: overrides.marriedDate ?? null,
     primary_date: overrides.primaryDate ?? "dating",
   };
 }
 
 // 判別可能なunion（{status:"dating"} | {status:"dating_upcoming"} |
-// {status:"married"} | {status:"married_upcoming"} | {status:"hidden"}）の境界。
-// 「dating」の下端（今日→1日目）と「dating_upcoming」の下端（明日→あと1日。
-// 0日にならない）の両方を押さえる（Rレビュー指摘: 片側だけだとoff-by-oneを
-// 見逃す）。019でprimary_dateの分岐を追加した。dating/marriedそれぞれに
-// upcomingの対を持たせる形に改名した（Aの決定・PR #123。旧together→dating、
-// 旧upcoming→dating_upcoming）
+// {status:"married"} | {status:"married_upcoming"} | {status:"hidden"} |
+// {status:"unset"}）の境界。「dating」の下端（今日→1日目）と
+// 「dating_upcoming」の下端（明日→あと1日。0日にならない）の両方を押さえる
+// （Rレビュー指摘: 片側だけだとoff-by-oneを見逃す）。019でprimary_dateの
+// 分岐を追加した。dating/marriedそれぞれにupcomingの対を持たせる形に改名
+// した（Aの決定・PR #123。旧together→dating、旧upcoming→dating_upcoming）。
+// 023でunset（primary_dateが指している方の日付がまだ無い）を追加した
 describe("computeDaysTogether", () => {
   it("primary_date='dating'・記念日が今日なら1日目", () => {
-    expect(computeDaysTogether(couple({ anniversaryDate: "2026-01-01" }), "2026-01-01")).toEqual({
+    expect(computeDaysTogether(couple({ datingDate: "2026-01-01" }), "2026-01-01")).toEqual({
       status: "dating",
       days: 1,
     });
   });
 
   it("primary_date='dating'・記念日が昨日なら2日目", () => {
-    expect(computeDaysTogether(couple({ anniversaryDate: "2025-12-31" }), "2026-01-01")).toEqual({
+    expect(computeDaysTogether(couple({ datingDate: "2025-12-31" }), "2026-01-01")).toEqual({
       status: "dating",
       days: 2,
     });
   });
 
   it("primary_date='dating'・記念日が明日なら「あと1日」（0日にならない）", () => {
-    expect(computeDaysTogether(couple({ anniversaryDate: "2026-01-02" }), "2026-01-01")).toEqual({
+    expect(computeDaysTogether(couple({ datingDate: "2026-01-02" }), "2026-01-01")).toEqual({
       status: "dating_upcoming",
       days: 1,
     });
   });
 
   it("primary_date='dating'・記念日が2日後なら「あと2日」", () => {
-    expect(computeDaysTogether(couple({ anniversaryDate: "2026-01-03" }), "2026-01-01")).toEqual({
+    expect(computeDaysTogether(couple({ datingDate: "2026-01-03" }), "2026-01-01")).toEqual({
       status: "dating_upcoming",
       days: 2,
     });
   });
 
   it("primary_date='dating'・年をまたいでも正しい", () => {
-    expect(computeDaysTogether(couple({ anniversaryDate: "2025-12-31" }), "2026-01-02")).toEqual({
+    expect(computeDaysTogether(couple({ datingDate: "2025-12-31" }), "2026-01-02")).toEqual({
       status: "dating",
       days: 3,
     });
@@ -157,6 +167,29 @@ describe("computeDaysTogether", () => {
     expect(result).toEqual({ status: "hidden" });
     expect(result).not.toHaveProperty("days");
   });
+
+  // 023: 「まだ決めていない」はhiddenと違う（本人が隠すと決めたわけではない）
+  it("primary_date='dating'・dating_dateが無いならunset（daysを含まない）", () => {
+    const result = computeDaysTogether(couple({ primaryDate: "dating", datingDate: null }), "2026-01-01");
+    expect(result).toEqual({ status: "unset" });
+    expect(result).not.toHaveProperty("days");
+  });
+
+  it("primary_date='married'・married_dateが無いならunset（daysを含まない）", () => {
+    const result = computeDaysTogether(couple({ primaryDate: "married", marriedDate: null }), "2026-01-01");
+    expect(result).toEqual({ status: "unset" });
+    expect(result).not.toHaveProperty("days");
+  });
+
+  // 「片方の日付があるから、そっちを出す」はしない。primary_date='married'なのに
+  // dating_dateだけがあってもunsetのまま（利用者が選んだ方だけを見る）
+  it("primary_date='married'・married_dateが無ければ、dating_dateがあってもunset", () => {
+    const result = computeDaysTogether(
+      couple({ primaryDate: "married", datingDate: "2020-01-01", marriedDate: null }),
+      "2026-01-01",
+    );
+    expect(result).toEqual({ status: "unset" });
+  });
 });
 
 describe("stats.get", () => {
@@ -169,7 +202,7 @@ describe("stats.get", () => {
     expect(stats.daysTogether).toEqual({ status: "dating", days: 1 });
   });
 
-  // L66（Aの決定）: anniversaryDateSchemaの上限緩和（1年後まで）によりupcomingへ
+  // L66（Aの決定）: datingDateSchemaの上限緩和（1年後まで）によりupcomingへ
   // 実際に到達できることを、入力から出力まで通しで確認する
   it("記念日が未来（1ヶ月後）のペアはdaysTogetherがdating_upcoming・daysが正の値になる", async () => {
     const user = await createUser();
@@ -181,13 +214,24 @@ describe("stats.get", () => {
     expect(stats.daysTogether).toEqual({ status: "dating_upcoming", days: 30 });
   });
 
+  // 023: couple.create直後（付き合った日を登録時に聞かなくなった）はdatingDateが
+  // nullのまま。stats.getはこれをunsetとして返す（この要望の本体）
+  it("couple.create直後（付き合った日を設定していない）はdaysTogetherがunset", async () => {
+    const user = await createUser();
+    await call(router.couple.create, {}, { context: contextFor(user) });
+
+    const stats = await call(router.stats.get, undefined, { context: contextFor(user) });
+
+    expect(stats.daysTogether).toEqual({ status: "unset" });
+  });
+
   // 019: couple.updateでprimary_dateを変えると、stats.getのdaysTogetherに反映される
   it("primaryDate='married'に変えると、daysTogetherがmarriedになる", async () => {
     const user = await createUser();
     await createCouple(user, "2020-01-01");
     await call(
       router.couple.update,
-      { anniversaryDate: "2020-01-01", marriedDate: todayJst(), primaryDate: "married" },
+      { datingDate: "2020-01-01", marriedDate: todayJst(), primaryDate: "married" },
       { context: contextFor(user) },
     );
 
@@ -201,7 +245,7 @@ describe("stats.get", () => {
     await createCouple(user, "2020-01-01");
     await call(
       router.couple.update,
-      { anniversaryDate: "2020-01-01", marriedDate: null, primaryDate: "none" },
+      { datingDate: "2020-01-01", marriedDate: null, primaryDate: "none" },
       { context: contextFor(user) },
     );
 
@@ -209,6 +253,23 @@ describe("stats.get", () => {
 
     expect(stats.daysTogether).toEqual({ status: "hidden" });
     expect(stats.daysTogether).not.toHaveProperty("days");
+  });
+
+  // 023: datingDateがnullのままでもmeetupDays/postCount/photoCountは出る
+  // （消すのは記念日の行だけ。020で決めた「hiddenのときも会った日数は残す」と
+  // 同じ扱いをunsetにも及ぼす）
+  it("datingDateが無くてもmeetupDays・postCount・photoCountは返る", async () => {
+    const user = await createUser();
+    const created = await call(router.couple.create, {}, { context: contextFor(user) });
+    await insertEvent(created.id, user.id, "meetup", todayJst());
+    await insertPost(created.id, user.id, { imageKey: "img-unset-1" });
+
+    const stats = await call(router.stats.get, undefined, { context: contextFor(user) });
+
+    expect(stats.daysTogether).toEqual({ status: "unset" });
+    expect(stats.meetupDays).toBe(1);
+    expect(stats.postCount).toBe(1);
+    expect(stats.photoCount).toBe(1);
   });
 
   it("会った日ゼロならmeetupDaysは0（カード自体は出る＝エラーにならない）", async () => {

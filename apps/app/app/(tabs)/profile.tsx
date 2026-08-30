@@ -31,7 +31,9 @@ export default function ProfileScreen() {
   // 選び直した画像はここに置き、保存を押すまでアップロードしない
   // （compose.tsxと同じ形。キャンセルすればアップロードされずに済む）
   const [pendingImage, setPendingImage] = useState<SourceImage | null>(null);
-  const [anniversaryDate, setAnniversaryDate] = useState("");
+  // 023: 付き合った日はNULL許容になった（登録時に聞かなくなったため）。
+  // marriedDateと同じく""で「未設定」を表す
+  const [datingDate, setDatingDate] = useState("");
   const [marriedDate, setMarriedDate] = useState("");
   const [primaryDate, setPrimaryDate] = useState<PrimaryDate>("dating");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export default function ProfileScreen() {
     if (initializedRef.current) return;
     if (!meQuery.data || !coupleQuery.data) return;
     setName(meQuery.data.name);
-    setAnniversaryDate(coupleQuery.data.anniversaryDate);
+    setDatingDate(coupleQuery.data.datingDate ?? "");
     setMarriedDate(coupleQuery.data.marriedDate ?? "");
     setPrimaryDate(coupleQuery.data.primaryDate);
     initializedRef.current = true;
@@ -57,13 +59,17 @@ export default function ProfileScreen() {
   const isSubmitting = requestUploadUrl.isPending || updateMe.isPending || updateCouple.isPending;
 
   const trimmedName = name.trim();
+  const trimmedDatingDate = datingDate.trim();
+  const datingDateValid = trimmedDatingDate.length === 0 || DATE_PATTERN.test(trimmedDatingDate);
   const trimmedMarriedDate = marriedDate.trim();
   const marriedDateValid = trimmedMarriedDate.length === 0 || DATE_PATTERN.test(trimmedMarriedDate);
   const marriedDateRequired = primaryDate === "married" && trimmedMarriedDate.length === 0;
+  // 023: datingDateが空でも保存できる（「マイページであとから設定する」が
+  // このタスクの目的なのに、そのマイページが日付前提だと矛盾する）
   const canSave =
     trimmedName.length > 0 &&
     trimmedName.length <= MAX_NAME_LENGTH &&
-    DATE_PATTERN.test(anniversaryDate) &&
+    datingDateValid &&
     marriedDateValid &&
     !marriedDateRequired;
 
@@ -103,7 +109,7 @@ export default function ProfileScreen() {
       // 記念日はふたりの共有データ。変更した本人以外にも影響することが
       // 分かるよう、保存後の文言で明示する（019タスク定義）
       await updateCouple.mutateAsync({
-        anniversaryDate,
+        datingDate: trimmedDatingDate.length > 0 ? trimmedDatingDate : null,
         marriedDate: trimmedMarriedDate.length > 0 ? trimmedMarriedDate : null,
         primaryDate,
       });
@@ -175,9 +181,9 @@ export default function ProfileScreen() {
 
               <View style={{ gap: space.xs }}>
                 <Text size="sm" color="muted">
-                  付き合った日
+                  付き合った日（任意）
                 </Text>
-                <DateInput8 value={anniversaryDate} onChange={setAnniversaryDate} testID="profile-anniversary-date" />
+                <DateInput8 value={datingDate} onChange={setDatingDate} testID="profile-dating-date" />
               </View>
 
               <View style={{ gap: space.xs }}>
