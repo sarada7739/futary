@@ -59,10 +59,13 @@ Worker は1つ。ドメインも1つ。ビルド時に `apps/landing` の出力�
 
 ```
 couples
-  id                TEXT    PK
-  anniversary_date  TEXT    NOT NULL          -- 付き合った日
-  is_demo           INTEGER NOT NULL DEFAULT 0
-  created_at        INTEGER NOT NULL
+  id            TEXT    PK
+  dating_date   TEXT                          -- 付き合った日。NULL許容（023。登録時に聞かない）
+  married_date  TEXT                          -- 結婚した日。NULL許容（019）
+  primary_date  TEXT    NOT NULL DEFAULT 'dating' CHECK (primary_date IN ('dating','married','none'))
+                                                -- ホーム上部に何を表示するか（019）
+  is_demo       INTEGER NOT NULL DEFAULT 0
+  created_at    INTEGER NOT NULL
 
 couple_members
   couple_id  TEXT    NOT NULL -> couples.id
@@ -205,7 +208,7 @@ B は**実行前に人間の許可を得ている**（`worklog.md` 4292行）。
 
 | 指標 | 算出 |
 |---|---|
-| 付き合って○日目 | JSTの今日 − `couples.anniversary_date` + 1 |
+| 付き合って○日目 | JSTの今日 − `couples.dating_date` + 1（`dating_date`がNULLなら`unset`。023） |
 | 会った日数 | `events` の `kind = 'meetup'` の件数。**018 の部分 UNIQUE により1日1件なので日数と一致する**（`requirements.md` 4節） |
 | 写真の枚数 | `posts` の **未削除**かつ `image_key IS NOT NULL` の件数 |
 | 投稿数 | `posts` の未削除件数 |
@@ -218,9 +221,9 @@ B は**実行前に人間の許可を得ている**（`worklog.md` 4292行）。
 
 ```
 me.get              現在のユーザーと所属ペア。未認証ならデモ閲覧モードを返す
-couple.create       { anniversaryDate }
-couple.get
-couple.update       { anniversaryDate }
+couple.create       {}                        付き合った日を受け取らない（023。マイページであとから設定する）
+couple.get          -> { datingDate: string | null, ... }
+couple.update       { datingDate: string | null, marriedDate, primaryDate }
 invite.issue        -> { code, expiresAt }
 invite.accept       { code }
 post.list           { cursor?, limit } -> { items, nextCursor }
@@ -254,11 +257,14 @@ stats.get           -> { daysTogether, meetupDays, postCount, photoCount }
                       { status: "dating_upcoming",  days }  その日まであと N 日
                       { status: "married",          days }  結婚して N 日目
                       { status: "married_upcoming", days }  結婚まであと N 日
-                      { status: "hidden" }                  非表示
-                    hidden には days を入れない（非表示が応答にも残らない）
+                      { status: "hidden" }                  非表示（primary_date='none'）
+                      { status: "unset" }                    未設定（023。primary_date が指す方の日付が無い）
+                    hidden・unset には days を入れない（非表示・未設定が応答にも残らない）。
+                    意味は違う: hidden は本人が隠すと決めた、unset はまだ決めていない
+                    （画面は unset のときだけマイページへの導線を出す）
                     未来の上限は日付ごとに違う（意図。019 のタスク定義に理由）
-                      anniversary_date  1年後まで
-                      married_date      2年後まで
+                      dating_date   1年後まで
+                      married_date  2年後まで
 memory.get          -> { post, label } | null
 ```
 

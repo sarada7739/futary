@@ -27,12 +27,19 @@ export const statsMemberSchema = z.object({
 // - hidden: primary_date='none'のとき。daysを含めない
 //   （含めると、非表示にしたはずの数字がレスポンスに乗って開発者ツールから
 //   見えてしまう。「恥ずかしいから隠したい」に対して隠れていないことになる）
+// - unset: primary_dateが指している方の日付（dating→datingDate・
+//   married→marriedDate）がまだ無いとき（023）。hiddenと同じくdaysを
+//   含めないが、意味が違う: hiddenは「本人が隠すと決めた」、unsetは
+//   「まだ決めていない」。画面はunsetのときだけマイページへの導線を出す
+//   （hiddenのときは何も出さない。同じにすると隠すと決めた人に
+//   「設定してください」と出し続けることになる）
 export const daysTogetherSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("dating"), days: z.number() }),
   z.object({ status: z.literal("dating_upcoming"), days: z.number() }),
   z.object({ status: z.literal("married"), days: z.number() }),
   z.object({ status: z.literal("married_upcoming"), days: z.number() }),
   z.object({ status: z.literal("hidden") }),
+  z.object({ status: z.literal("unset") }),
 ]);
 
 export type DaysTogether = z.infer<typeof daysTogetherSchema>;

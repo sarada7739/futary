@@ -6927,3 +6927,64 @@ Chromeでいま確認、エンジンはiPhoneのSafariで016デプロイ後に�
 検証に使ったローカルD1の状態（`.wrangler/state/v3/d1`）はリセット済み。
 
 **「通る場合」の手順で実装を進める。**代案（列を残す妥協案）は不要。
+## 2026-08-31 セッションB: 023実装完了。PR #162としてRへレビュー依頼
+
+022完了（PR #156マージ）後、人間就寝中のまま続けて023（付き合った日を
+登録時に聞かない）に着手した。Rの先読み4件は前セッションで済んでおり
+`docs/tasks/023-anniversary-optional.md`に取り込み済みだったため、頼み
+直さず着手した。
+
+**着手前に「先に確かめること」をローカルD1で実測した**（「通るはずだ」で
+進めない。Aの指摘）: `ALTER TABLE couples DROP COLUMN`はSQLite 3.35以降の
+機能で、D1で実際に通るか未確認だった。ローカルD1に既存の全マイグレーション
+を適用したうえで、テスト行を1件INSERTし、ADD COLUMN→UPDATE（値コピー）→
+TRIGGER2本の作り直し→DROP COLUMNの順で実行し、**成功を確認した**（3番目を
+飛ばして4番目を先にやると`no such column: NEW.anniversary_date`で落ちる
+ことも、タスクファイルの記載を鵜呑みにせず実際に確かめてから正しい順序で
+進めた）。既存行のデータが失われないこと・`dating_date`がNULLのままでも
+`married_date`を設定できること（この要望の本体）・`married_date`が
+`dating_date`より前だと弾かれることも、いずれもローカルD1への直接SQLで
+実測した。検証に使ったローカルD1の状態はリセット済み。
+
+マイグレーション`0012_couple_dating_date_optional.sql`を書き、非TTY環境
+のため`meta/`のスナップショット・journalを手動生成（022と同じ手順。
+`pnpm generate`で「No schema changes」を確認）。`packages/db/src/schema/
+couple.ts`の`anniversaryDate`を`datingDate`（NULL許容）へ改名し、
+married_date>=dating_dateのCHECK相当（実体はTRIGGER）にNULL許容の分岐を
+足した。
+
+契約（`packages/contract`）: `couple.create`の入力を空オブジェクトに、
+`coupleSchema.anniversaryDate`を`datingDate: string | null`に、
+`coupleUpdateContract`のrefineに「datingDateがnullなら比較しようがないので
+通す」を追加、`stats.ts`の`daysTogether`に`unset`を追加した。API
+（`apps/api/src/procedures`）: `couple.ts`のSQL・返却型を`dating_date`へ、
+`stats.ts`の`computeDaysTogether`に「primary_dateが指す方の日付が無いなら
+unset」を実装（`primary_date='married'`なのに`dating_date`だけあっても
+unsetのまま。「片方の日付があるから、そっちを出す」はしない、をコードでも
+守った）。
+
+アプリ（`apps/app`）: オンボーディング（`(onboarding)/create.tsx`）から
+日付入力を消し「ペアを作る」ボタンだけにした。マイページ（`profile.tsx`）
+は`canSave`から日付必須の条件を外し、`datingDate`が空でも名前・アイコンの
+変更だけで保存できる形にした。ホーム（`stats-card.tsx`）・統計ページ
+（`app/(tabs)/stats.tsx`）両方に、`unset`のときだけ「付き合った日を設定
+する」→`/profile`への導線を追加した（`hidden`のときは何も出さない。同じに
+すると隠すと決めた人に催促し続けることになる）。
+
+既存の`couple.create`呼び出しを含むテストファイル（authorization/couple/
+event/invite/memory/post/reaction/method-restriction、計8ファイル）を
+日付引数なしの形に書き換えた。`couple.test.ts`は日付形式・範囲の検証を
+`couple.create`から`couple.update`のdatingDate検証へ移設した（023で
+`couple.create`が日付を受け取らなくなったため）。`migration-existing-rows.
+test.ts`に0012版を追加（`couples`をrenameして0011時点の構造を一時的に
+再現する形。TRIGGER名がDB全体で一意なため、退避前に一度落として後片付けで
+作り直す必要があった。0011のevents版で使ったCREATE INDEX後片付けと同じ形）。
+
+apps/api 288件→296件（+8）・apps/app 129件→133件（+4）すべて緑、型
+チェック・lint通過（`artifacts/023/test-results.md`）。`artifacts/023/
+manual-check.md`に実機確認項目を列挙（画面は認証必須のためB自動化は
+確認できず、人間の起床後に022の分とまとめて依頼する）。
+`023-anniversary-optional`ブランチをpushし、PR #162としてRへレビュー
+依頼した。**Rの受け入れを待たずにマージしない**（#156のときと同じ判断。
+`CLAUDE.md`の線）。マージ後のリモートD1適用も、人間の許可を得てからという
+既存の方針を維持する。
