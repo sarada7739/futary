@@ -18,6 +18,8 @@ const db = (env as unknown as Bindings).DB;
 // - 022: 表を作り直すマイグレーションでCHECK制約が落ちても、名前だけ見る
 //   走査では気づけない（CHECKはsqlite_masterではtype='table'のCREATE TABLE文
 //   の中にしか現れない。architecture.md 4節「CHECKには必ず名前を付ける」）
+// - 014: events_repeat_yearly_check は018で入れたつもりで実際には
+//   入っていなかった（Rが実測）。存在しない制約に仕様が乗っていた例
 //
 // 振る舞いのテスト（例: event.test.tsの「同じ日に2件目のmeetupを作ると
 // 1件のまま」）は制約が効くことを証明するが、制約が存在することは証明しない。
@@ -134,6 +136,7 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
         "events_end_time_requires_start_check",
         "events_is_shared_check",
         "events_kind_check",
+        "events_repeat_yearly_check",
         "events_start_time_check",
       ].sort(),
     );

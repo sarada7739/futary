@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Button, Screen, Text, space } from "@futary/ui";
 import { Platform, View } from "react-native";
 import { signIn } from "../../lib/auth-client";
+import { useGuestMode } from "../../lib/guest-mode";
 
 // callbackURL は Better Auth サーバー（apps/api）のオリジンを起点に相対解決される。
 // ローカル開発では apps/app（Expo, 8081）と apps/api（wrangler dev, 8787）が
@@ -27,6 +28,7 @@ export default function SignInScreen() {
   // useState で持ち、両ボタンに反映する
   const isSigningInRef = useRef(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const { enterGuestMode } = useGuestMode();
 
   function handleGoogleSignIn() {
     if (isSigningInRef.current) return;
@@ -70,8 +72,7 @@ export default function SignInScreen() {
           <Button variant="secondary" onPress={handleGoogleSignIn} disabled={isSigningIn}>
             新しくはじめる
           </Button>
-          {/* ゲスト閲覧（未認証でのデモ表示）は014で実装する。それまでは無効表示 */}
-          <Button variant="ghost" disabled>
+          <Button variant="ghost" onPress={enterGuestMode} disabled={isSigningIn}>
             ゲストではじめる
           </Button>
         </View>

@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useMutation } from "@tanstack/react-query";
 import { Button, colors, radius, Screen, space, Text } from "@futary/ui";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../lib/image";
+import { useGuestMode } from "../lib/guest-mode";
 import { orpc } from "../lib/orpc";
 import { queryClient } from "../lib/query";
 
@@ -12,6 +13,7 @@ const MAX_BODY_LENGTH = 2000;
 
 export default function ComposeScreen() {
   const router = useRouter();
+  const { isGuestMode, exitGuestMode } = useGuestMode();
   const [body, setBody] = useState("");
   const [image, setImage] = useState<SourceImage | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -27,6 +29,21 @@ export default function ComposeScreen() {
   // post.create の下限（本文か画像のどちらかは必須。architecture.md 5節）と揃える
   const canSubmit = trimmedBody.length > 0 || image !== null;
   const isSubmitting = requestUploadUrl.isPending || createPost.isPending;
+
+  // 014: FAB・タイムラインの空状態からはゲスト閲覧中にここへ来ないよう
+  // ガード済みだが、Webでは /compose を直接開かれる経路が残る
+  // （security-auditor指摘）。サーバ側のFORBIDDENが唯一の防御線であることに
+  // 変わりはないが、他の画面と同じくログイン導線に差し替える
+  if (isGuestMode) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.xl }}>
+          <Text weight="bold">投稿はログインすると使えます</Text>
+          <Button onPress={exitGuestMode}>ログイン</Button>
+        </View>
+      </Screen>
+    );
+  }
 
   async function pickImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();

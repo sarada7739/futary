@@ -10,6 +10,7 @@ import { MonthGrid } from "../../components/month-grid";
 import { monthGridRange, monthLabel } from "../../lib/calendar";
 import { EVENT_KIND_COLORS, EVENT_KIND_GLYPHS, EVENT_KIND_LABELS, EVENT_KIND_ORDER } from "../../lib/event-kind";
 import { formatEventTimeRange } from "../../lib/event-time";
+import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
 
@@ -75,6 +76,7 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
 }
 
 export default function CalendarScreen() {
+  const { isGuestMode, exitGuestMode } = useGuestMode();
   const todayDate = useMemo(() => todayJst(), []);
   const [year, setYear] = useState(() => Number(todayDate.slice(0, 4)));
   const [month, setMonth] = useState(() => Number(todayDate.slice(5, 7)));
@@ -105,6 +107,12 @@ export default function CalendarScreen() {
   }
 
   function openCreateForm() {
+    // 014: デモ閲覧中は登録できない（サーバ側でFORBIDDENになる）ため、
+    // フォームを開かせずログイン導線に差し替える
+    if (isGuestMode) {
+      exitGuestMode();
+      return;
+    }
     setFormError(null);
     setFormState({ mode: "create", date: selectedDate });
   }
@@ -217,7 +225,7 @@ export default function CalendarScreen() {
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <Text weight="bold">{selectedDate}</Text>
                   <Button variant="ghost" onPress={openCreateForm} testID="calendar-add-event">
-                    ＋ 追加
+                    {isGuestMode ? "ログインして追加" : "＋ 追加"}
                   </Button>
                 </View>
 

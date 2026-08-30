@@ -30,6 +30,7 @@ vi.mock("../lib/orpc", async () => {
 
 const { default: CalendarScreen } = await import("../app/(tabs)/calendar");
 const { queryClient } = await import("../lib/query");
+const { GuestModeContext } = await import("../lib/guest-mode");
 
 const today = todayJst();
 const [todayYear, todayMonth] = today.split("-").map(Number) as [number, number];
@@ -61,6 +62,16 @@ function renderScreen() {
   return render(
     <QueryClientProvider client={queryClient}>
       <CalendarScreen />
+    </QueryClientProvider>,
+  );
+}
+
+function renderScreenAsGuest(exitGuestMode: () => void) {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <GuestModeContext.Provider value={{ isGuestMode: true, enterGuestMode: () => {}, exitGuestMode }}>
+        <CalendarScreen />
+      </GuestModeContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -530,5 +541,24 @@ describe("021: 予定の持ち主・「ふたりの予定」", () => {
       fireEvent.click(screen.getByTestId("event-form-is-shared"));
       expect(screen.getByText("ふたりの予定にする")).toBeTruthy();
     });
+  });
+});
+
+// 014: デモ閲覧中は登録できない（サーバ側でFORBIDDENになる）ため、
+// 「＋追加」を押してもフォームを開かせずログイン導線に差し替える
+describe("014: デモ閲覧中の「＋追加」はログイン導線になる", () => {
+  it("ボタンの文言が「ログインして追加」になり、押してもフォームが開かずexitGuestModeが呼ばれる", async () => {
+    listMock.mockResolvedValue({ items: [] });
+    const exitGuestMode = vi.fn();
+    renderScreenAsGuest(exitGuestMode);
+    await screen.findByText("予定はまだありません");
+
+    const button = screen.getByTestId("calendar-add-event");
+    expect(button.textContent).toContain("ログインして追加");
+
+    fireEvent.click(button);
+
+    expect(exitGuestMode).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("event-form-title")).toBeNull();
   });
 });

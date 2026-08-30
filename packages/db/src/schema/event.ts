@@ -18,7 +18,11 @@ export const events = sqliteTable(
     date: text("date").notNull(),
     title: text("title").notNull(),
     kind: text("kind").notNull(),
-    // 記念日（repeat_yearly=1）のみ event.list が年ごとに射影する（architecture.md 5節）
+    // 記念日（repeat_yearly=1）のみ event.list が年ごとに射影する（architecture.md 5節）。
+    // このCHECKは018で入れたつもりで実際には入っていなかった（014でRが実測）。
+    // 入力スキーマは拒否しているが、シードのような契約経由でない書き込み口を
+    // DB側でも塞ぐ（architecture.md 4節「契約経由では作れないデータを、シードだけが
+    // 作れる状態にしない」）
     repeatYearly: integer("repeat_yearly", { mode: "boolean" }).notNull().default(false),
     // HH:MM（JSTの壁時計）。任意。anniversary には設定できない（入力スキーマで拒否。
     // architecture.md 5節）。022で time から改名し、CHECK制約でも表す
@@ -40,6 +44,9 @@ export const events = sqliteTable(
     // （architecture.md 4節: INDEX (couple_id, date)）
     index("events_couple_date_idx").on(table.coupleId, table.date),
     check("events_kind_check", sql`${table.kind} IN ('anniversary', 'plan', 'meetup')`),
+    // repeat_yearlyはkind='anniversary'のときだけ立てられる（architecture.md 5節）。
+    // 名前付きCHECK（conventions.md）
+    check("events_repeat_yearly_check", sql`${table.repeatYearly} = 0 OR ${table.kind} = 'anniversary'`),
     // 会った日（meetup）は1日1件。複数行の関係なのでCHECKではなく部分UNIQUE
     // インデックスで表す（architecture.md 5節。posts.image_keyのUNIQUEと同じ方針）
     uniqueIndex("events_meetup_unique").on(table.coupleId, table.date).where(sql`${table.kind} = 'meetup'`),

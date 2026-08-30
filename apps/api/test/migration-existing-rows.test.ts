@@ -142,3 +142,90 @@ describe("0012マイグレーション: 既存行のanniversary_dateがdating_da
     }
   });
 });
+
+// 014: events_repeat_yearly_checkを足す。018で入れたつもりで実際には
+// 入っていなかった制約（Rが実測）。既存の（制約通りの）行が表の作り直しを
+// 生き延びることを確認する。0011・0012と同じ形
+describe("0013マイグレーション: 既存行がevents_repeat_yearly_checkの追加を生き延びる", () => {
+  it("repeat_yearly=1のanniversaryとrepeat_yearly=0のmeetupが、値そのままで残る", async () => {
+    const target = TEST_MIGRATIONS.find((m) => m.name === "0013_event_repeat_yearly_check.sql");
+    if (!target) throw new Error("0013のマイグレーションがTEST_MIGRATIONSに見つかりません");
+
+    const userId = crypto.randomUUID();
+    const coupleId = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    await db
+      .prepare(
+        "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, 'テスト', ?2, 1, ?3, ?3)",
+      )
+      .bind(userId, `${crypto.randomUUID()}@example.com`, now)
+      .run();
+    await db
+      .prepare("INSERT INTO couples (id, dating_date, created_at) VALUES (?1, '2020-01-01', ?2)")
+      .bind(coupleId, now)
+      .run();
+
+    // 0013適用後（現在）のevents構造を退避し、0012時点の構造
+    // （events_repeat_yearly_check無し）を一時的に再現する
+    await db.exec(`ALTER TABLE events RENAME TO events_after_0013`);
+    await db.exec(`DROP INDEX events_couple_date_idx`);
+    await db.exec(`DROP INDEX events_meetup_unique`);
+    await db.exec(
+      `CREATE TABLE events (id text PRIMARY KEY NOT NULL, couple_id text NOT NULL, date text NOT NULL, title text NOT NULL, kind text NOT NULL, repeat_yearly integer DEFAULT false NOT NULL, start_time text, end_time text, created_by text NOT NULL, is_shared integer DEFAULT false NOT NULL, created_at integer NOT NULL, FOREIGN KEY (couple_id) REFERENCES couples(id) ON UPDATE no action ON DELETE no action, FOREIGN KEY (created_by) REFERENCES user(id) ON UPDATE no action ON DELETE no action, CONSTRAINT "events_kind_check" CHECK(kind IN ('anniversary', 'plan', 'meetup')), CONSTRAINT "events_is_shared_check" CHECK(is_shared = 0 OR kind = 'plan'), CONSTRAINT "events_start_time_check" CHECK(start_time IS NULL OR kind <> 'anniversary'), CONSTRAINT "events_end_time_requires_start_check" CHECK(end_time IS NULL OR start_time IS NOT NULL), CONSTRAINT "events_end_time_after_start_check" CHECK(end_time IS NULL OR end_time > start_time))`,
+    );
+
+    const anniversaryId = crypto.randomUUID();
+    const meetupId = crypto.randomUUID();
+    await db
+      .prepare(
+        `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, created_by, is_shared, created_at)
+         VALUES (?1, ?2, '2020-05-20', '付き合った記念日', 'anniversary', 1, ?3, 0, ?4)`,
+      )
+      .bind(anniversaryId, coupleId, userId, now)
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, created_by, is_shared, created_at)
+         VALUES (?1, ?2, '2026-03-10', '会った日', 'meetup', 0, ?3, 0, ?4)`,
+      )
+      .bind(meetupId, coupleId, userId, now)
+      .run();
+
+    // d1_migrationsの記録を消し、0013を「未適用」に戻してから、本物のSQLファイルで再適用する
+    await db.prepare(`DELETE FROM d1_migrations WHERE name = ?1`).bind(target.name).run();
+    try {
+      await applyD1Migrations(db, [target]);
+
+      const rows = await db
+        .prepare(`SELECT id AS id, kind AS kind, repeat_yearly AS repeat_yearly FROM events WHERE id IN (?1, ?2)`)
+        .bind(anniversaryId, meetupId)
+        .all<{ id: string; kind: string; repeat_yearly: number }>();
+
+      const anniversary = rows.results.find((r) => r.id === anniversaryId);
+      const meetup = rows.results.find((r) => r.id === meetupId);
+      expect(anniversary?.kind).toBe("anniversary");
+      expect(anniversary?.repeat_yearly).toBe(1);
+      expect(meetup?.kind).toBe("meetup");
+      expect(meetup?.repeat_yearly).toBe(0);
+
+      // 制約自体も生きていることを確認する（repeat_yearly=1のmeetupは拒否される）
+      await expect(
+        db
+          .prepare(
+            `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, created_by, is_shared, created_at)
+             VALUES (?1, ?2, '2026-04-01', '違反行', 'meetup', 1, ?3, 0, ?4)`,
+          )
+          .bind(crypto.randomUUID(), coupleId, userId, now)
+          .run(),
+      ).rejects.toThrow();
+    } finally {
+      // 後片付け: このテストで作ったevents（索引ごと）を消し、退避しておいた
+      // 本来のevents（0013適用後の構造）を戻して索引も作り直す
+      await db.exec(`DROP TABLE IF EXISTS events`);
+      await db.exec(`ALTER TABLE events_after_0013 RENAME TO events`);
+      await db.exec(`CREATE INDEX events_couple_date_idx ON events (couple_id,date)`);
+      await db.exec(`CREATE UNIQUE INDEX events_meetup_unique ON events (couple_id,date) WHERE "events"."kind" = 'meetup'`);
+      await db.prepare(`INSERT OR IGNORE INTO d1_migrations (name) VALUES (?1)`).bind(target.name).run();
+    }
+  });
+});

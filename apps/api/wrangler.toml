@@ -21,7 +21,7 @@ bucket_name = "futary-images"
 # 未設定なら Worker が起動時エラーで落ちる（fail-closed）ようにする。
 
 # DEMO_COUPLE_ID は機密情報ではない（architecture.md 8節）ので [vars] に置く。
-# デモペアを作るのは 014 であり、それまでは空文字のまま。空文字・未設定の間は
-# 未認証アクセスをその場で拒否する（fail-closed。docs/tasks/005-authorization-middleware.md）
+# packages/db/seed/demo.ts の DEMO_COUPLE_ID 定数と一致していなければならない
+# （014）。本番も同じ値をそのまま使う。シードの投入自体は016の人間パート
 [vars]
-DEMO_COUPLE_ID = ""
+DEMO_COUPLE_ID = "demo-couple"

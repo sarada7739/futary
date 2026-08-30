@@ -7067,6 +7067,60 @@ esbuild）を人間の指示で確認した。いずれもmetro/xcode/drizzle-ki
 バンドルには含まれない（`pnpm why`で経路を確認）。緊急対応は不要と判断、
 次にExpo SDK/wranglerを上げるタイミングで解消されるか見る扱いとした。
 
+## 2026-08-31 セッションB: 014（ゲスト・デモ体験）実装完了
+
+A経由で人間の指示（「014→015→016のデプロイ前まで、確認を挟まず進めて
+ほしい。実機確認はまとめて後で」）を受けて着手。タスク定義はPR #163で
+Aが3箇所（`repeat_yearly`のCHECK未実装・`start_time`改名漏れ・
+`dating_date`改名漏れ）を直し済みだった。
+
+**0013マイグレーション**: `events_repeat_yearly_check`を追加。`events`は
+子テーブルのため、019の`couples`と違いdrizzle-kitの通常手順（表を作り直す）
+がそのまま通った（`pnpm generate`が非対話で成功。0011・0012のような手動
+生成は不要だった）。生成SQLに`CREATE INDEX`2本が入ることを目視確認。
+`schema-integrity.test.ts`の期待値一覧・`migration-existing-rows.test.ts`に
+ケースを追加。ローカルD1は空のためCHECK違反0件（本番投入前に016で
+実測すること。マイグレーションファイル冒頭にそのSQLをコメントで残した）。
+
+**デモシード**: `packages/db/seed/demo.ts`が固定ID・決定的な日付
+（`packages/date`のみ使用）でmeetup94/plan6/anniversary4/投稿43件を組み立て、
+`run.ts`が`wrangler d1 execute`・`r2 object put`をNode（`process.execPath`で
+wranglerのJS本体を直接起動。Windowsで`npx`/`.cmd`がexecFileSyncと相性が
+悪かったため）経由で実行してD1・R2へ投入する。`--local`で実投入し、
+未認証のoRPC呼び出し（couple.get/stats.get/memory.get/event.list/
+post.create等）で動作を確認、2回連続実行の冪等性も確認した。
+
+**クライアント側**: `apps/app/lib/guest-mode.ts`（Context）でゲスト閲覧
+状態を管理。サインイン画面「ゲストではじめる」・常時デモバナー
+（`demo-banner.tsx`）・FAB/カレンダー「＋追加」/マイページ/投稿画面を
+ログイン導線に差し替えた。反応ボタンは既存の`myId`ベースの分岐
+（008時点から存在）がそのまま未認証を弾いており、追加対応は不要だった。
+
+ゲストモードの状態遷移（Expo Routerの`Stack.Protected`）で、いったん
+ゲストを抜けたあと同一ページ内で再度「ゲストではじめる」を押すと画面が
+遷移しない不具合を発見した。sessionStorage+フルリロードでの修正を試みたが、
+検証環境（Claude Code Browser pane）でMetroへのWebSocket接続が繰り返し
+切れる現象（`Disconnected from Metro (1006)`）が起き、修正の効果を
+確認しきれなかった。実害が読めない状態で複雑な修正を残すより、確実に
+動く単純な実装（ページ再読み込みで復帰）に戻し、既知の制約として
+`state.md`・`artifacts/014/manual-check.md`に記録し人間の実機確認を仰ぐ
+判断をした。
+
+**security-auditorの監査**: High該当なし。Medium 3件（1: シードの削除・R2
+上書きが`is_demo=1`を確認しておらず、`DEMO_COUPLE_ID`が誤って実在ペアを
+指すと復旧不能な削除になりうる 2: 同根でR2上書きも無条件 3: シード用
+写真5枚のうち1枚〈旧`docs/sample/風景/Y5dn1UKP.jpg`〉に実在しそうな店名
+「Café de lumière」の看板が写り込んでいた）・Low 4件、すべて対応した。
+Medium1/2は`run.ts`に`assertSafeToOverwrite()`を追加（対象IDが存在し
+`is_demo≠1`なら例外を投げて中断。実際に非デモペアを装った状態を作って
+中断することを確認済み）。Medium3は写真を5枚→4枚に減らし
+`docs/sample/README.md`に記録した（写真付き投稿は目安5〜8件ではなく
+4件になる。安全側を優先した）。詳細は`artifacts/014/test-results.md`。
+
+apps/api 296件→297件（+1）・apps/app 133件→135件（+2）・packages/db
+新規17件、すべて緑。型チェック・lint通過。**次はRへレビュー依頼したのち、
+Aの指示どおり015（ランディングページ）へ進む。**
+
 ## 2026-08-31 セッションA: 016をデプロイの前後で割り、E2Eの矛盾を直した
 
 **人間の指示。「デプロイ手前まで進められますか。実機確認はまとめてあとでしたい」。**
