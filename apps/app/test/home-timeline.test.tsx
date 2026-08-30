@@ -182,6 +182,21 @@ describe("投稿作成 → 一覧反映", () => {
 
     expect(await screen.findByText("新しい投稿")).toBeTruthy();
   });
+
+  // fix/persistent-tab-bar: モーダルは閉じる導線を自前で持つ（ヘッダーの
+  // 戻る/閉じるに依存しない。architecture.md「画面の外枠は常に出す」と同じ考え方）
+  it("「キャンセル」ボタンで投稿せずに閉じる（router.back）", async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ComposeScreen />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(screen.getByText("キャンセル"));
+
+    await waitFor(() => expect(backMock).toHaveBeenCalled());
+    expect(createMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("投稿の削除", () => {
