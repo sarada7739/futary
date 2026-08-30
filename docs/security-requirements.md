@@ -42,7 +42,7 @@
 | 5 | **`DEMO_COUPLE_ID` が未設定のとき、未認証アクセスが拒否される（fail-closed）** |
 | 6 | **`DEMO_COUPLE_ID` が実在するが `is_demo` でないペアを指すとき、未認証アクセスが拒否される** |
 | 7 | **ペアのもう1人が、共有でない `plan` を更新・削除できない**（`event.update` / `event.delete` の両方） |
-| 8 | **更新の結果、実行者自身がその行を編集できなくなる更新を拒否する**（`event.update`。理由は `docs/tasks/021-plan-ownership.md`「`kind` の変更が権限を奪う」） |
+| 8 | **更新の結果、更新前に編集できた側が編集できなくなる更新を拒否する**（`event.update`。**実行者自身と相手の両方**。とくに `anniversary`・`meetup` を非共有の `plan` へ変える経路。理由は `docs/tasks/021-plan-ownership.md`「`kind` の変更が権限を奪う」） |
 
 **この表の全項目は、認可を触った全てのタスクで維持される。壊れたら実装が間違っている。**
 
