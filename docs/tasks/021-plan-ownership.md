@@ -236,12 +236,36 @@ CHECK (is_shared = 0 OR kind = 'plan')
 - [ ] **security-auditor を起動し、High 以上がゼロ**（認可を触るため必須。`security-requirements.md` 10節1）
 - [ ] `artifacts/021/` に**人間の実機確認の記録**を保存
 
+---
+
+## 付随: CI に `drizzle-kit generate` の空回しチェックを入れる
+
+**021 の要望とは関係ない。**B が 021 の `generate` で
+**親表 `couples` を作り直す差分**を踏んだため、ここで塞ぐ。
+0009 のスナップショットに `check()` が1つ欠けていたのが原因で、
+**気づかず適用すれば `FOREIGN KEY constraint failed` になる形だった。**
+
+設計と理由は `architecture.md` 4節。**要点だけ。**
+
+- クリーンな作業ツリーで `db:generate` を走らせ、**何も出ないことを確かめる**
+- **`git diff --exit-code` は使わない。**`generate` が作るのは
+  **新しい `.sql` と新しいスナップショット**で、**どちらも未追跡**である。
+  `git status --porcelain` のように**未追跡を見るもの**にする
+- **ステップ名に何を見ているかを書く。**`generate` は列の追加と改名を
+  区別できないとき対話で聞いてくる。CI に TTY は無いので、そこに当たると
+  **「ずれています」ではなく対話の待ち受けが出る**
+- `schema-integrity.test.ts` は**これを見ていない**（DB の実体↔期待値であり、
+  **スナップショット↔スキーマファイルは通す**）
+
+**独立した PR にしてよい。**021 本体を止めるものではない。
+
 ## 停止条件
 - 完了: 上記をすべて満たす
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へエスカレーション
 
 ## 進捗
 - [ ] スキーマ + マイグレーション（`is_shared`・CHECK）
+- [ ] **CI に `drizzle-kit generate` の空回しチェックを入れる**（下記）
 - [ ] `event.update` / `event.delete` の権限
 - [ ] `event.list` が `canEdit` を返す
 - [ ] 「ふたりの予定」の UI（説明文は**いまできることだけ**）
