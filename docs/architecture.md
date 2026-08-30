@@ -214,12 +214,15 @@ event.update        { id, ... }
 event.delete        { id }
 stats.get           -> { daysTogether, meetupDays, postCount, photoCount }
                     daysTogether は判別可能な union
-                      dating / dating_upcoming / married / married_upcoming / hidden
-                      hidden には days を入れない（非表示が応答にも残らない）
-                    daysTogether は判別可能な union
-                      { status: "together", days }  記念日が今日以前
-                      { status: "upcoming", days }  記念日が未来（「あと○日」）
-                    記念日は1年後まで登録できる（打ち間違いの歯止め）
+                      { status: "dating",           days }  付き合って N 日目
+                      { status: "dating_upcoming",  days }  その日まであと N 日
+                      { status: "married",          days }  結婚して N 日目
+                      { status: "married_upcoming", days }  結婚まであと N 日
+                      { status: "hidden" }                  非表示
+                    hidden には days を入れない（非表示が応答にも残らない）
+                    未来の上限は日付ごとに違う（意図。019 のタスク定義に理由）
+                      anniversary_date  1年後まで
+                      married_date      2年後まで
 memory.get          -> { post, label } | null
 ```
 
