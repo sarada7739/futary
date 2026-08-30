@@ -257,6 +257,27 @@ describe("3. 未認証アクセスで読み取れるのがデモペアのデー�
     // デモペア側のデータであることを確認する
     expect(result.members).toHaveLength(0);
   });
+
+  it("memory.get は DEMO_COUPLE_ID のペアの投稿だけを返す。他ペアの投稿は混ざらない（013）", async () => {
+    const demoCoupleId = await createDemoCouple();
+    const demoAuthor = await createUser();
+    const oldSeconds = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
+    await db
+      .prepare("INSERT INTO posts (id, couple_id, author_id, body, created_at) VALUES (?1, ?2, ?3, ?4, ?5)")
+      .bind(crypto.randomUUID(), demoCoupleId, demoAuthor.id, "デモの思い出", oldSeconds)
+      .run();
+
+    const owner = await createUser();
+    const ownerCouple = await createCouple(owner, "2020-01-01");
+    await db
+      .prepare("INSERT INTO posts (id, couple_id, author_id, body, created_at) VALUES (?1, ?2, ?3, ?4, ?5)")
+      .bind(crypto.randomUUID(), ownerCouple.id, owner.id, "他ペアの思い出", oldSeconds)
+      .run();
+
+    const result = await call(router.memory.get, undefined, { context: contextFor(null, demoCoupleId) });
+
+    expect(result?.post.body).toBe("デモの思い出");
+  });
 });
 
 describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING になる", () => {
@@ -358,6 +379,13 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
       code: "NEEDS_ONBOARDING",
     });
   });
+
+  it("memory.get（013）", async () => {
+    const user = await createUser();
+    await expect(call(router.memory.get, undefined, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+  });
 });
 
 describe("5. DEMO_COUPLE_ID が未設定のとき、未認証アクセスが拒否される（fail-closed）", () => {
@@ -398,9 +426,9 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （012時点: health.get/me.get + couple 3 + invite 2 + post 4 + reaction 1 + event 4
-    // + stats 1 = 17）
-    expect(procedures.length).toBeGreaterThanOrEqual(17);
+    // （013時点: health.get/me.get + couple 3 + invite 2 + post 4 + reaction 1 + event 4
+    // + stats 1 + memory 1 = 18）
+    expect(procedures.length).toBeGreaterThanOrEqual(18);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの

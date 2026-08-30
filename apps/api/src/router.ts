@@ -5,6 +5,7 @@ import { reactionProcedures } from "./procedures/reaction";
 import { eventProcedures } from "./procedures/event";
 import { postUploadUrl } from "./procedures/upload";
 import { statsProcedures } from "./procedures/stats";
+import { memoryProcedures } from "./procedures/memory";
 
 export type { RpcContext } from "./context";
 
@@ -33,4 +34,5 @@ export const router = implementer.router({
   reaction: reactionProcedures,
   event: eventProcedures,
   stats: statsProcedures,
+  memory: memoryProcedures,
 });

@@ -3,6 +3,7 @@ import { useInfiniteQuery, useMutation, type InfiniteData } from "@tanstack/reac
 import type { Post } from "@futary/contract";
 import { useRouter } from "expo-router";
 import { ActivityIndicator, FlatList, Image, RefreshControl, View } from "react-native";
+import { MemoryCard } from "../../components/memory-card";
 import { PostCard } from "../../components/post-card";
 import { StatsCard } from "../../components/stats-card";
 import { useSession } from "../../lib/auth-client";
@@ -129,7 +130,7 @@ export default function HomeScreen() {
               </Button>
             </View>
             <StatsCard />
-            {/* 思い出しカード（013）の置き場所。ここに追加する */}
+            <MemoryCard />
           </View>
         }
         renderItem={({ item }) => {
