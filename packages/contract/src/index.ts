@@ -11,12 +11,15 @@ import {
   eventUpdateContract,
 } from "./event";
 import { statsGetContract } from "./stats";
+import { memoryGetContract } from "./memory";
 
 export type { Post } from "./post";
 export { REACTION_KINDS } from "./reaction";
 export type { Event } from "./event";
 export { EVENT_KINDS } from "./event";
 export type { DaysTogether, Stats } from "./stats";
+export type { MemoryLabel, MemoryResult } from "./memory";
+export { MEMORY_LABELS } from "./memory";
 
 export const contract = {
   health: {
@@ -51,6 +54,9 @@ export const contract = {
   },
   stats: {
     get: statsGetContract,
+  },
+  memory: {
+    get: memoryGetContract,
   },
 };
 

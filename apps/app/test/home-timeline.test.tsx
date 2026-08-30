@@ -6,17 +6,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // （007の決定。conventions.md 6節）ため、oRPC クライアントをモックして
 // react-native-web + jsdom 上でTanStack Queryの実挙動と組み合わせて検証する。
 // モックする以上サーバとの契約自体は検証していない（実機確認で見る）
-const { listMock, createMock, deleteMock, toggleReactionMock, statsGetMock, pushMock, backMock } = vi.hoisted(
-  () => ({
-    listMock: vi.fn(),
-    createMock: vi.fn(),
-    deleteMock: vi.fn(),
-    toggleReactionMock: vi.fn(),
-    statsGetMock: vi.fn(),
-    pushMock: vi.fn(),
-    backMock: vi.fn(),
-  }),
-);
+const {
+  listMock,
+  createMock,
+  deleteMock,
+  toggleReactionMock,
+  statsGetMock,
+  memoryGetMock,
+  pushMock,
+  backMock,
+} = vi.hoisted(() => ({
+  listMock: vi.fn(),
+  createMock: vi.fn(),
+  deleteMock: vi.fn(),
+  toggleReactionMock: vi.fn(),
+  statsGetMock: vi.fn(),
+  memoryGetMock: vi.fn(),
+  pushMock: vi.fn(),
+  backMock: vi.fn(),
+}));
 
 vi.mock("expo-router", () => ({
   useRouter: () => ({ push: pushMock, back: backMock }),
@@ -62,6 +70,9 @@ vi.mock("../lib/orpc", async () => {
     stats: {
       get: statsGetMock,
     },
+    memory: {
+      get: memoryGetMock,
+    },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
@@ -99,6 +110,9 @@ beforeEach(() => {
     photoCount: 0,
     members: [{ userId: "me", name: "自分", image: null }],
   });
+  // 013でMemoryCardも組み込まれたため、同じ理由で既定値を用意する
+  // （検証はmemory-card.test.tsxで行う）
+  memoryGetMock.mockResolvedValue(null);
 });
 
 describe("HomeScreen", () => {

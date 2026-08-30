@@ -8,6 +8,7 @@ import {
   formatJstDateTime,
   isLeapYear,
   isValidDate,
+  jstDayRangeMs,
   monthDayOf,
   monthsBefore,
   projectMonthDay,
@@ -81,6 +82,23 @@ describe("dayOfWeek", () => {
 
   it("土曜は6", () => {
     expect(dayOfWeek("2026-02-07")).toBe(6);
+  });
+});
+
+describe("jstDayRangeMs", () => {
+  // JST 2026-01-02 00:00〜24:00 はUTCでは 2026-01-01T15:00 〜 2026-01-02T15:00
+  it("JSTの暦日はUTCで9時間前にずれた範囲になる", () => {
+    expect(jstDayRangeMs("2026-01-02")).toEqual({
+      fromMs: Date.UTC(2026, 0, 1, 15, 0, 0),
+      toMs: Date.UTC(2026, 0, 2, 15, 0, 0),
+    });
+  });
+
+  it("範囲の境界値がその日のtodayJstと一致する（013 memory.getの範囲検索で使う）", () => {
+    const { fromMs, toMs } = jstDayRangeMs("2026-06-15");
+    expect(todayJst(fromMs)).toBe("2026-06-15");
+    expect(todayJst(toMs - 1)).toBe("2026-06-15");
+    expect(todayJst(toMs)).toBe("2026-06-16");
   });
 });
 
