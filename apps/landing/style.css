@@ -1,0 +1,237 @@
+/* futary ランディングページ。デザイントークンは packages/ui/src/tokens.ts と揃える
+   （architecture.md 7節。RN Web側と別実装のため、値がずれたら両方直す） */
+
+:root {
+  --color-bg: #FEF6F3;
+  --color-surface: #FFFFFF;
+  --color-surface-tint: #FCEEEC;
+  --color-primary: #F5868D;
+  --color-primary-pressed: #E4707A;
+  --color-brand-ink: #7B4A3C;
+  --color-text: #4A3733;
+  --color-text-muted: #A08C87;
+  --color-border: #F2E0DC;
+  --radius-card: 20px;
+  --radius-pill: 999px;
+  --max-width: 960px;
+  /* Webフォントを読み込まない。OSに入っている日本語フォントだけを使う */
+  --font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  /* 横スクロールを作らない（015完了条件） */
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+body {
+  font-family: var(--font-family);
+  color: var(--color-text);
+  background: var(--color-bg);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+a {
+  color: var(--color-brand-ink);
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.hero {
+  padding: 56px 0 48px;
+  text-align: center;
+}
+
+.logo {
+  margin: 0 auto 16px;
+}
+
+.tagline {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-brand-ink);
+  margin: 0 0 8px;
+}
+
+.hero-sub {
+  font-size: 15px;
+  color: var(--color-text-muted);
+  margin: 0 0 32px;
+}
+
+.cta {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-primary);
+  color: #FFFFFF;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 18px;
+  padding: 16px 40px;
+  border-radius: var(--radius-pill);
+  transition: background-color 0.15s ease;
+}
+
+.cta:hover,
+.cta:focus-visible {
+  background: var(--color-primary-pressed);
+}
+
+.cta-note {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+section {
+  padding: 48px 0;
+}
+
+h2 {
+  text-align: center;
+  font-size: 24px;
+  color: var(--color-brand-ink);
+  margin: 0 0 32px;
+}
+
+.feature-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.feature-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: 24px;
+  text-align: center;
+}
+
+.feature-card img {
+  margin: 0 auto 12px;
+}
+
+.feature-card h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+  color: var(--color-text);
+}
+
+.feature-card p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.tech {
+  background: var(--color-surface-tint);
+}
+
+.tech-intro {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 24px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.tech-stack {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 0;
+  margin: 0 0 40px;
+}
+
+.tech-stack li {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 8px 18px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.decisions {
+  display: grid;
+  gap: 16px;
+}
+
+.decision {
+  background: var(--color-surface);
+  border-radius: var(--radius-card);
+  padding: 20px 24px;
+}
+
+.decision h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--color-brand-ink);
+}
+
+.decision p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.decision code {
+  background: var(--color-surface-tint);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.repo-link {
+  display: block;
+  text-align: center;
+  margin-top: 32px;
+  font-weight: 700;
+}
+
+.footer {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: 40px 0 32px;
+  }
+
+  .tagline {
+    font-size: 19px;
+  }
+}
