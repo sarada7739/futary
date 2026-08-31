@@ -7348,3 +7348,47 @@ apps/app・apps/apiのテストは変更なし（015は新規テストを追加�
 ビルド・設定・バグ修正が中心）。型チェック・lint通過（`apps/api/public/`を
 ESLintの対象外に追加）。security-auditorへ監査を依頼中。次はRへレビュー
 依頼したのち、016（デプロイ前）へ進む。
+
+## 2026-08-31 015: PR #170レビュー対応（R-1〜R-3・security-auditor指摘）
+
+RからPR #170へ3件の指摘（R-1: `auth-client.ts`の`baseURL`が`orpc.ts`と違い
+遅延評価でない点、R-2: `EXPO_PUBLIC_API_ORIGIN`空文字上書きは関数化だけで
+不要ではないか、R-3: コメントが実測経緯を正確に反映していない点）を受けた。
+
+R-1は実機で解消を確認した: ビルド済みバンドルを`wrangler dev`で配信した
+状態で「ログイン」ボタンを押し、リクエストが`http://127.0.0.1:<port>/api/
+auth/sign-in/social`（同一オリジン）へ飛ぶことを確認した（レスポンスは403
+だったが、`.dev.vars`のGoogle OAuth設定に起因する別問題でオリジン解決とは
+無関係）。修正の効果は「呼び出しタイミングの遅延」ではなく「`getApiOrigin`が
+本物の関数になったことでビルド時定数畳み込みを防いだこと」に由来するため、
+`auth-client.ts`側が1回評価のままでも問題は起きないと判断した。
+
+R-2は分離実験で検証した: `EXPO_PUBLIC_API_ORIGIN`の空文字上書きを外し、
+`.env`の実際の値を残したまま再ビルドし、生成された配布バンドルをgrepした。
+`getApiOrigin`関数の本体は`process.env.EXPO_PUBLIC_API_ORIGIN`という実行時
+参照のまま残っており、`.env`の値が文字列として畳み込まれていないことを
+確認した。関数化の対策単独で再発防止できている。空文字上書きは、将来
+Metroの環境変数インライン化の挙動が変わった場合に備えた多層防御として
+残す判断とした。「なぜMetroが今回は値をインライン化しないのか」の内部
+機構までは特定できておらず、未確認のまま残す（正直に記録する）。
+
+R-3は`apps/app/lib/api-origin.ts`・`scripts/build-public.mjs`のコメントを
+上記の実測結果に基づいて書き直した。
+
+あわせてsecurity-auditorのMedium/Low指摘も反映した: R2 CSPのワイルドカード
+（`https://*.r2.cloudflarestorage.com`）を実アカウントID固定ホストへ変更
+（`readR2AccountId()`が`.dev.vars`または環境変数から読み、取得できなければ
+ビルドを失敗させるfail-closed）。`blob:`をimg-src/connect-srcへ追加
+（`expo-image-picker`・`expo-image-manipulator`のWeb実装が
+`URL.createObjectURL()`を使うため、無いと画像投稿が本番で壊れる）。
+Googleアバターホスト（`lh3.googleusercontent.com`）をimg-srcへ追加。
+`form-action 'self'`・`Strict-Transport-Security`ヘッダを追加。インライン
+scriptハッシュの実測を1ファイルのみ→全HTML走査に変更。ローカル開発オリジン
+焼き込みの再発防止チェック（`assertNoLocalDevOriginLeaked`）を新設した。
+
+修正後、`pnpm -w test`（apps/app 150件・apps/api 297件）・`eslint .`・
+`pnpm -r type-check`が全て通ることを確認し、新CSPでのゲスト閲覧フローを
+`wrangler dev`実ビルド配信で再確認した（`couple.get`・`stats.get`が200、
+画像アセット含め全て読み込まれ、デモのホーム画面が正しく表示される）。
+`artifacts/015/test-results.md`に追記し、コミット`0c095d0`をプッシュ、
+PR #170へ対応内容をコメントし、Rへ再レビューを依頼した。
