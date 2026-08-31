@@ -4,16 +4,17 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-08-31 / セッションB（futary-f2）。**015（ランディングページ）
-PR #170、Rレビュー往復中（R-1〜R-4・security-auditor指摘に対応済み。
-R-4〈`assertNoLocalDevOriginLeaked`が実際には判別できていなかった〉を修正し、
+PR #170、Rの受け入れを得てmainへsquash merge済み（`76ef4dd`。ブランチも
+削除済み）。R-1〜R-4・security-auditor指摘すべて対応済み。R-4
+〈`assertNoLocalDevOriginLeaked`が実際には判別できていなかった〉を修正し、
 「壊れたコードに戻して例外が飛ぶことを証明する」試みは失敗したことも正直に
 記録。403の原因も「別問題」という誤った当初の記述を訂正し、
-`TRUSTED_ORIGINS`/`callbackURL`不一致（`INVALID_CALLBACK_URL`）と特定した。
-Rへ再レビュー依頼予定）。** 014は完全に閉じている（PR #165。
+`TRUSTED_ORIGINS`/`callbackURL`不一致（`INVALID_CALLBACK_URL`）と特定、
+016の確認項目に追加した。** 014は完全に閉じている（PR #165。
 `7aef87d`。詳細は下の記録を参照）。人間は就寝中のまま。A経由で
 「014→015→016のデプロイ前まで、人間の確認を挟まず止まらずに進めてほしい
 （実機確認はまとめて後で）」との指示を受けて継続中。**公開ドメイン（論点L1）は
-未決のため`*.workers.dev`で進めた。**
+未決のため`*.workers.dev`で進めた。次は016（デプロイ前）へ進む。**
 
 **PR #170のRレビュー対応（R-1〜R-3）**: R-1（`auth-client.ts`の`baseURL`が
 遅延評価でない件）は実機で「ログイン」ボタンを押しsign-in/socialが同一
