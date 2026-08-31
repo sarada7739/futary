@@ -7452,3 +7452,19 @@ CIが`predeploy`スクリプト（`assertNoLocalDevOriginLeaked`・CSPハッシ�
 
 修正後、`pnpm -w test`（apps/app 150件・apps/api 297件）・`eslint .`・
 `pnpm -r type-check`が全て通ることを確認した。
+
+## 2026-08-31 015: PR #170マージ完了
+
+Rから「R-4は1行直せばマージで結構。再レビューは要らない」との回答を得た。
+`scripts/build-public.mjs`のコメント（「旧コードに戻すと実際に例外が飛ぶことも
+実測してから直した」）が、`artifacts/015/test-results.md`に記録した実際の結果
+（再現できなかった）と矛盾していたため訂正した。あわせて、Rが「次に触るときで
+結構」と述べた小さな指摘（`FALLBACK_LITERAL`が`build-public.mjs`と
+`api-origin.ts`の2箇所に別々に書かれており、`api-origin.ts`側のポートを
+変えるとチェックが黙って効かなくなる）も、修正コストが低かったためこの場で
+対応した。`readFallbackLiteral()`で`api-origin.ts`のソースから正規表現で
+直接読み取る形にし、値の一致を構造的に保証した。
+
+CI green確認後、`gh pr merge 170 --squash --delete-branch`でmainへマージ、
+ブランチも削除した（`76ef4dd`）。015（ランディングページ）完了。次は
+016（デプロイ前）へ進む。
