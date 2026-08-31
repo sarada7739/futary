@@ -37,6 +37,9 @@ vi.mock("expo-image-manipulator", () => ({
 
 vi.mock("../lib/auth-client", () => ({
   signOut: signOutMock,
+  // useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由で参照する。
+  // このテストでは識別の中身自体は検証しないため固定値を返す
+  useSession: () => ({ data: null }),
 }));
 
 vi.mock("../lib/orpc", async () => {

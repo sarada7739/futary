@@ -28,6 +28,14 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
+// useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由でuseSessionを
+// 参照する。本物のauth-client.tsを読み込むとexpo-secure-store等がロードされ
+// jsdom環境でクラッシュするため、他のexpoパッケージ（home-timeline.test.tsx参照）と
+// 同じ理由でモックする
+vi.mock("../lib/auth-client", () => ({
+  useSession: () => ({ data: null }),
+}));
+
 const { default: CalendarScreen } = await import("../app/(tabs)/calendar");
 const { queryClient } = await import("../lib/query");
 const { GuestModeContext } = await import("../lib/guest-mode");
