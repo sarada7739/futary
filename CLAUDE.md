@@ -41,6 +41,11 @@
 
 - **ファイル変更を伴う作業の完了時は必ず `docs/state.md` を更新し、`docs/worklog.md` に追記する**
 - `worklog.md` は追記のみ。既存行の編集・削除は禁止
+- **`main` に直接コミットしない。**docs の1行でも PR を通す（`conventions.md` 7節）
+- **コミットに `Session: A` / `R` / `B` を付ける。**git の identity は3役で共有のため、
+  これが無いと誰の変更か区別できない（`conventions.md` 7節）
+- **`git add -A` と `git commit -a` を使わない。**担当するパスだけをコミットする
+  （`harness.md`）
 - 秘密情報をコードに書かない。ローカルは `.dev.vars`、本番は `wrangler secret`
 - 全ての手続きで `couple_id` スコープを強制する。他ペアのデータに触れる経路を作らない
 - 1タスク完了ごとに `/clear` する（圧縮させない方が安い）
