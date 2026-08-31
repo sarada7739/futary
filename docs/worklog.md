@@ -8109,3 +8109,54 @@ Stack.Protectedが自然にサインイン画面へ導く。PR #177の教訓を�
 できず、`artifacts/024/manual-check.md`に確認項目（本番で試す前に
 ローカルで途中で止めて再実行を確認すること）を列挙した。
 `feature/024-account-deletion`ブランチとしてPR作成予定。
+
+## 2026-09-01 024 security-auditor結果と対応（B）
+
+security-auditorを実行した結果、**High以上はゼロ**（タスク定義の完了
+条件を満たす）。Medium 4件・Low 6件のうち実装レベルで直せるものを
+すべて対応した（詳細は`docs/security-report.md`参照）。
+
+**一番効いた指摘**: 削除の手順1〜6（reactions〜couples）を個別の`run()`で
+実行していたため、削除の実行中に別リクエストが新しい投稿・予定・招待を
+作ると、その行が`posts`/`events`削除より後に着地しうる。`couples`は
+`posts.couple_id`等からON DELETE no actionで参照されているため、その
+状態で`DELETE FROM couples`がFK違反で落ちる。このとき`couple_members`は
+既に消えているため、再実行時は`coupleId`を引けず（couple分岐ごと
+飛ばされ）、**本文と`image_key`を持つ`posts`行が回収不能な孤児として
+恒久的に残り、削除実行者がその投稿の著者なら以降の`user`削除が永久に
+失敗しかねない**。024が受け入れたのは「空の`couples`行が残る」ことだけで、
+本文が残ることでもアカウントが二度と消せなくなることでもなかった
+——「受け入れていた残存リスクの範囲を超えている」という指摘だった。
+
+対処: `couple.create`・`invite.accept`で既に使っている`db.batch()`を
+ここでも使い、reactions〜couples（+相手のuser.imageのNULL化）を1本の
+batchにまとめた。`db.batch()`は文のエラーでロールバックする
+（`couple.ts`の`isConstraintViolation`と同じ根拠）ため、この窓自体が
+無くなり、当初「残る」と受け入れていた孤児`couples`行も同時に解消
+された。**個別の`run()`を並べる設計から入ったのが誤りで、既存の道具
+（batch）を使わなかったことが「受け入れていたはずのリスク」を
+実際より悪化させていた。**
+
+他に対応した指摘: (1) R2の一括削除がD1削除の前だけで窓が残る→D1の
+batch成功後にもう一度`deleteAllByPrefix`を呼ぶ（2) 相手のプロフィール
+画像を消すのに相手の`user.image`列を更新しておらず不変条件が破れる→
+NULLへ戻す文を同じbatchに含める(3) `is_demo=1`のペアへのガードが無い
+→手続き自身でも拒む(4) 無関係な第2のペアを巻き込むバグを検知するテストが
+無い→追加(5) `authorization.test.ts`の未認証FORBIDDEN一覧に`me.delete`が
+抜けていた→追加(6) 削除成功後にキャッシュを明示的に破棄していない→
+`queryClient.clear()`を追加(7) R2エラーメッセージに画像キーが含まれ
+うる（security-requirements.md 8節違反）→`deleteAllByPrefix`が汎用
+メッセージへ詰め替えてから投げる形に(8) クライアント側で削除成功後に
+`signOut()`が失敗すると「削除できませんでした」と誤表示する→削除と
+signOutの成否を分離（旧コードで実際に誤表示することを実測してから直した）。
+
+**Aへ判断を依頼した2件**（実装は保留）: (1) 招待コードのレート制限
+（`invite_failures`）が、アカウント削除→同じGoogleアカウントで再登録、
+を繰り返すことで無限にリセットできる（`security-requirements.md` 4節
+「`user_id`回避のコストは桁違いに高い」という前提が崩れる）(2) 不可逆・
+相手のデータも巻き込む操作に再認証もレート制限も無い（T8の被害範囲が
+拡大した）。`docs/security-requirements.md` 4節にも記録した。
+
+`pnpm -w test`（apps/app 176件・apps/api 321件）・`pnpm run type-check`・
+`eslint .`すべて通過。`feature/024-account-deletion`ブランチとして
+Rへレビュー依頼予定。

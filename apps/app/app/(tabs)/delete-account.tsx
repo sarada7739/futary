@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { orpc } from "../../lib/orpc";
 import { signOut } from "../../lib/auth-client";
+import { queryClient } from "../../lib/query";
 
 // 024: アカウント削除と退会。
 //
@@ -29,15 +30,24 @@ export default function DeleteAccountScreen() {
     setErrorMessage(null);
     try {
       await deleteMe.mutateAsync();
-      // サーバ側では既にsession/userが消えているが、画面はまだ知らない
-      // （024タスク定義「サインアウトする。セッションはサーバ側で消えている
-      // が、画面が知らない」）。signOut()でクライアント側の状態を切り替える。
-      // 識別が変わればStack.Protectedのguardが自然にサインイン画面へ導く
-      // （明示的なnavigateは要らない。PR #177の教訓）
-      await signOut();
     } catch {
       setErrorMessage("削除できませんでした。もう一度お試しください");
+      return;
     }
+
+    // 【security-auditor指摘】削除自体は成功したのに、signOut()側の失敗を
+    // 同じtryで拾うと「削除できませんでした」と誤って表示してしまう
+    // （実際には既に消えている）。削除の成否とsignOut()の成否を別に扱う。
+    //
+    // サーバ側では既にsession/userが消えているが、画面はまだ知らない
+    // （024タスク定義「サインアウトする。セッションはサーバ側で消えている
+    // が、画面が知らない」）。signOut()でクライアント側の状態を切り替える。
+    // 識別が変わればStack.Protectedのguardが自然にサインイン画面へ導く
+    // （明示的なnavigateは要らない。PR #177の教訓）。
+    // 【security-auditor指摘】削除は「見えなくする」ではなく「消す」操作
+    // なので、viewerKeyでの隔離（T9）に加えてキャッシュ自体も明示的に破棄する
+    queryClient.clear();
+    await signOut();
   }
 
   return (

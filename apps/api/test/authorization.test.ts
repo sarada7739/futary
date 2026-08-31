@@ -237,6 +237,14 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
       call(router.me.uploadImageUrl, { contentType: "image/jpeg" }, { context: contextFor(null, demoCoupleId) }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("me.delete は未認証なら FORBIDDEN（024）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.me.delete, undefined, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });
 
 describe("3. 未認証アクセスで読み取れるのがデモペアのデータのみである", () => {

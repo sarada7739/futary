@@ -336,11 +336,15 @@ describe("me.delete", () => {
   });
 
   // 024タスク定義「途中で止めて再実行しても、同じ結果になる（各段で1回止めて
-  // 再開する）」。couple_membersを消す前（手順1〜4）までのどこで止まっても、
-  // couple_idがまだ引けるため再実行すれば最後まで進む（couple_members自体を
-  // 消した後は、再実行時にcouple_idを引く手段が無くなる。これは「訂正:
-  // 『最初に読めなくする』は、誰も守っていなかった」の裏返しとして
-  // 受け入れている制約であり、下の別テストで文書化する）
+  // 再開する）」。
+  // 【security-auditor指摘で訂正】reactions〜couples（手順1〜6）は
+  // db.batch()1本にまとめてある（下のmeDeleteのコメント参照。並行書き込みが
+  // 途中に着地して回収不能な孤児が残る、という指摘を受けての変更）ため、
+  // このテストが元々シミュレートしていた「途中経過」は、実際にはme.delete
+  // 自身の実行中には起こり得ない。ここでは「一部の行が既に無い状態で
+  // me.deleteを呼んでも、残りを正しく片付けて完走する」という、
+  // batch()のWHERE句の冪等性そのものを確認する形として残す（例えば
+  // 過去の失敗した試行やバグで一部だけ消えていた場合の後始末を担保する）
   it.each([
     ["何も止めない", 0],
     ["reactions削除後で止める", 1],
@@ -381,13 +385,17 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
   });
 
-  // 【記録: 受け入れている制約】couple_members自体を消した直後（手順5と6の間）で
-  // 止まると、再実行はcouple_idを引く手段を失い、couplesの行を消せないまま
-  // 孤児として残る。resolveCoupleContextに削除専用の例外を作らないと決めた
-  // （conventions.md「守る相手のいない要件のために、認可の中心を触らない」）
-  // ことの直接の帰結であり、A・Rが「残る。それは受け入れる」と明記した挙動を
-  // そのまま固定する（挙動が変わったら、この判断自体を見直す必要がある）
-  it("【受け入れている制約】couple_members削除直後に止まると、couplesの行は孤児として残る", async () => {
+  // 【記録: 受け入れている制約。security-auditor指摘を受けて範囲を訂正】
+  // reactions〜couplesはdb.batch()1本にまとめたため（下のmeDeleteのコメント
+  // 参照）、me.delete自身の実行中にcouple_membersだけが消えてcouplesが
+  // 残る、という中間状態はもう起こらない。この状態が起こりうるのは、
+  // このテストのようにme.deleteの外側（別の失敗した試行・バグ等）で
+  // couple_membersが消えた場合だけである。resolveCoupleContextに削除専用の
+  // 例外を作らないと決めた（conventions.md「守る相手のいない要件のために、
+  // 認可の中心を触らない」）以上、couple_membersが無ければcoupleIdを
+  // 引く手段が無い、という制約自体は変わらないため、その挙動をそのまま
+  // 固定する（挙動が変わったら、この判断自体を見直す必要がある）
+  it("【受け入れている制約】me.deleteの外でcouple_membersが消えていると、couplesの行は孤児として残る", async () => {
     const owner = await createUser();
     const couple = await createCouple(owner);
 
@@ -400,6 +408,80 @@ describe("me.delete", () => {
 
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(couple.id).first()).not.toBeNull();
+  });
+
+  // 【security-auditor指摘】me.deleteが起こしうる最悪のバグ（WHERE couple_id
+  // の欠落＝全ペア一括削除）を検知するテストが無かった。無関係な第2の
+  // ペアのデータ・R2オブジェクトが影響を受けないことを直接確認する
+  it("別のペアのデータ・R2オブジェクトは削除の影響を受けない", async () => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    const postImageId = await uploadTestPostImage(couple.id);
+    await call(
+      router.post.create,
+      { body: "消える投稿", imageId: postImageId, imageWidth: 100, imageHeight: 100 },
+      { context: contextFor(owner) },
+    );
+
+    const otherOwner = await createUser();
+    const otherCouple = await createCouple(otherOwner);
+    const otherImageId = await uploadTestPostImage(otherCouple.id);
+    const otherPost = await call(
+      router.post.create,
+      { body: "残る投稿", imageId: otherImageId, imageWidth: 100, imageHeight: 100 },
+      { context: contextFor(otherOwner) },
+    );
+
+    await call(router.me.delete, undefined, { context: contextFor(owner) });
+
+    expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(otherCouple.id).first()).not.toBeNull();
+    expect(await db.prepare("SELECT id FROM posts WHERE id = ?1").bind(otherPost.id).first()).not.toBeNull();
+    expect(await bucket.head(imageKeyFor(otherCouple.id, otherImageId))).not.toBeNull();
+  });
+
+  // 【security-auditor指摘】デモペア（is_demo=1）はGoogleログイン経路が
+  // 塞がれているため現状は到達不能（seed.tsのemail_verified=0・
+  // @example.com判定）だが、その到達不能性がseedの都合1つに依存する
+  // 状態にしない。ここでは実際には起こりえない組み合わせ
+  // （実在の認証ユーザーがデモペアに所属している）を直接作って、
+  // 手続き自身の防御を確認する
+  it("is_demoのペアからは削除できない（手続き自身でも拒む）", async () => {
+    const user = await createUser();
+    const coupleId = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    await db.prepare("INSERT INTO couples (id, is_demo, created_at) VALUES (?1, 1, ?2)").bind(coupleId, now).run();
+    await db
+      .prepare("INSERT INTO couple_members (couple_id, user_id, slot, joined_at) VALUES (?1, ?2, 1, ?3)")
+      .bind(coupleId, user.id, now)
+      .run();
+
+    await expect(call(router.me.delete, undefined, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+
+    expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(coupleId).first()).not.toBeNull();
+    expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(user.id).first()).not.toBeNull();
+  });
+
+  // 【security-auditor指摘】相手のプロフィール画像はR2から消すが、相手の
+  // user行は残す（Candle型）。me.ts先頭の不変条件「image列が非NULLなら
+  // 実体がある」を保つため、相手のimageもNULLへ戻す
+  it("相手のプロフィール画像を消すと、相手のuser.imageもNULLに戻る", async () => {
+    const owner = await createUser();
+    await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+    const partnerImageId = await uploadTestUserImage(partner.id);
+    await call(router.me.update, { name: partner.name, imageId: partnerImageId }, { context: contextFor(partner) });
+
+    await call(router.me.delete, undefined, { context: contextFor(owner) });
+
+    const partnerRow = await db
+      .prepare("SELECT image FROM user WHERE id = ?1")
+      .bind(partner.id)
+      .first<{ image: string | null }>();
+    expect(partnerRow?.image).toBeNull();
   });
 
   it("userを削除するとsessionとaccountがON DELETE CASCADEで自動的に消える", async () => {

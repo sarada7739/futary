@@ -100,6 +100,24 @@ describe("DeleteAccountScreen: 段階2（相手のデータも消えることの
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });
 
+  // 【security-auditor指摘】削除自体は成功したのにsignOut()側が失敗すると、
+  // 同じtryで拾っていた頃は「削除できませんでした」と誤って表示していた
+  // （実際には既に消えている）。削除の成否とsignOut()の成否を分けたことを
+  // 直接確認する
+  it("me.deleteが成功していれば、signOutが失敗してもエラーメッセージは出ない", async () => {
+    deleteMeMock.mockResolvedValue({ ok: true });
+    signOutMock.mockRejectedValue(new Error("signOut failed"));
+    goToStage2();
+    fireEvent.click(screen.getByTestId("delete-account-acknowledge"));
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("delete-account-confirm"));
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText("削除できませんでした。もう一度お試しください")).toBeNull();
+  });
+
   it("失敗するとエラーメッセージが出て、signOutは呼ばれない", async () => {
     deleteMeMock.mockRejectedValue(new Error("failed"));
     goToStage2();
