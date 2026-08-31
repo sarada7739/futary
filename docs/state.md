@@ -20,8 +20,10 @@ lint全て通過）を確認してPR #174をsquash mergeでmainへ統合済み�
 **さらにPR #174マージ後、人間から新しい報告（「ゲストではじめるで
 /app/composeに遷移した」）を受けて調査したところ、3件目の独立した不具合
 （PR #174のT9修正が新設した`queryClient.clear()`エフェクト自体が原因）を
-発見・修正した。詳細は下の節。`fix/guest-mode-stuck-loading`ブランチで
-Rレビュー依頼中。** M4完了目前だがこのPRのマージとデプロイ完了確認が先。
+発見・修正し、そこから派生してもう1件のT9の穴（招待コードのキャッシュ
+キーにviewerKeyが無い）もA決定を経て塞いだ。PR #177・#179・#180すべて
+Rの受け入れを得てmainへマージ完了（2026-09-01）。詳細は下の節。**
+M4完了目前だが本番デプロイ完了確認が先。
 
 ## ゲストではじめる→/composeで読み込み中のまま止まる不具合（発見・修正）
 
@@ -53,8 +55,32 @@ guardが自然に既定画面へ導くことを確認）。`(auth)`・`(onboardi
 `_layout.tsx`追加（ルーティング警告の解消）も合わせて行ったが、これは
 今回の不具合の真因ではない。
 
-`pnpm -w test`（apps/app 159件・apps/api 303件）・型チェック・lint
-すべて通過。`fix/guest-mode-stuck-loading`ブランチとしてRレビュー依頼中。
+`pnpm -w test`・型チェック・lintすべて通過。PR #177としてRレビュー
+2往復（R-1: 着地先が構造的に決まっているかの実測／R-2: 回帰テスト追加）を
+経て「受け入れます」を得てmainへマージ済み（2026-09-01）。
+
+**派生して見つかったもう1件のT9の穴（A決定・PR #178→#179で対応）**:
+上のRレビュー中、`apps/app/app/(onboarding)/invite.tsx`の
+`PENDING_INVITE_QUERY_KEY`（招待コードを保持するキャッシュ）に
+viewerKeyが無いことが判明した。これはサーバの手続きではなくTanStack
+Queryをただの置き場として使っており、T9のenforcementテスト
+（`findReadScopedProcedures`）の走査対象になっていなかった。以前は
+`queryClient.clear()`が識別変化のたびに副次的にこれも消していたが、
+それは意図された防御ではなく偶然の副作用だった（削除して初めて露見）。
+Aが「対象は手続きの戻り値に限らない。利用者ごとに違う値を持つキャッシュ
+全部」と判断（`docs/architecture.md`・`docs/security-requirements.md`に
+反映済み）。`PENDING_INVITE_QUERY_KEY`（定数）を`pendingInviteQueryKey
+(viewerKey)`（関数）に変え、`viewer-key-coverage.test.ts`に
+`MANUALLY_PLACED_CACHE_KEYS`（手続きに限らない「こちらが置いた値」を
+明示的に登録する枠）を新設して一般化した。PR #179としてRの受け入れを
+得てマージ済み。
+
+**enforcementテスト自体のRレビュー（PR #180）**: 上のテストに追加した
+健全性チェックが当初`targets.length`（合計数）だけを見ていたが、Rの
+指摘で「手続き側が7本に増えるとMANUALLY_PLACED_CACHE_KEYS側が0件に
+減っても合計が埋め合わされ、静かに効かなくなる」ことが判明。ラベル
+そのものを固定する形（`arrayContaining`）に訂正し、実際にその「埋め
+合わせ」が起きる状況を再現して落ちることを確認してからマージ済み。
 
 ## 016デプロイ後に見つけた問題と対処（人間への報告用）
 
@@ -82,8 +108,12 @@ guardが自然に既定画面へ導くことを確認）。`(auth)`・`(onboardi
 
 **対処**: 2件ともPR #174で修正し、Rの受け入れを得てmainへマージ済み
 （`docs/security-report.md`・`docs/architecture.md` 5節・
-`docs/security-requirements.md`のT9に詳細記録）。
-**mainには入ったが、本番デプロイはまだ完了していない**（GitHub
+`docs/security-requirements.md`のT9に詳細記録）。**さらにPR #174マージ後の
+実機確認で見つかった3件目の不具合（ゲストではじめる→/composeで
+読み込み中のまま止まる。真因はPR #174のqueryClient.clear()自体）と、
+そこから派生したT9の穴（招待コードのキャッシュキー）も、PR #177・#179・
+#180としてmainへマージ済み（上の節参照）。**
+**mainには4件すべて入ったが、本番デプロイはまだ完了していない**（GitHub
 Environment「production」のRequired reviewers承認待ち）。デプロイ完了
 までは、共有端末で「ログアウトしてすぐ他の人に渡す」使い方は避けて
 ほしい（自分一人で使う分には実害なし）。デプロイ完了後にこの節を
