@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ORPCError } from "@orpc/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +12,7 @@ const {
   coupleGetMock,
   coupleUpdateMock,
   statsGetMock,
+  inviteIssueMock,
   signOutMock,
 } = vi.hoisted(() => ({
   meGetMock: vi.fn(),
@@ -19,6 +21,7 @@ const {
   coupleGetMock: vi.fn(),
   coupleUpdateMock: vi.fn(),
   statsGetMock: vi.fn(),
+  inviteIssueMock: vi.fn(),
   signOutMock: vi.fn(),
 }));
 
@@ -57,6 +60,9 @@ vi.mock("../lib/orpc", async () => {
     stats: {
       get: statsGetMock,
     },
+    invite: {
+      issue: inviteIssueMock,
+    },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
@@ -80,11 +86,25 @@ function makeCouple(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
+// 025: 招待コードの再発行はstats.get().membersでペアが1人か2人かを見る。
+// 既定は1人（相手が未参加）にしておき、025固有のテストでのみ2人に上書きする
+function makeStats(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    daysTogether: { status: "dating", days: 1 },
+    meetupDays: 0,
+    postCount: 0,
+    photoCount: 0,
+    members: [{ userId: "me", name: "自分", image: null }],
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   queryClient.clear();
   meGetMock.mockResolvedValue(makeMe());
   coupleGetMock.mockResolvedValue(makeCouple());
+  statsGetMock.mockResolvedValue(makeStats());
 });
 
 function renderScreen() {
@@ -362,6 +382,80 @@ describe("ProfileScreen: datingDateが未設定（023）", () => {
         expect.anything(),
       ),
     );
+  });
+});
+
+// 025: 招待コードの再発行
+describe("025: 招待コードの再発行", () => {
+  it("ペアが1人のとき、押す前の注意書きと発行ボタンが出る。相手が参加済みの文言は出ない", async () => {
+    statsGetMock.mockResolvedValue(makeStats({ members: [{ userId: "me", name: "自分", image: null }] }));
+    renderScreen();
+
+    expect(await screen.findByTestId("profile-reissue-invite")).toBeTruthy();
+    // 押す前に伝える（025タスク定義。押したあとに気づく形にしない）
+    expect(screen.getByText(/発行すると、以前発行した招待コードは無効になります/)).toBeTruthy();
+    expect(screen.queryByText("相手が参加済みです")).toBeNull();
+  });
+
+  it("ペアが2人揃っているとき、発行ボタンは出ず「相手が参加済みです」が出る", async () => {
+    statsGetMock.mockResolvedValue(
+      makeStats({
+        members: [
+          { userId: "me", name: "自分", image: null },
+          { userId: "partner", name: "相手", image: null },
+        ],
+      }),
+    );
+    renderScreen();
+
+    expect(await screen.findByText("相手が参加済みです")).toBeTruthy();
+    expect(screen.queryByTestId("profile-reissue-invite")).toBeNull();
+  });
+
+  it("発行ボタンを押すとinvite.issueが呼ばれ、コードと有効期限が表示される", async () => {
+    inviteIssueMock.mockResolvedValue({ code: "ABCDEF", expiresAt: Math.floor(Date.now() / 1000) + 3600 });
+    renderScreen();
+
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId("profile-reissue-invite"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(inviteIssueMock).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("ABCDEF")).toBeTruthy();
+    expect(screen.getByText("コードを再発行する")).toBeTruthy();
+  });
+
+  it("発行に失敗するとエラーメッセージが出る", async () => {
+    inviteIssueMock.mockRejectedValue(new Error("failed"));
+    renderScreen();
+
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId("profile-reissue-invite"));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText("発行できませんでした。もう一度お試しください")).toBeTruthy();
+  });
+
+  // 【Rレビュー指摘R-1】この画面に到達している時点で認証済みのため、
+  // ここで返るFORBIDDENは「満員」以外にありえない。「もう一度お試し
+  // ください」は構造的に成功しない操作を勧めることになるため、
+  // この文脈だけで理由を確定して案内し、statsQueryを再取得してカード
+  // 自体も正しい表示（相手が参加済みです）に戻す
+  it("発行時にFORBIDDEN（満員）が返ると、専用の文言が出てstatsが再取得される", async () => {
+    inviteIssueMock.mockRejectedValue(new ORPCError("FORBIDDEN", { defined: true }));
+    renderScreen();
+
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId("profile-reissue-invite"));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText("相手が参加済みです")).toBeTruthy();
+    expect(screen.queryByText("発行できませんでした。もう一度お試しください")).toBeNull();
+    // 初回描画時の1回 + エラー後の再取得で2回以上呼ばれる
+    await waitFor(() => expect(statsGetMock.mock.calls.length).toBeGreaterThanOrEqual(2));
   });
 });
 

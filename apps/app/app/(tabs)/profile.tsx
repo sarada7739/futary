@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Share, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { ORPCError } from "@orpc/client";
+import { formatJstDateTime } from "@futary/date";
 import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
 import { Avatar, Button, Card, colors, radius, Screen, space, Text } from "@futary/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -44,6 +46,12 @@ export default function ProfileScreen() {
     ...orpc.couple.get.queryOptions(),
     queryKey: [...orpc.couple.get.queryOptions().queryKey, viewerKey],
   });
+  // 025: 招待コードの再発行導線を「ペアが1人のときだけ」出すため、
+  // 相手が参加済みかをstats.getのmembersで見る（他の問い合わせと同じくT9対応）
+  const statsQuery = useQuery({
+    ...orpc.stats.get.queryOptions(),
+    queryKey: [...orpc.stats.get.queryOptions().queryKey, viewerKey],
+  });
 
   const [name, setName] = useState("");
   // 選び直した画像はここに置き、保存を押すまでアップロードしない
@@ -56,6 +64,10 @@ export default function ProfileScreen() {
   const [primaryDate, setPrimaryDate] = useState<PrimaryDate>("dating");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  // 025: 招待コードの再発行。この画面の中だけで完結する（onboardingのcreate→invite
+  // のように別画面へ渡す必要が無いため、PENDING_INVITE_QUERY_KEYは使わない）
+  const [reissuedInvite, setReissuedInvite] = useState<{ code: string; expiresAt: number } | null>(null);
+  const [inviteErrorMessage, setInviteErrorMessage] = useState<string | null>(null);
 
   // サーバのデータが届いた最初の1回だけフォームへ反映する。以降は
   // 利用者の入力をサーバ再取得で上書きしない（event-form.tsxのvisible再初期化とは
@@ -74,7 +86,44 @@ export default function ProfileScreen() {
   const requestUploadUrl = useMutation(orpc.me.uploadImageUrl.mutationOptions());
   const updateMe = useMutation(orpc.me.update.mutationOptions());
   const updateCouple = useMutation(orpc.couple.update.mutationOptions());
+  const issueInvite = useMutation(orpc.invite.issue.mutationOptions());
   const isSubmitting = requestUploadUrl.isPending || updateMe.isPending || updateCouple.isPending;
+
+  // 相手が参加済み（2人揃っている）かどうか。statsQuery.dataが届くまでは
+  // まだ判断できないため、招待コードのカード自体を出さない（読み込み中に
+  // 「1人だけ」と誤って決めつけて発行導線を出してしまうことを防ぐ）
+  const isPairComplete = (statsQuery.data?.members.length ?? 0) >= 2;
+  const inviteExpiresAtLabel = reissuedInvite ? formatJstDateTime(reissuedInvite.expiresAt) : "";
+
+  async function handleReissueInvite() {
+    setInviteErrorMessage(null);
+    try {
+      const issued = await issueInvite.mutateAsync();
+      setReissuedInvite(issued);
+    } catch (error) {
+      // 【Rレビュー指摘】この画面に到達している時点で認証済みのため
+      // （isGuestModeの早期returnより後）、ここで返るFORBIDDENは
+      // 「満員」以外にありえない（writeProcedureのreadonly判定は通過済み）。
+      // 「もう一度お試しください」は構造的に成功しない操作を勧めることになる
+      // ため、この画面の文脈だけで理由を確定して案内し、statsQueryを
+      // 再取得してカード自体も正しい表示（相手が参加済みです）に戻す。
+      // isDefinedErrorはcatch節のerror（unknown）だと型がneverに潰れて
+      // 絞り込めないため、ORPCErrorのinstanceofで判定する（calendar.tsxと同じ理由）
+      if (error instanceof ORPCError && error.code === "FORBIDDEN") {
+        setInviteErrorMessage("相手が参加済みです");
+        void statsQuery.refetch();
+      } else {
+        setInviteErrorMessage("発行できませんでした。もう一度お試しください");
+      }
+    }
+  }
+
+  async function handleShareInvite() {
+    if (!reissuedInvite) return;
+    await Share.share({
+      message: `futaryでペアを作りました。招待コード: ${reissuedInvite.code}\nこのコードで参加してね（${inviteExpiresAtLabel} まで有効）`,
+    });
+  }
 
   const trimmedName = name.trim();
   const trimmedDatingDate = datingDate.trim();
@@ -286,6 +335,55 @@ export default function ProfileScreen() {
               </View>
             </View>
           </Card>
+
+          {/* 025: 招待コードの再発行。ペアが1人のときだけ出す（2人揃っていたら
+              出さず、理由を書く。020「押せないボタンを置かない」の方針）。
+              満員のペアではサーバ側（invite.issue）も拒むため、これは
+              UI側の見せ方に過ぎない（security-requirements.md T5と同じ考え方）。
+              statsQuery.dataが届くまではメンバー数を判断できないため、
+              カード自体を出さない */}
+          {statsQuery.data && (
+          <Card>
+            <View style={{ gap: space.md }}>
+              <Text weight="bold">招待コード</Text>
+              {isPairComplete ? (
+                <Text size="sm" color="muted">
+                  相手が参加済みです
+                </Text>
+              ) : (
+                <>
+                  {/* 押す前に伝える（押したあとに気づく形にしない。025タスク定義） */}
+                  <Text size="xs" color="muted">
+                    発行すると、以前発行した招待コードは無効になります。相手に渡し済みの場合は注意してください
+                  </Text>
+                  {reissuedInvite && (
+                    <>
+                      <Card>
+                        <Text size="xl" weight="bold" color="brand">
+                          {reissuedInvite.code}
+                        </Text>
+                      </Card>
+                      <Text size="sm" color="muted">
+                        {inviteExpiresAtLabel} まで有効です
+                      </Text>
+                      <Button variant="secondary" onPress={handleShareInvite}>
+                        コードを共有する
+                      </Button>
+                    </>
+                  )}
+                  {inviteErrorMessage && (
+                    <Text size="sm" color="muted">
+                      {inviteErrorMessage}
+                    </Text>
+                  )}
+                  <Button onPress={handleReissueInvite} disabled={issueInvite.isPending} testID="profile-reissue-invite">
+                    {issueInvite.isPending ? "発行中…" : reissuedInvite ? "コードを再発行する" : "招待コードを発行する"}
+                  </Button>
+                </>
+              )}
+            </View>
+          </Card>
+          )}
 
           {errorMessage && (
             <Text size="sm" color="muted">
