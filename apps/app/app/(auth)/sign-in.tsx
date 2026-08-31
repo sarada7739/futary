@@ -76,7 +76,7 @@ export default function SignInScreen() {
             ゲストではじめる
           </Button>
           {/* デモの解決に失敗してここへ戻された直後だけ出す（黙って空白に
-              しない。architecture.md 7節。Rレビュー指摘R-1・A決定） */}
+              しない。architecture.md 3節。Rレビュー指摘R-1・A決定） */}
           {demoUnavailable && (
             <Text size="sm" color="muted" align="center">
               いまデモを見られません。しばらくしてからお試しください

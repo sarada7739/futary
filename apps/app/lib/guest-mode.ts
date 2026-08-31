@@ -13,7 +13,7 @@ export interface GuestModeState {
   enterGuestMode: () => void;
   exitGuestMode: () => void;
   // デモの解決に失敗して（couple.getがFORBIDDEN等）サインイン画面へ
-  // 戻された直後だけtrue。理由を1行出すために使う（architecture.md 7節
+  // 戻された直後だけtrue。理由を1行出すために使う（architecture.md 3節
   // 「ゲストの解決に失敗したら、サインイン画面へ戻す。理由を1行出す。
   // 黙って空白にしない」。Rレビュー指摘R-1・A決定）
   demoUnavailable: boolean;

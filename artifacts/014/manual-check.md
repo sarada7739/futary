@@ -31,7 +31,7 @@ WebSocket接続が不安定になり（`Disconnected from Metro (1006)`が繰り
    Rレビュー（R-1）で見つかった「デモペアの解決に失敗すると、どのStack.Protected
    のguardにも入れず空白画面のまま戻れなくなる」不具合を直しており
    （`resolveRootRoute`が`demoFailed`を判定し、失敗時はサインイン画面へ
-   「いまデモを見られません」の表示付きで戻す。`architecture.md`7節・
+   「いまデモを見られません」の表示付きで戻す。`architecture.md`3節・
    `apps/app/test/root-route.test.ts`）、この検証環境で観測していた
    「バナーだけ出て遷移しない」症状は、couple.getの解決に失敗していたときの
    このバグそのものだった可能性が高い。**見てほしいのは「起きるか」「何回に

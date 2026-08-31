@@ -17,7 +17,7 @@ function RootNavigator() {
   // 実際に認証済みになったら意味を持たない（isAuthenticatedが優先）
   const [isGuestMode, setIsGuestMode] = useState(false);
   // デモの解決に失敗してサインイン画面へ戻された直後だけtrue。理由を1行
-  // 出すために使う（architecture.md 7節。Rレビュー指摘R-1・A決定）。
+  // 出すために使う（architecture.md 3節。Rレビュー指摘R-1・A決定）。
   // 次に「ゲストではじめる」を押したら消す
   const [demoUnavailable, setDemoUnavailable] = useState(false);
   const isDemoViewer = !isAuthenticated && isGuestMode;
@@ -86,7 +86,7 @@ function RootNavigator() {
             受けている間は、hasCouple・needsOnboarding・showAuthのどれも
             trueにならない一瞬が生じうる（再試行でじきに解消する）。
             ゲストの失敗はここに含まれない。showAuthのdemoFailedが別に
-            受け止め、サインイン画面へ理由付きで戻す（architecture.md 7節。
+            受け止め、サインイン画面へ理由付きで戻す（architecture.md 3節。
             「一瞬だけ起きる空表示」という説明は認証済み利用者の話であり、
             ゲストには当てはまらない。A決定） */}
       </Stack>

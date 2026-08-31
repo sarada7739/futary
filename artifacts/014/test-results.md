@@ -96,15 +96,24 @@ PR #165はRから2件の要修正（R-1・R-2）と1件の軽微な指摘（R-3�
 
 `hasCouple`・`needsOnboarding`・`(auth)`のguardのどれもtrueにならない状態が作れた
 （デモペアが解決できないゲスト。本番ではデプロイ直後〜016のシード投入までの間に必ず起きる）。
-Aが`architecture.md`7節に「ルーティングは、必ずどれか1つが真になる」を新設。
+Aが`architecture.md`（当時7節。のちに3節「ルーティングと画面遷移」へナビゲーション関連の
+4規則がまとめて移動）に「ルーティングは、必ずどれか1つが真になる」を新設。
 
 - ガード判定を`apps/app/lib/root-route.ts`の純関数`resolveRootRoute`に切り出した
 - `demoFailed`（ゲスト閲覧中にcouple.getが失敗）を新設し、`showAuth`に含めてサインイン画面へ落とす
 - サインイン画面に「いまデモを見られません」の1行を表示する（`GuestModeContext`に`demoUnavailable`を追加）
-- 状態の組み合わせを列挙し、非認証系（ゲスト含む）は必ずどれか1つのguardが真になることをテストで固定した（`apps/app/test/root-route.test.ts`）。認証済み利用者がcouple.getで
-  NEEDS_ONBOARDING以外のエラーを受けている間だけは、014の対象外の既知の
-  ギャップとして残る（再試行でじきに解消する一時的な状態。ゲストのdemoFailedとは別物）ことも
-  テストで明示した
+- 最初は非認証系（ゲスト含む）のケースだけを手で並べてテストしたが、Aから
+  「認証済み側の組み合わせが規則の言う『状態の組み合わせを列挙して』を
+  満たしていない」と指摘され、直後にRからも同じ理由で総当たり方式を提案された。
+  `isAuthenticated`×`isDemoViewer`×`isCoupleLoading`×`hasCoupleData`×
+  `isNeedsOnboardingError`の2^5=32通りを総当たりし、呼び出し側の構成上
+  ありえない組み合わせ（`isAuthenticated && isDemoViewer`）と、呼び出し側の
+  早期returnが拾う`isCoupleLoading=true`を除いた到達可能な12通りすべてで、
+  guardがちょうど1つだけ真になることを固定した（`apps/app/test/root-route.test.ts`）。
+  認証済み利用者がcouple.getでNEEDS_ONBOARDING以外のエラーを受けている
+  1通りだけは、014の対象外の既知のギャップとして残る（再試行でじきに解消する
+  一時的な状態。ゲストのdemoFailedとは別物）ことをテストで固定し、
+  ギャップがちょうど1通りであることも合わせて検証した
 - ローカルD1で`demo-couple`を削除しcouple.get失敗を再現し、サインイン画面へ「いまデモを
   見られません」付きで戻ることを確認した
 
@@ -113,8 +122,10 @@ Aが`architecture.md`7節に「ルーティングは、必ずどれか1つが真
 Rが実測: 違反行がある状態で0013を当てると失敗し`__new_events`が残る。是正のUPDATEだけ
 実行して再実行すると、今度は`table __new_events already exists`で別のエラーになる。
 マイグレーションファイル冒頭のコメントに`DROP TABLE IF EXISTS __new_events;`を
-是正手順の先頭へ追加した。Aが`architecture.md`4節に「表の作り直しが失敗すると
-`__new_<表名>`が残る」を新設。
+是正手順の先頭へ追加した。Aが`architecture.md`5節に「表の作り直しが失敗すると
+`__new_<表名>`が残る」を新設（PR #166のメッセージでは「4節」とあったが、
+実際のファイルではAPI節〈5節〉のschema-integrity.test.tsの節に入っている。
+念のため直接確認した上で引用）。
 
 ### R-3（軽微）ユーザー削除だけがcouple_idスコープ・is_demoの検査対象外だった
 
