@@ -4,9 +4,18 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-08-31 / セッションB（futary-f2）。**016（仕上げと公開）、
-本番デプロイ完了。デプロイ後の実機確認で新たな脆弱性（T9）を発見・
-Aの決定で構造的に修正し、PR #174としてRレビュー中。M4完了目前だが
-このPRのマージが先。**
+本番デプロイ完了。デプロイ後の実機確認で見つかった2件の不具合
+（リダイレクト先バグ・T9）はPR #174としてRレビュー2往復（R-1: me.getの
+対策漏れ／R-2: enforcementテストの検証粒度）を経て「受け入れます」を得た。
+その後Aの独立したT9文書化（PR #175）と競合したため、`docs/architecture.md`・
+`docs/security-requirements.md`・`docs/tasks/016-release.md`・
+`docs/worklog.md`の4本をmain取り込み後に内容を読んで解決し（R指示。
+再レビューは不要）、CI green（apps/app 159件・apps/api 303件・型チェック・
+lint全て通過）を確認してPR #174をsquash mergeでmainへ統合済み。
+**修正内容はmainに入ったが、まだ本番へはデプロイされていない**
+（`.github/workflows/deploy.yml`がmainへのpushで自動起動するため、
+人間がGitHub Environment「production」のRequired reviewers承認を
+行うまでデプロイは完了しない）。M4完了目前だがこのデプロイ完了確認が先。
 
 ## 016デプロイ後に見つけた問題と対処（人間への報告用）
 
@@ -32,11 +41,14 @@ Aの決定で構造的に修正し、PR #174としてRレビュー中。M4完了
    タイミングに依存し窓を閉じきれず、Aが構造的な修正（queryKeyに
    閲覧者識別子を含める）を決定した
 
-**対処**: 2件ともPR #174で修正済み・Rレビュー中（`docs/security-report.md`・
-`docs/architecture.md` 5節・`docs/security-requirements.md`のT9に詳細記録）。
-現時点では**本番にはまだ両方のバグが残っている**（PR未マージ）。
-共有端末で「ログアウトしてすぐ他の人に渡す」使い方は、このPRがマージ
-されるまで避けてほしい（自分一人で使う分には実害なし）。
+**対処**: 2件ともPR #174で修正し、Rの受け入れを得てmainへマージ済み
+（`docs/security-report.md`・`docs/architecture.md` 5節・
+`docs/security-requirements.md`のT9に詳細記録）。
+**mainには入ったが、本番デプロイはまだ完了していない**（GitHub
+Environment「production」のRequired reviewers承認待ち）。デプロイ完了
+までは、共有端末で「ログアウトしてすぐ他の人に渡す」使い方は避けて
+ほしい（自分一人で使う分には実害なし）。デプロイ完了後にこの節を
+更新すること。
 
 人間がRequired reviewers設定（GitHub production環境）・リポジトリのPublic化
 （当初予定の「全体監査後」から前倒し。理由: Required reviewersは無料プランの

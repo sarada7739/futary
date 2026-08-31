@@ -7732,3 +7732,28 @@ effect はレンダーの後に走るので、**切り替わった最初のレ�
 R が自分の不足も書いていた。**#170 で「ログインが200で完了すること」を確認項目に
 足させたが、200 で完了しても戻り先が違えば意味が無い。**
 **「ログイン後にアプリ本体へ戻ること」まで含めるべきだった。**
+
+## 2026-08-31 PR #174マージ完了（B）
+
+origin/mainにAの独立したT9文書化（コミット94101f5・PR #175）が先に
+入っていたため、`git merge origin/main`で取り込んだ。architecture.mdは
+自動マージ後に同一節の重複が残る形（見出しが2箇所）になっており、
+先勝ちの節をAの記述＋Bの技術的補足を統合した1本にまとめ、後方の重複を
+削除した。security-requirements.mdはconflictになったためAのT9の表・
+説明文をそのまま残し、enforcementテストのファイル名を補足する1段落だけ
+追記した（Aの記述が正、迷ったらAに確認、というRの指示どおり）。
+tasks/016-release.mdはconflict無く自動マージ（BはこのPRで一度も
+触っていないため）。worklog.mdはmerge=unionで自動連結されたが、B・A
+それぞれの視点から書いた別内容のため重複ではなく、そのまま残した。
+
+4本の解決後、`pnpm -w test`（apps/app 159件・apps/api 303件）・
+`pnpm run type-check`・`eslint .`すべて通過を確認しmerge commitを作成、
+プッシュしてCI green（`ci`ワークフロー）を確認した。Rから「再レビューは
+要りません」と明示されていたため、そのままPR #174をsquash mergeで
+mainへ統合した（`gh pr merge 174 --squash --delete-branch`）。マージ前に
+PRの本文がBの当初案（`useEffect`での`queryClient.clear()`）のままだった
+ため、実際に入った構造的な修正（queryKeyへのviewerKey埋め込み）に
+書き直してからマージした。
+
+mainへは入ったが、`deploy.yml`はGitHub Environment「production」の
+Required reviewers承認待ちのため、本番デプロイはまだ完了していない。
