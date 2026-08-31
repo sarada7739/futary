@@ -7810,4 +7810,37 @@ WebSocketが頻繁に切断・再接続する（`Disconnected from Metro (1006)`
 デバッグ用のコード（`console.log`・`window.__debug*`）はすべて削除して
 コミットした。`pnpm -w test`（apps/app 159件・apps/api 303件）・
 `pnpm run type-check`・`eslint .`すべて通過。
-`fix/guest-mode-stuck-loading`としてRレビュー依頼予定。
+`fix/guest-mode-stuck-loading`としてPR #177を作成し、Rへレビュー依頼した。
+
+## 2026-09-01 PR #177 Rレビュー対応（R-1・R-2）（B）
+
+**R-1（「なぜ/composeだったか」が未確認という指摘）**: `compose`は`(tabs)`と
+同じ`Stack.Protected guard={hasCouple}`の下にある兄弟スクリーンで、
+コメントには「Stack.Protectedが既定画面へ自然に導く（実測で確認済み）」と
+書いていたが、2回の手動確認だけでは「今回はたまたま正しく転んだ」なのか
+「構造がそう決めている」のかを区別できていなかった、という指摘。実際に
+切り分けた: ブラウザの`history.pushState`で意図的にURLを`/app/compose`へ
+書き換えてから（アプリ内部のナビゲータ状態は書き換えていない状態）
+「ゲストではじめる」を押しても、結果は`/app/`（`(tabs)`）に着地することを
+確認した。これは、guardが新規に有効化される瞬間の画面決定が、ブラウザの
+生URLではなく、React Navigation自身が保持する内部状態（「直前に見ていた
+画面」の記憶）と、guard配下でのスクリーン宣言順（`(tabs)`が`compose`より
+先）によって決まっていることを示す。`enterGuestMode`はURLを一切書き換え
+ないため（router.replace等を呼ばない）、内部状態は常に「サインイン画面
+にいた」ままであり、`(tabs)`・`compose`のどちらにも一致しない→宣言順の
+先頭である`(tabs)`が選ばれる、という経路が毎回再現する。コメントを
+この実測内容に更新した。
+
+**R-2（回帰テストが無いという指摘）**: `apps/app/test/root-navigator-guest-resolves.test.tsx`
+を新設した。`expo-router`の`Stack`・`Stack.Protected`・`Stack.Screen`を
+最小限のダミーに差し替え（テスト環境ではファイルベースの実ルーティングが
+解決できないため）、`couple.get`を手動で解決タイミングを制御できる
+モックにして、「識別がゲストへ変わった後、couple.getの解決が遅れても
+最終的に決着する（`fetchStatus:"fetching"`のまま止まらない）」ことを
+固定した。conventions.md 6節の原則どおり、このテストが実際に**旧コード
+（`queryClient.clear()`を復元した状態）で失敗すること**を先に確認して
+から（`読み込み中…`のまま`waitFor`がタイムアウトすることを実測）、
+新コードに戻して緑になることを確認した。
+
+両方の指摘に対応後、`pnpm -w test`（apps/app 160件・apps/api 303件）・
+`pnpm run type-check`・`eslint .`すべて再度通過を確認しPR #177へpush。

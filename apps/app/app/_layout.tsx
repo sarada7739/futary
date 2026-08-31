@@ -119,10 +119,22 @@ function RootNavigator() {
         isGuestMode: isDemoViewer,
         // 押した時点のURLは"/sign-in"のまま変わらないが、明示的にnavigateしなくても
         // guardがhasCouple:trueへ切り替わればStack.Protectedがその配下（(tabs)グループ）の
-        // 既定画面へ自然に導く（実測で確認済み。Stackを常にマウントしたままにして
-        // いるため。下のStackコメント参照）。明示的なnavigateを増やすほど
-        // expo-routerの内部状態とURLの整合を自分で管理する箇所が増えるため、
-        // 自然に導かれる形に任せられるならそちらを選ぶ
+        // 既定画面（(tabs)。compose ではない）へ自然に導く。
+        //
+        // 【Rレビュー指摘R-1】これが「たまたま」ではなく構造的に決まって
+        // いることを、ブラウザの`history.pushState`でURLだけを強制的に
+        // "/app/compose"へ書き換えてから（expo-router内部のナビゲータ状態は
+        // 書き換わらない）本ボタンを押す実験で確認した。結果は毎回"/app/"
+        // （(tabs)）だった。guardが新規に有効化される瞬間の画面決定は、
+        // ブラウザの生URLではなくexpo-router自身が保持する内部状態
+        // （直前にいた画面。ここでは常に"サインイン画面"のまま——URLを
+        // 書き換えないため）と、guard配下でのスクリーン宣言順に従う。
+        // "(tabs)"は"compose"よりJSX上で先に宣言されているため、
+        // どちらにも一致しない内部状態からは常に"(tabs)"が選ばれる。
+        // Stackを常にマウントしたままにしていることが前提（下のStack
+        // コメント参照）。明示的なnavigateを増やすほどexpo-routerの
+        // 内部状態とURLの整合を自分で管理する箇所が増えるため、自然に
+        // 導かれる形に任せられるならそちらを選ぶ
         enterGuestMode: () => {
           setDemoUnavailable(false);
           setIsGuestMode(true);
