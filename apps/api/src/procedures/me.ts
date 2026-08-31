@@ -136,7 +136,15 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
     // 参照）ため、D1の削除より前でも後でも構わない。ここでは先に済ませ、
     // R2側で失敗した場合にD1側の状態を一切変えずに再実行できるようにする。
     // プロフィール画像は2人分（相手の分も含む。Candle型でペアのデータごと
-    // 消えるため）
+    // 消えるため）。
+    // 【Rレビュー指摘】この順序の代償: R2が先に成功し、直後のbatch()が
+    // 失敗すると、image_keyが非NULLのまま実体が無い状態が残る窓ができる
+    // （me.ts冒頭の不変条件が一時的に破れる。相手のuser.imageをNULLに
+    // 戻したのと同じ種類の問題が、ペアの全投稿について起こりうる）。
+    // 再実行すれば同じprefixのDELETEが再度冪等に走り解消するが、その間は
+    // 両者の画面で写真が壊れて見える。逆向き（D1を先に）にすると孤児
+    // オブジェクトが誰からも辿れなくなる（couple_idが引けなくなるため）
+    // ため、回復可能な側に倒すこの順序を維持する
     await deleteAllByPrefix(bucket, `couples/${coupleId}/posts/`);
     for (const memberId of memberUserIds) {
       await deleteAllByPrefix(bucket, `users/${memberId}/profile/`);
@@ -159,8 +167,14 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
 
     // 【security-auditor指摘】上のbatch()実行中というごく短い窓に新しい
     // 画像がPUTされた場合に備え、D1側が確定した後にもう一度R2を掃除する。
-    // 空振り（対象0件）なら何もしない。この後にPUTされる分はbatch()側で
-    // 対象の行が既に無いため、そもそも到達しない
+    // 空振り（対象0件）なら何もしない。
+    // 【Rレビュー指摘】「この後にPUTされる分は到達しない」と書いていたが
+    // 誤り。到達しないのは行（postsのINSERT）であって、実体（R2オブジェクト）
+    // ではない。createPutUrlが返す署名付きURLは5分有効で、PUTはクライアント
+    // からR2へ直接行きD1を一度も通らないため、削除の直前にme.uploadImageUrlを
+    // 叩いていれば、この2回目の掃除のあともオブジェクトを置ける。実害は
+    // 孤児オブジェクト（容量）だけで開示にはならないため、この窓自体は
+    // 塞がず受け入れる
     await deleteAllByPrefix(bucket, `couples/${coupleId}/posts/`);
     for (const memberId of memberUserIds) {
       await deleteAllByPrefix(bucket, `users/${memberId}/profile/`);
