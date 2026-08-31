@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
 import { PostCard } from "../../components/post-card";
 import { useSession } from "../../lib/auth-client";
+import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { POST_LIST_REFETCH_INTERVAL_MS, queryClient } from "../../lib/query";
 import { toggleReactionOptimistically } from "../../lib/reaction";
@@ -17,6 +18,7 @@ export default function TimelineScreen() {
   const router = useRouter();
   const { data: session } = useSession();
   const myId = session?.user.id;
+  const { isGuestMode, exitGuestMode } = useGuestMode();
 
   const query = useInfiniteQuery(
     orpc.post.list.infiniteOptions({
@@ -130,8 +132,11 @@ export default function TimelineScreen() {
       ListEmptyComponent={
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md }}>
           <Text color="muted">まだ投稿がありません</Text>
-          <Button variant="secondary" onPress={() => router.push("/compose")}>
-            最初の思い出を残そう
+          <Button
+            variant="secondary"
+            onPress={() => (isGuestMode ? exitGuestMode() : router.push("/compose"))}
+          >
+            {isGuestMode ? "ログインして投稿する" : "最初の思い出を残そう"}
           </Button>
         </View>
       }

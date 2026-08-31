@@ -60,6 +60,7 @@ vi.mock("../lib/orpc", async () => {
 
 const { default: ProfileScreen } = await import("../app/(tabs)/profile");
 const { queryClient } = await import("../lib/query");
+const { GuestModeContext } = await import("../lib/guest-mode");
 
 function makeMe(overrides: Partial<Record<string, unknown>> = {}) {
   return { id: "me", name: "自分", email: "me@example.com", image: null, ...overrides };
@@ -87,6 +88,16 @@ function renderScreen() {
   return render(
     <QueryClientProvider client={queryClient}>
       <ProfileScreen />
+    </QueryClientProvider>,
+  );
+}
+
+function renderScreenAsGuest(exitGuestMode: () => void) {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <GuestModeContext.Provider value={{ isGuestMode: true, enterGuestMode: () => {}, exitGuestMode, demoUnavailable: false }}>
+        <ProfileScreen />
+      </GuestModeContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -311,5 +322,22 @@ describe("ProfileScreen: datingDateが未設定（023）", () => {
         expect.anything(),
       ),
     );
+  });
+});
+
+// 014: デモ閲覧中は「自分」が存在しない（me.getがnullを返す）ため、
+// 編集フォームを出さずログインを促す
+describe("014: デモ閲覧中はプロフィール編集フォームの代わりにログイン導線が出る", () => {
+  it("名前入力欄が無く、ログインボタンを押すとexitGuestModeが呼ばれる", async () => {
+    meGetMock.mockResolvedValue(null);
+    const exitGuestMode = vi.fn();
+    renderScreenAsGuest(exitGuestMode);
+
+    expect(await screen.findByText("マイページはログインすると使えます")).toBeTruthy();
+    expect(screen.queryByTestId("profile-name")).toBeNull();
+    expect(screen.queryByTestId("profile-save")).toBeNull();
+
+    fireEvent.click(screen.getByText("ログイン"));
+    expect(exitGuestMode).toHaveBeenCalledTimes(1);
   });
 });
