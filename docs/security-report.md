@@ -294,3 +294,38 @@ Metro経由の開発時依存）をGitHub Advisory APIで再評価した。両�
 `esbuild`（drizzle-kit経由、moderate、修正版あり`>=0.25.0`）・`uuid`（expo経由、
 moderate、修正版あり`>=11.1.1`）が出た。どちらも開発時・ビルド時依存で、
 CIのゲート（high以上）には該当しない。人間が読む記録として残す。
+
+---
+
+## [2026-08-31] T9 新設：クライアント側キャッシュ経由の他人データ開示（016デプロイ後の実機発見）
+
+対象: `apps/app/app/_layout.tsx`, `apps/app/app/(auth)/sign-in.tsx`,
+`apps/app/app/(tabs)/{profile,calendar,timeline,stats}.tsx`,
+`apps/app/components/{memory-card,stats-card}.tsx`,
+`apps/app/lib/viewer-key.ts`（新設）
+
+016のデプロイ後、人間が本番で「Googleログイン→ログアウト→ゲストモード→
+デモを見る、としたら自分の実アカウントに入ってしまった」と報告。
+画面録画のフレーム解析（`accounts.google.com`への遷移を確認）で、
+Google認証自体は正規に（既存の同意済みアカウントで一瞬で）完了していた
+ことをBが確認したが、Rのレビュー（PR #174）で、それとは別に本物の
+脆弱性が見つかった。
+
+| 重大度 | 内容 | 推奨対応 | 対応 |
+|---|---|---|---|
+| High | `couple.get`・`stats.get`・`memory.get`・`post.list`・`event.list`（coupleIdを引数に取らない設計。`architecture.md` 5節）は、TanStack Queryのキャッシュキーが「誰が呼んだか」を区別しない。リロード無しで本物のログイン⇄ゲスト⇄未認証を切り替えると、直前の別人のキャッシュ（データまたはエラー）が新しい識別の画面に一瞬そのまま出る。共有端末では実質的な情報漏洩になる（人間が報告した症状そのものを、この経路でも説明できる） | queryKeyに閲覧者の識別子を含める構造的な対策（タイミングで縮めない） | **対応済み**。`apps/app/lib/viewer-key.ts`の`useViewerQueryKey`を上記5つの問い合わせ全てのqueryKeyに追加。`apps/app/test/viewer-key-coverage.test.ts`が、apps/api側の実際の定義（`readProcedure`を使う手続き）を読み取ってから対応する呼び出し箇所を機械的に確認する形で固定。誤検知しないこと・不備を実際に検知できることの両方を実測した |
+
+**Bの最初の対応（`useEffect`での`queryClient.clear()`）は不十分だった。**
+`useEffect`はレンダーの後に走るため、識別が変わった最初のレンダーには
+間に合わず、前の識別のキャッシュのまま一度描画される（Rレビュー指摘）。
+Aが構造的な修正（キーに識別を含める）を決定し、PR #174を作り直した。
+
+**性質の整理**: 「自分の実アカウントなので抜け穴ではない」は、同じ人が
+使っている間だけ成り立つ。ログアウトして端末を人に渡し、その人が
+「ゲストではじめる」を押すと前の人のペアのデータが出る。共有端末では
+開示である。
+
+T1〜T8は016の全体セキュリティ監査（本ファイル該当エントリ）で確認済み
+だったが、T9（クライアントのキャッシュ）はその監査の対象に入っていな
+かった。`docs/security-requirements.md` 9節にT9として新設し、
+「T1〜T8確認済み・T9は今回の対応のみで独立監査は未実施」と書き分けた。

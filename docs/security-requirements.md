@@ -173,6 +173,15 @@ T4（デモ経路からの本番データ漏洩）そのものであり、
 | T6 | 秘密情報のリポジトリ混入 | `.dev.vars` を `.gitignore`。CI で gitleaks を実行（下記） |
 | T7 | 依存ライブラリの既知脆弱性 | CI で `pnpm audit`。Dependabot を有効化（下記） |
 | T8 | セッション奪取 | `HttpOnly` / `Secure` / `SameSite`、SecureStore |
+| T9 | クライアント側キャッシュ経由の他人データ開示 | `couple.get`等5つの問い合わせのqueryKeyに閲覧者識別子を含める（`architecture.md` 5節「問い合わせキャッシュのキーに『誰であるか』を含める」） |
+
+**T9は016のデプロイ後、実機で発見された。**T1〜T8はサーバ側か通信路の
+話で、016の全体セキュリティ監査（`docs/security-report.md`）で確認済み
+だが、**T9（クライアントのキャッシュ）はその監査の対象に入っていなかった。**
+後から足した脅威を、確認済みの数に混ぜない——T9の対策は
+`apps/app/test/viewer-key-coverage.test.ts`で機械的に固定されている
+ことをもって「対策あり」とするが、T1〜T8のように独立監査（security-auditor）
+を通していない。次にセキュリティ監査を行うときはT9も対象に含めること。
 
 ### CI の合否基準
 

@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
 import { daysTogetherLabel } from "../../lib/stats";
 import { orpc } from "../../lib/orpc";
+import { useViewerQueryKey } from "../../lib/viewer-key";
 
 function StatRow({ label, value }: { label: string; value: string }) {
   return (
@@ -23,7 +24,12 @@ function StatRow({ label, value }: { label: string; value: string }) {
 // 記念日カードとも揃える。docs/tasks/023-anniversary-optional.md 4節）
 export default function StatsScreen() {
   const router = useRouter();
-  const query = useQuery(orpc.stats.get.queryOptions());
+  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  const viewerKey = useViewerQueryKey();
+  const query = useQuery({
+    ...orpc.stats.get.queryOptions(),
+    queryKey: [...orpc.stats.get.queryOptions().queryKey, viewerKey],
+  });
 
   if (query.isError) {
     return (

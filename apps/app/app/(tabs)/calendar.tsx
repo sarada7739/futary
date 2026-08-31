@@ -13,6 +13,7 @@ import { formatEventTimeRange } from "../../lib/event-time";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
+import { useViewerQueryKey } from "../../lib/viewer-key";
 
 type FormState = { mode: "create" | "edit"; date: string; event?: Event };
 
@@ -86,7 +87,10 @@ export default function CalendarScreen() {
 
   const range = useMemo(() => monthGridRange(year, month), [year, month]);
 
-  const query = useQuery(orpc.event.list.queryOptions({ input: range }));
+  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  const viewerKey = useViewerQueryKey();
+  const eventListOptions = orpc.event.list.queryOptions({ input: range });
+  const query = useQuery({ ...eventListOptions, queryKey: [...eventListOptions.queryKey, viewerKey] });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: orpc.event.list.key() });
   const createEvent = useMutation(orpc.event.create.mutationOptions({ onSuccess: invalidate }));

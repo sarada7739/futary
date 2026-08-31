@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { daysTogetherLabel } from "../lib/stats";
 import { orpc } from "../lib/orpc";
+import { useViewerQueryKey } from "../lib/viewer-key";
 
 const AVATAR_SIZE = 56;
 
@@ -52,7 +53,12 @@ function MemberAvatar({ member }: { member?: Member }) {
 
 export function StatsCard() {
   const router = useRouter();
-  const query = useQuery(orpc.stats.get.queryOptions());
+  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  const viewerKey = useViewerQueryKey();
+  const query = useQuery({
+    ...orpc.stats.get.queryOptions(),
+    queryKey: [...orpc.stats.get.queryOptions().queryKey, viewerKey],
+  });
 
   // 016: 以前は通信エラー時にカード自体を消していたが、それだと利用者に
   // 何も知らされないまま統計情報だけが欠ける（security-auditor全体監査・
