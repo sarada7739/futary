@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isDefinedError } from "@orpc/client";
 import { Button, Screen, Text, space } from "@futary/ui";
 import { View } from "react-native";
@@ -54,6 +54,26 @@ function RootNavigator() {
       setDemoUnavailable(true);
     }
   }, [demoFailed]);
+
+  // 016で発見: couple.get・me.get・stats.get等は引数を取らないため、
+  // TanStack Queryのキャッシュキーが「誰が呼んだか」を区別しない。ページを
+  // リロードせずに本物のログイン⇄ゲスト⇄未認証を切り替えると、直前の
+  // 別人（前のログインユーザー、前回失敗したゲスト試行等）のキャッシュ
+  // （データまたはエラー）が一瞬そのまま使われてしまう。特に`isLoading`は
+  // キャッシュがあると「読み込み中」を返さないため、まだ正しいデータが
+  // 届く前に古い失敗結果で`demoFailed`が誤って真になり、ゲストの記録が
+  // 見られないまま弾かれる不具合が実機で発生した（サインイン画面に
+  // デモバナーとログインボタン群が同時に出る、という形で観測された）。
+  // 「誰であるか」が変わった瞬間にキャッシュを丸ごと破棄し、常に新しい
+  // 識別で取り直させる
+  const identity = isAuthenticated ? "auth" : isDemoViewer ? "guest" : "anon";
+  const previousIdentityRef = useRef(identity);
+  useEffect(() => {
+    if (previousIdentityRef.current !== identity) {
+      queryClient.clear();
+      previousIdentityRef.current = identity;
+    }
+  }, [identity]);
 
   if (isSessionPending || ((isAuthenticated || isDemoViewer) && isCoupleLoading)) {
     // 通常は一瞬で終わるためスピナーを出すほどではないが、何も表示しないと
