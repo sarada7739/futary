@@ -50,6 +50,10 @@ function queryRemoteCount(sql) {
   if (!Array.isArray(rows) || rows.length !== 1) {
     throw new Error(`resultsが想定外の形式です（ちょうど1行を期待）: ${JSON.stringify(parsed[0]).slice(0, 200)}`);
   }
+  // `count: null`はNumber(null)===0でNumber.isFiniteを通過するため素通しする。
+  // COUNT(*)がnullを返すことは無いため現状は到達しないが、この関数を
+  // 将来MAX()/SUM()を使う条件に再利用したときはnullが返りうる
+  // （Rレビュー指摘。再利用時はrows[0].count === nullを弾く一行を足すこと）
   const count = Number(rows[0]?.count);
   if (!Number.isFinite(count)) {
     throw new Error(`count列を数値として読み取れません: ${JSON.stringify(rows[0])}`);
