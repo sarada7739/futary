@@ -13,7 +13,10 @@ const inviteCodeSchema = z
     message: "使用できない文字が含まれています",
   });
 
-// invite.issue: 自分のペアの招待コードを新規発行する（既存の未使用コードは無効化される）
+// invite.issue: 自分のペアの招待コードを新規発行する（既存の未使用コードは無効化される）。
+// FORBIDDENは未認証（writeProcedureのreadonly判定）と、ペアが既に2人揃っている場合の
+// 両方で返る（025タスク定義）。理由を分けて返すと外部から状態を判別できてしまう
+// 種類のものではないため一本化している
 export const inviteIssueContract = oc
   .output(z.object({ code: z.string(), expiresAt: z.number() }))
   .errors({
