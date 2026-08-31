@@ -10,6 +10,7 @@ import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
 import { signOut } from "../../lib/auth-client";
+import { useViewerQueryKey } from "../../lib/viewer-key";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_NAME_LENGTH = 20;
@@ -26,8 +27,23 @@ const PRIMARY_DATE_LABELS: Record<PrimaryDate, string> = {
 
 export default function ProfileScreen() {
   const { isGuestMode, exitGuestMode } = useGuestMode();
-  const meQuery = useQuery(orpc.me.get.queryOptions());
-  const coupleQuery = useQuery(orpc.couple.get.queryOptions());
+  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）。
+  // この画面はguestMode中もフックだけは実行される（早期returnより後で
+  // couple.get/me.getを使うため）ため、両方に同じ対策が要る。
+  // me.getはreadProcedureを使わない（005の認可基底の唯一の例外。
+  // apps/api/src/router.ts）が、名前・メールアドレス・アイコン画像という
+  // 利用者ごとのデータを返すため、couple.get等5つと同じ理由でT9の対象
+  // （Rレビュー指摘: 走査ロジックがreadProcedureだけを見るため、この1本は
+  // 網羅テストに構造的に映らない。抜けたまま気づけなかった）
+  const viewerKey = useViewerQueryKey();
+  const meQuery = useQuery({
+    ...orpc.me.get.queryOptions(),
+    queryKey: [...orpc.me.get.queryOptions().queryKey, viewerKey],
+  });
+  const coupleQuery = useQuery({
+    ...orpc.couple.get.queryOptions(),
+    queryKey: [...orpc.couple.get.queryOptions().queryKey, viewerKey],
+  });
 
   const [name, setName] = useState("");
   // 選び直した画像はここに置き、保存を押すまでアップロードしない

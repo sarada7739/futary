@@ -21,6 +21,12 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
+// useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由で
+// useSessionを参照するためモックする
+vi.mock("../lib/auth-client", () => ({
+  useSession: () => ({ data: null }),
+}));
+
 const { StatsCard } = await import("../components/stats-card");
 const { queryClient } = await import("../lib/query");
 

@@ -9,6 +9,7 @@ import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { POST_LIST_REFETCH_INTERVAL_MS, queryClient } from "../../lib/query";
 import { toggleReactionOptimistically } from "../../lib/reaction";
+import { useViewerQueryKey } from "../../lib/viewer-key";
 
 type PostListPage = { items: Post[]; nextCursor: string | null };
 
@@ -20,15 +21,21 @@ export default function TimelineScreen() {
   const myId = session?.user.id;
   const { isGuestMode, exitGuestMode } = useGuestMode();
 
-  const query = useInfiniteQuery(
-    orpc.post.list.infiniteOptions({
-      input: (cursor: string | undefined) => ({ cursor }),
-      initialPageParam: undefined as string | undefined,
-      getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-      // ADR-008: 画面前面にある間だけ更新する（背景では focusManager が止める。lib/query.ts）
-      refetchInterval: POST_LIST_REFETCH_INTERVAL_MS,
-    }),
-  );
+  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）。
+  // orpc.post.list.key()を使う下のinvalidateQueries/setQueriesData等は
+  // 部分一致（前方一致）で効くため、末尾にviewerKeyを追加しても壊れない
+  const viewerKey = useViewerQueryKey();
+  const postListOptions = orpc.post.list.infiniteOptions({
+    input: (cursor: string | undefined) => ({ cursor }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    // ADR-008: 画面前面にある間だけ更新する（背景では focusManager が止める。lib/query.ts）
+    refetchInterval: POST_LIST_REFETCH_INTERVAL_MS,
+  });
+  const query = useInfiniteQuery({
+    ...postListOptions,
+    queryKey: [...postListOptions.queryKey, viewerKey],
+  });
 
   const deletePost = useMutation(
     orpc.post.delete.mutationOptions({

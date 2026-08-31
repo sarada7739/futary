@@ -7614,6 +7614,81 @@ Browser paneのモバイルビューポートエミュレーション下でク�
 伴う投稿作成・R2バケットの非公開確認・`main`ブランチ保護・iPhone Safari
 実機確認（022の残り）で、いずれも人間の手が要る。
 
+## 2026-08-31 016デプロイ後: T9発見・PR #174構造的修正（A決定）
+
+本番デプロイ後、人間が本番で実機確認中に「Googleログイン→ログアウト→
+ゲストモード→デモを見る、としたら自分の実アカウントに入ってしまった」と
+報告。動画（ScreenRecording_08312026_220218_1.MP4）をffmpegでフレーム
+抽出し解析した結果、`accounts.google.com`への遷移が実際に写っており、
+Google認証自体は正規に（既存の同意済みアカウントで一瞬で）完了していた
+ことを確認した。原因は`resolveCallbackURL()`が015のランディングページ
+分離後もドメインのルートを返す旧仕様のままだったこと（軽微、実害なし）
+と特定し、`${origin}/app/`を返すよう修正してPR #174を作成した。
+
+RレビューでPR #174は差し戻された。`useEffect`でのキャッシュクリア対策は
+レンダー後に走るため、識別が変わった最初のレンダーには間に合わず、
+前の識別のキャッシュのまま一度描画される、という指摘だった。しかも
+これは人間が報告した症状（ゲストにしたら実アカウントのデータが見える）
+そのものを説明でき、共有端末では実質的な情報漏洩になる。「原因が2つ
+あって、片方を検証して報告をそちらに帰属させた形」（#170のR-2と同じ形）
+という指摘を受けた。
+
+RとAの両方に状況を送り、Aが「Rの案を採る」と設計判断した。
+`couple.get`・`stats.get`・`memory.get`・`post.list`・`event.list`
+（apps/api/src/procedures/でreadProcedureを使う5手続き全て）の
+queryKeyに閲覧者識別子（`apps/app/lib/viewer-key.ts`の
+`useViewerQueryKey`）を含める構造的な修正に置き換えた。
+`queryClient.clear()`は残したが「正しさ」ではなく「容量のため」という
+位置づけに変更した。
+
+Aの指示どおり、手で一覧を維持するのではなく定義を走査する形で
+enforcementテスト（`apps/app/test/viewer-key-coverage.test.ts`）を
+新設した。apps/api側の実際の定義（readProcedureを使う手続き）を
+読み取ってから、apps/app側の対応する呼び出し箇所がviewerKeyを参照して
+いるかを機械的に確認する。検出ロジックが5件を正しく検出すること、
+実際に1箇所（stats-card.tsx）からviewerKeyという識別子を一時的に
+sedで置換して取り除き、テストが正しく検知して落ちることを確認してから
+元に戻した（旧コードで落ちることを確かめてから足す、というPR #160の
+教訓どおり）。
+
+副作用として、viewer-key.tsがauth-client.ts経由でuseSessionを参照する
+ため、これまでauth-client.tsを一切importしていなかった画面
+（calendar.tsx・stats-card.tsx・memory-card.tsx等）を使う7つのテスト
+ファイルが、本物のauth-client.ts（expo-secure-store等を含む）を
+ロードしてjsdom環境でクラッシュするようになった。他のexpoパッケージと
+同じ理由でvi.mock("../lib/auth-client", ...)を追加して対応した。
+
+docs/architecture.md 5節に設計判断を、docs/security-requirements.md
+9節にT9を新設し「T1〜T8は016で確認済み、T9は今回の対応のみで独立監査は
+未実施」と書き分けて記録、docs/security-report.mdに経緯を記録した。
+
+pnpm -w test（apps/app 158件・apps/api 303件）・type-check・lint全て
+通過を確認し、PR #174を作り直してプッシュ、Rへ再レビューを依頼した。
+現時点で本番にはまだ両方のバグ（リダイレクト先・T9）が残っている
+（PR未マージ）。人間には、PRマージまで「ログアウトしてすぐ端末を
+他の人に渡す」使い方を避けるよう伝えた。
+
+## 2026-08-31 PR #174: R-1(me.get漏れ)・R-2(検証粒度)対応
+
+Rから2件の追加指摘を受けた。R-1: `me.get`（名前・メールアドレス・
+アイコン画像を返す）にviewerKeyが付いていなかった。`me.get`は
+`readProcedure`を使わない認可基底の唯一の例外（`health.get`と並ぶ。
+`ALLOWED_WITHOUT_BASE`）のため、`readProcedure`だけを走査する
+enforcementテストの構造上、機械的に検出できなかった。profile.tsxの
+meQueryにviewerKeyを追加し、`MANUALLY_INCLUDED_PROCEDURES`として
+テストに明示的に足した。
+
+R-2: enforcementテストの検証粒度が粗く、実測すると2段階で見逃す
+ことが分かった。ファイル全体チェックは、同じファイル内の別の呼び出し
+（profile.tsxのcouple.get）がviewerKeyを使っていれば、me.get側から
+丸ごと外しても検知できなかった（sedで再現して確認）。前後300文字の
+近傍チェックに直しても、`const viewerKey = ...`という共有の宣言1行が
+隣接する2つの呼び出しの両方から300文字圏内に入るため、まだ見逃した。
+前後100文字まで縮め、誤検知しないこと・不備を検知できることの両方を
+実測してから確定した。
+
+docs/architecture.md・docs/security-report.mdに記録し、PR #174へ
+コミット6199747をプッシュ、Rへ再レビューを依頼した。
 ## 2026-08-31 セッションA: T9（ログアウト後のクライアントキャッシュ残留）を新設した
 
 **人間が本番で踏んだ。**「Google ログイン → ログアウト → ゲストモード →

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isDefinedError } from "@orpc/client";
 import { Button, Screen, Text, space } from "@futary/ui";
 import { View } from "react-native";
@@ -10,6 +10,7 @@ import { GuestModeContext } from "../lib/guest-mode";
 import { orpc } from "../lib/orpc";
 import { queryClient } from "../lib/query";
 import { resolveRootRoute } from "../lib/root-route";
+import { useViewerQueryKeyFrom } from "../lib/viewer-key";
 
 function RootNavigator() {
   const { data: session, isPending: isSessionPending } = useSession();
@@ -24,7 +25,19 @@ function RootNavigator() {
   const isDemoViewer = !isAuthenticated && isGuestMode;
 
   // couple.get は未所属なら NEEDS_ONBOARDING を投げる（architecture.md 5節）。
-  // 未認証・非デモのときは呼ばない（enabled: isAuthenticated || isDemoViewer）
+  // 未認証・非デモのときは呼ばない（enabled: isAuthenticated || isDemoViewer）。
+  //
+  // queryKeyにviewerKeyを含める理由: couple.getはcoupleIdを引数に取らない
+  // ため、TanStack Queryのキャッシュキーだけでは「誰が呼んだか」を区別
+  // できない。リロード無しで本物のログイン⇄ゲスト⇄未認証を切り替えると、
+  // 直前の別人のキャッシュ（データまたはエラー）がそのまま画面に一瞬出る
+  // 不具合が実機で発生した（security-requirements.md T9。共有端末では
+  // 実質的な情報漏洩になる）。`useEffect`でのqueryClient.clear()は
+  // レンダー後に走るため、識別が変わった最初のレンダーには間に合わず
+  // 窓を閉じきれない（Rレビュー指摘・A決定）。識別をキー自体に含めることで、
+  // 識別が変わった時点で必ず別のキャッシュ枠（＝isLoading:trueから開始）
+  // になり、他人のキャッシュを読む経路自体を無くす
+  const viewerKey = useViewerQueryKeyFrom(isDemoViewer);
   const {
     data: couple,
     error: coupleError,
@@ -32,6 +45,7 @@ function RootNavigator() {
     refetch: refetchCouple,
   } = useQuery({
     ...orpc.couple.get.queryOptions(),
+    queryKey: [...orpc.couple.get.queryOptions().queryKey, viewerKey],
     enabled: isAuthenticated || isDemoViewer,
     retry: false,
   });
@@ -54,6 +68,23 @@ function RootNavigator() {
       setDemoUnavailable(true);
     }
   }, [demoFailed]);
+
+  // 【016でA決定・訂正】以前はこのeffectのqueryClient.clear()を
+  // 「正しさの担保」として書いていたが、それは誤りだった。useEffectは
+  // レンダー後に走るため、識別が変わった最初のレンダーには間に合わず、
+  // 前の識別のキャッシュのまま一度描画されてしまう（Rレビュー指摘）。
+  // 正しさは各問い合わせのqueryKeyにviewerKeyを含めることで担保する
+  // （apps/app/lib/viewer-key.ts）。ここで毎回クリアしているのは
+  // 純粋に容量のため——識別を切り替えるたびに前の識別のキャッシュ枠が
+  // ヒープに残り続けるのを防ぐ。無くても正しさは壊れない
+  const identity = isAuthenticated ? "auth" : isDemoViewer ? "guest" : "anon";
+  const previousIdentityRef = useRef(identity);
+  useEffect(() => {
+    if (previousIdentityRef.current !== identity) {
+      queryClient.clear();
+      previousIdentityRef.current = identity;
+    }
+  }, [identity]);
 
   if (isSessionPending || ((isAuthenticated || isDemoViewer) && isCoupleLoading)) {
     // 通常は一瞬で終わるためスピナーを出すほどではないが、何も表示しないと

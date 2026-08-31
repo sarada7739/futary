@@ -9,9 +9,17 @@ import { useGuestMode } from "../../lib/guest-mode";
 // 別ポートで動くため、"/" のような相対パスを渡すと apps/api 側の "/" に
 // リダイレクトされ 404 になる（apps/api は /api/* しか公開していない）。
 // Web は自身のオリジンへの絶対URLを渡す。本番は同一Workerから配信されるため、
-// この絶対URL化はローカル開発時のみ意味を持つ
+// この絶対URL化はローカル開発時のみ意味を持つ。
+//
+// 【016で発見・修正】以前は `window.location.origin`（末尾に /app/ を
+// 付けない、ドメインのルート）を返していた。015より前は「/」がアプリ本体
+// だったためこれで正しかったが、015でランディングページを「/」に、
+// アプリ本体を「/app/*」に分けたときにここを直し忘れていた
+// （実機確認で発覚: ログイン完了後、アプリではなくランディングページ
+// 〈「デモを見る」ボタンがある画面〉へ戻される）。ログイン後は必ず
+// アプリ本体へ戻すため、/app/ を明示的に付ける
 function resolveCallbackURL(): string {
-  if (Platform.OS === "web" && typeof window !== "undefined") return window.location.origin;
+  if (Platform.OS === "web" && typeof window !== "undefined") return `${window.location.origin}/app/`;
   return "/";
 }
 

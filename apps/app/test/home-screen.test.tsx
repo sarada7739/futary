@@ -19,6 +19,12 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
+// useViewerQueryKey（apps/app/lib/viewer-key.ts。stats-card.tsx経由）が
+// auth-client経由でuseSessionを参照する。expo-router等と同じ理由でモックする
+vi.mock("../lib/auth-client", () => ({
+  useSession: () => ({ data: null }),
+}));
+
 const { default: HomeScreen } = await import("../app/(tabs)/index");
 const { queryClient } = await import("../lib/query");
 

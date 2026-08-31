@@ -5,6 +5,7 @@ import { formatJstDate } from "@futary/date";
 import { Button, Card, radius, space, Text } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "../lib/orpc";
+import { useViewerQueryKey } from "../lib/viewer-key";
 import { ImageViewer } from "./image-viewer";
 
 const LABELS: Record<MemoryLabel, string> = {
@@ -15,7 +16,13 @@ const LABELS: Record<MemoryLabel, string> = {
 };
 
 export function MemoryCard() {
-  const query = useQuery(orpc.memory.get.queryOptions());
+  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照
+  // （T9。coupleIdを引数に取らない問い合わせは識別をキーに含めて区別する）
+  const viewerKey = useViewerQueryKey();
+  const query = useQuery({
+    ...orpc.memory.get.queryOptions(),
+    queryKey: [...orpc.memory.get.queryOptions().queryKey, viewerKey],
+  });
   const [viewerOpen, setViewerOpen] = useState(false);
   const [bodyExpanded, setBodyExpanded] = useState(false);
   const postId = query.data?.post.id;
