@@ -7297,3 +7297,158 @@ test-results.mdが引用していた「表の作り直しが失敗するとテ�
 **なお、これは機械的な網ではない。**`main` へのブランチ保護を掛ければ
 1つ目は破れなくなるが、**リポジトリの設定なので人間の操作が要る**（016 で依頼済み）。
 **それまでは読ませるしかない。**
+
+## 2026-08-31 セッションB: 015（ランディングページ）実装完了
+
+`apps/landing/`（素のHTML/CSS。ADR-002）・`scripts/build-public.mjs`
+（LPと`apps/app`のWeb exportを`apps/api/public/`へ合成するビルドスクリプト）・
+`apps/api/wrangler.toml`の`[assets]`設定を実装した。`apps/app`は
+`app.json`で`web.output="static"`・`experiments.baseUrl="/app"`を設定し、
+`expo export --platform web`で全26ルート（動的セグメントを持たないアプリの
+ため）を実ファイルとして書き出す形にした。`run_worker_first`は`/api/*`だけに
+絞り、`/`・`/app/*`はWorkerを経由せず静的アセットとして直接配信される
+（Cloudflareの既定の`html_handling: auto-trailing-slash`が
+`/app/calendar` → `calendar.html`をそのまま解決する）。
+
+**重大なバグを発見した。**`apps/app/lib/api-origin.ts`のモジュール直下の
+定数式（`process.env.EXPO_PUBLIC_API_ORIGIN ?? (typeof window !== "undefined" ? ... : "http://localhost:8787")`）が、
+`expo export`（`output: "static"`）のビルド時最適化で`typeof window`を
+固定値へ畳み込まれ、**ブラウザ向けの実際の配布バンドルにまで
+`http://localhost:8787`が定数として焼き込まれる**ことをビルド後のJSを
+`grep`して発見した。ローカルの`wrangler dev`に実ビルドを配信させて
+実機確認したところ、この状態では014のゲスト閲覧が動かない
+（`couple.get`が`localhost:8787`へ接続しようとしCSPの`connect-src`で
+ブロックされ、「いまデモを見られません」が表示される）ことで気づいた。
+`apiOrigin`を関数（`getApiOrigin()`）に変更し、`orpc.ts`の`RPCLink`には
+`url: () => \`${getApiOrigin()}/api\``という遅延評価の関数を渡す形に修正、
+`auth-client.ts`の`baseURL`も同様に直した。修正後、同一構成で再検証し、
+`couple.get`・`stats.get`が正しく同一オリジンへ届き、デモのホーム画面が
+表示されることを確認した。**この不具合は014・016のどのタスクでも
+見つからなかった。**`apps/app`を`expo start --web`（開発サーバー。
+windowが常に定義されている）でしか動かしていなかったため、
+`expo export`（静的ビルド）を初めて実行した015で顕在化した。
+
+CSPは`_headers`ファイルで設定した
+（`default-src 'self'; script-src 'self' 'sha256-...'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.r2.cloudflarestorage.com; font-src 'self'; connect-src 'self' https://*.r2.cloudflarestorage.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'`）。
+`script-src`は`'unsafe-inline'`を使わず、Expo Routerが埋め込む唯一の
+インラインscript（`globalThis.__EXPO_ROUTER_HYDRATE__=true;`。全26ページで
+内容が同一）のSHA256ハッシュをビルドのたびに実測して使う。`style-src`は
+React Native Webがインラインstyle属性を多用するため`'unsafe-inline'`を
+許容した。`frame-ancestors 'none'`はmetaタグでは効かないため`_headers`で
+設定する意味がある。
+
+OGP（og:title/description/image・Twitter Card）・`lang="ja"`・descriptionは
+実装済み。`og:image`は公開ドメイン未決（論点L1。`*.workers.dev`で進めた。
+`state.md`に記録）のため相対パスのまま。016でドメイン確定後に絶対URLへ
+直す必要がある。技術構成セクションは`docs/decisions.md`から4件のADR
+（認可の集約・events統合・思い出しの一般化・デモは未認証閲覧専用）を
+抜粋し、実装との食い違いが無いことを確認した。
+
+apps/app・apps/apiのテストは変更なし（015は新規テストを追加していない。
+ビルド・設定・バグ修正が中心）。型チェック・lint通過（`apps/api/public/`を
+ESLintの対象外に追加）。security-auditorへ監査を依頼中。次はRへレビュー
+依頼したのち、016（デプロイ前）へ進む。
+
+## 2026-08-31 015: PR #170レビュー対応（R-1〜R-3・security-auditor指摘）
+
+RからPR #170へ3件の指摘（R-1: `auth-client.ts`の`baseURL`が`orpc.ts`と違い
+遅延評価でない点、R-2: `EXPO_PUBLIC_API_ORIGIN`空文字上書きは関数化だけで
+不要ではないか、R-3: コメントが実測経緯を正確に反映していない点）を受けた。
+
+R-1は実機で解消を確認した: ビルド済みバンドルを`wrangler dev`で配信した
+状態で「ログイン」ボタンを押し、リクエストが`http://127.0.0.1:<port>/api/
+auth/sign-in/social`（同一オリジン）へ飛ぶことを確認した（レスポンスは403
+だったが、`.dev.vars`のGoogle OAuth設定に起因する別問題でオリジン解決とは
+無関係）。修正の効果は「呼び出しタイミングの遅延」ではなく「`getApiOrigin`が
+本物の関数になったことでビルド時定数畳み込みを防いだこと」に由来するため、
+`auth-client.ts`側が1回評価のままでも問題は起きないと判断した。
+
+R-2は分離実験で検証した: `EXPO_PUBLIC_API_ORIGIN`の空文字上書きを外し、
+`.env`の実際の値を残したまま再ビルドし、生成された配布バンドルをgrepした。
+`getApiOrigin`関数の本体は`process.env.EXPO_PUBLIC_API_ORIGIN`という実行時
+参照のまま残っており、`.env`の値が文字列として畳み込まれていないことを
+確認した。関数化の対策単独で再発防止できている。空文字上書きは、将来
+Metroの環境変数インライン化の挙動が変わった場合に備えた多層防御として
+残す判断とした。「なぜMetroが今回は値をインライン化しないのか」の内部
+機構までは特定できておらず、未確認のまま残す（正直に記録する）。
+
+R-3は`apps/app/lib/api-origin.ts`・`scripts/build-public.mjs`のコメントを
+上記の実測結果に基づいて書き直した。
+
+あわせてsecurity-auditorのMedium/Low指摘も反映した: R2 CSPのワイルドカード
+（`https://*.r2.cloudflarestorage.com`）を実アカウントID固定ホストへ変更
+（`readR2AccountId()`が`.dev.vars`または環境変数から読み、取得できなければ
+ビルドを失敗させるfail-closed）。`blob:`をimg-src/connect-srcへ追加
+（`expo-image-picker`・`expo-image-manipulator`のWeb実装が
+`URL.createObjectURL()`を使うため、無いと画像投稿が本番で壊れる）。
+Googleアバターホスト（`lh3.googleusercontent.com`）をimg-srcへ追加。
+`form-action 'self'`・`Strict-Transport-Security`ヘッダを追加。インライン
+scriptハッシュの実測を1ファイルのみ→全HTML走査に変更。ローカル開発オリジン
+焼き込みの再発防止チェック（`assertNoLocalDevOriginLeaked`）を新設した。
+
+修正後、`pnpm -w test`（apps/app 150件・apps/api 297件）・`eslint .`・
+`pnpm -r type-check`が全て通ることを確認し、新CSPでのゲスト閲覧フローを
+`wrangler dev`実ビルド配信で再確認した（`couple.get`・`stats.get`が200、
+画像アセット含め全て読み込まれ、デモのホーム画面が正しく表示される）。
+`artifacts/015/test-results.md`に追記し、コミット`0c095d0`をプッシュ、
+PR #170へ対応内容をコメントし、Rへ再レビューを依頼した。
+
+## 2026-08-31 015: PR #170レビュー対応（続き）R-4対応・403の原因特定
+
+Rから4件目の指摘（R-4）を受けた: `assertNoLocalDevOriginLeaked`（ローカル開発
+オリジン焼き込みの再発防止チェック）が実際には判別できていない。初版は
+「ファイル全体に`location.origin`という文字列があるか」を見ており、
+`better-auth`・`expo-router`など無関係な依存が同じチャンクファイルの中で
+`location.origin`を参照しているため、api-origin.tsのwindow分岐が畳み込まれて
+消えていても常に素通りすることを実測で確認した（該当箇所を壊した状態でも
+ビルドが通ってしまっていた）。
+
+1回目の修正（「localhostの近傍〈前後300文字〉に`typeof window`があるか」）も
+実測すると誤検知した: `better-auth`のURLユーティリティが持つ汎用ホスト判定関数
+（`hostname==="localhost"`等）や、`expo-router`のWebBrowserポリフィルの
+エラーメッセージ文字列が、`typeof window`を伴わずに"localhost"を含むため、
+現状の正しいコードでもビルドが落ちてしまった。
+
+最終的に、汎用の"localhost"文字列ではなく`getApiOrigin()`が実際に埋め込む
+具体的なリテラル（`http://localhost:8787`。ポート番号込み。他のライブラリが
+持つ理由の無い文字列）だけを探し、見つかった場合のみ近傍に`typeof window`が
+あるかを確認する方式に変更した。現状の正しいコードで誤検知しないことを
+実測で確認した。
+
+**Rの依頼どおり「api-origin.tsを壊れたバージョンに戻して実際に例外が飛ぶこと」
+の証明を試みたが、できなかった。**`getApiOrigin`を元のモジュール直下の定数式に
+戻し（`orpc.ts`側も`url`を関数でなく`apiOrigin`定数を直接テンプレートリテラルに
+埋め込む形に戻す。3パターン試した）再ビルドしたが、いずれも`typeof window`の
+分岐は畳み込まれず、コンパイル後のバンドルにも生きた分岐として残った
+（`grep`で確認）。つまり現在のツールチェーンでは015の不具合そのものを
+再現できなかった。当時実際に観測した「本番バンドルにconstとして焼き込まれた」
+現象の正確な発生条件は依然として特定できておらず（Metroのバージョン差・
+キャッシュ状態・SSGとクライアントバンドルの共有条件など複数の未検証の仮説が
+残る）、このチェックが元のバグと全く同じ壊れ方を捕まえられる保証はできない。
+提供できるのは「フォールバックのリテラル文字列がtypeof windowの生きた分岐の
+外に裸で存在すれば検知する」という症状ベースの検知ロジックであることの
+実測確認までである。この限界を正直に`artifacts/015/test-results.md`に記録した。
+
+あわせて、R-1で「別問題」と未検証のまま書いていた403の原因を特定した。
+`resolveCallbackURL()`（`apps/app/app/(auth)/sign-in.tsx`）がWebで
+`window.location.origin`を`callbackURL`として渡すため、ビルド済みバンドルを
+`.dev.vars`の`TRUSTED_ORIGINS`（Expo開発サーバーのポートのみ）に含まれない
+ポートで配信してログインを押すと、Better Authが
+`{"message":"Invalid callbackURL","code":"INVALID_CALLBACK_URL"}`（403）を
+返すことを`curl`での切り分け（`callbackURL`を相対パスにすると200、絶対URLに
+すると403）で確認した。「Google OAuth設定に起因する別問題」という当初の
+記述は誤りだったため訂正した。この403自体はローカルのポートの組み合わせに
+起因するテスト環境固有の問題だが、015が本番のオリジン構成（アプリとAPIが
+同一オリジンになる）を変えた以上、016で`BETTER_AUTH_URL`・`TRUSTED_ORIGINS`を
+本番の実際のオリジンに正しく設定しないと本番でも同じ403でログインが
+失敗する。`artifacts/015/manual-check.md`の016確認項目に「ログインが200で
+完了すること」を明示的に追加した。
+
+CIが`predeploy`スクリプト（`assertNoLocalDevOriginLeaked`・CSPハッシュ実測を
+含む`scripts/build-public.mjs`）を実行しないこと、`blob:`・
+`lh3.googleusercontent.com`のCSP追加は理屈で足したもので画像投稿・ログインを
+伴う実際の経路では確認していないことも、Rの指摘どおり正直に記録した
+（`artifacts/015/test-results.md`「CIとpredeployについて」）。
+
+修正後、`pnpm -w test`（apps/app 150件・apps/api 297件）・`eslint .`・
+`pnpm -r type-check`が全て通ることを確認した。

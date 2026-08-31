@@ -13,6 +13,18 @@ migrations_dir = "../../packages/db/migrations"
 binding = "BUCKET"
 bucket_name = "futary-images"
 
+# ランディングページ（apps/landing）とアプリ本体（apps/app の Web エクスポート。
+# /app/* 配下）を合成した公開ディレクトリ（scripts/build-public.mjs が生成する。
+# デプロイ前に `pnpm build:public` を実行しておく必要がある。015タスク定義）。
+# run_worker_first は /api/* だけに絞る。/ と /app/* は静的アセットとして
+# そのまま配信できる（apps/app は app.json で web.output="static"・
+# experiments.baseUrl="/app" を設定しているため、動的セグメントの無い
+# このアプリでは全ルートが実ファイルとして書き出され、SPAフォールバックが要らない）
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
 # BETTER_AUTH_URL / TRUSTED_ORIGINS は [vars] に置かない。
 # ここに置くと本番デプロイ時に上書きし忘れた場合、Cookie の Secure 属性が
 # 落ちたり、開発用の localhost オリジンへの CORS が本番でも許可され続けるリスクがある

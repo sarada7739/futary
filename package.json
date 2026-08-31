@@ -10,7 +10,8 @@
     "type-check": "pnpm -r --if-present run type-check",
     "lint": "eslint .",
     "test": "pnpm -r --if-present run test",
-    "db:generate": "pnpm --filter @futary/db run generate"
+    "db:generate": "pnpm --filter @futary/db run generate",
+    "build:public": "node scripts/build-public.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

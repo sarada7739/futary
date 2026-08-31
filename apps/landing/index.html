@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>futary（ふたり） - ふたり専用SNS</title>
+<meta name="description" content="futaryは、ふたりだけの日々を残すための専用SNS。投稿・カレンダー・統計・思い出しの4つの機能で、ふたりの毎日をもっと特別に。ログイン不要のデモをその場で試せます。" />
+
+<!-- OGP -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="futary" />
+<meta property="og:title" content="futary（ふたり） - ふたり専用SNS" />
+<meta property="og:description" content="ふたりだけの日々を残す専用SNS。ログイン不要のデモをその場で試せます。" />
+<meta property="og:image" content="/assets/ogp.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:locale" content="ja_JP" />
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="futary（ふたり） - ふたり専用SNS" />
+<meta name="twitter:description" content="ふたりだけの日々を残す専用SNS。ログイン不要のデモをその場で試せます。" />
+<meta name="twitter:image" content="/assets/ogp.png" />
+
+<link rel="icon" type="image/png" href="/assets/favicon.png" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+<header class="hero">
+  <div class="container">
+    <img src="/assets/logo.png" alt="futary" class="logo" width="168" height="59" />
+    <p class="tagline">ふたりの毎日を、もっと特別に。</p>
+    <p class="hero-sub">ふたりだけの日々を残すための、専用SNS</p>
+    <a class="cta" href="/app/">
+      デモを見る
+      <span class="cta-note">ログイン不要ですぐに試せます</span>
+    </a>
+  </div>
+</header>
+
+<main>
+  <section class="features" aria-labelledby="features-heading">
+    <div class="container">
+      <h2 id="features-heading">できること</h2>
+      <ul class="feature-grid">
+        <li class="feature-card">
+          <img src="/assets/feature-post.png" alt="" width="48" height="48" />
+          <h3>投稿</h3>
+          <p>今日あったことを、写真と一緒に残せます。ふたりだけのタイムラインに積み重なっていきます。</p>
+        </li>
+        <li class="feature-card">
+          <img src="/assets/feature-calendar.png" alt="" width="48" height="48" />
+          <h3>カレンダー</h3>
+          <p>会った日・記念日・これからの予定を1つのカレンダーで管理。会った日数は自動で数えます。</p>
+        </li>
+        <li class="feature-card">
+          <img src="/assets/feature-stats.png" alt="" width="48" height="48" />
+          <h3>統計</h3>
+          <p>付き合って何日目か、会った日数、投稿数。ふたりの歩みを数字で振り返れます。</p>
+        </li>
+        <li class="feature-card">
+          <img src="/assets/feature-memory.png" alt="" width="48" height="48" />
+          <h3>思い出し</h3>
+          <p>1ヶ月前・半年前・1年前の投稿を、ホームでそっと差し出します。過去の記録が意味を持ちます。</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="tech" aria-labelledby="tech-heading">
+    <div class="container">
+      <h2 id="tech-heading">技術構成</h2>
+      <p class="tech-intro">
+        個人開発ですが、複数ペア・複数人が同時に使える前提で設計しています。
+        いくつかの設計判断を紹介します（詳細は <a href="https://github.com/sarada7739/futary/blob/main/docs/decisions.md">docs/decisions.md</a>）。
+      </p>
+
+      <ul class="tech-stack">
+        <li>Expo (React Native Web) + Expo Router</li>
+        <li>Hono + oRPC（型安全なAPI層。Zodスキーマ）</li>
+        <li>Cloudflare Workers / D1 / R2</li>
+        <li>Drizzle ORM</li>
+        <li>TanStack Query</li>
+      </ul>
+
+      <div class="decisions">
+        <div class="decision">
+          <h3>認可を1箇所に集約する</h3>
+          <p>
+            全ての手続きは <code>ctx.coupleId</code> だけを使い、引数として <code>coupleId</code> を受け取りません。
+            他ペアのIDを送りつける経路そのものを作らない設計にし、認可の書き忘れが起きる余地を無くしました。
+          </p>
+        </div>
+        <div class="decision">
+          <h3>記念日・予定・会った日を1テーブルに統合する</h3>
+          <p>
+            種類ごとにテーブルを分けず、<code>kind</code> 列を持つ1つの <code>events</code> テーブルにしました。
+            カレンダー表示・射影計算（繰り返す記念日）のロジックを1箇所にまとめられます。
+          </p>
+        </div>
+        <div class="decision">
+          <h3>「去年の今日」を「思い出し」に一般化する</h3>
+          <p>
+            「去年の今日」だけだと使い始めて1年間は何も表示されません。
+            1ヶ月前 → 半年前 → 1年前の順に探し、無ければ過去投稿からランダムに1件出す設計にし、
+            使い始めた翌日から機能するようにしました。
+          </p>
+        </div>
+        <div class="decision">
+          <h3>デモは未認証・閲覧専用</h3>
+          <p>
+            ログインの壁で離脱するのを避けるため、専用のデモペアを1組用意し、
+            未認証アクセスはそのペアのデータだけを読み取り専用で返します。
+            書き込みの拒否をサーバ側の1箇所（認可ミドルウェア）に集約し、UI側の実装漏れが本番データに波及しない設計です。
+          </p>
+        </div>
+      </div>
+
+      <a class="repo-link" href="https://github.com/sarada7739/futary">GitHubリポジトリを見る</a>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <p>futary — ふたりの毎日を、もっと特別に。</p>
+  </div>
+</footer>
+
+</body>
+</html>
