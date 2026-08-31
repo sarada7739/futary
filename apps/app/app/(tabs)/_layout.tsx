@@ -2,6 +2,7 @@ import { colors, iconFabPlus, iconTabCalendar, iconTabHome, iconTabProfile, icon
 import { Tabs, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Image, type ImageSourcePropType, Pressable, View } from "react-native";
+import { useGuestMode } from "../../lib/guest-mode";
 
 // 002 の絵文字代用を、docs/sample/透過素材/dnUunrHG.png から切り出したアイコンに
 // 差し替え（008）。単色の線画のため tintColor でアクティブ/非アクティブを塗り分ける。
@@ -61,6 +62,7 @@ function FabTabButton({
 
 export default function TabsLayout() {
   const router = useRouter();
+  const { isGuestMode, exitGuestMode } = useGuestMode();
 
   return (
     <Tabs
@@ -100,9 +102,15 @@ export default function TabsLayout() {
         }}
         listeners={{
           // タブ切り替えではなく /compose をモーダルで開く。post.tsx は
-          // このリスナーで常に preventDefault されるため実際には表示されない
+          // このリスナーで常に preventDefault されるため実際には表示されない。
+          // 014: デモ閲覧中は投稿できない（サーバ側でFORBIDDENになる）ため、
+          // FABはログイン導線に差し替える（押すとサインイン画面へ戻る）
           tabPress: (e) => {
             e.preventDefault();
+            if (isGuestMode) {
+              exitGuestMode();
+              return;
+            }
             router.push("/compose");
           },
         }}

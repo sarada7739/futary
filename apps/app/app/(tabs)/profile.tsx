@@ -6,6 +6,7 @@ import { Avatar, Button, Card, colors, radius, Screen, space, Text } from "@futa
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DateInput8 } from "../../components/date-input8";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
+import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
 import { signOut } from "../../lib/auth-client";
@@ -24,6 +25,7 @@ const PRIMARY_DATE_LABELS: Record<PrimaryDate, string> = {
 };
 
 export default function ProfileScreen() {
+  const { isGuestMode, exitGuestMode } = useGuestMode();
   const meQuery = useQuery(orpc.me.get.queryOptions());
   const coupleQuery = useQuery(orpc.couple.get.queryOptions());
 
@@ -127,6 +129,22 @@ export default function ProfileScreen() {
   }
 
   const avatarImageUrl = pendingImage?.uri ?? meQuery.data?.image ?? undefined;
+
+  // 014: デモ閲覧中は「自分」が存在しない（未認証。me.getはnullを返す）ため、
+  // プロフィール編集フォームを出さずログインを促す
+  if (isGuestMode) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.xl }}>
+          <Text weight="bold">マイページはログインすると使えます</Text>
+          <Text size="sm" color="muted" align="center">
+            名前やアイコン、記念日を設定するには、Googleアカウントでログインしてください
+          </Text>
+          <Button onPress={exitGuestMode}>ログイン</Button>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>

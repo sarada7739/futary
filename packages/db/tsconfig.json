@@ -2,8 +2,11 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types", "node"],
+    // seed/run.ts はNodeがネイティブに.tsを実行する前提のCLIで、拡張子付きの
+    // 相対importが要る（Node ESMは拡張子を省略できない）。tsc側は--noEmit
+    // （type-checkスクリプト）なのでこのフラグを有効化できる
+    "allowImportingTsExtensions": true
   },
-  "include": ["src"]
+  "include": ["src", "seed"]
 }
