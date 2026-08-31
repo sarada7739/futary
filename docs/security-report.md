@@ -226,3 +226,71 @@ Rレビューで同じ事実の重複記録になっていると指摘され統�
 とWHERE句が同じ規則を表現していること（kindの変更の遷移を除く）、未認証閲覧者への
 `canEdit`誤許可経路が無いこと、`is_shared`の不正な書き換えによる権限昇格経路が
 無いこと。詳細は生の返答を参照。
+
+---
+
+## [2026-08-31] 016 全体セキュリティ監査（リポジトリ全体・T1〜T8確認）
+
+対象: `apps/api/src/**`（全手続き・認可ミドルウェア・auth・index）、`apps/app/lib/**`、
+`packages/contract/src/**`、`packages/db/src/schema/**`、`packages/db/seed/demo.ts`、
+`apps/api/wrangler.toml`、`scripts/build-public.mjs`、`.github/workflows/**`、
+`.gitignore`、`pnpm-workspace.yaml`。
+
+**これまでのタスク単位の監査は各タスクの差分だけを見ていた。016は初めてリポジトリ全体を
+通しで見る監査**（`docs/tasks/016-release.md`「security-auditorの全体監査とT1〜T8の確認」）。
+
+生の返答: [`artifacts/016/security-audit-raw.md`](../artifacts/016/security-audit-raw.md)
+
+**High以上の指摘: 0件。**`docs/tasks/016-release.md`完了条件「security-auditorの全体監査で
+High以上がゼロ」を満たす。
+
+### T1〜T8の判定
+
+| # | 脅威 | 判定 |
+|---|---|---|
+| T1 | 他ペアへの水平権限昇格 | 対策あり。router走査テスト（`authorization.test.ts:775-809`）で全手続きの網羅性を機械的に確認済み |
+| T2 | 招待コードの総当たり | 対策あり |
+| T3 | 画像URLの流出・推測 | コード側は対策済み。**バケットの非公開設定・CORS設定はリポジトリから検証不能**（下記Medium-2・Medium-3） |
+| T4 | デモ経路からの本番データ漏洩 | 対策あり |
+| T5 | デモ経路からの書き込み | 対策あり |
+| T6 | 秘密情報のリポジトリ混入 | 対策あり。**履歴全体のgitleaksは本タスクで実施し検出ゼロ**（下記） |
+| T7 | 依存ライブラリの既知脆弱性 | 対策あり。**無視リスト2件を本タスクで再評価**（下記） |
+| T8 | セッション奪取 | 対策あり |
+
+### Medium・Low指摘と対応
+
+| 重大度 | 箇所 | 内容 | 推奨対応 | 対応 |
+|---|---|---|---|---|
+| Medium-1 | `.github/workflows/deploy.yml` | デプロイ経路にgitleaks・pnpm auditが無く、ci.ymlが赤でも並行するdeploy.ymlは止まらず本番デプロイへ到達する | ci.ymlと同じ検査を追加する | **対応済み**。deploy.ymlにgitleaksとpnpm audit（high以上）のゲートを追加した |
+| Medium-2 | `apps/api/wrangler.toml`（該当ファイルの不在） | R2バケットのCORSルールがリポジトリに存在せず、レビュー・差分検出が不可能 | ルールをファイルとしてコミットする | **対応済み**。`apps/api/r2-cors.json`としてコミットし、`pnpm --filter @futary/api run r2:cors:apply`で適用する運用にした。本番オリジンは016のデプロイ時に人間が追記する（`docs/tasks/016-release.md`人間パート） |
+| Medium-3 | `apps/api/wrangler.toml` | R2バケットが非公開であることを示す成果物が無い | 016の人間パートで実測し記録する | **未対応（人間パートへ記録）**。`docs/tasks/016-release.md`の人間の手が要る表に「R2バケットが非公開であることを確認」を追加した |
+| Medium-4 | `apps/api/src/procedures/upload.ts`・`me.ts` | アップロード用署名付きURLにレート制限が無く、投稿に紐づかない孤児オブジェクトの回収手段が無い（機密性でなく費用・容量の問題） | レート制限、または回収可能であることを設計として担保する | **一部対応**。実装（レート制限）は見送り、回収方針を`architecture.md` 6節に記録した |
+| Low-1 | `apps/api/src/procedures/post.ts` | `fetchReactionSummaries`が`couple_id`条件を持たない（現時点で悪用経路は無い） | 前提をコメントに明記する | **未対応（記録のみ）**。次にこの関数へ触るセッションで拾う |
+| Low-2 | `apps/api/src/auth.ts`・`index.ts` | Better Authのレート制限が`x-forwarded-for`を見ており`cf-connecting-ip`を見ていない | `ipAddressHeaders`を設定する | **対応済み**。`advanced.ipAddress.ipAddressHeaders: ["cf-connecting-ip"]`を追加 |
+| Low-3 | `/api/*`のレスポンス | セキュリティヘッダ（nosniff等）が付かない | Honoミドルウェアで付与する | **対応済み**。`X-Content-Type-Options`・`Referrer-Policy`を明示付与 |
+| Low-4 | `.github/workflows/*.yml` | deploy.ymlにpermissionsが無い。全アクションが可変タグ参照 | permissionsを明示、SHA固定する | **対応済み**。両ワークフローに`permissions: contents: read`を追加し、全アクションをコミットSHAで固定した |
+| Low-5 | `apps/api/test/auth.test.ts` | Cookie属性を検証するテストが無い | 実際に叩いて検証するテストを追加する | **対応済み**。http/httpsそれぞれでHttpOnly・SameSite・Secureを確認するテストを追加 |
+| Low-6 | Dependabot | 有効化がリポジトリ内に痕跡を持たない（不在自体は正しい判断） | 確認日・出力を記録する | **対応済み（本エントリに記録）**。`gh api repos/sarada7739/futary/vulnerability-alerts`・`automated-security-fixes`は014完了前の`docs/worklog.md`で既に実測確認済み（有効）。再確認は次回016デプロイ後に行う |
+| Low-7 | `apps/api/src/procedures/couple.ts`等 | 内部エラーに一意のIDが振られていない | interceptorsでUUIDを振る | **対応済み**。`apps/api/src/lib/error-id.ts`を追加し、想定外の例外にIDを振ってクライアントへはIDのみ返す形にした |
+| Low-8 | `apps/api/src/index.ts` | `expo-authorization-proxy`の封鎖がパス完全一致に依存（迂回経路は無いことを確認済み） | `disabledPaths`へ移す | **未対応（記録のみ）**。監査自身が「直す必要は無い」としており優先度低 |
+| Low-9 | `apps/api/src/procedures/post.ts` | `post.create`が空判定と保存で異なる値を使っている | 同じ値を使う | **対応済み** |
+
+### 履歴全体のgitleaks
+
+`gitleaks/gitleaks-action@v2`はCIの差分（PRのbase..head／pushのbefore..after）しか
+見ておらず、検査導入前に混入したものを見つけられない（`security-requirements.md` 9節）。
+本タスクで`gitleaks detect --source . --log-opts="--all"`を実行し、**215コミット・
+約3.48MBを走査して検出ゼロ**を確認した。
+
+### pnpm.auditConfig.ignoreGhsasの再評価
+
+2件（`GHSA-w3rx-r6r6-pgpr`・`GHSA-5p2g-fcmc-qvqq`。いずれも`image-size`のDoS、
+Metro経由の開発時依存）をGitHub Advisory APIで再評価した。両方とも
+`"vulnerable": "<= 2.0.2"`（現時点の最新版）・`"patched": null`で、**修正版は
+依然として存在しない**。到達可能性（Metroのビルド時のみ、デプロイ後のWorkerと
+配信アセットには含まれない）も変わっていないため、無視リストはそのまま維持する。
+
+`pnpm audit`の全重大度出力にはこの2件（high、無視リストで除外）に加え、
+`esbuild`（drizzle-kit経由、moderate、修正版あり`>=0.25.0`）・`uuid`（expo経由、
+moderate、修正版あり`>=11.1.1`）が出た。どちらも開発時・ビルド時依存で、
+CIのゲート（high以上）には該当しない。人間が読む記録として残す。
