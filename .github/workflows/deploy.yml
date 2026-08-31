@@ -28,15 +28,20 @@ jobs:
     # write）に頼らず最小権限を明示する（security-auditor全体監査Low-4指摘）
     permissions:
       contents: read
-    # 【Rレビュー指摘R-1・要human設定】"production" という名前のGitHub
-    # Environmentが無ければ初回実行時に自動で作られるが、**保護ルールは既定で
-    # 無い。**architecture.md 6節「リモートD1への適用には人間の許可を取る」を
-    # 自動デプロイ後も維持するには、この"production"環境にRequired reviewers
-    # （承認者が承認するまでジョブが止まる設定）をリポジトリ設定側で追加する
-    # 必要がある。**これはコードでは設定できない（GitHubのリポジトリ設定）**ため、
-    # docs/tasks/016-release.mdの「人間の手が要る」表に項目として立ててある。
-    # 設定されるまでは、このワークフローはpush:mainだけで無条件に本番へ
-    # デプロイする（許可を取る仕組みが無いまま動く状態）
+    # 【Rレビュー指摘R-1・要human設定・このPRのマージ前に】"production" という
+    # 名前のGitHub Environmentが無ければ初回実行時に自動で作られるが、
+    # **保護ルールは既定で無い。**architecture.md 6節「リモートD1への適用には
+    # 人間の許可を取る」を自動デプロイ後も維持するには、この"production"環境に
+    # Required reviewers（承認者が承認するまでジョブが止まる設定）を
+    # リポジトリ設定側で追加する必要がある。**これはコードでは設定できない
+    # （GitHubのリポジトリ設定）**ため、docs/tasks/016-release.mdの
+    # 「人間の手が要る」表に項目として立ててある。
+    # **このPRをmainへマージした瞬間が最初のpush:mainであり、その時点で
+    # Required reviewersが未設定だと最初の自動デプロイが無条件に走る
+    # （マージ後に設定しても手遅れ）。マージ前に設定すること。**
+    # scripts/check-remote-migration-preconditions.mjs（下記）は0013という
+    # 特定の1件のCHECK制約違反を塞いだだけで、この許可の仕組みそのものの
+    # 代わりにはならない
     environment: production
     steps:
       # 秘密情報を扱うワークフローのため、サードパーティアクションは可変タグでは

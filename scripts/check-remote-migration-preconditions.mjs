@@ -28,22 +28,40 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const apiDir = path.join(repoRoot, "apps", "api");
 const wranglerJs = path.join(apiDir, "node_modules", "wrangler", "bin", "wrangler.js");
 
-function queryRemote(sql) {
+// 【Rレビュー指摘: fail-openだった】以前は`parsed[0]?.results ?? []`と
+// `rows[0]?.count ?? 0`で、結果を正しく読めなかった場合も「0件」（＝安全）と
+// 解釈していた。本番のwranglerが実際にどんな形のJSONを返すかはCloudflareの
+// 認証情報が無く確認できていない（ローカルD1でしか実測していない）。
+// 確かめられない形を安全側と解釈してはならない——このスクリプトは人間が
+// デプロイ経路から抜けた穴を塞ぐために足したものであり、その唯一の見張りが
+// 「読めなかったら異常なし」ではデプロイを止める意味が無い。`SELECT COUNT(*)`は
+// 成功すれば必ずちょうど1行を返すため、それ以外の形は全て異常としてfail-closedにする
+function queryRemoteCount(sql) {
   const output = execFileSync(
     process.execPath,
     [wranglerJs, "d1", "execute", "DB", "--remote", "--json", "--command", sql],
     { cwd: apiDir, encoding: "utf8" },
   );
   const parsed = JSON.parse(output);
-  return parsed[0]?.results ?? [];
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error(`wranglerの応答が想定外の形式です（配列でないか空）: ${output.slice(0, 200)}`);
+  }
+  const rows = parsed[0]?.results;
+  if (!Array.isArray(rows) || rows.length !== 1) {
+    throw new Error(`resultsが想定外の形式です（ちょうど1行を期待）: ${JSON.stringify(parsed[0]).slice(0, 200)}`);
+  }
+  const count = Number(rows[0]?.count);
+  if (!Number.isFinite(count)) {
+    throw new Error(`count列を数値として読み取れません: ${JSON.stringify(rows[0])}`);
+  }
+  return count;
 }
 
 function main() {
   console.log("0013（events_repeat_yearly_check）のCHECK制約に違反する既存行が無いか確認します...");
-  const rows = queryRemote(
+  const count = queryRemoteCount(
     "SELECT COUNT(*) AS count FROM events WHERE repeat_yearly = 1 AND kind <> 'anniversary'",
   );
-  const count = Number(rows[0]?.count ?? 0);
 
   if (count > 0) {
     throw new Error(
