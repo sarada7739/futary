@@ -4,12 +4,23 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-08-31 / セッションB（futary-f2）。**016（仕上げと公開）の
-「デプロイ前にできる」を全て実装完了。PR作成・Rレビュー依頼前。**
+「デプロイ前にできる」実装完了・PR #172、Rが内容を受け入れ済み。
+ただし**マージは保留中**——Rが明示的に「コードの受け入れ」と「マージしてよい」を
+分け、`production`環境へのRequired reviewers設定（人間にしかできないGitHubの
+リポジトリ設定）が済むまでマージしないよう指示した。理由: `deploy.yml`は
+`push: main`で走るため、**このPRをマージした瞬間が最初の自動デプロイになる。**
+Required reviewersが無いまま本番D1へのマイグレーション適用が無条件に走る
+（`architecture.md`6節「適用には人間の許可を取る」と矛盾する）。**次にこの
+セッションを開くセッションは、人間がRequired reviewersを設定したことを
+確認してからPR #172をマージすること。マージ前に確認せず進めない。**
+
 015はPR #170、Rの受け入れを得てmainへsquash merge済み（`76ef4dd`）。
 014は完全に閉じている（PR #165。`7aef87d`）。人間は就寝中のまま。A経由で
 「014→015→016のデプロイ前まで、人間の確認を挟まず止まらずに進めてほしい
-（実機確認はまとめて後で）」との指示を受けて継続中。**公開ドメイン（論点L1）は
-未決のため`*.workers.dev`で進めた。**
+（実機確認はまとめて後で）」との指示を受けて進めてきたが、**ここが実際に
+人間の手を要する最初の分岐点。**PR #172のマージ以降は全項目が人間パートで、
+これ以上自動で進められる作業は無い。**公開ドメイン（論点L1）は未決のため
+`*.workers.dev`で進めた。**
 
 **016の実装内容**: `docs/tasks/016-release.md`「デプロイ前にできる」8項目を
 すべて実施した（詳細は`artifacts/016/test-results.md`）。
@@ -44,12 +55,40 @@
   （ブラウザインストールのコストのため）。実行結果1件成功
 
 `pnpm -w test`（apps/app 152件・apps/api 303件）・`eslint .`・
-`pnpm -r type-check`（`e2e/`含む）全て通過。**次はRへレビュー依頼。**
-Rの受け入れ後、`docs/tasks/016-release.md`の「人間の手が要る」表
-（Cloudflareトークン・OAuth本番リダイレクトURI・R2 CORS本番オリジン・
+`pnpm -r type-check`（`e2e/`含む）全て通過。
+
+**PR #172のRレビュー対応（R-1〜R-3、3往復）**:
+- **R-1（本番D1へのマイグレーション適用に、許可も事前確認も無い）**:
+  (1) `0013_event_repeat_yearly_check.sql`が要求する人間向けの事前確認
+  （CHECK制約違反行が無いか数える）を`scripts/check-remote-migration-preconditions.mjs`
+  として自動化し、`db:migrate:remote`の直前に実行するようdeploy.ymlに追加。
+  初版は結果を読めなかった場合も「0件」と解釈するfail-open（`?? []`・`?? 0`の
+  2段重ね）になっており、Rの指摘で全ての想定外の応答形状を例外にする
+  fail-closedへ書き直した（ローカルD1で正常系・異常系の両方を確認）。
+  (2) `production`環境へのRequired reviewers設定はGitHubのリポジトリ設定で
+  コードでは設定できないため人間パートへ追加。**この設定は「デプロイの前」
+  ではなく「PR #172のマージ前」に必要**（マージ自体が最初のpush:mainになる
+  ため）であることを、Rから2回目の指摘を受けて`docs/tasks/016-release.md`・
+  `deploy.yml`の両方に明記した
+- **R-2（deploy.ymlの独立検証がci.ymlの部分集合）**: ci.ymlにあって
+  deploy.ymlに無かった2つ（無視リストの陳腐化検出・drizzleスナップショット/
+  スキーマのずれ検出）を追加し、`.dev.vars`の作り方もci.ymlと同じファイル
+  方式に統一
+- **R-3（014の受容理由を016が反証したまま残っている）**: `root-route.test.ts`・
+  `_layout.tsx`の「再試行でじきに解消する」という誤った記述を、実際は
+  `retry:false`で自動再試行が無いことを踏まえて訂正（`resolveRootRoute`の
+  期待値自体は変更なし）
+
+**次のセッションがまずやること**: 人間が起きて`production`環境に
+Required reviewersを設定したことを確認してから、PR #172をマージする
+（CI green確認 → `gh pr merge --squash --delete-branch`。R-1参照）。
+マージ後、`docs/tasks/016-release.md`の「人間の手が要る」表
+（Required reviewers・Cloudflareトークン・`wrangler secret`本番設定
+〈`BETTER_AUTH_URL`/`TRUSTED_ORIGINS`を本番の単一オリジンに。#170で
+特定した403の本体〉・OAuth本番リダイレクトURI・R2 CORS本番オリジン・
 R2バケット非公開確認・本番シード投入・Public切り替え・ブランチ保護・
 デプロイ実行）を人間へまとめて依頼する。それ以降（本番スクリーンショット・
-ログイン込みの通し確認等）はデプロイ後。
+iPhone Safari実機確認・ログインが200で完了することの確認等）はデプロイ後。
 
 **PR #170のRレビュー対応（R-1〜R-3）**: R-1（`auth-client.ts`の`baseURL`が
 遅延評価でない件）は実機で「ログイン」ボタンを押しsign-in/socialが同一
