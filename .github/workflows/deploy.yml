@@ -3,11 +3,20 @@ name: Deploy
 # main へのマージで Cloudflare Workers へデプロイする（docs/tasks/016-release.md）。
 # CI（ci.yml）が通った後にのみ走らせたいが、GitHub Actions は他ワークフローの
 # 成功を直接の起動条件にできないため、CIと同じ push:main トリガーにしたうえで
-# 同じ検証ステップ（gitleaks・pnpm audit・type-check・lint・test）をこの
-# ワークフロー内でも独立に通す（二重に見えるが、ci.ymlが赤くても push:main の
-# トリガーが同時に走る deploy.yml を止める仕組みは無いため、ここで通さないと
-# 秘密情報混入や既知の重大な脆弱性があるコミットがそのまま本番へデプロイされうる。
-# security-auditor全体監査Medium-1指摘）
+# ci.ymlの検証ステップを**全て**このワークフロー内でも独立に通す（二重に見えるが、
+# ci.ymlが赤くても push:main のトリガーが同時に走る deploy.yml を止める仕組みは
+# 無いため、ここで通さないと秘密情報混入や既知の重大な脆弱性があるコミットが
+# そのまま本番へデプロイされうる。security-auditor全体監査Medium-1指摘）。
+#
+# 【Rレビュー指摘R-2】初版はgitleaks・pnpm audit・type-check・lint・testの5つ
+# だけを「同じ検証ステップ」としていたが、ci.ymlには無視リストの陳腐化検出
+# （scripts/check-audit-ignore-staleness.mjs）とdrizzleスナップショット/
+# スキーマのずれ検出が別にあり、抜けていた。特に後者は、このワークフローが
+# 直後にリモートD1へマイグレーションを当てるため、スキーマとスナップショットが
+# ずれた状態のまま適用される経路を開けたままにしていた（023でこのずれ検出を
+# 導入した理由そのもの）。「ci.ymlが赤くてもdeploy.ymlは止まらないから、
+# ここで通す」という理由が正しいなら、通すのはci.ymlの全部であるべき、
+# という指摘どおりに直した
 on:
   push:
     branches: [main]
@@ -19,9 +28,15 @@ jobs:
     # write）に頼らず最小権限を明示する（security-auditor全体監査Low-4指摘）
     permissions:
       contents: read
-    # "production" という名前のGitHub Environmentが無ければ初回実行時に
-    # 自動で作られる（保護ルールは既定で無し）。Secretsをリポジトリ全体でなく
-    # この環境に限定して登録したい場合のための器として置いてある（任意）
+    # 【Rレビュー指摘R-1・要human設定】"production" という名前のGitHub
+    # Environmentが無ければ初回実行時に自動で作られるが、**保護ルールは既定で
+    # 無い。**architecture.md 6節「リモートD1への適用には人間の許可を取る」を
+    # 自動デプロイ後も維持するには、この"production"環境にRequired reviewers
+    # （承認者が承認するまでジョブが止まる設定）をリポジトリ設定側で追加する
+    # 必要がある。**これはコードでは設定できない（GitHubのリポジトリ設定）**ため、
+    # docs/tasks/016-release.mdの「人間の手が要る」表に項目として立ててある。
+    # 設定されるまでは、このワークフローはpush:mainだけで無条件に本番へ
+    # デプロイする（許可を取る仕組みが無いまま動く状態）
     environment: production
     steps:
       # 秘密情報を扱うワークフローのため、サードパーティアクションは可変タグでは
@@ -45,24 +60,59 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # 出力専用（全重大度）。失敗させない（ci.ymlと同じ）
+      - name: pnpm audit（全重大度・出力のみ）
+        run: pnpm audit || true
+
       - name: pnpm audit（high以上で赤。security-requirements.md 9節）
         run: pnpm audit --audit-level=high
+
+      - name: pnpm audit（無視リストの陳腐化検出）
+        run: node scripts/check-audit-ignore-staleness.mjs
+
+      # drizzleのスナップショットとスキーマ定義がずれていないかを見る
+      # （ci.ymlと同じ。R-2指摘: このワークフローは直後にリモートD1へ
+      # マイグレーションを当てるため、この検出が特に重要）
+      - name: drizzle スナップショットとスキーマのずれ検出
+        run: |
+          pnpm run db:generate
+          git status --porcelain packages/db
+          test -z "$(git status --porcelain packages/db)" || exit 1
 
       - run: pnpm run type-check
 
       - run: pnpm run lint
 
+      # ci.ymlと同じ理由・同じ値でダミーの.dev.varsを作る（テストでは実際の
+      # Google認証・R2通信は行わない）。env:での受け渡しではなく.dev.varsファイルに
+      # するのはci.ymlと合わせるため（@cloudflare/vitest-pluginは.dev.varsを読む）
+      - name: create test .dev.vars
+        run: |
+          cat > apps/api/.dev.vars << 'EOF'
+          BETTER_AUTH_SECRET=ci-test-secret-not-used-in-production-32b
+          GOOGLE_CLIENT_ID=ci-test-client-id
+          GOOGLE_CLIENT_SECRET=ci-test-client-secret
+          BETTER_AUTH_URL=http://localhost:8787
+          TRUSTED_ORIGINS=http://localhost:8081
+          R2_ACCOUNT_ID=ci-test-account-id
+          R2_ACCESS_KEY_ID=ci-test-access-key-id
+          R2_SECRET_ACCESS_KEY=ci-test-secret-access-key
+          EOF
+
       - run: pnpm run test
+
+      # 0013_event_repeat_yearly_check.sql（マイグレーション本体）の先頭コメントが
+      # 要求する、人間による事前確認（CHECK制約に違反する既存行が無いことを
+      # 数える）を自動化する。デプロイが自動化されたことで、この確認を行う
+      # 人間がpushの経路上にいなくなったため（Rレビュー指摘R-1）。違反行が
+      # ある状態でマイグレーションを当てると__new_eventsが残骸として残り、
+      # 是正しないまま再実行すると別のエラーになり、人間が手で入るまで以降の
+      # 全pushが同じ場所で落ち続ける（#170レビューで実測済み）
+      - name: マイグレーション前提条件の確認（0013のCHECK制約違反行が無いことを確認）
+        run: node scripts/check-remote-migration-preconditions.mjs
         env:
-          # CI用のダミー値。実際のGoogle認証・R2通信は行わない（ci.ymlと同じ理由）
-          BETTER_AUTH_SECRET: ci-test-secret-not-used-in-production-32b
-          GOOGLE_CLIENT_ID: ci-test-client-id
-          GOOGLE_CLIENT_SECRET: ci-test-client-secret
-          BETTER_AUTH_URL: http://localhost:8787
-          TRUSTED_ORIGINS: http://localhost:8081
-          R2_ACCOUNT_ID: ci-test-account-id
-          R2_ACCESS_KEY_ID: ci-test-access-key-id
-          R2_SECRET_ACCESS_KEY: ci-test-secret-access-key
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # ローカルのエミュレータとリモートのD1は別物で、db:migrate:local だけでは
       # 本番に反映されない（L34で実際にログインが全滅した実例。architecture.md 6節）。

@@ -3,6 +3,36 @@
 `docs/tasks/016-release.md`の「デプロイ前にできる」をすべて実施した。
 「人間の手が要る」「デプロイ後にしかできない」は対象外（`docs/state.md`参照）。
 
+## PR #172 Rレビュー対応（R-1〜R-3）
+
+- **R-1（本番D1へのマイグレーション適用に、許可も事前確認も無い）**: 2点対応した。
+  (1) `0013_event_repeat_yearly_check.sql`の先頭コメントが要求する人間向けの
+  事前確認（CHECK制約に違反する既存行が無いかを数える）を
+  `scripts/check-remote-migration-preconditions.mjs`として自動化し、
+  `db:migrate:remote`の直前に実行するようdeploy.ymlに追加した。違反行がある
+  ままだと__new_eventsが残骸として残り以降の全pushが同じ場所で失敗し続ける
+  （#170レビューで実測済み）ことへの対策。(2) `architecture.md`6節の
+  「適用には人間の許可を取る」を自動デプロイ後も維持するため、"production"
+  GitHub EnvironmentへのRequired reviewers設定が必要だが、これはGitHubの
+  リポジトリ設定でありコードでは設定できないため、
+  `docs/tasks/016-release.md`の人間パートへ追加した。設定されるまで
+  deploy.ymlは無条件に本番へデプロイすることをコメントに明記した
+- **R-2（deploy.ymlの独立検証がci.ymlの部分集合になっている）**: ci.ymlに
+  あってdeploy.ymlに無かった2つ（無視リストの陳腐化検出・drizzleスナップショット/
+  スキーマのずれ検出）を追加し、ダミー`.dev.vars`の作り方もci.ymlと同じ
+  ファイル方式に揃えた（env直渡しでは`@cloudflare/vitest-plugin`が読まない
+  可能性があったため、この機会に修正）
+- **R-3（014の受容理由を016が反証したまま残っている）**: `root-route.test.ts`・
+  `_layout.tsx`の両方にあった「認証済み利用者がcouple.getで通信エラーを
+  受けても再試行でじきに解消する」という記述を、実際は`retry: false`のため
+  自動再試行が無く止まったままになることを踏まえて訂正した。
+  `resolveRootRoute`の期待値（既知のギャップとして0個を許す）自体は
+  変更していない
+
+小さな指摘（1点、記録のみ）: `apps/api/src/lib/error-id.ts`の対象が
+`/api/*`（oRPC手続き）のみで`/api/auth/*`（Better Auth）は対象外である旨を
+コメントに明記した（付け忘れではなく意図的な範囲であることを示すため）。
+
 ## 3状態（読み込み中/空/エラー）の通し確認と補完
 
 全13画面（`apps/app/app/`以下）をExploreエージェントで調査した。timeline.tsx・

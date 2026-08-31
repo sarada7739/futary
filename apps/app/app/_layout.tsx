@@ -121,12 +121,15 @@ function RootNavigator() {
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
         {/* 認証済みの利用者がcouple.getでNEEDS_ONBOARDING以外のエラー（通信断等）を
-            受けている間は、hasCouple・needsOnboarding・showAuthのどれも
-            trueにならない一瞬が生じうる（再試行でじきに解消する）。
+            受けると、hasCouple・needsOnboarding・showAuthのどれもtrueにならない。
             ゲストの失敗はここに含まれない。showAuthのdemoFailedが別に
-            受け止め、サインイン画面へ理由付きで戻す（architecture.md 3節。
-            「一瞬だけ起きる空表示」という説明は認証済み利用者の話であり、
-            ゲストには当てはまらない。A決定） */}
+            受け止め、サインイン画面へ理由付きで戻す（architecture.md 3節）。
+            【016で訂正】ここは元々「再試行でじきに解消する一瞬」と説明していたが、
+            couple.getのuseQueryは`retry: false`のためreact-query側の自動再試行は
+            無く、実際には利用者が手動で再読み込みするまで空白画面のまま止まる
+            （Rレビュー全体監査R-3指摘。実際に踏んだ不具合）。上のガードが
+            全てfalseになるこの状態は、このコンポーネントの先頭で
+            再試行UI（refetchCouple）を出す分岐として拾っている */}
       </Stack>
     </GuestModeContext.Provider>
   );

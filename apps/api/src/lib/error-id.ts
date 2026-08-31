@@ -4,6 +4,12 @@ import { ORPCError } from "@orpc/server";
 // 露出しないようにする（docs/tasks/016-release.md「エラー処理の統一」・
 // docs/security-requirements.md 8節）。
 //
+// 対象はRPCHandler（/api/*のoRPC手続き）のみ。/api/auth/*（Better Auth）は
+// このinterceptorsの外にあり、意図的に対象外にしている（付け忘れではない。
+// Rレビュー全体監査指摘）。Better Authが投げた例外の詳細は既にHonoの既定
+// （`c.text("Internal Server Error", 500)`）によりクライアントへ漏れないが、
+// 問い合わせ用のIDは振られない
+//
 // oRPCの既定動作（toORPCError）は、ORPCErrorでない例外を"Internal server
 // error"という固定メッセージのORPCErrorに変換する。この時点でスタック
 // トレース・SQL文・ファイルパスはクライアントへのJSONに含まれず（ORPCError.toJSON()は

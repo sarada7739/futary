@@ -33,6 +33,7 @@
 |---|---|
 | Cloudflare の API トークン発行と登録 | 秘密情報。B は作れない |
 | `wrangler secret` の本番設定 | 同上 |
+| **`.github/workflows/deploy.yml`の"production"環境にRequired reviewersを設定**（GitHubのリポジトリ設定 > Environments） | GitHubの設定であり、コードでは設定できない。`architecture.md` 6節「リモートD1への適用には人間の許可を取る」を自動デプロイ後も維持するために必須（Rレビュー全体監査R-1指摘。設定するまでdeploy.ymlは`push: main`だけで無条件に本番へデプロイする） |
 | **Google OAuth の本番リダイレクト URI 登録** | Google 側のコンソール操作 |
 | **R2 の CORS に本番オリジンを追加**（`apps/api/r2-cors.json`に追記してから`pnpm --filter @futary/api run r2:cors:apply`） | 忘れると画像アップロードだけ本番で落ちる |
 | **R2バケット（futary-images）が非公開であることを確認**（`wrangler r2 bucket info futary-images`またはダッシュボードのPublic Access設定） | コードからは検証できない。公開されていると署名付きURLの仕組み全体が無意味になる（security-auditor全体監査T3・Medium-3指摘） |
