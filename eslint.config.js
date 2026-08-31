@@ -12,6 +12,9 @@ export default tseslint.config(
       "**/migrations/**",
       "**/.claude/**",
       "**/worker-configuration.d.ts",
+      // apps/landing + apps/app の web export を合成したビルド成果物
+      // （scripts/build-public.mjs が生成する。ソースではない）
+      "apps/api/public/**",
     ],
   },
   js.configs.recommended,

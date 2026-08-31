@@ -8,6 +8,7 @@
     "dev": "wrangler dev",
     "pretype-check": "wrangler types",
     "type-check": "tsc --noEmit",
+    "predeploy": "node ../../scripts/build-public.mjs",
     "deploy": "wrangler deploy",
     "pretest": "wrangler types",
     "test": "vitest run",

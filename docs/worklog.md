@@ -7297,3 +7297,54 @@ test-results.mdが引用していた「表の作り直しが失敗するとテ�
 **なお、これは機械的な網ではない。**`main` へのブランチ保護を掛ければ
 1つ目は破れなくなるが、**リポジトリの設定なので人間の操作が要る**（016 で依頼済み）。
 **それまでは読ませるしかない。**
+
+## 2026-08-31 セッションB: 015（ランディングページ）実装完了
+
+`apps/landing/`（素のHTML/CSS。ADR-002）・`scripts/build-public.mjs`
+（LPと`apps/app`のWeb exportを`apps/api/public/`へ合成するビルドスクリプト）・
+`apps/api/wrangler.toml`の`[assets]`設定を実装した。`apps/app`は
+`app.json`で`web.output="static"`・`experiments.baseUrl="/app"`を設定し、
+`expo export --platform web`で全26ルート（動的セグメントを持たないアプリの
+ため）を実ファイルとして書き出す形にした。`run_worker_first`は`/api/*`だけに
+絞り、`/`・`/app/*`はWorkerを経由せず静的アセットとして直接配信される
+（Cloudflareの既定の`html_handling: auto-trailing-slash`が
+`/app/calendar` → `calendar.html`をそのまま解決する）。
+
+**重大なバグを発見した。**`apps/app/lib/api-origin.ts`のモジュール直下の
+定数式（`process.env.EXPO_PUBLIC_API_ORIGIN ?? (typeof window !== "undefined" ? ... : "http://localhost:8787")`）が、
+`expo export`（`output: "static"`）のビルド時最適化で`typeof window`を
+固定値へ畳み込まれ、**ブラウザ向けの実際の配布バンドルにまで
+`http://localhost:8787`が定数として焼き込まれる**ことをビルド後のJSを
+`grep`して発見した。ローカルの`wrangler dev`に実ビルドを配信させて
+実機確認したところ、この状態では014のゲスト閲覧が動かない
+（`couple.get`が`localhost:8787`へ接続しようとしCSPの`connect-src`で
+ブロックされ、「いまデモを見られません」が表示される）ことで気づいた。
+`apiOrigin`を関数（`getApiOrigin()`）に変更し、`orpc.ts`の`RPCLink`には
+`url: () => \`${getApiOrigin()}/api\``という遅延評価の関数を渡す形に修正、
+`auth-client.ts`の`baseURL`も同様に直した。修正後、同一構成で再検証し、
+`couple.get`・`stats.get`が正しく同一オリジンへ届き、デモのホーム画面が
+表示されることを確認した。**この不具合は014・016のどのタスクでも
+見つからなかった。**`apps/app`を`expo start --web`（開発サーバー。
+windowが常に定義されている）でしか動かしていなかったため、
+`expo export`（静的ビルド）を初めて実行した015で顕在化した。
+
+CSPは`_headers`ファイルで設定した
+（`default-src 'self'; script-src 'self' 'sha256-...'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.r2.cloudflarestorage.com; font-src 'self'; connect-src 'self' https://*.r2.cloudflarestorage.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'`）。
+`script-src`は`'unsafe-inline'`を使わず、Expo Routerが埋め込む唯一の
+インラインscript（`globalThis.__EXPO_ROUTER_HYDRATE__=true;`。全26ページで
+内容が同一）のSHA256ハッシュをビルドのたびに実測して使う。`style-src`は
+React Native Webがインラインstyle属性を多用するため`'unsafe-inline'`を
+許容した。`frame-ancestors 'none'`はmetaタグでは効かないため`_headers`で
+設定する意味がある。
+
+OGP（og:title/description/image・Twitter Card）・`lang="ja"`・descriptionは
+実装済み。`og:image`は公開ドメイン未決（論点L1。`*.workers.dev`で進めた。
+`state.md`に記録）のため相対パスのまま。016でドメイン確定後に絶対URLへ
+直す必要がある。技術構成セクションは`docs/decisions.md`から4件のADR
+（認可の集約・events統合・思い出しの一般化・デモは未認証閲覧専用）を
+抜粋し、実装との食い違いが無いことを確認した。
+
+apps/app・apps/apiのテストは変更なし（015は新規テストを追加していない。
+ビルド・設定・バグ修正が中心）。型チェック・lint通過（`apps/api/public/`を
+ESLintの対象外に追加）。security-auditorへ監査を依頼中。次はRへレビュー
+依頼したのち、016（デプロイ前）へ進む。
