@@ -7667,3 +7667,25 @@ pnpm -w test（apps/app 158件・apps/api 303件）・type-check・lint全て
 現時点で本番にはまだ両方のバグ（リダイレクト先・T9）が残っている
 （PR未マージ）。人間には、PRマージまで「ログアウトしてすぐ端末を
 他の人に渡す」使い方を避けるよう伝えた。
+
+## 2026-08-31 PR #174: R-1(me.get漏れ)・R-2(検証粒度)対応
+
+Rから2件の追加指摘を受けた。R-1: `me.get`（名前・メールアドレス・
+アイコン画像を返す）にviewerKeyが付いていなかった。`me.get`は
+`readProcedure`を使わない認可基底の唯一の例外（`health.get`と並ぶ。
+`ALLOWED_WITHOUT_BASE`）のため、`readProcedure`だけを走査する
+enforcementテストの構造上、機械的に検出できなかった。profile.tsxの
+meQueryにviewerKeyを追加し、`MANUALLY_INCLUDED_PROCEDURES`として
+テストに明示的に足した。
+
+R-2: enforcementテストの検証粒度が粗く、実測すると2段階で見逃す
+ことが分かった。ファイル全体チェックは、同じファイル内の別の呼び出し
+（profile.tsxのcouple.get）がviewerKeyを使っていれば、me.get側から
+丸ごと外しても検知できなかった（sedで再現して確認）。前後300文字の
+近傍チェックに直しても、`const viewerKey = ...`という共有の宣言1行が
+隣接する2つの呼び出しの両方から300文字圏内に入るため、まだ見逃した。
+前後100文字まで縮め、誤検知しないこと・不備を検知できることの両方を
+実測してから確定した。
+
+docs/architecture.md・docs/security-report.mdに記録し、PR #174へ
+コミット6199747をプッシュ、Rへ再レビューを依頼した。
