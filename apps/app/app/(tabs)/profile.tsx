@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Share, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import { ORPCError } from "@orpc/client";
 import { formatJstDateTime } from "@futary/date";
 import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
 import { Avatar, Button, Card, colors, radius, Screen, space, Text } from "@futary/ui";
@@ -99,8 +100,21 @@ export default function ProfileScreen() {
     try {
       const issued = await issueInvite.mutateAsync();
       setReissuedInvite(issued);
-    } catch {
-      setInviteErrorMessage("発行できませんでした。もう一度お試しください");
+    } catch (error) {
+      // 【Rレビュー指摘】この画面に到達している時点で認証済みのため
+      // （isGuestModeの早期returnより後）、ここで返るFORBIDDENは
+      // 「満員」以外にありえない（writeProcedureのreadonly判定は通過済み）。
+      // 「もう一度お試しください」は構造的に成功しない操作を勧めることになる
+      // ため、この画面の文脈だけで理由を確定して案内し、statsQueryを
+      // 再取得してカード自体も正しい表示（相手が参加済みです）に戻す。
+      // isDefinedErrorはcatch節のerror（unknown）だと型がneverに潰れて
+      // 絞り込めないため、ORPCErrorのinstanceofで判定する（calendar.tsxと同じ理由）
+      if (error instanceof ORPCError && error.code === "FORBIDDEN") {
+        setInviteErrorMessage("相手が参加済みです");
+        void statsQuery.refetch();
+      } else {
+        setInviteErrorMessage("発行できませんでした。もう一度お試しください");
+      }
     }
   }
 

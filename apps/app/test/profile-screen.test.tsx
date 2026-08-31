@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ORPCError } from "@orpc/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -435,6 +436,26 @@ describe("025: 招待コードの再発行", () => {
     });
 
     expect(await screen.findByText("発行できませんでした。もう一度お試しください")).toBeTruthy();
+  });
+
+  // 【Rレビュー指摘R-1】この画面に到達している時点で認証済みのため、
+  // ここで返るFORBIDDENは「満員」以外にありえない。「もう一度お試し
+  // ください」は構造的に成功しない操作を勧めることになるため、
+  // この文脈だけで理由を確定して案内し、statsQueryを再取得してカード
+  // 自体も正しい表示（相手が参加済みです）に戻す
+  it("発行時にFORBIDDEN（満員）が返ると、専用の文言が出てstatsが再取得される", async () => {
+    inviteIssueMock.mockRejectedValue(new ORPCError("FORBIDDEN", { defined: true }));
+    renderScreen();
+
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId("profile-reissue-invite"));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText("相手が参加済みです")).toBeTruthy();
+    expect(screen.queryByText("発行できませんでした。もう一度お試しください")).toBeNull();
+    // 初回描画時の1回 + エラー後の再取得で2回以上呼ばれる
+    await waitFor(() => expect(statsGetMock.mock.calls.length).toBeGreaterThanOrEqual(2));
   });
 });
 
