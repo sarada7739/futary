@@ -29,6 +29,30 @@ const MANUALLY_INCLUDED_PROCEDURES = [
   // health.get/me.getのうちme.getだけが対象。理由は上のコメント参照
   "me.get",
 ];
+
+// 【A決定・PR #178】T9の対象は「手続きの戻り値」に限らない。当初この節を
+// 「問い合わせ」で書いたのが狭かった（Rが発見）。
+// `apps/app/app/(onboarding)/invite.tsx`の`pendingInviteQueryKey`は
+// サーバの手続きではなくTanStack Queryをただの置き場として使っており
+// （中身は招待コード。ペアに入るための鍵でT2より直接的な開示になる）、
+// `orpc.<namespace>.<method>.(queryOptions|infiniteOptions)`という
+// 呼び出し形を前提にするfindReadScopedProceduresの走査には元から
+// 掛からない。手続きの走査だけに頼る構造そのものが穴であるため
+// （me.getが抜けたのと同じ形が2回目に出た）、「手続き名+自動導出した
+// 呼び出しパターン」ではなく「ラベル+呼び出しパターンそのもの」を
+// 明示的に登録できる形に一般化した
+interface ManuallyPlacedCacheKey {
+  label: string;
+  // グローバルフラグ付き正規表現であること（matchAllで全件拾うため）
+  callPattern: RegExp;
+}
+
+const MANUALLY_PLACED_CACHE_KEYS: ManuallyPlacedCacheKey[] = [
+  {
+    label: "onboarding.pendingInvite",
+    callPattern: /pendingInviteQueryKey\(/g,
+  },
+];
 //
 // 検証の粒度: 呼び出し箇所を含むファイルに`viewerKey`という識別子への
 // 参照があることだけを見る（そのqueryKeyに実際に渡されているかまでは
@@ -70,8 +94,23 @@ function listAppSourceFiles(): string[] {
     .filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"));
 }
 
+// 手続き名（"couple.get"のような形）から、oRPCの呼び出しパターンを導出する
+function orpcCallTarget(procedure: string): ManuallyPlacedCacheKey {
+  const parts = procedure.split(".");
+  if (parts.length !== 2) throw new Error(`想定外の手続き名の形式です: ${procedure}`);
+  const [namespace, method] = parts;
+  return {
+    label: procedure,
+    callPattern: new RegExp(`orpc\\.${namespace}\\.${method}\\.(queryOptions|infiniteOptions)\\(`, "g"),
+  };
+}
+
 describe("ペアのデータ・利用者ごとのデータを読む問い合わせは、queryKeyにviewerKeyを含める（T9）", () => {
   const targetProcedures = [...findReadScopedProcedures(), ...MANUALLY_INCLUDED_PROCEDURES];
+  // 「手続きの戻り値」（oRPC経由）と「利用者ごとに違う値を持つ、こちらが
+  // 置いたキャッシュ」（MANUALLY_PLACED_CACHE_KEYS）の両方を、同じ形
+  // （ラベル+呼び出しパターン）に揃えてから一括で検査する（A決定・PR #178）
+  const targets: ManuallyPlacedCacheKey[] = [...targetProcedures.map(orpcCallTarget), ...MANUALLY_PLACED_CACHE_KEYS];
 
   // 検出ロジック自体が壊れて0件になった場合、以降のitが1件も生成されず
   // 静かにテストが「何も確認していない」状態になる。それを防ぐ
@@ -100,25 +139,21 @@ describe("ペアのデータ・利用者ごとのデータを読む問い合わ�
   // 両方を実測で確認した
   const CONTEXT_WINDOW = 100;
 
-  for (const procedure of targetProcedures) {
-    it(`${procedure} を呼ぶ箇所は、それぞれの近傍でviewerKeyを参照している`, () => {
-      const parts = procedure.split(".");
-      if (parts.length !== 2) throw new Error(`想定外の手続き名の形式です: ${procedure}`);
-      const [namespace, method] = parts;
-      const callPattern = new RegExp(`orpc\\.${namespace}\\.${method}\\.(queryOptions|infiniteOptions)\\(`, "g");
+  for (const target of targets) {
+    it(`${target.label} を呼ぶ箇所は、それぞれの近傍でviewerKeyを参照している`, () => {
       const files = listAppSourceFiles();
 
       let totalMatches = 0;
       for (const file of files) {
         const content = readFileSync(file, "utf8");
-        for (const match of content.matchAll(callPattern)) {
+        for (const match of content.matchAll(target.callPattern)) {
           totalMatches += 1;
           const start = Math.max(0, match.index - CONTEXT_WINDOW);
           const end = Math.min(content.length, match.index + match[0].length + CONTEXT_WINDOW);
           const context = content.slice(start, end);
           expect(
             context,
-            `${path.relative(repoRoot, file)} の ${procedure} 呼び出し（位置 ${match.index}）の近傍にviewerKeyが見つかりません`,
+            `${path.relative(repoRoot, file)} の ${target.label} 呼び出し（位置 ${match.index}）の近傍にviewerKeyが見つかりません`,
           ).toMatch(/viewerKey/);
         }
       }
@@ -129,7 +164,7 @@ describe("ペアのデータ・利用者ごとのデータを読む問い合わ�
       // 要求することでそれを防ぐ
       expect(
         totalMatches,
-        `${procedure} の呼び出し箇所が見つかりません（callPatternが実際の書き方と一致していない可能性）`,
+        `${target.label} の呼び出し箇所が見つかりません（callPatternが実際の書き方と一致していない可能性）`,
       ).toBeGreaterThan(0);
     });
   }

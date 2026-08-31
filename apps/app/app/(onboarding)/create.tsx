@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { View } from "react-native";
 import { orpc } from "../../lib/orpc";
-import { PENDING_INVITE_QUERY_KEY } from "./invite";
+import { useViewerQueryKey } from "../../lib/viewer-key";
+import { pendingInviteQueryKey } from "./invite";
 
 // 023: 付き合った日は登録時に聞かない（すでに結婚している人は覚えていない
 // 場合がある）。ペアを作る操作だけが残る。付き合った日はマイページで
@@ -11,6 +12,7 @@ import { PENDING_INVITE_QUERY_KEY } from "./invite";
 export default function CreateCoupleScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const viewerKey = useViewerQueryKey();
 
   const createCouple = useMutation(orpc.couple.create.mutationOptions());
   const issueInvite = useMutation(orpc.invite.issue.mutationOptions());
@@ -24,7 +26,7 @@ export default function CreateCoupleScreen() {
     // Medium指摘）ルーティングパラメータではなくクエリキャッシュ経由で invite.tsx
     // に渡す。invite.tsx 側は画面表示のたびには発行しない（後述の副作用対策）
     const invite = await issueInvite.mutateAsync();
-    queryClient.setQueryData(PENDING_INVITE_QUERY_KEY, invite);
+    queryClient.setQueryData(pendingInviteQueryKey(viewerKey), invite);
     router.push("/invite");
   }
 
