@@ -7844,3 +7844,13 @@ WebSocketが頻繁に切断・再接続する（`Disconnected from Metro (1006)`
 
 両方の指摘に対応後、`pnpm -w test`（apps/app 160件・apps/api 303件）・
 `pnpm run type-check`・`eslint .`すべて再度通過を確認しPR #177へpush。
+
+**R-3（記録だけ・Bの判断は求められていない）**: `apps/app/app/(onboarding)/invite.tsx`の
+`PENDING_INVITE_QUERY_KEY`（`["onboarding","pendingInvite"]`。招待コードを
+保持する）にviewerKeyが無い。`queryClient.clear()`を削除したことで、
+識別が変わってもこの枠が残るようになった（以前は`clear()`が識別変化の
+たびに副次的にこれも消していたが、それは意図された防御ではなく偶然の
+副作用だった、とRが指摘）。現時点では到達しない（ログアウト導線は
+`(tabs)`にしかなく、オンボーディング中は`hasCouple`がfalseのため
+`(tabs)`へ行けない）が、それは画面構成の副産物であり宣言された不変条件
+ではない。T9の対象一覧に含めるかはA判断とのことなので、Aへ共有した。
