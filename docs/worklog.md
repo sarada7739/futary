@@ -7757,3 +7757,57 @@ PRの本文がBの当初案（`useEffect`での`queryClient.clear()`）のまま
 
 mainへは入ったが、`deploy.yml`はGitHub Environment「production」の
 Required reviewers承認待ちのため、本番デプロイはまだ完了していない。
+
+## 2026-09-01 ゲストではじめる→/composeで読み込み中のまま止まる不具合を発見・修正（B）
+
+PR #174マージ直後、人間から「ゲストではじめるで
+https://futary-api.coco7739yahoo.workers.dev/app/compose に遷移した」と
+報告を受けた。本番・ローカル両方で再現を確認（サインイン画面で
+「ゲストではじめる」を押すとURLが`/compose`に飛び、「読み込み中…」の
+まま戻らない）。
+
+3つの仮説を順に検証したが、いずれも単独では再現を消せなかった:
+1. `(auth)`・`(onboarding)`に`_layout.tsx`が無く、ルート`_layout.tsx`の
+   `Stack.Screen name="(auth)"`がどの画面にも一致せず
+   `No route named "(auth)" exists in nested children`という警告が
+   出ていた点。ファイルを足しても不具合は再現し続けた
+2. 識別変化のたびに`<Stack>`自体を早期returnで`<Screen>`に差し替えていた
+   構造。Stackを常にマウントしたままオーバーレイに変えても再現し続けた
+3. `enterGuestMode`内の`router.replace("/")`呼び出しのタイミング。
+   呼び出しを`setTimeout`で遅延させても、呼び出し自体を消しても、
+   単独では解決しなかった
+
+検証中、`apps/app/app/_layout.tsx`にデバッグ用の`console.log`と
+`window`経由のグローバル変数（`__debugRenderCount`・`__debugCoupleQuery`・
+`__debugQueryClient`）を一時的に仕込み、Metro開発サーバー
+（`expo start --web`）でテストしたところ、`RootNavigator`の
+マウント・アンマウントが繰り返される様子が見えたが、Metroのfast refresh用
+WebSocketが頻繁に切断・再接続する（`Disconnected from Metro (1006)`）
+ノイズが乗っており、切り分けが難しかった。そこで`scripts/build-public.mjs`で
+本番相当の静的ビルドを作り、`wrangler dev`（Metro非経由）で同じ手順を
+再現したところ、`queryClient.getQueryCache().getAll()`が空であること、
+`coupleQuery`の`fetchStatus`が`"fetching"`のまま二度と変化しないことを
+確認できた。手動で同じエンドポイントに直接`fetch()`すると即座に200が
+返ることも確認し、サーバー側・ネットワーク層は無関係と判断した。
+
+**真因はPR #174のT9修正で入れた識別変化エフェクトの`queryClient.clear()`
+だった。**「正しさのためではなく容量のため」と位置づけていたこの呼び出しが、
+`couple.get`が新しいviewerKeyで発火した直後というピンポイントの
+タイミングで走ると、発火したばかりの問い合わせをキャッシュごと消してしまい、
+`retry:false`のため二度と再試行されず永久に`fetching`のまま止まっていた。
+`queryClient.clear()`を無効化した状態で同じ手順を試すと、即座にホーム画面
+まで到達することを実測で確認した。2回連続でのゲスト入退室でも再現性を確認。
+
+**対処**: `queryClient.clear()`の呼び出しを削除した。T9の正しさは
+`viewerKey`をqueryKeyに含めることで既に担保されており、この呼び出しは
+無くても正しさは壊れない（`apps/app/lib/viewer-key.ts`のコメントどおり）。
+あわせて、識別変化のたびに`<Stack>`を早期returnで消していた構造もやめ、
+常にマウントしたままローディング・未解決状態をオーバーレイで重ねる形に
+した（真因ではなかったが、識別変化のたびにナビゲータ全体を作り直す形は
+不要なリスクと判断し、合わせて直した）。`(auth)`・`(onboarding)`への
+`_layout.tsx`追加（ルーティング警告の解消）も合わせて行った。
+
+デバッグ用のコード（`console.log`・`window.__debug*`）はすべて削除して
+コミットした。`pnpm -w test`（apps/app 159件・apps/api 303件）・
+`pnpm run type-check`・`eslint .`すべて通過。
+`fix/guest-mode-stuck-loading`としてRレビュー依頼予定。
