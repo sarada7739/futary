@@ -174,18 +174,46 @@ describe("invite.accept", () => {
 
   it("1ペアに3人目は入れない（DBのCHECK/NOT NULL制約で失敗）", async () => {
     const owner = await createUser();
-    await createCouple(owner);
+    const couple = await createCouple(owner);
     const invite1 = await call(router.invite.issue, undefined, { context: contextFor(owner) });
     const partner = await createUser();
     await call(router.invite.accept, { code: invite1.code }, { context: contextFor(partner) });
 
-    const invite2 = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    // 満員のペアではinvite.issue自体がFORBIDDENになる（025）ため、
+    // 正規の経路では有効なコードを作れない。ここではDB側の防御
+    // （slotのNOT NULL制約）自体を確認するため、期限切れコードのテストと
+    // 同じ手法で直接invitesテーブルへ差し込む
+    const now = Math.floor(Date.now() / 1000);
+    await db
+      .prepare(
+        "INSERT INTO invites (code, couple_id, created_by, expires_at, used_at) VALUES ('FULLXX', ?1, ?2, ?3, NULL)",
+      )
+      .bind(couple.id, owner.id, now + 3600)
+      .run();
     const third = await createUser();
 
     // 招待コードの有効性が外部から判別できないよう、無効なコードと同じ NOT_FOUND を返す
     await expect(
-      call(router.invite.accept, { code: invite2.code }, { context: contextFor(third, "203.0.113.23") }),
+      call(router.invite.accept, { code: "FULLXX" }, { context: contextFor(third, "203.0.113.23") }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  // 025: 満員のペアではinvite.issue自体をサーバ側で拒む（「画面に出さないから
+  // 安全」は採らない。security-requirements.md T5と同じ考え方）
+  it("ペアが2人揃っていると発行できない（FORBIDDEN）", async () => {
+    const owner = await createUser();
+    await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+
+    await expect(
+      call(router.invite.issue, undefined, { context: contextFor(owner) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    // どちらの利用者から呼んでも同じ
+    await expect(
+      call(router.invite.issue, undefined, { context: contextFor(partner) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("既に別のペアに所属しているユーザーは参加できない（1人1ペアの制約）", async () => {

@@ -7996,3 +7996,40 @@ CoupleStars 型を採らないのは別の理由で、**消したい側が自分
 **「途中で止まっても安全」を書くとき、何から守るのかを書く。**
 **書けないなら、その要件は要らない。
 要らない要件のために、認可の中心のような重い場所を触らない。**
+
+## 2026-09-01 025（招待コードの再発行）実装完了（B）
+
+`docs/tasks/025-invite-reissue.md`どおり実装した。
+
+**サーバ側**: `apps/api/src/procedures/couple.ts`の`invite.issue`に、
+既に2人揃っているペアからの呼び出しをFORBIDDENで拒む処理を追加した。
+`couple_members`のslot列（1ペア2人まで）はDBのUNIQUE制約で担保しており、
+通常はアプリ側で人数を数える処理を持たない（`packages/db/src/schema/
+couple.ts`のコメント）が、その制約は`invite.accept`（参加しようとした
+瞬間）にしか効かない。満員のペアでも`invite.issue`自体は何の制約にも
+触れず成功してしまうため、ここだけ例外的にCOUNT(*)で数える形にした
+（「画面に出さないから安全」は採らない。security-requirements.md T5と
+同じ考え方。タスク定義どおり）。
+
+既存テスト「1ペアに3人目は入れない」は、正規の経路では検証用の
+有効なコードを作れなくなったため（invite.issue自体が拒否するため）、
+期限切れコードのテストと同じ手法でinvitesテーブルへ直接差し込む形に
+書き換えた（DB側の防御=slotのNOT NULL制約自体が変わらず効いていることの
+確認として残す）。新設「ペアが2人揃っていると発行できない」を追加。
+
+**クライアント側**: `apps/app/app/(tabs)/profile.tsx`に招待コードカードを
+追加した。`stats.get`の`members`でペアの人数を見て、1人のときだけ
+発行ボタンを出す（2人揃っていれば「相手が参加済みです」）。発行前に
+「発行すると、以前発行した招待コードは無効になります」を常時表示する
+（押す前に伝える。押したあとに気づく形にしない。タスク定義どおり）。
+`stats.get`の新しい呼び出し箇所も、既存の`viewerKey`変数の近傍にあるため
+`viewer-key-coverage.test.ts`（T9のenforcementテスト）の走査対象に
+自動的に含まれることを確認した（新しいMANUALLY_*への追加は不要だった。
+既存のoRPC呼び出しパターンにそのまま乗るケースだったため）。
+
+`apps/app/test/profile-screen.test.tsx`に4件追加（既存14件は無変更で
+全緑。`stats.get`呼び出しの新設に伴い、beforeEachへ`statsGetMock`の
+既定値を追加した）。`pnpm -w test`（apps/app 166件・apps/api 304件）・
+`pnpm run type-check`・`eslint .`すべて通過。画面は認証必須のためB
+（自動化）は実機確認ができず、`artifacts/025/manual-check.md`に確認
+項目を列挙した。`feature/025-invite-reissue`ブランチとしてPR作成中。

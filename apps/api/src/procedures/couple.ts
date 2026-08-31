@@ -119,10 +119,23 @@ const coupleUpdate = implementer.couple.update.use(writeProcedure).handler(async
   return toCouple(row);
 });
 
-const inviteIssue = implementer.invite.issue.use(writeProcedure).handler(async ({ context }) => {
+const inviteIssue = implementer.invite.issue.use(writeProcedure).handler(async ({ context, errors }) => {
   const { db, coupleId, userId } = context;
   const now = nowSeconds();
   const expiresAt = now + INVITE_TTL_SECONDS;
+
+  // couple_membersのslot列（1ペア2人まで）はDBのUNIQUE制約で担保しており、
+  // 通常はアプリケーション側で人数を数える処理を持たない（packages/db/src/schema/
+  // couple.tsのコメント参照）。ここだけ例外なのは、その制約がinvite.accept
+  // （参加しようとした瞬間）にしか効かないため。満員のペアでもinvite.issue自体は
+  // 何の制約にも触れず成功してしまい、誰も使えないコードを発行し続けられる。
+  // 「画面に出さないから安全」はこの製品では採っていない（025タスク定義・
+  // security-requirements.md T5と同じ考え方）ため、ここでサーバ側から拒む
+  const memberCount = await db
+    .prepare("SELECT COUNT(*) AS count FROM couple_members WHERE couple_id = ?1")
+    .bind(coupleId)
+    .first<{ count: number }>();
+  if ((memberCount?.count ?? 0) >= 2) throw errors.FORBIDDEN();
 
   for (let attempt = 1; attempt <= INVITE_CODE_MAX_ATTEMPTS; attempt++) {
     const code = generateInviteCode();
