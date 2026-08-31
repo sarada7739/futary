@@ -7758,6 +7758,102 @@ PRの本文がBの当初案（`useEffect`での`queryClient.clear()`）のまま
 mainへは入ったが、`deploy.yml`はGitHub Environment「production」の
 Required reviewers承認待ちのため、本番デプロイはまだ完了していない。
 
+## 2026-09-01 ゲストではじめる→/composeで読み込み中のまま止まる不具合を発見・修正（B）
+
+PR #174マージ直後、人間から「ゲストではじめるで
+https://futary-api.sarada7739.workers.dev/app/compose に遷移した」と
+報告を受けた。本番・ローカル両方で再現を確認（サインイン画面で
+「ゲストではじめる」を押すとURLが`/compose`に飛び、「読み込み中…」の
+まま戻らない）。
+
+3つの仮説を順に検証したが、いずれも単独では再現を消せなかった:
+1. `(auth)`・`(onboarding)`に`_layout.tsx`が無く、ルート`_layout.tsx`の
+   `Stack.Screen name="(auth)"`がどの画面にも一致せず
+   `No route named "(auth)" exists in nested children`という警告が
+   出ていた点。ファイルを足しても不具合は再現し続けた
+2. 識別変化のたびに`<Stack>`自体を早期returnで`<Screen>`に差し替えていた
+   構造。Stackを常にマウントしたままオーバーレイに変えても再現し続けた
+3. `enterGuestMode`内の`router.replace("/")`呼び出しのタイミング。
+   呼び出しを`setTimeout`で遅延させても、呼び出し自体を消しても、
+   単独では解決しなかった
+
+検証中、`apps/app/app/_layout.tsx`にデバッグ用の`console.log`と
+`window`経由のグローバル変数（`__debugRenderCount`・`__debugCoupleQuery`・
+`__debugQueryClient`）を一時的に仕込み、Metro開発サーバー
+（`expo start --web`）でテストしたところ、`RootNavigator`の
+マウント・アンマウントが繰り返される様子が見えたが、Metroのfast refresh用
+WebSocketが頻繁に切断・再接続する（`Disconnected from Metro (1006)`）
+ノイズが乗っており、切り分けが難しかった。そこで`scripts/build-public.mjs`で
+本番相当の静的ビルドを作り、`wrangler dev`（Metro非経由）で同じ手順を
+再現したところ、`queryClient.getQueryCache().getAll()`が空であること、
+`coupleQuery`の`fetchStatus`が`"fetching"`のまま二度と変化しないことを
+確認できた。手動で同じエンドポイントに直接`fetch()`すると即座に200が
+返ることも確認し、サーバー側・ネットワーク層は無関係と判断した。
+
+**真因はPR #174のT9修正で入れた識別変化エフェクトの`queryClient.clear()`
+だった。**「正しさのためではなく容量のため」と位置づけていたこの呼び出しが、
+`couple.get`が新しいviewerKeyで発火した直後というピンポイントの
+タイミングで走ると、発火したばかりの問い合わせをキャッシュごと消してしまい、
+`retry:false`のため二度と再試行されず永久に`fetching`のまま止まっていた。
+`queryClient.clear()`を無効化した状態で同じ手順を試すと、即座にホーム画面
+まで到達することを実測で確認した。2回連続でのゲスト入退室でも再現性を確認。
+
+**対処**: `queryClient.clear()`の呼び出しを削除した。T9の正しさは
+`viewerKey`をqueryKeyに含めることで既に担保されており、この呼び出しは
+無くても正しさは壊れない（`apps/app/lib/viewer-key.ts`のコメントどおり）。
+あわせて、識別変化のたびに`<Stack>`を早期returnで消していた構造もやめ、
+常にマウントしたままローディング・未解決状態をオーバーレイで重ねる形に
+した（真因ではなかったが、識別変化のたびにナビゲータ全体を作り直す形は
+不要なリスクと判断し、合わせて直した）。`(auth)`・`(onboarding)`への
+`_layout.tsx`追加（ルーティング警告の解消）も合わせて行った。
+
+デバッグ用のコード（`console.log`・`window.__debug*`）はすべて削除して
+コミットした。`pnpm -w test`（apps/app 159件・apps/api 303件）・
+`pnpm run type-check`・`eslint .`すべて通過。
+`fix/guest-mode-stuck-loading`としてPR #177を作成し、Rへレビュー依頼した。
+
+## 2026-09-01 PR #177 Rレビュー対応（R-1・R-2）（B）
+
+**R-1（「なぜ/composeだったか」が未確認という指摘）**: `compose`は`(tabs)`と
+同じ`Stack.Protected guard={hasCouple}`の下にある兄弟スクリーンで、
+コメントには「Stack.Protectedが既定画面へ自然に導く（実測で確認済み）」と
+書いていたが、2回の手動確認だけでは「今回はたまたま正しく転んだ」なのか
+「構造がそう決めている」のかを区別できていなかった、という指摘。実際に
+切り分けた: ブラウザの`history.pushState`で意図的にURLを`/app/compose`へ
+書き換えてから（アプリ内部のナビゲータ状態は書き換えていない状態）
+「ゲストではじめる」を押しても、結果は`/app/`（`(tabs)`）に着地することを
+確認した。これは、guardが新規に有効化される瞬間の画面決定が、ブラウザの
+生URLではなく、React Navigation自身が保持する内部状態（「直前に見ていた
+画面」の記憶）と、guard配下でのスクリーン宣言順（`(tabs)`が`compose`より
+先）によって決まっていることを示す。`enterGuestMode`はURLを一切書き換え
+ないため（router.replace等を呼ばない）、内部状態は常に「サインイン画面
+にいた」ままであり、`(tabs)`・`compose`のどちらにも一致しない→宣言順の
+先頭である`(tabs)`が選ばれる、という経路が毎回再現する。コメントを
+この実測内容に更新した。
+
+**R-2（回帰テストが無いという指摘）**: `apps/app/test/root-navigator-guest-resolves.test.tsx`
+を新設した。`expo-router`の`Stack`・`Stack.Protected`・`Stack.Screen`を
+最小限のダミーに差し替え（テスト環境ではファイルベースの実ルーティングが
+解決できないため）、`couple.get`を手動で解決タイミングを制御できる
+モックにして、「識別がゲストへ変わった後、couple.getの解決が遅れても
+最終的に決着する（`fetchStatus:"fetching"`のまま止まらない）」ことを
+固定した。conventions.md 6節の原則どおり、このテストが実際に**旧コード
+（`queryClient.clear()`を復元した状態）で失敗すること**を先に確認して
+から（`読み込み中…`のまま`waitFor`がタイムアウトすることを実測）、
+新コードに戻して緑になることを確認した。
+
+両方の指摘に対応後、`pnpm -w test`（apps/app 160件・apps/api 303件）・
+`pnpm run type-check`・`eslint .`すべて再度通過を確認しPR #177へpush。
+
+**R-3（記録だけ・Bの判断は求められていない）**: `apps/app/app/(onboarding)/invite.tsx`の
+`PENDING_INVITE_QUERY_KEY`（`["onboarding","pendingInvite"]`。招待コードを
+保持する）にviewerKeyが無い。`queryClient.clear()`を削除したことで、
+識別が変わってもこの枠が残るようになった（以前は`clear()`が識別変化の
+たびに副次的にこれも消していたが、それは意図された防御ではなく偶然の
+副作用だった、とRが指摘）。現時点では到達しない（ログアウト導線は
+`(tabs)`にしかなく、オンボーディング中は`hasCouple`がfalseのため
+`(tabs)`へ行けない）が、それは画面構成の副産物であり宣言された不変条件
+ではない。T9の対象一覧に含めるかはA判断とのことなので、Aへ共有した。
 ## 2026-09-01 セッションA: T9の範囲が狭かった（Rの指摘）
 
 **判断: `PENDING_INVITE_QUERY_KEY` を T9 の対象に含める。**
