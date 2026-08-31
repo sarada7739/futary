@@ -13,7 +13,9 @@
     "pretest": "wrangler types",
     "test": "vitest run",
     "db:migrate:local": "wrangler d1 migrations apply DB --local",
-    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "r2:cors:apply": "wrangler r2 bucket cors set futary-images --file r2-cors.json",
+    "r2:cors:list": "wrangler r2 bucket cors list futary-images"
   },
   "dependencies": {
     "@better-auth/expo": "^1.7.2",

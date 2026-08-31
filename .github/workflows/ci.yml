@@ -14,20 +14,23 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v4
+      # サードパーティアクションはコミットSHAで固定する（security-auditor
+      # 全体監査Low-4指摘。可変タグの差し替えでCIの認証情報・PRへの書き込み権限が
+      # 持ち出される経路を塞ぐ。deploy.ymlと同じ方針）
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # gitleaks-action が差分（PRのbase..head／pushのbefore..after）を
           # 計算するためにはコミット履歴が必要（shallow clone だと参照が無い）
           fetch-depth: 0
 
       - name: gitleaks（検出1件で赤。security-requirements.md 9節）
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm

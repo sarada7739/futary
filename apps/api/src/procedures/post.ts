@@ -229,7 +229,7 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
         `INSERT INTO posts (id, couple_id, author_id, body, image_key, image_width, image_height, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
       )
-      .bind(id, coupleId, userId, input.body, imageKey, imageWidth, imageHeight, now)
+      .bind(id, coupleId, userId, trimmedBody, imageKey, imageWidth, imageHeight, now)
       .run();
   } catch (error) {
     // image_key の UNIQUE 違反 = 同じ imageId が既に別の投稿に使われている

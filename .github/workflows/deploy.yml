@@ -3,9 +3,11 @@ name: Deploy
 # main へのマージで Cloudflare Workers へデプロイする（docs/tasks/016-release.md）。
 # CI（ci.yml）が通った後にのみ走らせたいが、GitHub Actions は他ワークフローの
 # 成功を直接の起動条件にできないため、CIと同じ push:main トリガーにしたうえで
-# 同じ検証ステップ（type-check・lint・test）をこのワークフロー内でも通す
-# （二重に見えるが、CIの結果を跨いで参照する仕組みが無い以上、デプロイ側でも
-# 独立に安全を確認する必要がある）。
+# 同じ検証ステップ（gitleaks・pnpm audit・type-check・lint・test）をこの
+# ワークフロー内でも独立に通す（二重に見えるが、ci.ymlが赤くても push:main の
+# トリガーが同時に走る deploy.yml を止める仕組みは無いため、ここで通さないと
+# 秘密情報混入や既知の重大な脆弱性があるコミットがそのまま本番へデプロイされうる。
+# security-auditor全体監査Medium-1指摘）
 on:
   push:
     branches: [main]
@@ -13,21 +15,38 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Cloudflareの認証情報を扱うワークフローのため、既定権限（リポジトリ設定次第で
+    # write）に頼らず最小権限を明示する（security-auditor全体監査Low-4指摘）
+    permissions:
+      contents: read
     # "production" という名前のGitHub Environmentが無ければ初回実行時に
     # 自動で作られる（保護ルールは既定で無し）。Secretsをリポジトリ全体でなく
     # この環境に限定して登録したい場合のための器として置いてある（任意）
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      # 秘密情報を扱うワークフローのため、サードパーティアクションは可変タグでは
+      # なくコミットSHAで固定する（security-auditor全体監査Low-4指摘。タグの
+      # 差し替えでCloudflareの認証情報が持ち出される経路を塞ぐ）
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # gitleaksが履歴を見るためにはshallow cloneでは不十分
 
-      - uses: pnpm/action-setup@v4
+      - name: gitleaks（検出1件で赤。security-requirements.md 9節）
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: pnpm audit（high以上で赤。security-requirements.md 9節）
+        run: pnpm audit --audit-level=high
 
       - run: pnpm run type-check
 

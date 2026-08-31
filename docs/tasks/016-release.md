@@ -34,7 +34,8 @@
 | Cloudflare の API トークン発行と登録 | 秘密情報。B は作れない |
 | `wrangler secret` の本番設定 | 同上 |
 | **Google OAuth の本番リダイレクト URI 登録** | Google 側のコンソール操作 |
-| **R2 の CORS に本番オリジンを追加** | 忘れると画像アップロードだけ本番で落ちる |
+| **R2 の CORS に本番オリジンを追加**（`apps/api/r2-cors.json`に追記してから`pnpm --filter @futary/api run r2:cors:apply`） | 忘れると画像アップロードだけ本番で落ちる |
+| **R2バケット（futary-images）が非公開であることを確認**（`wrangler r2 bucket info futary-images`またはダッシュボードのPublic Access設定） | コードからは検証できない。公開されていると署名付きURLの仕組み全体が無意味になる（security-auditor全体監査T3・Medium-3指摘） |
 | **本番 D1 / R2 へのシード投入と `DEMO_COUPLE_ID` の設定** | 本番への書き込み |
 | **リポジトリを Public に切り替え** | GitHub の設定 |
 | **ブランチ保護**（`main` への直接 push を拒否） | GitHub の設定。`conventions.md` 6節 |

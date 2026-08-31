@@ -99,6 +99,16 @@ export function createAuth(env: Bindings) {
       // localhost/127.0.0.1 のときだけに限定されている（本番相当のホストで
       // http のまま Secure Cookie が落ちる、という経路は起動時エラーで塞がれている）
       useSecureCookies: isHttps,
+      ipAddress: {
+        // Better Authの既定は x-forwarded-for を見るが、Cloudflare Workersは
+        // cf-connecting-ip に実IPを1つだけ入れて渡す（index.tsのinvite関連
+        // レート制限と同じ根拠）。x-forwarded-for のままだと、利用者が自分で
+        // 送った x-forwarded-for にCloudflareが実IPを追記して2要素になり、
+        // Better Auth側のIP解決が失敗して単一の共有バケットに丸められる
+        // （なりすましにはならないが、無関係な利用者を巻き込んだ429の原因になる。
+        // security-auditor全体監査Low-2指摘）
+        ipAddressHeaders: ["cf-connecting-ip"],
+      },
     },
     rateLimit: {
       // OAuth系エンドポイントへの基本的な連打対策。招待コード用の本格的なレート制限
