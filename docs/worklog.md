@@ -7249,3 +7249,23 @@ CHECK には必ず名前を付ける）。
 **自分が引用するときに自然に書いた番号は、その内容があるべき場所である。**
 **一晩で2回出た**（ルーティングの規則が7節、スキーマが5節）。**どちらも間借りだった。**
 **移す前にその節への引用を数える。多い方が本来の住人である。**
+## 2026-08-31 セッションB: PR #165（014）マージ完了
+
+Rの提案（5重ループでの総当たり）をマージ前に反映した。`isAuthenticated`×
+`isDemoViewer`×`isCoupleLoading`×`hasCoupleData`×`isNeedsOnboardingError`の
+2^5=32通りを総当たりし、到達不能な組み合わせ（`isAuthenticated &&
+isDemoViewer`。呼び出し側の構成上ありえない）と、呼び出し側の早期returnが
+拾う`isCoupleLoading=true`を除いた到達可能な12通りすべてでguardがちょうど
+1つだけ真になることと、既知のギャップ（認証済み・NEEDS_ONBOARDING以外の
+エラー）が1通りだけであることを`toEqual`で固定した。Rが確認し「そのまま
+マージして結構」と受け入れ。
+
+CI（`ci`）通過を確認し、`gh pr merge 165 --squash --delete-branch`でmainへ
+マージ（`7aef87d`）。architecture.mdの節番号引用（sign-in.tsx・
+root-route.test.ts・manual-check.md・test-results.md・state.md）は、
+Aが移した3節「ルーティングと画面遷移」に合わせて修正済み。あわせて
+test-results.mdが引用していた「表の作り直しが失敗するとテーブルが残る」の
+節番号（PR #166のメッセージでは4節）を直接ファイルで確認したところ
+実際には5節（API節）だったため、そちらも訂正した。
+
+014はこれで完全に閉じた。次は015（ランディングページ）へ進む。
