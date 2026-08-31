@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import type { Stats } from "@futary/contract";
-import { Avatar, Card, colors, space, Text } from "@futary/ui";
+import { Avatar, Button, Card, colors, space, Text } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { daysTogetherLabel } from "../lib/stats";
@@ -54,9 +54,27 @@ export function StatsCard() {
   const router = useRouter();
   const query = useQuery(orpc.stats.get.queryOptions());
 
-  // 通信エラー時はカード自体を出さない（ホーム画面の主役は投稿一覧のため、
-  // 統計カードの失敗で画面全体を止めない）
-  if (query.isError) return null;
+  // 016: 以前は通信エラー時にカード自体を消していたが、それだと利用者に
+  // 何も知らされないまま統計情報だけが欠ける（security-auditor全体監査・
+  // 3状態レビュー指摘）。カードは出したまま再試行できる表示に変える。
+  // ホーム画面の他の要素（機能パネル）は取得状態に依存しないため、
+  // このカードの失敗が画面全体を止めることはない
+  if (query.isError) {
+    return (
+      <Card>
+        <View style={{ alignItems: "center", gap: space.md }}>
+          <Text color="muted">記念日を読み込めませんでした</Text>
+          <Button
+            onPress={async () => {
+              await query.refetch();
+            }}
+          >
+            再試行
+          </Button>
+        </View>
+      </Card>
+    );
+  }
 
   if (query.isLoading || !query.data) {
     return (

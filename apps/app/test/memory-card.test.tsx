@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -95,22 +95,27 @@ describe("MemoryCard", () => {
     expect(await screen.findByLabelText("本文をすべて表示")).toBeTruthy();
   });
 
-  it("nullが返るとカード自体を表示しない（該当なし）", async () => {
+  // 016: memory.tsx（思い出タブ）がこのカードだけを描画する構成になったため、
+  // 該当なし・通信エラーを無表示のままにすると画面全体が空白に見える
+  // （security-auditor全体監査・3状態レビュー指摘）。カードを消すのではなく
+  // 案内文を出す形に変更した
+  it("nullが返ると該当なしの案内文を表示する", async () => {
     memoryGetMock.mockResolvedValue(null);
 
-    const { container } = renderCard();
+    renderCard();
 
-    await waitFor(() => expect(container.textContent).toBe(""));
+    expect(await screen.findByText("今日に関する思い出はまだありません")).toBeTruthy();
   });
 
   it(
-    "通信エラー時もカード自体を表示しない",
+    "通信エラー時はエラー文と再試行ボタンを表示する",
     async () => {
       memoryGetMock.mockRejectedValue(new Error("network"));
 
-      const { container } = renderCard();
+      renderCard();
 
-      await waitFor(() => expect(container.textContent).toBe(""), { timeout: 10000 });
+      expect(await screen.findByText("思い出を読み込めませんでした", {}, { timeout: 10000 })).toBeTruthy();
+      expect(screen.getByText("再試行")).toBeTruthy();
     },
     15000,
   );

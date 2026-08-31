@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -172,16 +172,20 @@ describe("StatsCard", () => {
     expect(pushMock).toHaveBeenCalledWith("/profile");
   });
 
+  // 016: 以前はカード自体を非表示にしていたが、利用者に何も知らされないまま
+  // 情報が欠けるのを避けるため、エラー文と再試行ボタンを表示する形に変更した
+  // （security-auditor全体監査・3状態レビュー指摘）
   it(
-    "通信エラー時はカード自体を表示しない",
+    "通信エラー時はエラー文と再試行ボタンを表示する",
     async () => {
       statsGetMock.mockRejectedValue(new Error("network"));
 
-      const { container } = renderCard();
+      renderCard();
 
       // 既定のリトライ（3回・指数バックオフ）が尽きるまでisErrorにならないため
       // 通常より長いタイムアウトを与える（011のcalendar-screen.test.tsxと同じ理由）
-      await waitFor(() => expect(container.textContent).toBe(""), { timeout: 10000 });
+      expect(await screen.findByText("記念日を読み込めませんでした", {}, { timeout: 10000 })).toBeTruthy();
+      expect(screen.getByText("再試行")).toBeTruthy();
     },
     15000,
   );
