@@ -129,6 +129,43 @@ describe("ProfileScreen: 初期表示", () => {
     const marriedInput = (await screen.findByTestId("profile-married-date")) as HTMLInputElement;
     await waitFor(() => expect(marriedInput.value).toBe("2023-05-01"));
   });
+
+  // 016: 以前はme.get/couple.getのisLoading/isErrorを一切見ておらず、
+  // 取得中・失敗時ともフォームが空欄のまま何も知らせず止まって見えた
+  // （security-auditor全体監査・3状態レビュー指摘）
+  it("読み込み中はローディング表示を出し、フォームは出さない", async () => {
+    let resolveMe: (value: ReturnType<typeof makeMe>) => void = () => {};
+    meGetMock.mockReturnValue(new Promise((resolve) => (resolveMe = resolve)));
+
+    renderScreen();
+
+    expect(await screen.findByText("読み込み中…")).toBeTruthy();
+    expect(screen.queryByTestId("profile-name")).toBeNull();
+
+    resolveMe(makeMe());
+    await waitForLoaded();
+    expect(screen.queryByText("読み込み中…")).toBeNull();
+  });
+
+  it(
+    "取得に失敗するとエラー表示と再試行ボタンを出し、再試行すると再取得する",
+    async () => {
+      meGetMock.mockRejectedValue(new Error("network"));
+
+      renderScreen();
+
+      // 既定のリトライ（3回・指数バックオフ）が尽きるまでisErrorにならないため
+      // 通常より長いタイムアウトを与える（calendar-screen.test.tsxと同じ理由）
+      expect(await screen.findByText("マイページを読み込めませんでした", {}, { timeout: 10000 })).toBeTruthy();
+      expect(screen.queryByTestId("profile-name")).toBeNull();
+
+      meGetMock.mockResolvedValue(makeMe());
+      fireEvent.click(screen.getByText("再試行"));
+
+      await waitForLoaded();
+    },
+    15000,
+  );
 });
 
 describe("ProfileScreen: 保存", () => {

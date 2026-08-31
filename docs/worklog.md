@@ -7468,3 +7468,107 @@ Rから「R-4は1行直せばマージで結構。再レビューは要らない
 CI green確認後、`gh pr merge 170 --squash --delete-branch`でmainへマージ、
 ブランチも削除した（`76ef4dd`）。015（ランディングページ）完了。次は
 016（デプロイ前）へ進む。
+
+## 2026-08-31 016: デプロイ前パート完了
+
+`docs/tasks/016-release.md`の「デプロイ前にできる」8項目を実装した。
+
+3状態（読み込み中/空/エラー）の補完はExploreエージェントに全13画面の調査を
+依頼した。timeline.tsx・calendar.tsx等は既に3状態を適切に扱っていたが、
+profile.tsx（me.get/couple.getのisLoading/isErrorを一切見ておらずフォームが
+空欄のまま止まって見えた）・memory-card.tsx（読み込み中・エラー・該当なしを
+全てreturn nullにしており、memory.tsxがこのカードだけを描画する現在の構成
+では画面がほぼ空白になっていた）・stats-card.tsx（エラー時にカード自体を
+消していた）・_layout.tsx（認証済み利用者がcouple.getで通信エラーを受けると
+Stack.Protectedの3つのguardが全てfalseになり、retry:falseのため自動再試行も
+無いまま空白画面で永久に止まる経路が実在した。既存コメントの「再試行で
+じきに解消する」という説明はretry:falseの下では誤りだった）の4箇所を修正した。
+
+エラー処理の統一では、oRPCの既定動作が想定外の例外を"Internal server error"
+という固定メッセージに変換し、スタックトレース等を漏らさないことを
+@orpc/clientの実装まで読んで確認した上で、想定外の例外にだけ一意のIDを
+振りサーバログに詳細を残す仕組み（apps/api/src/lib/error-id.ts）を追加した。
+ORPCErrorとSyntaxError（リクエストボディのJSONパース失敗）は素通しし、
+既存のFORBIDDEN/BAD_REQUEST変換経路を壊さないようにした。
+
+security-auditorへリポジトリ全体（初めての通し監査）のT1〜T8確認と
+OWASP Top 10横断監査を依頼した。High以上0件。Medium4件（デプロイ経路に
+検査が無い・R2 CORSルールがファイル化されていない・R2バケットの非公開が
+検証不能・アップロード孤児オブジェクトの回収手段が無い）・Low9件のうち、
+コードで直せるもの（deploy.ymlへのgitleaks/pnpm auditゲート追加、
+apps/api/r2-cors.jsonの新規コミット、Better AuthのIP解決をcf-connecting-ip
+優先に変更、/api/*へのセキュリティヘッダ付与、GitHub Actionsのpermissions
+明示とコミットSHA固定、セッションCookie属性を直接検証するテスト追加、
+post.createの空判定と保存の値統一）はすべて対応した。R2バケットの非公開確認
+はリポジトリの外の設定のため、docs/tasks/016-release.mdの人間パートへ
+「R2バケット（futary-images）が非公開であることを確認」を追加した。
+
+gitleaksがこの環境に無かったため、winget（公式配布元。Gitleaks.Gitleaks）で
+導入し、履歴全体（215コミット・約3.48MB）を走査して検出ゼロを確認した。
+pnpm.auditConfig.ignoreGhsasの2件（image-size、Metro経由のDoS）は
+GitHub Advisory APIで再評価し、修正版が依然存在しないこと（patched: null）を
+確認して維持した。
+
+未認証のデモ閲覧経路のE2Eは、この環境にPlaywrightが無かったため新規導入した
+（conventions.md 6節「未認証のデモ閲覧経路のみ。認証を伴う導線は自動化
+しない」の範囲）。scripts/e2e-server.mjsがローカルD1マイグレーション・
+デモシード投入・build:public・wrangler dev起動を行い、本番と同じ単一
+オリジン構成でe2e/demo-guest.spec.tsが「デモを開く→閲覧できる→
+couple.updateを未認証のまま叩きFORBIDDENで拒否される」を検証する。
+CIには組み込んでいない（ブラウザインストールのコスト増のため）。
+
+READMEに.dev.varsのセットアップ手順（従来欠落しておりまっさらな環境からの
+セットアップ手順として不完全だった）・技術構成と設計判断へのリンク・
+開発体制（Maker-Checker）の説明・公開URL欄（デプロイ後に記載）を追加した。
+
+全体テスト（pnpm -w test: apps/app 152件・apps/api 303件）・lint・
+型チェック（e2e/・playwright.config.ts含む）全て通過を確認した。
+artifacts/016/test-results.md・security-audit-raw.mdに証跡を保存し、
+docs/security-report.mdに監査結果を追記、docs/tasks/016-release.mdの
+完了条件・進捗チェックリストを更新した。次はRへレビュー依頼する。
+
+## 2026-08-31 016: PR #172レビュー完了・マージ保留
+
+RからPR #172の3件の指摘（R-1〜R-3）を受け、対応した。
+
+R-1（本番D1へのマイグレーション適用に許可も事前確認も無い）は2段階の
+指摘だった。1回目: 0013のCHECK制約違反を防ぐ事前確認スクリプトを追加した
+ものの、Required reviewers（人間の許可の仕組み）が無いままdeploy.ymlが
+push:mainで無条件に走ることは変わっていない、という指摘。人間パートへ
+Required reviewers設定を追加して対応。2回目: 追加したスクリプト
+（scripts/check-remote-migration-preconditions.mjs）が、wranglerの応答を
+正しく読めなかった場合も「0件」と解釈するfail-open（`parsed[0]?.results ?? []`・
+`rows[0]?.count ?? 0`の2段重ね）になっていた、という指摘。「確かめられない
+形を安全側と解釈してはならない」との言葉どおり、全ての想定外の応答形状を
+例外にするfail-closedへ書き直し、ローカルD1で正常系・異常系の両方を
+実行して確認した。
+
+R2（deploy.ymlの独立検証がci.ymlの部分集合になっている）は、無視リストの
+陳腐化検出とdrizzleスナップショット/スキーマのずれ検出という具体的な
+抜けを指摘され、追加して対応した。「ci.ymlが赤くてもdeploy.ymlは止まらない
+から、ここで通す」という理由が正しいなら、通すのはci.ymlの全部であるべき、
+という論理は納得できるものだった。
+
+R3（014の受容理由を016が反証したまま残っている）は、root-route.test.ts・
+_layout.tsxの両方に残っていた「認証済み利用者がcouple.getで通信エラーを
+受けても再試行でじきに解消する」という記述が、実際はretry:falseのため
+自動再試行が無く止まったままになる（016自身が発見した不具合）ことと
+矛盾していた。両方を訂正として書き直した（消して書き直すのではなく
+「014時点では〜としていたが誤りだった」という形で残した）。
+
+Rは3往復目でPR #172の内容を受け入れたが、**マージ自体は保留するよう
+明示的に指示した**。理由: deploy.ymlはpush:mainで走るため、PR #172を
+mainへマージした瞬間が最初の自動デプロイになる。Required reviewers
+（人間にしかできないGitHubのリポジトリ設定）が未設定のまま本番D1への
+マイグレーション適用が無条件に走ることになり、architecture.md 6節
+「適用には人間の許可を取る」と矛盾する。「コードが正しいことの受け入れ」と
+「マージしてよいという許可」は別であり、後者は人間がRequired reviewersを
+設定したことを確認してから、という指示を受けた。
+
+Required reviewersの設定が必要なタイミングを「デプロイの前」ではなく
+「PR #172のマージ前」と正確に書き直し、docs/tasks/016-release.md・
+deploy.ymlの両方に明記した。
+
+PR #172はマージせず、次のセッションが人間の設定完了を確認してから
+マージする形でdocs/state.mdに引き継いだ。016のコードでできる作業は
+これで尽きており、残りは全て人間の手が要るものである。

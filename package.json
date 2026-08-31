@@ -7,14 +7,17 @@
     "node": ">=20"
   },
   "scripts": {
-    "type-check": "pnpm -r --if-present run type-check",
+    "type-check": "pnpm -r --if-present run type-check && tsc --noEmit",
     "lint": "eslint .",
     "test": "pnpm -r --if-present run test",
     "db:generate": "pnpm --filter @futary/db run generate",
-    "build:public": "node scripts/build-public.mjs"
+    "build:public": "node scripts/build-public.mjs",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^25.9.5",
     "eslint": "^10.9.1",
     "globals": "^17.11.0",
     "typescript": "^5.9.3",

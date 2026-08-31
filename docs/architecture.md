@@ -940,13 +940,36 @@ CREATE UNIQUE INDEX events_meetup_unique
 - 本番オリジンは 016 で公開URLが決まってから追加する。**追加を忘れると本番で
   画像アップロードだけが失敗する**
 
+**ルールはコードレビューを通せるよう `apps/api/r2-cors.json` にファイルとして
+コミットする**（口頭・ダッシュボード操作のみだと、誰かが `AllowedOrigins: ["*"]`
+に変えても差分に現れず気づけない。security-auditor全体監査Medium-2指摘）。
+016で本番オリジンが決まったら、このファイルへ追加してから適用する。
+
 ```bash
-wrangler r2 bucket cors list futary-images    # 現在の設定を見る
-wrangler r2 bucket cors set futary-images --file <ルール>.json
+pnpm --filter @futary/api run r2:cors:list     # 現在の設定を見る
+pnpm --filter @futary/api run r2:cors:apply    # apps/api/r2-cors.json を適用する
 ```
 
 Worker の CORS（`TRUSTED_ORIGINS`）とは**別の設定**である。片方を直しても
 もう片方は変わらない。
+
+### アップロードされたが投稿に紐づかなかった画像（孤児）
+
+`post.uploadUrl`・`me.uploadImageUrl` は署名付き PUT URL を発行するだけで、
+発行した `imageId` をD1のどこにも記録しない。認証済みの利用者がURLを取得して
+PUT しただけで`post.create`/`me.update`を呼ばなければ、D1に一切の手がかりを
+持たないオブジェクトがR2に残り続ける（`post.delete`由来の孤児は`image_key`が
+`posts`テーブルに残るため回収できるが、こちらは違う）。機密性の問題ではなく
+費用・容量の問題である（security-auditor全体監査Medium-4指摘）。
+
+対策として認証必須のレート制限を新設するほどの実害ではないため、当面は
+**回収可能であることを設計として担保する**（`security-requirements.md` 5節）
+方針を取る: R2の`futary-images`バケットを`couples/{coupleId}/posts/`と
+`users/{userId}/`（`lib/r2-signed-url.ts`のキー生成規則）で走査し、
+`posts.image_key`・`user.image`のいずれからも参照されていないオブジェクトを
+一定期間（例: 7日）経過後に削除する運用手順を、実際に016で本番運用を
+始める段階で整備する。この一覧だけを先に書いておき、実装は必要になった
+時点で行う。
 
 ### ローカル D1 とリモート D1 は別物である
 

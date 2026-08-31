@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { isDefinedError } from "@orpc/client";
-import { Screen } from "@futary/ui";
+import { Button, Screen, Text, space } from "@futary/ui";
+import { View } from "react-native";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { DemoBanner } from "../components/demo-banner";
@@ -24,7 +25,12 @@ function RootNavigator() {
 
   // couple.get は未所属なら NEEDS_ONBOARDING を投げる（architecture.md 5節）。
   // 未認証・非デモのときは呼ばない（enabled: isAuthenticated || isDemoViewer）
-  const { data: couple, error: coupleError, isLoading: isCoupleLoading } = useQuery({
+  const {
+    data: couple,
+    error: coupleError,
+    isLoading: isCoupleLoading,
+    refetch: refetchCouple,
+  } = useQuery({
     ...orpc.couple.get.queryOptions(),
     enabled: isAuthenticated || isDemoViewer,
     retry: false,
@@ -50,7 +56,39 @@ function RootNavigator() {
   }, [demoFailed]);
 
   if (isSessionPending || ((isAuthenticated || isDemoViewer) && isCoupleLoading)) {
-    return <Screen>{null}</Screen>;
+    // 通常は一瞬で終わるためスピナーを出すほどではないが、何も表示しないと
+    // 遅延時に画面が固まって見える（security-auditor全体監査・3状態レビュー指摘）
+    return (
+      <Screen>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text color="muted">読み込み中…</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  // 認証済み利用者がcouple.getでNEEDS_ONBOARDING以外のエラー（通信断等）を
+  // 受けると、hasCouple・needsOnboarding・showAuthのどれもtrueにならない
+  // （resolveRootRouteのコメント参照）。retry:falseのためreact-queryの
+  // 自動再試行も無く、このままでは再読み込みでしか戻れない空白画面のまま
+  // 止まる（実際に踏んだ不具合。security-auditor全体監査・3状態レビュー指摘で
+  // 発覚）。ゲストの失敗はdemoFailedが別に受け止めるため、ここに来るのは
+  // 認証済み利用者だけ
+  if (!hasCouple && !needsOnboarding && !showAuth) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.xl }}>
+          <Text color="muted">読み込めませんでした</Text>
+          <Button
+            onPress={async () => {
+              await refetchCouple();
+            }}
+          >
+            再試行
+          </Button>
+        </View>
+      </Screen>
+    );
   }
 
   return (
@@ -83,12 +121,15 @@ function RootNavigator() {
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
         {/* 認証済みの利用者がcouple.getでNEEDS_ONBOARDING以外のエラー（通信断等）を
-            受けている間は、hasCouple・needsOnboarding・showAuthのどれも
-            trueにならない一瞬が生じうる（再試行でじきに解消する）。
+            受けると、hasCouple・needsOnboarding・showAuthのどれもtrueにならない。
             ゲストの失敗はここに含まれない。showAuthのdemoFailedが別に
-            受け止め、サインイン画面へ理由付きで戻す（architecture.md 3節。
-            「一瞬だけ起きる空表示」という説明は認証済み利用者の話であり、
-            ゲストには当てはまらない。A決定） */}
+            受け止め、サインイン画面へ理由付きで戻す（architecture.md 3節）。
+            【016で訂正】ここは元々「再試行でじきに解消する一瞬」と説明していたが、
+            couple.getのuseQueryは`retry: false`のためreact-query側の自動再試行は
+            無く、実際には利用者が手動で再読み込みするまで空白画面のまま止まる
+            （Rレビュー全体監査R-3指摘。実際に踏んだ不具合）。上のガードが
+            全てfalseになるこの状態は、このコンポーネントの先頭で
+            再試行UI（refetchCouple）を出す分岐として拾っている */}
       </Stack>
     </GuestModeContext.Provider>
   );

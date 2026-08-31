@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import type { MemoryLabel } from "@futary/contract";
 import { formatJstDate } from "@futary/date";
-import { Card, radius, space, Text } from "@futary/ui";
+import { Button, Card, radius, space, Text } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
 import { orpc } from "../lib/orpc";
 import { ImageViewer } from "./image-viewer";
@@ -26,11 +26,43 @@ export function MemoryCard() {
     setBodyExpanded(false);
   }, [postId]);
 
-  // 該当なし（null）・読み込み中・通信エラーはすべてカードごと非表示にする
-  // （タスク定義の確認観点「nullのときにカードが消え、ホームのレイアウトが
-  // 崩れないか」。統計カードと違いこちらは補助的なコンテンツのため、
-  // 骨格表示は設けずそのまま出さない）
-  if (query.isLoading || query.isError || !query.data) return null;
+  // 016: memory.tsx（思い出タブ）がこのカードだけを描画する構成になった
+  // （旧タスク定義時点ではホームの補助パネルの1つだったため、当時は
+  // 読み込み中・エラー・該当なしをすべて非表示にしても他の要素が画面を
+  // 埋めていた。現在はこのカードが画面の唯一の内容なので、無表示のままだと
+  // 画面がほぼ空白のまま何が起きているか分からなくなる。security-auditor
+  // 全体監査・3状態レビュー指摘）。読み込み中・エラーは他画面と同じ表示に、
+  // 該当なし（今日に該当する思い出が無い。正当な空状態）だけは案内文を出す
+  if (query.isLoading) {
+    return (
+      <View style={{ alignItems: "center", padding: space.xl }}>
+        <Text color="muted">読み込み中…</Text>
+      </View>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <View style={{ alignItems: "center", gap: space.md, padding: space.xl }}>
+        <Text color="muted">思い出を読み込めませんでした</Text>
+        <Button
+          onPress={async () => {
+            await query.refetch();
+          }}
+        >
+          再試行
+        </Button>
+      </View>
+    );
+  }
+
+  if (!query.data) {
+    return (
+      <View style={{ alignItems: "center", padding: space.xl }}>
+        <Text color="muted">今日に関する思い出はまだありません</Text>
+      </View>
+    );
+  }
 
   const { post, label } = query.data;
   const hasBody = post.body.trim().length > 0;
