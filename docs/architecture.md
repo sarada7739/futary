@@ -647,6 +647,17 @@ memory.get          -> { post, label } | null
 区別しなくなる。**キャッシュキーは手続き名（と`event.list`のような
 入力パラメータ）だけから作られ、閲覧者の識別は含まれない。
 
+**`me.get`も同じ対象である。**`readProcedure`は使わない
+（`apps/api/test/authorization.test.ts`の`ALLOWED_WITHOUT_BASE`。
+`health.get`と並ぶ認可基底の唯一の例外）が、名前・メールアドレス・
+アイコン画像という利用者ごとのデータを返すため、同じ問題を持つ。
+**この1本はRレビューで最初の実装から漏れていた。**`readProcedure`の
+使用箇所だけを走査するenforcementテストの構造上、`readProcedure`を
+使わない`me.get`は機械的に見つからない。走査で拾えない例外は
+「無い」とみなさず「ある」と明示するしかなく、
+`apps/app/test/viewer-key-coverage.test.ts`の
+`MANUALLY_INCLUDED_PROCEDURES`に手で追加してある。
+
 ページをリロードせずに本物のログイン⇄ゲスト⇄未認証を切り替えると
 （`apps/app/app/_layout.tsx`が`isAuthenticated`/`isGuestMode`の
 組み合わせで即座に画面を切り替えるため、切り替え自体はリロード無しで

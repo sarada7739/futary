@@ -3,18 +3,32 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// ペアのデータを読む問い合わせ（apps/api/src/procedures/でreadProcedureを
-// 使う手続き）は、クライアント側でqueryKeyに閲覧者の識別子（viewerKey。
-// apps/app/lib/viewer-key.ts）を含めなければならない。含めないと、
-// リロード無しで本物のログイン⇄ゲスト⇄未認証を切り替えたときに、直前の
-// 別人のキャッシュが一瞬そのまま画面に出る（security-requirements.md T9。
-// 共有端末では実質的な情報漏洩になる。実機で発生した不具合）。
+// ペアのデータ・利用者ごとのデータを読む問い合わせは、クライアント側で
+// queryKeyに閲覧者の識別子（viewerKey。apps/app/lib/viewer-key.ts）を
+// 含めなければならない。含めないと、リロード無しで本物のログイン⇄ゲスト⇄
+// 未認証を切り替えたときに、直前の別人のキャッシュが一瞬そのまま画面に
+// 出る（security-requirements.md T9。共有端末では実質的な情報漏洩になる。
+// 実機で発生した不具合）。
 //
 // 手で一覧を並べて維持すると、新しい画面や新しい手続きを足したときに
 // 対策を入れ忘れる（Rレビュー・A決定: 「手で並べず、定義を走査する形が
 // 望ましい」。root-route.test.tsを32通りの総当たりにしたのと同じ考え方）。
 // このテストはapps/api側の実際の定義（どの手続きがreadProcedureを使うか）
 // を読み取ってから、apps/app側の呼び出し箇所を機械的に確認する。
+//
+// 【Rレビュー指摘で追加】走査ロジックはreadProcedureの使用箇所しか見ない
+// ため、readProcedureを使わない`me.get`が構造的に映らず、対策漏れに
+// 気づけなかった（実際に発生。名前・メールアドレス・アイコン画像という
+// 利用者ごとのデータを返すにもかかわらず）。`me.get`は`health.get`と並んで
+// 認可基底を経由しない唯一の許可リスト（apps/api/test/authorization.test.tsの
+// `ALLOWED_WITHOUT_BASE`）に入っている。このうち`health.get`は利用者データを
+// 返さないため対象外、`me.get`は対象——という判断はreadProcedureの走査だけ
+// からは導けないため、ここでは明示的に一覧へ追加する（走査で拾えない例外は
+// 「無い」とみなさず、「ある」と明示することでしか塞げない）
+const MANUALLY_INCLUDED_PROCEDURES = [
+  // health.get/me.getのうちme.getだけが対象。理由は上のコメント参照
+  "me.get",
+];
 //
 // 検証の粒度: 呼び出し箇所を含むファイルに`viewerKey`という識別子への
 // 参照があることだけを見る（そのqueryKeyに実際に渡されているかまでは
@@ -56,34 +70,67 @@ function listAppSourceFiles(): string[] {
     .filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"));
 }
 
-describe("ペアのデータを読む問い合わせは、queryKeyにviewerKeyを含める（T9）", () => {
-  const readScopedProcedures = findReadScopedProcedures();
+describe("ペアのデータ・利用者ごとのデータを読む問い合わせは、queryKeyにviewerKeyを含める（T9）", () => {
+  const targetProcedures = [...findReadScopedProcedures(), ...MANUALLY_INCLUDED_PROCEDURES];
 
   // 検出ロジック自体が壊れて0件になった場合、以降のitが1件も生成されず
   // 静かにテストが「何も確認していない」状態になる。それを防ぐ
-  it("readProcedureを使う手続きを検出できている（検出ロジック自体の健全性）", () => {
-    expect(readScopedProcedures.length).toBeGreaterThanOrEqual(5);
-    expect(readScopedProcedures).toEqual(
-      expect.arrayContaining(["couple.get", "stats.get", "memory.get", "post.list", "event.list"]),
+  it("対象の手続きを検出できている（検出ロジック自体の健全性）", () => {
+    expect(targetProcedures.length).toBeGreaterThanOrEqual(6);
+    expect(targetProcedures).toEqual(
+      expect.arrayContaining(["couple.get", "stats.get", "memory.get", "post.list", "event.list", "me.get"]),
     );
   });
 
-  for (const procedure of readScopedProcedures) {
-    it(`${procedure} を呼ぶ画面はviewerKeyを参照している`, () => {
+  // 呼び出し箇所ごとの近傍（前後CONTEXT_WINDOW文字）にviewerKeyがあるかを見る。
+  // 【実測して2回訂正】
+  // 1回目: 当初はファイル全体に`viewerKey`という文字列があるかだけを見て
+  // いたが、1つのファイルに複数の呼び出しがあり、そのうち1つでも
+  // viewerKeyを使っていれば（例: profile.tsxのcouple.get）、別の呼び出し
+  // （同じファイルのme.get）からviewerKeyを丸ごと外しても検知できないことを
+  // 実測で確認した（scripts/build-public.mjsのFALLBACK_LITERAL近傍チェックと
+  // 同じ理由・同じ形の誤り）。
+  // 2回目: 前後300文字の近傍チェックに直したが、これも実測すると見逃した。
+  // `const viewerKey = useViewerQueryKey();`という宣言1行が、隣り合う
+  // 2つの呼び出し（例: profile.tsxのme.get・couple.get）の両方から
+  // 300文字以内に収まってしまい、片方だけ実際のqueryKeyから外れていても
+  // 「宣言が近くにある」ことをもって素通りしていた。前後100文字まで
+  // 縮めたところ、誤検知しないこと（正しいコードで緑）と、実際に不備を
+  // 検知できること（me.getのqueryKeyだけからviewerKeyを外すと落ちる）の
+  // 両方を実測で確認した
+  const CONTEXT_WINDOW = 100;
+
+  for (const procedure of targetProcedures) {
+    it(`${procedure} を呼ぶ箇所は、それぞれの近傍でviewerKeyを参照している`, () => {
       const parts = procedure.split(".");
       if (parts.length !== 2) throw new Error(`想定外の手続き名の形式です: ${procedure}`);
       const [namespace, method] = parts;
-      const callPattern = new RegExp(`orpc\\.${namespace}\\.${method}\\.(queryOptions|infiniteOptions)\\(`);
+      const callPattern = new RegExp(`orpc\\.${namespace}\\.${method}\\.(queryOptions|infiniteOptions)\\(`, "g");
       const files = listAppSourceFiles();
 
-      const callingFiles = files.filter((file) => callPattern.test(readFileSync(file, "utf8")));
-
-      for (const file of callingFiles) {
+      let totalMatches = 0;
+      for (const file of files) {
         const content = readFileSync(file, "utf8");
-        expect(content, `${path.relative(repoRoot, file)} は ${procedure} を呼ぶがviewerKeyを参照していない`).toMatch(
-          /viewerKey/,
-        );
+        for (const match of content.matchAll(callPattern)) {
+          totalMatches += 1;
+          const start = Math.max(0, match.index - CONTEXT_WINDOW);
+          const end = Math.min(content.length, match.index + match[0].length + CONTEXT_WINDOW);
+          const context = content.slice(start, end);
+          expect(
+            context,
+            `${path.relative(repoRoot, file)} の ${procedure} 呼び出し（位置 ${match.index}）の近傍にviewerKeyが見つかりません`,
+          ).toMatch(/viewerKey/);
+        }
       }
+
+      // 【Rレビュー指摘R-2】callPatternが一致しなくなる（呼び出し方が変わる、
+      // ラッパを噛ませる等）とtotalMatchesが0のままループが1度も回らず、
+      // テストが「確認していないのに緑」になる。呼び出し箇所が実在することを
+      // 要求することでそれを防ぐ
+      expect(
+        totalMatches,
+        `${procedure} の呼び出し箇所が見つかりません（callPatternが実際の書き方と一致していない可能性）`,
+      ).toBeGreaterThan(0);
     });
   }
 });
