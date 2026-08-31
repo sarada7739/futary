@@ -7886,3 +7886,27 @@ false だから**であって、**画面構成の副産物である。宣言さ�
 消したのは別の不具合（発火直後の問い合わせを消して読み込み中で止まる）のためで、
 **消して初めて、ここが守られていなかったことが見えた。**
 **「いままで起きていない」は、何が守っていたかを言えないと根拠にならない。**
+
+## 2026-09-01 A決定の実装: 招待コードのキャッシュキーにviewerKeyを含める（B）
+
+上のAの決定（`PENDING_INVITE_QUERY_KEY`をT9対象に含める。PR #178）を
+実装した。`apps/app/app/(onboarding)/invite.tsx`の
+`PENDING_INVITE_QUERY_KEY`（定数）を`pendingInviteQueryKey(viewerKey)`
+（関数）に変え、`create.tsx`・`invite.tsx`の呼び出し箇所（`setQueryData`・
+`getQueryData`・`removeQueries`）すべてに`viewerKey`（`useViewerQueryKey()`）を
+渡すよう変更した。
+
+`apps/app/test/viewer-key-coverage.test.ts`の`MANUALLY_INCLUDED_PROCEDURES`は
+「手続き名+oRPCの呼び出しパターン（`orpc.<namespace>.<method>.
+(queryOptions|infiniteOptions)`）」を前提にしており、`pendingInviteQueryKey`
+のような「サーバの手続きではなく、こちらが置いた値」を表現できなかった。
+A・Rの指摘どおり「1件の例外ではなく走査の構造的な穴」だったため、
+`MANUALLY_PLACED_CACHE_KEYS`（ラベル+呼び出しパターンそのものを明示的に
+登録する形）を追加して一般化し、既存の`MANUALLY_INCLUDED_PROCEDURES`
+（`me.get`）と同じ枠組みで一括検査するようにした。
+
+旧コード（`create.tsx`の呼び出し箇所からviewerKeyを外した状態）で実際に
+テストが失敗する（`viewerKeyが見つかりません`）ことを実測してから、
+戻して緑になることを確認した。`pnpm -w test`（apps/app 160件・
+apps/api 303件）・`pnpm run type-check`・`eslint .`すべて通過。
+`fix/onboarding-invite-viewer-key`としてPR作成予定。
