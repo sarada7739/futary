@@ -5,19 +5,30 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Share, View } from "react-native";
 import { orpc } from "../../lib/orpc";
+import { useViewerQueryKey } from "../../lib/viewer-key";
 
 type IssuedInvite = { code: string; expiresAt: number };
 
 // create.tsx がペア作成直後に発行したコードを渡すためのキャッシュキー。
-// ルーティングパラメータに乗せない理由は下記コメント参照
-export const PENDING_INVITE_QUERY_KEY: QueryKey = ["onboarding", "pendingInvite"];
+// ルーティングパラメータに乗せない理由は下記コメント参照。
+//
+// 【A決定・PR #178】T9の対象は「手続きの戻り値」に限らない。ここは
+// サーバの手続きではなくTanStack Queryをただの置き場として使っており、
+// 中身は招待コード（ペアに入るための鍵。T2より直接的な開示になる）
+// のため、他の識別子付きキャッシュと同じくviewerKeyを含める
+// （apps/app/test/viewer-key-coverage.test.tsのMANUALLY_PLACED_CACHE_KEYSで
+// 検知を強制する）
+export function pendingInviteQueryKey(viewerKey: string): QueryKey {
+  return ["onboarding", "pendingInvite", viewerKey];
+}
 
 export default function InviteCodeScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const viewerKey = useViewerQueryKey();
   // create.tsx から渡された、作成直後に発行済みのコード（無ければ null）
   const [invite, setInvite] = useState<IssuedInvite | null>(
-    () => queryClient.getQueryData<IssuedInvite>(PENDING_INVITE_QUERY_KEY) ?? null,
+    () => queryClient.getQueryData<IssuedInvite>(pendingInviteQueryKey(viewerKey)) ?? null,
   );
 
   const issueInvite = useMutation(orpc.invite.issue.mutationOptions());
@@ -32,7 +43,7 @@ export default function InviteCodeScreen() {
   // この副作用が新たに生まれたため、2回目の指摘を受けて修正）
   async function handleIssue() {
     const issued = await issueInvite.mutateAsync();
-    queryClient.setQueryData(PENDING_INVITE_QUERY_KEY, issued);
+    queryClient.setQueryData(pendingInviteQueryKey(viewerKey), issued);
     setInvite(issued);
   }
 
@@ -47,7 +58,7 @@ export default function InviteCodeScreen() {
 
   function handleContinue() {
     // couple.get を再取得させ、ルート側の判定で (tabs) へ切り替わるようにする
-    queryClient.removeQueries({ queryKey: PENDING_INVITE_QUERY_KEY });
+    queryClient.removeQueries({ queryKey: pendingInviteQueryKey(viewerKey) });
     void queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() });
     router.replace("/");
   }
