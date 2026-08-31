@@ -597,6 +597,63 @@ stats.get           -> { daysTogether, meetupDays, postCount, photoCount }
 memory.get          -> { post, label } | null
 ```
 
+### 問い合わせキャッシュのキーに「誰であるか」を含める
+
+**サーバの `couple_id` スコープは完璧に効いていても、クライアントのキャッシュは
+素通りする。**016のデプロイ後の実機確認で人間が踏んだ（T9。
+`security-requirements.md` 9節）。
+
+1. ログアウトする。**`signOut()` はキャッシュを消さない**
+2. `couple.get` のキャッシュに前の利用者の実ペアが残る
+3. 「ゲストではじめる」→ `isDemoViewer` が true
+4. `hasCouple = (isAuthenticated || isDemoViewer) && hasCoupleData` が **true**
+5. **前の利用者のペアのデータで描画される**
+
+**原因は `couple.get` が引数を取らないことである。**キーが
+**「誰が呼んだか」を持っていない。**`post.list` / `event.list` / `stats.get` /
+`memory.get` も同じ形である（いずれも`apps/api/src/procedures/`で
+`readProcedure`を使う手続き。上記5節「引数にcoupleIdを持つ手続きを
+作らない」設計自体は正しく、その副作用としてキャッシュキーが
+「誰が呼んだか」を区別しなくなる）。
+
+**`me.get`も同じ対象である。**`readProcedure`は使わない
+（`apps/api/test/authorization.test.ts`の`ALLOWED_WITHOUT_BASE`。
+`health.get`と並ぶ認可基底の唯一の例外）が、名前・メールアドレス・
+アイコン画像という利用者ごとのデータを返すため、同じ問題を持つ。
+**この1本はRレビューで最初の実装から漏れていた。**`readProcedure`の
+使用箇所だけを走査するenforcementテストの構造上、`readProcedure`を
+使わない`me.get`は機械的に見つからない。走査で拾えない例外は
+「無い」とみなさず「ある」と明示するしかなく、
+`apps/app/test/viewer-key-coverage.test.ts`の
+`MANUALLY_INCLUDED_PROCEDURES`に手で追加してある。
+
+#### タイミングで狭めない
+
+**ログアウト時にキャッシュを消す形は、窓を狭めるだけである。**
+`useEffect` はレンダーの後に走るので、**切り替わった最初のレンダーは古いキャッシュで
+描画される。**キャッシュがあると `isLoading` も false なので、ローディングも挟まらない。
+`useLayoutEffect` にすればいまは見えなくなるが、**描画順が変わったときに戻る。**
+
+**キーに含める。別人のキャッシュを読む経路そのものを無くす。**
+
+- **ペアのデータ・利用者ごとのデータを読む問い合わせは全部、キーに
+  閲覧者の識別子を含める。**認証済みなら利用者ID、ゲストならデモを
+  表す固定値、未認証ならそれと分かる値
+  （`apps/app/lib/viewer-key.ts`の`useViewerQueryKey`）
+- **1つでも漏れると、その画面だけが残留する。**`couple.get` だけでは足りない
+- **ログアウト時にキャッシュを消すのは、残しておいてよい。**
+  ただし**正しさはキーが担保する。消去は容量のためである**
+- **ペアのデータを読む問い合わせが、すべて閲覧者の識別子をキーに持つことを
+  テストで固定する。**`apps/app/test/viewer-key-coverage.test.ts`が
+  `apps/api/src/procedures/`の実際の定義を読み取ってから、対応する
+  呼び出し箇所が`viewerKey`を参照しているかを機械的に確認する
+  （一覧を手で並べない。`root-route.test.ts`を32通りの総当たりにしたのと
+  同じ考え方。`readProcedure`を使わない例外〈`me.get`〉は走査で拾えない
+  ため明示的に追加する）
+
+**022 のホイールで「画面が見せているものと保存されるものを、構造として一致させる」と
+決めたのと同じ形である。**同期させるのではなく、**ずれようがない形にする。**
+
 ### 認可の中心的な設計
 
 **`couple_id` をクライアントから受け取らない。** これがこのアプリの認可の要。
@@ -633,62 +690,6 @@ memory.get          -> { post, label } | null
 
 同じ判断基準を以降の設計にも適用する。
 **`ctx.coupleId` から導ける値を、クライアントから受け取らない。**
-
-### 問い合わせキャッシュのキーに「誰であるか」を含める
-
-**サーバ側の認可（上記）が正しくても、クライアント側のキャッシュが
-別人のデータを見せることがある。**016で実機発生した不具合（T9。
-`security-requirements.md` 9節）から得た教訓。
-
-`couple.get`・`stats.get`・`memory.get`・`post.list`・`event.list`
-（`apps/api/src/procedures/`で`readProcedure`を使う手続き）は、
-上記の設計どおり`coupleId`を引数に取らない。この設計自体は正しいが、
-**副作用として、TanStack Queryのキャッシュキーが「誰が呼んだか」を
-区別しなくなる。**キャッシュキーは手続き名（と`event.list`のような
-入力パラメータ）だけから作られ、閲覧者の識別は含まれない。
-
-**`me.get`も同じ対象である。**`readProcedure`は使わない
-（`apps/api/test/authorization.test.ts`の`ALLOWED_WITHOUT_BASE`。
-`health.get`と並ぶ認可基底の唯一の例外）が、名前・メールアドレス・
-アイコン画像という利用者ごとのデータを返すため、同じ問題を持つ。
-**この1本はRレビューで最初の実装から漏れていた。**`readProcedure`の
-使用箇所だけを走査するenforcementテストの構造上、`readProcedure`を
-使わない`me.get`は機械的に見つからない。走査で拾えない例外は
-「無い」とみなさず「ある」と明示するしかなく、
-`apps/app/test/viewer-key-coverage.test.ts`の
-`MANUALLY_INCLUDED_PROCEDURES`に手で追加してある。
-
-ページをリロードせずに本物のログイン⇄ゲスト⇄未認証を切り替えると
-（`apps/app/app/_layout.tsx`が`isAuthenticated`/`isGuestMode`の
-組み合わせで即座に画面を切り替えるため、切り替え自体はリロード無しで
-起こる）、直前の別人のキャッシュ（データまたはエラー）が新しい識別の
-画面に一瞬そのまま出る。共有端末では実質的な情報漏洩になる。
-
-**タイミングで縮めない。** 識別が変わったら`queryClient.clear()`する、
-という対策は`useEffect`がレンダーの後に走るため、識別が変わった最初の
-レンダーには間に合わない（前の識別のキャッシュのまま一度描画される）。
-`useLayoutEffect`にしても、描画順が変わればまた開く。022のホイールで
-「画面が見せているものと保存されるものを構造として一致させる」と
-決めたのと同じ理由で、**タイミングではなく構造で閉じる。**
-
-**対策: 上記5つの問い合わせは全て、queryKeyに閲覧者の識別子
-（`apps/app/lib/viewer-key.ts`の`useViewerQueryKey`。認証済みなら
-利用者ID、ゲストなら固定値、未認証ならそれと分かる値）を含める。**
-識別が変わった瞬間、その問い合わせは「まだキャッシュの無い、新しい
-キー」になり、`isLoading`が正しく`true`から始まる。他人のキャッシュを
-読む経路自体が無くなる。
-
-`queryClient.clear()`（識別変化時）はこの後も呼んでよいが、
-**正しさのためではなく容量のため**（切り替えるたびに前の識別の
-キャッシュ枠がヒープに残り続けるのを防ぐだけ）と位置づける。
-
-**新しく問い合わせを追加するとき、この5つと同じ形（`coupleId`を引数に
-取らない・`readProcedure`を使う）なら、同じ対策が要る。**手で一覧を
-維持すると足し忘れる。`apps/app/test/viewer-key-coverage.test.ts`が
-`apps/api/src/procedures/`の実際の定義を読み取ってから、対応する
-呼び出し箇所が`viewerKey`を参照しているかを機械的に確認する
-（一覧を手で並べない。`root-route.test.ts`を32通りの総当たりにしたのと
-同じ考え方）。
 
 ### 投稿のレスポンスに投稿者情報を含める
 
