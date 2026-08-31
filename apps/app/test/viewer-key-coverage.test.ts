@@ -121,6 +121,20 @@ describe("ペアのデータ・利用者ごとのデータを読む問い合わ�
     );
   });
 
+  // 【Rレビュー指摘】上の番人は`targetProcedures`（手続き側）しか見ておらず、
+  // `MANUALLY_PLACED_CACHE_KEYS`（こちらが置いた値）が空になっても
+  // 検知できない。手で維持する一覧である以上、消えたときに気づける
+  // 仕組みは手続き側と同じだけ要る。
+  //
+  // 【Rレビュー指摘・訂正】当初`targets.length`（合計）で見ていたが、
+  // これは`targetProcedures`が7本に増えた瞬間、`MANUALLY_PLACED_CACHE_KEYS`が
+  // 0件に減っても合計7のまま緑になり、静かに効かなくなる（埋め合わせが
+  // 効いてしまう）。上の番人が数だけでなく名前も固定しているのと同じ形に、
+  // こちらもラベルそのものを固定する
+  it("こちらが置いた値の対象も検出できている（検出ロジック自体の健全性）", () => {
+    expect(targets.map((t) => t.label)).toEqual(expect.arrayContaining(["onboarding.pendingInvite"]));
+  });
+
   // 呼び出し箇所ごとの近傍（前後CONTEXT_WINDOW文字）にviewerKeyがあるかを見る。
   // 【実測して2回訂正】
   // 1回目: 当初はファイル全体に`viewerKey`という文字列があるかだけを見て
