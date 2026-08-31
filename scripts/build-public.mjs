@@ -15,7 +15,7 @@
 // を解決する。既定の html_handling=auto-trailing-slash で足りる）
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,21 +24,76 @@ const landingDir = path.join(repoRoot, "apps", "landing");
 const appDir = path.join(repoRoot, "apps", "app");
 const publicDir = path.join(repoRoot, "apps", "api", "public");
 
-// apps/app の実際にビルドされた index.html から、Expo Routerが埋め込む
-// 唯一のインラインscript（globalThis.__EXPO_ROUTER_HYDRATE__=true;）を
-// 抜き出し、そのSHA256ハッシュをCSPのscript-srcに使う。'unsafe-inline'で
-// 一律許可するより狭い（このスクリプト以外のインラインscriptは相変わらず拒否される）。
-// 全ページで同一内容であることを確認済み（build-public.mjs実行時のログ参照）。
-// Expoのバージョンが変わってテンプレートの中身が変わればハッシュも変わるため、
-// 決め打ちにせずビルドのたびに実測する
-function extractInlineScriptHash(indexHtmlPath) {
-  const html = readFileSync(indexHtmlPath, "utf8");
-  const match = html.match(/<script type="module">([^<]*)<\/script>/);
-  if (!match) {
-    throw new Error(`${indexHtmlPath} にインラインscriptが見つかりません。CSPのハッシュを計算できません`);
+// R2の署名付きURLは実際には単一ホスト（https://<accountId>.r2.cloudflarestorage.com。
+// apps/api/src/lib/r2-signed-url.ts）を指す。CSPで `https://*.r2.cloudflarestorage.com`
+// のようにワイルドカードで許可すると、XSSが成立した場合の持ち出し先として
+// 攻撃者自身のR2バケット（誰でも作れる）まで許可することになる
+// （security-auditor指摘）。R2_ACCOUNT_IDはCIでは環境変数から、ローカルでは
+// apps/api/.dev.varsから読む。どちらにも無ければビルドを失敗させる
+// （fail-closed。apps/api/src/auth.tsのTRUSTED_ORIGINSワイルドカード禁止と同じ姿勢）
+function readR2AccountId() {
+  if (process.env.R2_ACCOUNT_ID) return process.env.R2_ACCOUNT_ID;
+  const devVarsPath = path.join(repoRoot, "apps", "api", ".dev.vars");
+  try {
+    const devVars = readFileSync(devVarsPath, "utf8");
+    const match = devVars.match(/^R2_ACCOUNT_ID=(.+)$/m);
+    if (match) return match[1].trim();
+  } catch {
+    // .dev.varsが無い環境（CI等）はR2_ACCOUNT_ID環境変数側に頼る
   }
-  const hash = createHash("sha256").update(match[1], "utf8").digest("base64");
+  throw new Error(
+    "R2_ACCOUNT_IDを取得できません。環境変数R2_ACCOUNT_IDを設定するか、" +
+      "apps/api/.dev.varsにR2_ACCOUNT_ID=<値>を設定してください。" +
+      "CSPのimg-src/connect-srcにワイルドカードで許可すると、XSS成立時に" +
+      "攻撃者自身のR2バケットへの持ち出しを許すことになるため、決め打ちにしない",
+  );
+}
+
+// apps/app の実際にビルドされた全ページのHTMLから、Expo Routerが埋め込む
+// インラインscript（globalThis.__EXPO_ROUTER_HYDRATE__=true;）を抜き出し、
+// そのSHA256ハッシュをCSPのscript-srcに使う。'unsafe-inline'で一律許可する
+// より狭い（このスクリプト以外のインラインscriptは相変わらず拒否される）。
+// 1ページだけでなく全ページを走査し、内容が一致することまで確認する
+// （security-auditor指摘: 1ファイルだけの実測では、将来Expoがページごとに
+// 異なるインラインscriptを吐くようになったとき、そのページだけ静かに
+// JSがブロックされる形の壊れ方をする）。正規表現は`[\s\S]*?`にして
+// script本文に`<`が含まれても安全に`</script>`まで読む
+// （`[^<]*`だと`<`の時点で静かに切り詰められる）
+function extractInlineScriptHash(appPublicDir) {
+  const htmlFiles = listFilesRecursive(appPublicDir).filter((f) => f.endsWith(".html"));
+  if (htmlFiles.length === 0) {
+    throw new Error(`${appPublicDir} にHTMLファイルが見つかりません`);
+  }
+
+  const scriptsByFile = new Map();
+  for (const file of htmlFiles) {
+    const html = readFileSync(file, "utf8");
+    const match = html.match(/<script type="module">([\s\S]*?)<\/script>/);
+    if (!match) {
+      throw new Error(`${file} にインラインscriptが見つかりません。CSPのハッシュを計算できません`);
+    }
+    scriptsByFile.set(file, match[1]);
+  }
+
+  const distinctScripts = new Set(scriptsByFile.values());
+  if (distinctScripts.size > 1) {
+    const sample = [...scriptsByFile.entries()].slice(0, 3);
+    throw new Error(
+      `インラインscriptの内容がページによって異なります（${distinctScripts.size}種類）。` +
+        `CSPのハッシュを1つに決め打てません: ${sample.map(([f]) => f).join(", ")}`,
+    );
+  }
+
+  const hash = createHash("sha256").update([...distinctScripts][0], "utf8").digest("base64");
   return `'sha256-${hash}'`;
+}
+
+function listFilesRecursive(dir) {
+  const entries = readdirSync(dir);
+  return entries.flatMap((entry) => {
+    const fullPath = path.join(dir, entry);
+    return statSync(fullPath).isDirectory() ? listFilesRecursive(fullPath) : [fullPath];
+  });
 }
 
 // CSP・その他のセキュリティヘッダ（security-requirements.md 7節「CSPは
@@ -46,22 +101,66 @@ function extractInlineScriptHash(indexHtmlPath) {
 // _headersファイルは静的アセットのレスポンスにのみ適用される
 // （/api/*はWorkerが直接応答するため対象外。JSONレスポンスにCSPは意味を持たない）。
 //
-// img-src/connect-srcにR2のS3互換APIオリジンを含める（署名付きURLで
-// 画像を直接取得・アップロードするため。architecture.md 6節）。
+// img-src/connect-srcの内訳（security-auditor指摘を反映）:
+// - R2の署名付きURL（画像の取得・アップロード）は https://<r2host> のみ許可
+// - blob: は画像投稿パイプラインに必須。expo-image-picker（Web実装）と
+//   expo-image-manipulatorがどちらもURL.createObjectURL()を使うため、
+//   これが無いと本番ビルドで画像投稿・プロフィール画像設定が全て失敗する
+//   （apps/app/app/compose.tsx・apps/app/lib/image.ts）
+// - Googleのプロフィール画像ホスト（lh3.googleusercontent.com）は
+//   apps/api/src/lib/r2-signed-url.tsのresolveUserImageが、自前アップロード
+//   でない場合はGoogle OAuthの画像URLをそのまま返す仕様のため必要
+//   （packages/ui/src/components/avatar.tsx）
+//
 // frame-ancestors 'none' はmetaタグでは効かないため、_headersで設定する
-// 意味がある（クリックジャッキング対策）
-function buildCsp(inlineScriptHash) {
+// 意味がある（クリックジャッキング対策）。form-actionはdefault-srcに
+// フォールバックしない独立ディレクティブのため明示する。
+// Strict-Transport-Securityは016で独自ドメインに切り替えたときの
+// SSLストリップ対策（*.workers.devはHSTS preload済みだが、それに頼らない）
+function buildCsp(inlineScriptHash, r2AccountId) {
+  const r2Host = `https://${r2AccountId}.r2.cloudflarestorage.com`;
   return (
     "default-src 'self'; " +
     `script-src 'self' ${inlineScriptHash}; ` +
     "style-src 'self' 'unsafe-inline'; " +
-    "img-src 'self' data: https://*.r2.cloudflarestorage.com; " +
+    `img-src 'self' data: blob: ${r2Host} https://lh3.googleusercontent.com; ` +
     "font-src 'self'; " +
-    "connect-src 'self' https://*.r2.cloudflarestorage.com; " +
+    `connect-src 'self' blob: ${r2Host}; ` +
     "frame-ancestors 'none'; " +
     "object-src 'none'; " +
-    "base-uri 'self'"
+    "base-uri 'self'; " +
+    "form-action 'self'"
   );
+}
+
+// 015で実際に踏んだ不具合（本番の配布バンドルにhttp://localhost:8787が
+// 焼き込まれる）の再発防止。ビルド後のクライアントバンドルを走査する。
+//
+// 「localhost/127.0.0.1という文字列が存在すること」自体は禁止しない。
+// apps/app/lib/api-origin.tsのgetApiOrigin()は`window`が無い場合の
+// フォールバックとしてこの文字列を持っており、それ自体は生きた分岐として
+// 正しい（ブラウザでは絶対に通らない）。踏んだ不具合の本体は
+// 「window.location.originを見る分岐ごと畳み込まれ、localhostへの定数に
+// 潰れていた」ことなので、**localhostと一緒にlocation.originという
+// 分岐そのものが残っているか**を確認する。分岐が無いのにlocalhostだけ
+// 残っていれば、それは015で踏んだ壊れ方そのものである
+// （security-auditor指摘: 実測で見つけたバグは、実測を自動化した時点で
+// 初めて塞がる。コメントで「直した」と書くだけでは再発を防げない）
+function assertNoLocalDevOriginLeaked(appPublicDir) {
+  const jsFiles = listFilesRecursive(appPublicDir).filter((f) => f.endsWith(".js"));
+  const offenders = [];
+  for (const file of jsFiles) {
+    const content = readFileSync(file, "utf8");
+    const hasLocalDevOrigin = /localhost|127\.0\.0\.1/.test(content);
+    if (hasLocalDevOrigin && !content.includes("location.origin")) offenders.push(file);
+  }
+  if (offenders.length > 0) {
+    throw new Error(
+      `本番の配布バンドルにローカル開発用のオリジンが定数として焼き込まれています: ` +
+        `${offenders.join(", ")}\napps/app/lib/api-origin.ts のgetApiOrigin()の` +
+        `window分岐が畳み込まれていないか確認してください。`,
+    );
+  }
 }
 
 function main() {
@@ -73,6 +172,8 @@ function main() {
   cpSync(path.join(landingDir, "index.html"), path.join(publicDir, "index.html"));
   cpSync(path.join(landingDir, "style.css"), path.join(publicDir, "style.css"));
   cpSync(path.join(landingDir, "assets"), path.join(publicDir, "assets"), { recursive: true });
+
+  const r2AccountId = readR2AccountId();
 
   console.log("apps/app を web 向けにエクスポートします...");
   const appPublicDir = path.join(publicDir, "app");
@@ -88,28 +189,47 @@ function main() {
       cwd: appDir,
       stdio: "inherit",
       // apps/app/.env の EXPO_PUBLIC_API_ORIGIN（ローカル開発用に
-      // http://localhost:8787 を指す）をビルドに含めない。Expoは
-      // EXPO_PUBLIC_* をビルド時にバンドルへ焼き込むため、これを外さないと
-      // 本番ビルドがローカル開発用のAPIオリジンを指したまま固定されてしまう
-      // （実測: CSPのconnect-srcが本番オリジン以外を許可していないため
-      // localhost:8787への接続がブロックされ、デモが「いま見られません」に
-      // なることで発覚した）。
-      // 空文字にする（キー自体を消すとExpo自身が.envを再読み込みして
-      // 上書きしてしまう。dotenvは既存のキーを上書きしないため、空文字を
-      // 明示することで.envの値を確実に無効化できる）。空文字なら
-      // apps/app/lib/api-origin.ts の `??` は通過せずそのまま空文字になり、
-      // `${apiOrigin}/api` が "/api" というオリジン相対パスになって
-      // 同一オリジンで正しく解決される
+      // http://localhost:8787 を指す）を空文字で上書きする。
+      //
+      // 【実測の経緯（Rレビュー指摘R-2・R-3を受けて訂正）】
+      // 015で見つけた不具合は「本番の配布バンドルにhttp://localhost:8787が
+      // 定数として焼き込まれる」というものだった。原因の候補は2つあった:
+      //   (1) .envのEXPO_PUBLIC_API_ORIGINがビルド時に文字列置換される
+      //   (2) apps/app/lib/api-origin.tsがモジュール直下の定数式で、
+      //       typeof windowがビルド時に固定値へ畳み込まれる
+      // apiOrigin を getApiOrigin() という関数に切り出したところ（(2)の対策）、
+      // このEXPO_PUBLIC_API_ORIGIN上書きを外した状態で再実測しても、
+      // クライアントバンドルには定数として焼き込まれず、実行時に
+      // window.location.originを正しく参照する形が残ることを確認した。
+      // つまり(2)の対策だけで再発は防げており、この空文字上書きは
+      // 必須ではなくなっている可能性が高い。
+      // それでも残す理由: (1)の経路（Metroの環境変数インライン化が
+      // 将来のバージョンで挙動を変え、process.env.EXPO_PUBLIC_API_ORIGINが
+      // 再びクライアントバンドルへ文字列として現れるようになる可能性）を
+      // 塞いでおくための多層防御。空文字にする（キー自体を消すとExpo自身が
+      // .envを再読み込みして上書きしてしまう。dotenvは既存のキーを
+      // 上書きしないため、空文字を明示することで.envの値を確実に
+      // 無効化できる）。apps/app/lib/api-origin.tsのgetApiOrigin()は
+      // `if (process.env.EXPO_PUBLIC_API_ORIGIN) return ...`という形のため、
+      // 空文字はfalsyとして扱われwindow.location.originへ進む
       env: { ...process.env, EXPO_PUBLIC_API_ORIGIN: "" },
     },
   );
 
+  console.log("本番バンドルにローカル開発用オリジンが残っていないか確認します...");
+  assertNoLocalDevOriginLeaked(appPublicDir);
+
   console.log("CSPのインラインscriptハッシュを計算します...");
-  const inlineScriptHash = extractInlineScriptHash(path.join(appPublicDir, "index.html"));
+  const inlineScriptHash = extractInlineScriptHash(appPublicDir);
 
   console.log("_headers を書きます...");
-  const csp = buildCsp(inlineScriptHash);
-  const headersFile = `/*\n  Content-Security-Policy: ${csp}\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n`;
+  const csp = buildCsp(inlineScriptHash, r2AccountId);
+  const headersFile =
+    `/*\n` +
+    `  Content-Security-Policy: ${csp}\n` +
+    `  X-Content-Type-Options: nosniff\n` +
+    `  Referrer-Policy: strict-origin-when-cross-origin\n` +
+    `  Strict-Transport-Security: max-age=31536000; includeSubDomains\n`;
   writeFileSync(path.join(publicDir, "_headers"), headersFile, "utf8");
 
   console.log("完了: apps/api/public");

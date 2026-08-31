@@ -54,30 +54,80 @@ SPAフォールバックのロジックが不要（Cloudflareの静的アセッ�
 
 ## CSP
 
-`scripts/build-public.mjs` が `_headers` を生成する。
+`scripts/build-public.mjs` が `_headers` を生成する。security-auditorのレビューを受けて
+初版から以下を修正済み（詳細は下の「Rレビュー・security-auditor指摘の解消」参照）。
 
 ```
-Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-<実測値>'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.r2.cloudflarestorage.com; font-src 'self'; connect-src 'self' https://*.r2.cloudflarestorage.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'
+Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-<実測値>'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://<accountId>.r2.cloudflarestorage.com https://lh3.googleusercontent.com; font-src 'self'; connect-src 'self' blob: https://<accountId>.r2.cloudflarestorage.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'
 X-Content-Type-Options: nosniff
 Referrer-Policy: strict-origin-when-cross-origin
+Strict-Transport-Security: max-age=31536000; includeSubDomains
 ```
 
 - `script-src` は `'unsafe-inline'` を使わず、Expo Routerが埋め込む唯一のインライン
-  script（`globalThis.__EXPO_ROUTER_HYDRATE__=true;`。全26ページで内容が同一であることを
-  `sha256sum` で確認済み）のSHA256ハッシュだけを許可する。ビルドのたびに実測して
-  ハッシュを計算するため、Expoのバージョンが変わってテンプレートが変わっても
-  追従する
+  script（`globalThis.__EXPO_ROUTER_HYDRATE__=true;`）のSHA256ハッシュだけを許可する。
+  **全HTMLファイルを走査して内容が同一であることを確認**した上でハッシュを計算する
+  （初版は1ファイルだけの実測だった。ビルドのたびに実測するため、Expoのバージョンが
+  変わってテンプレートが変わっても追従する）
 - `style-src` は `'unsafe-inline'` を許可している。React Native Webがインライン
   `style` 属性を多用するため（`nonce`/`hash`方式は動的に生成される値のため
   現実的でない）。CSSインジェクションのリスクはXSS経由の攻撃と同程度に留まり、
   この構成での既知の対策範囲として妥当と判断した
-- `connect-src`/`img-src` に R2 の S3互換APIオリジン（`https://*.r2.cloudflarestorage.com`）を
-  含める（署名付きURLで画像を直接取得・アップロードするため）
+- `connect-src`/`img-src` に R2 の署名付きURLのホストを**実アカウントIDで固定**して
+  含める（`https://<accountId>.r2.cloudflarestorage.com`。ワイルドカード
+  `https://*.r2.cloudflarestorage.com`だと、XSS成立時に攻撃者自身のR2バケットへの
+  持ち出しまで許してしまうため。`readR2AccountId()`が`.dev.vars`または環境変数から
+  読み、取得できなければビルドを失敗させる〈fail-closed〉）
+- `img-src`/`connect-src` に `blob:` を追加。`expo-image-picker`・
+  `expo-image-manipulator`のWeb実装が`URL.createObjectURL()`を使うため、
+  これが無いと本番ビルドで画像投稿・プロフィール画像設定が失敗する
+- `img-src` にGoogleのプロフィール画像ホスト（`https://lh3.googleusercontent.com`）を
+  追加。`resolveUserImage`が自前アップロード画像が無いユーザーにGoogleアバターURLを
+  そのまま返すため
+- `form-action 'self'` を追加（フォーム送信先を自オリジンに限定）
+- `Strict-Transport-Security`（HSTS）を追加
 - `frame-ancestors 'none'` はmetaタグでは効かない（HTTPヘッダでしか設定できない）ため、
   `_headers` ファイルで設定する意味がある
 
 `wrangler dev --local` でCSPヘッダが実際に付与されることを `curl -I` で確認済み
-（`Parsed 1 valid header rule` のログも確認）。
+（`Parsed 1 valid header rule` のログ、および`Strict-Transport-Security`ヘッダの
+存在も確認）。
+
+## Rレビュー・security-auditor指摘の解消（PR #170）
+
+R-1〜R-3およびsecurity-auditorのMedium/Low指摘を受けて修正し、いずれも実機で再確認した。
+
+- **R-1（`auth-client.ts`が`orpc.ts`と違い`getApiOrigin()`を遅延評価していないのでは）**:
+  `baseURL: getApiOrigin()`はモジュール読み込み時に1回だけ評価される点はR指摘の通り。
+  ただし修正の効果は「呼び出しタイミングを遅延させたこと」ではなく「`getApiOrigin`を
+  本物の関数にしたことでビルド時定数畳み込みを防いだこと」に由来するため、
+  モジュール直下での1回評価でも問題は起きない。実機で検証: ビルド済みバンドルを
+  `wrangler dev`で配信した状態で「ログイン」ボタンを押し、リクエストが
+  `http://127.0.0.1:<port>/api/auth/sign-in/social`（同一オリジン）へ飛ぶことを確認した
+  （レスポンスは403だったが、これは`.dev.vars`のGoogle OAuth設定に起因する別問題で、
+  オリジン解決そのものは正しく動作している）
+- **R-2（`EXPO_PUBLIC_API_ORIGIN`を空文字で上書きする措置は本当に必要か、関数化だけで
+  足りているのでは）**: 空文字上書きを外した状態（`.env`の実際の値を残したまま）で
+  再ビルドし、生成された配布バンドルを`grep`したところ、`getApiOrigin`関数の本体は
+  `process.env.EXPO_PUBLIC_API_ORIGIN`という実行時参照のまま残っており、
+  `.env`の値が文字列として畳み込まれていないことを確認した。つまり関数化の対策
+  単独で再発は防げている。空文字上書きは、将来Metroの環境変数インライン化の挙動が
+  変わった場合に備えた多層防御として残した（`scripts/build-public.mjs`のコメント参照）。
+  「なぜMetroがここでは値をインライン化しないのか」の内部機構までは特定できておらず、
+  この点は未確認のまま残る
+- **R-3（`getApiOrigin()`のコメントが実測の経緯を正確に反映していない）**:
+  `apps/app/lib/api-origin.ts`・`scripts/build-public.mjs`のコメントを、上記R-1・R-2の
+  実測結果を踏まえて書き直した
+- **security-auditor Medium**: R2 CSPワイルドカード→実アカウントID固定（上記CSP節）
+- **security-auditor Low**: `blob:`欠落によるアップロード破壊の可能性、
+  Googleアバターホスト欠落、`form-action`欠落、HSTS欠落、インラインscriptハッシュの
+  1ファイルのみの実測、ローカル開発オリジン焼き込みの再発防止チェック
+  （`assertNoLocalDevOriginLeaked`）を追加 — いずれも対応済み
+
+修正後、全体テスト（`pnpm -w test`: apps/app 150件・apps/api 297件）・lint
+（`eslint .`）・型チェック（`pnpm -r type-check`）が通ることを確認し、
+新CSPでのゲスト閲覧フロー（`couple.get`・`stats.get`が200、全アセットが読み込まれ、
+デモのホーム画面が正しく表示される）を`wrangler dev`実ビルド配信で再確認した。
 
 ## OGP・メタ情報
 
