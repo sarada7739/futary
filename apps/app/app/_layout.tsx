@@ -150,6 +150,9 @@ function RootNavigator() {
       {isDemoViewer && <DemoBanner />}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={hasCouple}>
+          {/* composeより先に置くこと。宣言順が着地先を決める（実測。
+              上のenterGuestModeのコメント参照）。入れ替えるとゲストは
+              投稿モーダルに着地する */}
           <Stack.Screen name="(tabs)" />
           <Stack.Screen
             name="compose"
