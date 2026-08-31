@@ -1,0 +1,68 @@
+name: Deploy
+
+# main へのマージで Cloudflare Workers へデプロイする（docs/tasks/016-release.md）。
+# CI（ci.yml）が通った後にのみ走らせたいが、GitHub Actions は他ワークフローの
+# 成功を直接の起動条件にできないため、CIと同じ push:main トリガーにしたうえで
+# 同じ検証ステップ（type-check・lint・test）をこのワークフロー内でも通す
+# （二重に見えるが、CIの結果を跨いで参照する仕組みが無い以上、デプロイ側でも
+# 独立に安全を確認する必要がある）。
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # "production" という名前のGitHub Environmentが無ければ初回実行時に
+    # 自動で作られる（保護ルールは既定で無し）。Secretsをリポジトリ全体でなく
+    # この環境に限定して登録したい場合のための器として置いてある（任意）
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run type-check
+
+      - run: pnpm run lint
+
+      - run: pnpm run test
+        env:
+          # CI用のダミー値。実際のGoogle認証・R2通信は行わない（ci.ymlと同じ理由）
+          BETTER_AUTH_SECRET: ci-test-secret-not-used-in-production-32b
+          GOOGLE_CLIENT_ID: ci-test-client-id
+          GOOGLE_CLIENT_SECRET: ci-test-client-secret
+          BETTER_AUTH_URL: http://localhost:8787
+          TRUSTED_ORIGINS: http://localhost:8081
+          R2_ACCOUNT_ID: ci-test-account-id
+          R2_ACCESS_KEY_ID: ci-test-access-key-id
+          R2_SECRET_ACCESS_KEY: ci-test-secret-access-key
+
+      # ローカルのエミュレータとリモートのD1は別物で、db:migrate:local だけでは
+      # 本番に反映されない（L34で実際にログインが全滅した実例。architecture.md 6節）。
+      # deployより前に必ず実行する
+      - name: リモートD1へマイグレーションを適用
+        working-directory: apps/api
+        run: pnpm run db:migrate:remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # apps/landing と apps/app の web export を apps/api/public へ合成する
+      # （scripts/build-public.mjs。015タスク定義）。wrangler deploy の
+      # predeploy フックとしても登録済みだが、R2_ACCOUNT_ID の解決を
+      # CI環境の環境変数から行わせるため、ここでも明示的に環境変数を渡す
+      - name: デプロイ
+        working-directory: apps/api
+        run: pnpm run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
