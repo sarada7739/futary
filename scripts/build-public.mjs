@@ -167,10 +167,35 @@ function buildCsp(inlineScriptHash, r2AccountId) {
 // `typeof window`という並びは保たれる
 // （security-auditor指摘: 実測で見つけたバグは、実測を自動化した時点で
 // 初めて塞がる。コメントで「直した」と書くだけでは再発を防げない。
-// このチェック自体も、正しいコードで誤検知しないこと・旧コードに戻すと
-// 実際に例外が飛ぶことの両方を実測してから直した）
+// このチェック自体も、正しいコードで誤検知しないことは実測して確認した。
+// 一方、旧コードに戻して実際に例外が飛ぶことは確認できていない
+// （Rレビュー指摘: 015当時観測した「本番バンドルにconstとして焼き込まれた」
+// 現象は、現在のツールチェーンで複数パターン試しても再現できなかった。
+// 発生条件は特定できていない。詳細はartifacts/015/test-results.md参照。
+// これは症状ベースの検知〈フォールバックのリテラル文字列がtypeof windowの
+// 生きた分岐の外に裸で存在すれば検知する〉であり、元のバグを確実に
+// 再現・検知できるという証明ではない）
+// FALLBACK_LITERALはapps/app/lib/api-origin.tsのソースから直接読み取る
+// （決め打ちで二重管理すると、api-origin.ts側のポートを変えたときに
+// このチェックが一致しなくなり、気づかないまま何も検知しなくなる
+// 〈落ちる方向ではなく黙って効かなくなる方向〉。Rレビュー指摘）
+function readFallbackLiteral() {
+  const source = readFileSync(
+    path.join(repoRoot, "apps", "app", "lib", "api-origin.ts"),
+    "utf8",
+  );
+  const match = source.match(/return\s+"(http:\/\/localhost:\d+)"/);
+  if (!match) {
+    throw new Error(
+      "apps/app/lib/api-origin.ts からフォールバックURLのリテラルを読み取れません。" +
+        "assertNoLocalDevOriginLeakedが検知対象を見失うため、正規表現を見直してください",
+    );
+  }
+  return match[1];
+}
+
 function assertNoLocalDevOriginLeaked(appPublicDir) {
-  const FALLBACK_LITERAL = "http://localhost:8787";
+  const FALLBACK_LITERAL = readFallbackLiteral();
   const CONTEXT_WINDOW = 300;
   const jsFiles = listFilesRecursive(appPublicDir).filter((f) => f.endsWith(".js"));
   const offenders = [];
