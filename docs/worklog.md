@@ -7392,3 +7392,63 @@ scriptハッシュの実測を1ファイルのみ→全HTML走査に変更。ロ
 画像アセット含め全て読み込まれ、デモのホーム画面が正しく表示される）。
 `artifacts/015/test-results.md`に追記し、コミット`0c095d0`をプッシュ、
 PR #170へ対応内容をコメントし、Rへ再レビューを依頼した。
+
+## 2026-08-31 015: PR #170レビュー対応（続き）R-4対応・403の原因特定
+
+Rから4件目の指摘（R-4）を受けた: `assertNoLocalDevOriginLeaked`（ローカル開発
+オリジン焼き込みの再発防止チェック）が実際には判別できていない。初版は
+「ファイル全体に`location.origin`という文字列があるか」を見ており、
+`better-auth`・`expo-router`など無関係な依存が同じチャンクファイルの中で
+`location.origin`を参照しているため、api-origin.tsのwindow分岐が畳み込まれて
+消えていても常に素通りすることを実測で確認した（該当箇所を壊した状態でも
+ビルドが通ってしまっていた）。
+
+1回目の修正（「localhostの近傍〈前後300文字〉に`typeof window`があるか」）も
+実測すると誤検知した: `better-auth`のURLユーティリティが持つ汎用ホスト判定関数
+（`hostname==="localhost"`等）や、`expo-router`のWebBrowserポリフィルの
+エラーメッセージ文字列が、`typeof window`を伴わずに"localhost"を含むため、
+現状の正しいコードでもビルドが落ちてしまった。
+
+最終的に、汎用の"localhost"文字列ではなく`getApiOrigin()`が実際に埋め込む
+具体的なリテラル（`http://localhost:8787`。ポート番号込み。他のライブラリが
+持つ理由の無い文字列）だけを探し、見つかった場合のみ近傍に`typeof window`が
+あるかを確認する方式に変更した。現状の正しいコードで誤検知しないことを
+実測で確認した。
+
+**Rの依頼どおり「api-origin.tsを壊れたバージョンに戻して実際に例外が飛ぶこと」
+の証明を試みたが、できなかった。**`getApiOrigin`を元のモジュール直下の定数式に
+戻し（`orpc.ts`側も`url`を関数でなく`apiOrigin`定数を直接テンプレートリテラルに
+埋め込む形に戻す。3パターン試した）再ビルドしたが、いずれも`typeof window`の
+分岐は畳み込まれず、コンパイル後のバンドルにも生きた分岐として残った
+（`grep`で確認）。つまり現在のツールチェーンでは015の不具合そのものを
+再現できなかった。当時実際に観測した「本番バンドルにconstとして焼き込まれた」
+現象の正確な発生条件は依然として特定できておらず（Metroのバージョン差・
+キャッシュ状態・SSGとクライアントバンドルの共有条件など複数の未検証の仮説が
+残る）、このチェックが元のバグと全く同じ壊れ方を捕まえられる保証はできない。
+提供できるのは「フォールバックのリテラル文字列がtypeof windowの生きた分岐の
+外に裸で存在すれば検知する」という症状ベースの検知ロジックであることの
+実測確認までである。この限界を正直に`artifacts/015/test-results.md`に記録した。
+
+あわせて、R-1で「別問題」と未検証のまま書いていた403の原因を特定した。
+`resolveCallbackURL()`（`apps/app/app/(auth)/sign-in.tsx`）がWebで
+`window.location.origin`を`callbackURL`として渡すため、ビルド済みバンドルを
+`.dev.vars`の`TRUSTED_ORIGINS`（Expo開発サーバーのポートのみ）に含まれない
+ポートで配信してログインを押すと、Better Authが
+`{"message":"Invalid callbackURL","code":"INVALID_CALLBACK_URL"}`（403）を
+返すことを`curl`での切り分け（`callbackURL`を相対パスにすると200、絶対URLに
+すると403）で確認した。「Google OAuth設定に起因する別問題」という当初の
+記述は誤りだったため訂正した。この403自体はローカルのポートの組み合わせに
+起因するテスト環境固有の問題だが、015が本番のオリジン構成（アプリとAPIが
+同一オリジンになる）を変えた以上、016で`BETTER_AUTH_URL`・`TRUSTED_ORIGINS`を
+本番の実際のオリジンに正しく設定しないと本番でも同じ403でログインが
+失敗する。`artifacts/015/manual-check.md`の016確認項目に「ログインが200で
+完了すること」を明示的に追加した。
+
+CIが`predeploy`スクリプト（`assertNoLocalDevOriginLeaked`・CSPハッシュ実測を
+含む`scripts/build-public.mjs`）を実行しないこと、`blob:`・
+`lh3.googleusercontent.com`のCSP追加は理屈で足したもので画像投稿・ログインを
+伴う実際の経路では確認していないことも、Rの指摘どおり正直に記録した
+（`artifacts/015/test-results.md`「CIとpredeployについて」）。
+
+修正後、`pnpm -w test`（apps/app 150件・apps/api 297件）・`eslint .`・
+`pnpm -r type-check`が全て通ることを確認した。

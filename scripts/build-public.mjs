@@ -136,29 +136,63 @@ function buildCsp(inlineScriptHash, r2AccountId) {
 // 015で実際に踏んだ不具合（本番の配布バンドルにhttp://localhost:8787が
 // 焼き込まれる）の再発防止。ビルド後のクライアントバンドルを走査する。
 //
-// 「localhost/127.0.0.1という文字列が存在すること」自体は禁止しない。
-// apps/app/lib/api-origin.tsのgetApiOrigin()は`window`が無い場合の
-// フォールバックとしてこの文字列を持っており、それ自体は生きた分岐として
-// 正しい（ブラウザでは絶対に通らない）。踏んだ不具合の本体は
-// 「window.location.originを見る分岐ごと畳み込まれ、localhostへの定数に
-// 潰れていた」ことなので、**localhostと一緒にlocation.originという
-// 分岐そのものが残っているか**を確認する。分岐が無いのにlocalhostだけ
-// 残っていれば、それは015で踏んだ壊れ方そのものである
+// 【Rレビュー指摘R-4を受けて2回訂正】
+// 1回目（初版）: 「ファイル全体にlocation.originという文字列が存在するか」を
+// 見ていたが、判別になっていなかった。`better-auth`・`expo-router`など、
+// api-origin.tsとは無関係な依存が同じチャンクファイルの中で
+// `location.origin`を参照しているため、api-origin.tsのwindow分岐が
+// 畳み込まれて消えていても、ファイル全体で見れば必ず`location.origin`という
+// 文字列がどこかに残ってしまい、チェックが常に素通りする（実測で確認: 該当行を
+// 削って壊した状態でもビルドが通ってしまっていた）。
+//
+// 2回目: 「localhost/127.0.0.1という文字列の近傍〈前後300文字〉に
+// `typeof window`があるか」に変えたが、これも実測すると誤検知した。
+// `better-auth`のURLユーティリティが汎用のホスト判定関数
+// （`hostname==="localhost"||hostname.startsWith("127.")`等）を持ち、
+// `expo-router`のWebBrowserポリフィルもエラーメッセージ文字列に
+// "localhost/https"を含む。どちらもapi-origin.tsとは無関係だが
+// `typeof window`を伴わずに"localhost"を含むため、これらが常に
+// offenderとして誤検知される（実測で確認: 現状の正しいコードでもビルドが
+// 落ちた）。
+//
+// 修正: 汎用の"localhost"文字列ではなく、getApiOrigin()が実際に埋め込む
+// **具体的なリテラル**（`http://localhost:8787`。ポート番号込み）だけを
+// 探す。このポート番号を含む文字列は他のライブラリが持つ理由がなく、
+// api-origin.tsのフォールバック文字列だけが一致する。見つかった場合のみ、
+// その近傍（前後300文字）に`typeof window`というこのガードに固有の
+// トークン列が残っているかを確認する。畳み込みが起きると分岐そのもの
+// （`typeof window`を含む条件式）が丸ごと消えて文字列だけが残るため、
+// 近傍を見ればこの文字列が生きた分岐の中にあるか判別できる。`typeof`と
+// `window`の間の空白はJS構文上省略できないため、minifyされても
+// `typeof window`という並びは保たれる
 // （security-auditor指摘: 実測で見つけたバグは、実測を自動化した時点で
-// 初めて塞がる。コメントで「直した」と書くだけでは再発を防げない）
+// 初めて塞がる。コメントで「直した」と書くだけでは再発を防げない。
+// このチェック自体も、正しいコードで誤検知しないこと・旧コードに戻すと
+// 実際に例外が飛ぶことの両方を実測してから直した）
 function assertNoLocalDevOriginLeaked(appPublicDir) {
+  const FALLBACK_LITERAL = "http://localhost:8787";
+  const CONTEXT_WINDOW = 300;
   const jsFiles = listFilesRecursive(appPublicDir).filter((f) => f.endsWith(".js"));
   const offenders = [];
   for (const file of jsFiles) {
     const content = readFileSync(file, "utf8");
-    const hasLocalDevOrigin = /localhost|127\.0\.0\.1/.test(content);
-    if (hasLocalDevOrigin && !content.includes("location.origin")) offenders.push(file);
+    let searchFrom = 0;
+    let idx;
+    while ((idx = content.indexOf(FALLBACK_LITERAL, searchFrom)) !== -1) {
+      searchFrom = idx + FALLBACK_LITERAL.length;
+      const start = Math.max(0, idx - CONTEXT_WINDOW);
+      const end = Math.min(content.length, idx + FALLBACK_LITERAL.length + CONTEXT_WINDOW);
+      const context = content.slice(start, end);
+      if (!/typeof\s+window/.test(context)) {
+        offenders.push({ file, context: context.replace(/\s+/g, " ") });
+      }
+    }
   }
   if (offenders.length > 0) {
     throw new Error(
-      `本番の配布バンドルにローカル開発用のオリジンが定数として焼き込まれています: ` +
-        `${offenders.join(", ")}\napps/app/lib/api-origin.ts のgetApiOrigin()の` +
-        `window分岐が畳み込まれていないか確認してください。`,
+      `本番の配布バンドルにローカル開発用のオリジンが定数として焼き込まれている疑いがあります:\n` +
+        offenders.map((o) => `  ${o.file}\n    近傍: ...${o.context}...`).join("\n") +
+        `\napps/app/lib/api-origin.ts のgetApiOrigin()のwindow分岐が畳み込まれていないか確認してください。`,
     );
   }
 }

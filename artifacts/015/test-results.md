@@ -95,7 +95,7 @@ Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 ## Rレビュー・security-auditor指摘の解消（PR #170）
 
-R-1〜R-3およびsecurity-auditorのMedium/Low指摘を受けて修正し、いずれも実機で再確認した。
+R-1〜R-4およびsecurity-auditorのMedium/Low指摘を受けて修正し、いずれも実機で再確認した。
 
 - **R-1（`auth-client.ts`が`orpc.ts`と違い`getApiOrigin()`を遅延評価していないのでは）**:
   `baseURL: getApiOrigin()`はモジュール読み込み時に1回だけ評価される点はR指摘の通り。
@@ -103,9 +103,10 @@ R-1〜R-3およびsecurity-auditorのMedium/Low指摘を受けて修正し、い
   本物の関数にしたことでビルド時定数畳み込みを防いだこと」に由来するため、
   モジュール直下での1回評価でも問題は起きない。実機で検証: ビルド済みバンドルを
   `wrangler dev`で配信した状態で「ログイン」ボタンを押し、リクエストが
-  `http://127.0.0.1:<port>/api/auth/sign-in/social`（同一オリジン）へ飛ぶことを確認した
-  （レスポンスは403だったが、これは`.dev.vars`のGoogle OAuth設定に起因する別問題で、
-  オリジン解決そのものは正しく動作している）
+  `http://127.0.0.1:<port>/api/auth/sign-in/social`（同一オリジン）へ飛ぶことを確認した。
+  **レスポンスの403については当初「`.dev.vars`のGoogle OAuth設定に起因する別問題」と
+  書いたが、これは未検証の推測だった（Rから指摘を受け、原因を特定した。下の
+  「403の実際の原因」参照）**
 - **R-2（`EXPO_PUBLIC_API_ORIGIN`を空文字で上書きする措置は本当に必要か、関数化だけで
   足りているのでは）**: 空文字上書きを外した状態（`.env`の実際の値を残したまま）で
   再ビルドし、生成された配布バンドルを`grep`したところ、`getApiOrigin`関数の本体は
@@ -118,11 +119,65 @@ R-1〜R-3およびsecurity-auditorのMedium/Low指摘を受けて修正し、い
 - **R-3（`getApiOrigin()`のコメントが実測の経緯を正確に反映していない）**:
   `apps/app/lib/api-origin.ts`・`scripts/build-public.mjs`のコメントを、上記R-1・R-2の
   実測結果を踏まえて書き直した
+- **R-4（`assertNoLocalDevOriginLeaked`が実際には判別できていない）**: Rの指摘どおり、
+  初版は「ファイル全体に`location.origin`という文字列があるか」を見ており、
+  `better-auth`・`expo-router`など無関係な依存が同じチャンクに`location.origin`を
+  含むため常に素通りしていた（実測で確認: 該当箇所を壊した状態でもビルドが通った）。
+  「localhostの近傍〈前後300文字〉に`typeof window`があるか」という2回目の修正も、
+  `better-auth`のホスト判定関数や`expo-router`のエラーメッセージ文字列が無関係に
+  "localhost"を含み、かつ`typeof window`を伴わないため誤検知した（実測で確認:
+  正しいコードでもビルドが落ちた）。最終的に「`http://localhost:8787`という
+  ポート番号込みの具体的なリテラル（getApiOrigin()以外が持つ理由の無い文字列）を
+  探し、その近傍に`typeof window`があるか」に変更し、現状の正しいコードで
+  誤検知しないことを実測で確認した。
+  **ただし、Rの依頼どおり「api-origin.tsを壊れたバージョンに戻して実際に例外が
+  飛ぶこと」の証明はできなかった**: `getApiOrigin`を元のモジュール直下の定数式
+  （`export const apiOrigin = ... ? window.location.origin : "http://localhost:8787"`。
+  `orpc.ts`側も`url: () => ...`の関数呼び出しをやめ、`apiOrigin`定数を直接
+  テンプレートリテラルに埋め込む形。015で報告されたバグの構造そのもの）に3パターン
+  戻して再ビルドしたが、いずれも`typeof window`の分岐は畳み込まれず、コンパイル後の
+  バンドルにも生きた分岐として残った（`grep`で確認）。つまり**現在のツールチェーンで
+  015の不具合を再現できなかった**。当時実際に観測した「本番バンドルにconstとして
+  焼き込まれた」現象の正確な発生条件は依然として特定できておらず（Metroのバージョン差・
+  キャッシュ状態・SSGとクライアントバンドルの共有条件など、複数の未検証の仮説が残る）、
+  このチェックが「元のバグと全く同じ壊れ方」を捕まえられるという保証はできない。
+  提供できるのは「フォールバックのリテラル文字列が`typeof window`の生きた分岐の外に
+  裸で存在すれば検知する」という、症状ベースの検知ロジックであることの実測確認まで
 - **security-auditor Medium**: R2 CSPワイルドカード→実アカウントID固定（上記CSP節）
 - **security-auditor Low**: `blob:`欠落によるアップロード破壊の可能性、
   Googleアバターホスト欠落、`form-action`欠落、HSTS欠落、インラインscriptハッシュの
   1ファイルのみの実測、ローカル開発オリジン焼き込みの再発防止チェック
   （`assertNoLocalDevOriginLeaked`）を追加 — いずれも対応済み
+
+### 403の実際の原因（R指摘により特定）
+
+`resolveCallbackURL()`（`apps/app/app/(auth)/sign-in.tsx`）はWebで
+`window.location.origin`を`callbackURL`として`signIn.social()`に渡す。
+ビルド済みバンドルを任意のポート（例: `http://127.0.0.1:8794`）で配信して
+ログインボタンを押すと、`callbackURL`が`http://127.0.0.1:8794`という絶対URLになり、
+これが`.dev.vars`の`TRUSTED_ORIGINS`（`http://localhost:8081,http://127.0.0.1:8081,
+http://localhost:19006`。Expo開発サーバーのポートのみ）に含まれないため、Better Authが
+`{"message":"Invalid callbackURL","code":"INVALID_CALLBACK_URL"}`（403）を返す。
+`curl`で`callbackURL`を相対パス（`"/"`）にすると200で通ることと、絶対URLにすると
+403になることの両方を実測して切り分けた。**「Google OAuth設定に起因する別問題」という
+当初の記述は誤りで、削除する。**
+
+この403自体はローカル開発でのポートの組み合わせに起因するテスト環境固有の問題であり、
+015のコード変更が原因ではない。ただし**015が本番のオリジン構成を変えた**ことは事実で、
+これまで別オリジンだった`apps/app`（8081）と`apps/api`（8787）が本番では同一Workerの
+単一オリジンになる。**016で`BETTER_AUTH_URL`・`TRUSTED_ORIGINS`を本番の実際のオリジン
+（`*.workers.dev`のURL）に正しく設定しないと、本番でも同じ`INVALID_CALLBACK_URL`で
+ログインが失敗する。**016の確認項目に「ログインが200で完了すること」を明示的に追加する。
+
+### CIとpredeployについて（記録）
+
+`assertNoLocalDevOriginLeaked`もCSPハッシュの実測も`apps/api/package.json`の
+`predeploy`スクリプト（`scripts/build-public.mjs`）でのみ実行され、CIの
+`pnpm -w test`・`eslint .`・`pnpm -r type-check`では実行されない。デプロイを
+止める位置にあるため置き場所としては妥当だが、CIが緑であることはこれらのチェックが
+実際に動いたことを意味しない。また、今回実機確認したゲスト閲覧フローは画像投稿も
+ログインもしないため、`blob:`・`lh3.googleusercontent.com`をCSPに追加した効果は
+理屈の上のものに留まり、実際に通してはいない。016でこれらが初めて実際に使われる。
 
 修正後、全体テスト（`pnpm -w test`: apps/app 150件・apps/api 297件）・lint
 （`eslint .`）・型チェック（`pnpm -r type-check`）が通ることを確認し、
