@@ -14,6 +14,7 @@ const {
   statsGetMock,
   inviteIssueMock,
   signOutMock,
+  pushMock,
 } = vi.hoisted(() => ({
   meGetMock: vi.fn(),
   meUpdateMock: vi.fn(),
@@ -23,6 +24,13 @@ const {
   statsGetMock: vi.fn(),
   inviteIssueMock: vi.fn(),
   signOutMock: vi.fn(),
+  pushMock: vi.fn(),
+}));
+
+// 024: 「アカウントを削除」導線がuseRouterを使うようになったため、
+// home-screen.test.tsxと同じ形でモックする
+vi.mock("expo-router", () => ({
+  useRouter: () => ({ push: pushMock }),
 }));
 
 // home-timeline.test.tsxと同じ理由（expo-image-picker/expo-image-manipulatorは
@@ -456,6 +464,17 @@ describe("025: 招待コードの再発行", () => {
     expect(screen.queryByText("発行できませんでした。もう一度お試しください")).toBeNull();
     // 初回描画時の1回 + エラー後の再取得で2回以上呼ばれる
     await waitFor(() => expect(statsGetMock.mock.calls.length).toBeGreaterThanOrEqual(2));
+  });
+});
+
+// 024: 「アカウントを削除」の入口
+describe("024: アカウントを削除の導線", () => {
+  it("「アカウントを削除」を押すとdelete-accountへ遷移する", async () => {
+    renderScreen();
+
+    fireEvent.click(await screen.findByText("アカウントを削除"));
+
+    expect(pushMock).toHaveBeenCalledWith("/delete-account");
   });
 });
 

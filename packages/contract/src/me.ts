@@ -62,3 +62,12 @@ export const meUploadImageUrlContract = oc
   .errors({
     FORBIDDEN: {},
   });
+
+// me.delete: アカウント削除・退会（024）。所属しているペアがあれば、
+// ペアのデータ（投稿・リアクション・カレンダー・招待コード）ごと消える
+// （Candle型。docs/tasks/024-account-deletion.md）。入力は受け取らない
+// （常にcontext.user.idだけを対象にする。他人のアカウントを消せないことを
+// 構造的に保証する。me.updateと同じ考え方）
+export const meDeleteContract = oc.output(z.object({ ok: z.literal(true) })).errors({
+  FORBIDDEN: {},
+});

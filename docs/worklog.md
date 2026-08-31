@@ -8033,3 +8033,79 @@ couple.ts`のコメント）が、その制約は`invite.accept`（参加しよ�
 `pnpm run type-check`・`eslint .`すべて通過。画面は認証必須のためB
 （自動化）は実機確認ができず、`artifacts/025/manual-check.md`に確認
 項目を列挙した。`feature/025-invite-reissue`ブランチとしてPR作成中。
+
+## 2026-09-01 025 PR #184 Rレビュー対応（R-1）・マージ完了（B）
+
+**R-1（要修正・修正済み）**: 満員のペアからの発行でinvite.issueが返す
+FORBIDDENが、クライアント側で「発行できませんでした。もう一度お試し
+ください」という汎用エラーに丸められていた。この画面を開いたまま相手が
+参加すると、statsQueryが古いままボタンが出続け、押すたびに構造的に
+成功しない操作を繰り返し勧める形になる。この文脈で返るFORBIDDENは
+「満員」以外にありえないため（認証済み・writeProcedureのreadonly判定は
+通過済み）、専用の文言（相手が参加済みです）を出し、statsQueryを
+再取得してカード自体も正しい表示に戻すよう修正した。
+`isDefinedError`はcatch節の`error`（unknown）だと型が`never`に潰れて
+絞り込めないため、`calendar.tsx`と同じく`ORPCError`の`instanceof`で
+判定する形にした（Rレビュー後に気づいたtype-checkエラーを実測して修正）。
+
+Rは「再レビューは要りません」と明示していたため、修正後CI green
+（apps/app 167件・apps/api 304件）を確認してPR #184をそのままマージした。
+
+続けて025の追加提案（`targets.length`という合計値の健全性チェックが、
+`targetProcedures`側が増えると`MANUALLY_PLACED_CACHE_KEYS`側が0件に
+減っても埋め合わされて静かに効かなくなる、というRの指摘）に対応。
+上の番人と同じくラベルそのものを固定する形（`arrayContaining`）に訂正。
+「埋め合わせ」が実際に起きる状況（手続きを7本・キーを0件に）を再現し、
+旧チェックでは通るが新チェックでは落ちることを実測してからPR #180として
+マージした。
+
+## 2026-09-01 024（アカウント削除と退会）実装完了（B）
+
+`docs/tasks/024-account-deletion.md`（Rの先読みで訂正された削除順序）
+どおり実装した。
+
+**サーバ側**: `apps/api/src/procedures/me.ts`に`meDelete`（`me.delete`）を
+新設。`authedProcedure`の上に載せる（入力を一切受け取らず、常に
+`context.user.id`だけを対象にする。他人のアカウントを消せないことを
+構造的に保証する。`me.update`と同じ考え方）。
+
+削除順序: `reactions → posts → events → invites/invite_failures →
+couple_members → couples → user`（sessionとaccountはON DELETE cascade）。
+`resolveCoupleContext`から独立して`coupleId`を自前で解決し
+（`couple_members`を消す前にローカル変数へ確保）、`resolveCoupleContext`
+自体には一切触れていない（削除専用の例外を認可の要に開けないため。
+005の判断をそのまま踏襲）。
+
+R2は行から鍵を集めず接頭辞（`couples/{coupleId}/posts/`・
+`users/{userId}/profile/`。2人分）で削除する`deleteAllByPrefix`を新設。
+`post.delete`とは異なりR2の失敗を握りつぶさない（catchせずそのまま
+投げ、error-id.tsの一般的なエラー処理に任せる）。
+
+`apps/api/test/me.test.ts`に`me.delete`のテストを追加（29件。既存20件+
+新規9件）: 未認証FORBIDDEN・ペア未所属での削除・ペア全データの削除と
+相手が読めなくなることの確認・**couple_membersを消した時点で残りの行が
+あっても読めなくなることの直接確認**・**各段で1回止めて再実行しても
+同じ結果になることの確認（it.each 5パターン）**・**受け入れている制約
+（couple_members削除直後に止まるとcouplesが孤児になる）を明示的に
+固定するテスト**・session/accountのcascade確認・**invite_failuresを
+先に消さないとuserがFK制約で落ちることの順序の証明**・再登録後に
+前のペアへ戻らないことの確認。
+
+**クライアント側**: `apps/app/app/(tabs)/delete-account.tsx`を新設。
+2段階の確認（段階1: 何が消えるかの列挙、段階2: 相手のデータも消える旨・
+事前に知らせない旨の明記。チェックを入れるまで最終ボタンが押せない）。
+マイページ下部に入口（「アカウントを削除」）を追加した。削除成功後は
+`signOut()`のみ呼び、明示的なnavigateはしない（識別が変わることで
+Stack.Protectedが自然にサインイン画面へ導く。PR #177の教訓をそのまま
+踏襲）。
+
+`apps/app/test/delete-account-screen.test.tsx`を新設（7件）。
+`profile-screen.test.tsx`に1件追加、`useRouter`の新規使用に伴い
+`expo-router`のモックも追加した（既存テストは無変更で全緑）。
+
+`pnpm -w test`（apps/app 175件・apps/api 317件）・`pnpm run type-check`・
+`eslint .`すべて通過。security-auditor実行中（削除は認可を触るため
+タスク定義の完了条件）。画面は認証必須のためB（自動化）は実機確認が
+できず、`artifacts/024/manual-check.md`に確認項目（本番で試す前に
+ローカルで途中で止めて再実行を確認すること）を列挙した。
+`feature/024-account-deletion`ブランチとしてPR作成予定。

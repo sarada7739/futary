@@ -9,7 +9,7 @@ import app from "../src/index";
 import type { Bindings } from "../src/index";
 import { router } from "../src/router";
 import { generateImageId } from "../src/lib/ulid";
-import { userImageKeyFor } from "../src/lib/r2-signed-url";
+import { imageKeyFor, userImageKeyFor } from "../src/lib/r2-signed-url";
 import type { RpcContext } from "../src/context";
 
 function createTestClient(): ContractRouterClient<Contract> {
@@ -58,6 +58,19 @@ function contextFor(user: { id: string; name: string; email: string } | null): R
 async function uploadTestUserImage(userId: string, sizeBytes = 100, contentType = "image/jpeg"): Promise<string> {
   const imageId = generateImageId();
   await bucket.put(userImageKeyFor(userId, imageId), new Uint8Array(sizeBytes), {
+    httpMetadata: { contentType },
+  });
+  return imageId;
+}
+
+// 024: me.delete のテストで使う。post.test.ts / event.test.ts / invite.test.ts と同じ形
+async function createCouple(user: { id: string; name: string; email: string }) {
+  return call(router.couple.create, {}, { context: contextFor(user) });
+}
+
+async function uploadTestPostImage(coupleId: string, sizeBytes = 100, contentType = "image/jpeg"): Promise<string> {
+  const imageId = generateImageId();
+  await bucket.put(imageKeyFor(coupleId, imageId), new Uint8Array(sizeBytes), {
     httpMetadata: { contentType },
   });
   return imageId;
@@ -214,5 +227,236 @@ describe("me.uploadImageUrl", () => {
     await expect(
       call(router.me.uploadImageUrl, { contentType: "image/jpeg" }, { context: contextFor(null) }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+// 024: アカウント削除と退会
+describe("me.delete", () => {
+  it("未認証なら FORBIDDEN", async () => {
+    await expect(call(router.me.delete, undefined, { context: contextFor(null) })).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
+  it("ペア未所属でも削除でき、自分のプロフィール画像もR2から消える", async () => {
+    const user = await createUser();
+    const imageId = await uploadTestUserImage(user.id);
+    await call(router.me.update, { name: user.name, imageId }, { context: contextFor(user) });
+
+    const result = await call(router.me.delete, undefined, { context: contextFor(user) });
+
+    expect(result.ok).toBe(true);
+    expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(user.id).first()).toBeNull();
+    expect(await bucket.head(userImageKeyFor(user.id, imageId))).toBeNull();
+  });
+
+  it("ペアの全データが消え、相手もペアを読めなくなる（Candle型: 相手のuser行自体は残る）", async () => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+
+    const ownerImageId = await uploadTestUserImage(owner.id);
+    await call(router.me.update, { name: owner.name, imageId: ownerImageId }, { context: contextFor(owner) });
+    const partnerImageId = await uploadTestUserImage(partner.id);
+    await call(router.me.update, { name: partner.name, imageId: partnerImageId }, { context: contextFor(partner) });
+
+    const postImageId = await uploadTestPostImage(couple.id);
+    const post = await call(
+      router.post.create,
+      { body: "テスト投稿", imageId: postImageId, imageWidth: 100, imageHeight: 100 },
+      { context: contextFor(owner) },
+    );
+    await call(router.reaction.toggle, { postId: post.id, kind: "heart" }, { context: contextFor(partner) });
+    await call(
+      router.event.create,
+      { date: "2020-01-01", title: "予定", kind: "plan", repeatYearly: false, startTime: null, endTime: null, isShared: false },
+      { context: contextFor(owner) },
+    );
+
+    const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
+    expect(result.ok).toBe(true);
+
+    // D1: ペアに紐づく行が全て消える
+    expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(couple.id).first()).toBeNull();
+    expect(
+      await db.prepare("SELECT 1 FROM couple_members WHERE couple_id = ?1").bind(couple.id).first(),
+    ).toBeNull();
+    expect(await db.prepare("SELECT id FROM posts WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+    expect(await db.prepare("SELECT 1 FROM reactions WHERE post_id = ?1").bind(post.id).first()).toBeNull();
+    expect(await db.prepare("SELECT id FROM events WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+    expect(await db.prepare("SELECT code FROM invites WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+
+    // 自分のuser行は消え、相手のuser行はCandle型として残る（消えるのはペアのデータだけ）
+    expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
+    expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(partner.id).first()).not.toBeNull();
+
+    // R2: 投稿画像・プロフィール画像（2人分）が消える
+    expect(await bucket.head(imageKeyFor(couple.id, postImageId))).toBeNull();
+    expect(await bucket.head(userImageKeyFor(owner.id, ownerImageId))).toBeNull();
+    expect(await bucket.head(userImageKeyFor(partner.id, partnerImageId))).toBeNull();
+
+    // 相手もどの手続きからもペアのデータを読めなくなる
+    await expect(call(router.couple.get, undefined, { context: contextFor(partner) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+  });
+
+  // 024タスク定義「couple_membersを消した時点で、両方の利用者がどの手続きからも
+  // ペアのデータを読めない（残りの行が残っている状態で）」。手続きの途中の
+  // 状態を直接作るため、実際の削除手順（1〜5）をSQLで直接再現する
+  it("couple_membersを消した時点で、残りの行が残っていても両方の利用者がペアを読めなくなる", async () => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+    await call(router.post.create, { body: "投稿" }, { context: contextFor(owner) });
+
+    await db
+      .prepare("DELETE FROM reactions WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ?1)")
+      .bind(couple.id)
+      .run();
+    await db.prepare("DELETE FROM posts WHERE couple_id = ?1").bind(couple.id).run();
+    await db.prepare("DELETE FROM events WHERE couple_id = ?1").bind(couple.id).run();
+    await db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(couple.id).run();
+    await db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(couple.id).run();
+
+    // couplesの行はまだ残っている（読めなくなることの証明であり、
+    // 消えていることの証明ではない）
+    expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(couple.id).first()).not.toBeNull();
+
+    await expect(call(router.couple.get, undefined, { context: contextFor(owner) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+    await expect(call(router.couple.get, undefined, { context: contextFor(partner) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+  });
+
+  // 024タスク定義「途中で止めて再実行しても、同じ結果になる（各段で1回止めて
+  // 再開する）」。couple_membersを消す前（手順1〜4）までのどこで止まっても、
+  // couple_idがまだ引けるため再実行すれば最後まで進む（couple_members自体を
+  // 消した後は、再実行時にcouple_idを引く手段が無くなる。これは「訂正:
+  // 『最初に読めなくする』は、誰も守っていなかった」の裏返しとして
+  // 受け入れている制約であり、下の別テストで文書化する）
+  it.each([
+    ["何も止めない", 0],
+    ["reactions削除後で止める", 1],
+    ["posts削除後で止める", 2],
+    ["events削除後で止める", 3],
+    ["invites削除後で止める", 4],
+  ] as const)("%s: 再実行すると最後まで進み、同じ結果になる", async (_label, stopAt) => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+    const post = await call(router.post.create, { body: "投稿" }, { context: contextFor(owner) });
+    await call(router.reaction.toggle, { postId: post.id, kind: "heart" }, { context: contextFor(partner) });
+
+    const steps = [
+      () =>
+        db
+          .prepare("DELETE FROM reactions WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ?1)")
+          .bind(couple.id)
+          .run(),
+      () => db.prepare("DELETE FROM posts WHERE couple_id = ?1").bind(couple.id).run(),
+      () => db.prepare("DELETE FROM events WHERE couple_id = ?1").bind(couple.id).run(),
+      () => db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(couple.id).run(),
+    ];
+    for (let i = 0; i < stopAt; i++) {
+      await steps[i]?.();
+    }
+
+    const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
+    expect(result.ok).toBe(true);
+
+    expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(couple.id).first()).toBeNull();
+    expect(
+      await db.prepare("SELECT 1 FROM couple_members WHERE couple_id = ?1").bind(couple.id).first(),
+    ).toBeNull();
+    expect(await db.prepare("SELECT id FROM posts WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+    expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
+  });
+
+  // 【記録: 受け入れている制約】couple_members自体を消した直後（手順5と6の間）で
+  // 止まると、再実行はcouple_idを引く手段を失い、couplesの行を消せないまま
+  // 孤児として残る。resolveCoupleContextに削除専用の例外を作らないと決めた
+  // （conventions.md「守る相手のいない要件のために、認可の中心を触らない」）
+  // ことの直接の帰結であり、A・Rが「残る。それは受け入れる」と明記した挙動を
+  // そのまま固定する（挙動が変わったら、この判断自体を見直す必要がある）
+  it("【受け入れている制約】couple_members削除直後に止まると、couplesの行は孤児として残る", async () => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+
+    await db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(couple.id).run();
+
+    // この時点でme.deleteを呼んでも、coupleIdを引けないため
+    // couplesの行を消せない（ユーザー自身は消える）
+    const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
+    expect(result.ok).toBe(true);
+
+    expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
+    expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(couple.id).first()).not.toBeNull();
+  });
+
+  it("userを削除するとsessionとaccountがON DELETE CASCADEで自動的に消える", async () => {
+    const user = await createUser();
+    const now = Math.floor(Date.now() / 1000);
+    await db
+      .prepare(
+        "INSERT INTO session (id, expires_at, token, created_at, updated_at, user_id) VALUES (?1, ?2, ?3, ?4, ?4, ?5)",
+      )
+      .bind(crypto.randomUUID(), now + 3600, crypto.randomUUID(), now, user.id)
+      .run();
+    await db
+      .prepare(
+        "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)",
+      )
+      .bind(crypto.randomUUID(), "google", "google-sub-id", "google", user.id, now)
+      .run();
+
+    await call(router.me.delete, undefined, { context: contextFor(user) });
+
+    expect(await db.prepare("SELECT id FROM session WHERE user_id = ?1").bind(user.id).first()).toBeNull();
+    expect(await db.prepare("SELECT id FROM account WHERE user_id = ?1").bind(user.id).first()).toBeNull();
+  });
+
+  // 024タスク定義「userより先にinvite_failuresを消さないと落ちる（順序の証明）」。
+  // FK制約そのものが存在し、順序が意味を持つことを直接確かめる
+  it("順序の証明: invite_failuresを残したままuserを消そうとするとFK制約で失敗する", async () => {
+    const user = await createUser();
+    await db
+      .prepare("INSERT INTO invite_failures (user_id, ip_address, created_at) VALUES (?1, ?2, ?3)")
+      .bind(user.id, "203.0.113.1", Math.floor(Date.now() / 1000))
+      .run();
+
+    await expect(db.prepare("DELETE FROM user WHERE id = ?1").bind(user.id).run()).rejects.toThrow(
+      /FOREIGN KEY/i,
+    );
+
+    await db.prepare("DELETE FROM invite_failures WHERE user_id = ?1").bind(user.id).run();
+    await expect(db.prepare("DELETE FROM user WHERE id = ?1").bind(user.id).run()).resolves.toBeTruthy();
+  });
+
+  it("削除後、同じGoogleアカウントで登録し直しても前のペアに戻らない（新しいuser idになるため）", async () => {
+    const owner = await createUser();
+    await createCouple(owner);
+
+    await call(router.me.delete, undefined, { context: contextFor(owner) });
+
+    // Better Authは account 行が無くなっているため、同じGoogleアカウントでも
+    // 新しいuser.idで登録する（024タスク定義）。ここでは新しいuser行を
+    // 作ることでそれを模擬する
+    const reregistered = await createUser();
+
+    await expect(call(router.couple.get, undefined, { context: contextFor(reregistered) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+    expect(
+      await db.prepare("SELECT 1 FROM couple_members WHERE user_id = ?1").bind(reregistered.id).first(),
+    ).toBeNull();
   });
 });
