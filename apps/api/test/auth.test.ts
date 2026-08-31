@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import app from "../src/index";
 import { createAuth, parseTrustedOrigins } from "../src/auth";
 import type { Bindings } from "../src/index";
 
@@ -87,5 +88,54 @@ describe("parseTrustedOrigins の検証", () => {
   // 信頼されてしまう（実機ログイン確認バグ修正時のsecurity-auditor Low指摘）
   it("ワイルドカードを含むホスト名は例外を投げる", () => {
     expect(() => parseTrustedOrigins("https://*.pages.dev")).toThrow(/ワイルドカード/);
+  });
+});
+
+// T8（想定脅威。security-requirements.md 9節）の担保は auth.ts の
+// useSecureCookies 指定とBetter Authの既定値の組み合わせに依存しており、
+// 依存側の既定値が変わってもテストが検知できなかった（security-auditor
+// 全体監査Low-5指摘）。実際にCookieを発行するエンドポイントを叩き、
+// 属性を直接検証する
+describe("セッションCookieの属性（T8: セッション奪取対策）", () => {
+  it("http（localhost）ではSecure属性が付かない。HttpOnly・SameSite=Laxは付く", async () => {
+    const response = await app.fetch(
+      new Request("http://localhost/api/auth/sign-in/social", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "http://localhost:8081" },
+        body: JSON.stringify({ provider: "google", callbackURL: "http://localhost:8081" }),
+      }),
+      { ...env, BETTER_AUTH_URL: "http://localhost:8787", TRUSTED_ORIGINS: "http://localhost:8081" } as unknown as Bindings,
+    );
+
+    const cookies = response.headers.getSetCookie();
+    expect(cookies.length).toBeGreaterThan(0);
+    for (const cookie of cookies) {
+      expect(cookie).toMatch(/HttpOnly/i);
+      expect(cookie).toMatch(/SameSite=Lax/i);
+      expect(cookie).not.toMatch(/Secure/i);
+    }
+  });
+
+  it("https（本番相当）ではSecure属性も付く", async () => {
+    const response = await app.fetch(
+      new Request("https://futary.example.com/api/auth/sign-in/social", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: "https://futary.example.com" },
+        body: JSON.stringify({ provider: "google", callbackURL: "https://futary.example.com" }),
+      }),
+      {
+        ...env,
+        BETTER_AUTH_URL: "https://futary.example.com",
+        TRUSTED_ORIGINS: "https://futary.example.com",
+      } as unknown as Bindings,
+    );
+
+    const cookies = response.headers.getSetCookie();
+    expect(cookies.length).toBeGreaterThan(0);
+    for (const cookie of cookies) {
+      expect(cookie).toMatch(/HttpOnly/i);
+      expect(cookie).toMatch(/SameSite=Lax/i);
+      expect(cookie).toMatch(/Secure/i);
+    }
   });
 });

@@ -146,6 +146,37 @@ export default function ProfileScreen() {
     );
   }
 
+  // 読み込み中: サーバの値が届く前にフォームを空欄のまま表示しない
+  // （calendar.tsxと同じ「データが無い間はローディング表示」の方針）
+  if ((meQuery.isLoading || coupleQuery.isLoading) && (!meQuery.data || !coupleQuery.data)) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.xl }}>
+          <Text color="muted">読み込み中…</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  // エラー: 何も表示せず永久にフォームが空欄のまま止まって見えることを防ぐ
+  // （calendar.tsxと同じ「再試行ボタン付きのエラー表示」の方針）
+  if ((meQuery.isError || coupleQuery.isError) && (!meQuery.data || !coupleQuery.data)) {
+    return (
+      <Screen>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.xl }}>
+          <Text color="muted">マイページを読み込めませんでした</Text>
+          <Button
+            onPress={async () => {
+              await Promise.all([meQuery.refetch(), coupleQuery.refetch()]);
+            }}
+          >
+            再試行
+          </Button>
+        </View>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>

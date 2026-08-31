@@ -5,6 +5,7 @@ import { StrictGetMethodPlugin } from "@orpc/server/plugins";
 import { router } from "./router";
 import type { RpcContext } from "./context";
 import { createAuth, parseTrustedOrigins } from "./auth";
+import { withErrorId } from "./lib/error-id";
 
 export interface Bindings {
   DB: D1Database;
@@ -43,7 +44,13 @@ const app = new Hono<{ Bindings: Bindings }>();
 // ためで、上のコンストラクタ内の自動登録と合わせて StrictGetMethodPlugin が2つ
 // 登録される（意図的な重複。両方とも同じ検査をするだけで実害は無い）。
 // 回帰テスト（apps/api/test/method-restriction.test.ts）はこの動作を固定する
-const handler = new RPCHandler(router, { plugins: [new StrictGetMethodPlugin()] });
+// interceptorsは想定外の例外（procedureのバグ・DBエラー等）を捕まえて
+// 一意のIDを振るために使う（apps/api/src/lib/error-id.ts）。procedure側が
+// 意図的にthrowするFORBIDDEN等のORPCErrorには影響しない
+const handler = new RPCHandler(router, {
+  plugins: [new StrictGetMethodPlugin()],
+  interceptors: [({ next }) => withErrorId(next)],
+});
 
 // 認証情報（Cookie）付きリクエストを許可するオリジンは環境変数で切り替える。
 // 本番は同一Workerから配信するため同一オリジンになり、そもそも越境しない
@@ -52,6 +59,17 @@ app.use("/api/*", (c, next) => {
     origin: parseTrustedOrigins(c.env.TRUSTED_ORIGINS),
     credentials: true,
   })(c, next);
+});
+
+// `_headers`（scripts/build-public.mjs）は静的アセットのレスポンスにのみ
+// 適用され、run_worker_first で /api/* はWorkerが直接応答するため対象外になる。
+// CSPはJSONレスポンスに意味を持たないため付けないが、nosniffは誤った
+// Content-Typeでのスニッフィング対策としてJSONにも意味があるため、
+// /api/* にも明示的に付ける（security-auditor全体監査Low-3指摘）
+app.use("/api/*", async (c, next) => {
+  await next();
+  c.res.headers.set("X-Content-Type-Options", "nosniff");
+  c.res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 });
 
 // @better-auth/expo の認可プロキシ。ネイティブの Google ログインは未対応

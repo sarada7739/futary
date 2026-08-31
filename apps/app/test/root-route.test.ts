@@ -23,8 +23,18 @@ import { resolveRootRoute, type RootRouteInput } from "../lib/root-route";
 // （hasCoupleData=false かつ isNeedsOnboardingError=false）は既知の
 // 受容済みギャップとして0個を許す（014の対象外。014が変えたのは
 // isDemoViewer=trueの経路だけで、この組み合わせの振る舞いはそれ以前から
-// 変わっていない。再試行でじきに解消する一時的な状態であり、ゲストの
-// demoFailedのように「そのまま」ではない）
+// 変わっていない）。
+//
+// 【016で訂正】014時点では「再試行でじきに解消する一時的な状態であり、
+// ゲストのdemoFailedのように『そのまま』ではない」としていたが、これは
+// 誤りだった。couple.getのuseQueryは`retry: false`を指定しており、
+// react-query側の自動再試行は無い。つまりこの状態は実際には「じきに
+// 解消する」のではなく、利用者が手動で再読み込みするまで止まったままになる
+// （Rレビュー全体監査R-3指摘。実際に踏んだ不具合として016のtest-results.md・
+// _layout.tsxのコメントに記録済み）。この関数（resolveRootRoute）自体の
+// 期待値（0個を許す）は変えていない——ここで直しているのは受容した理由の
+// 記述だけで、016では_layout.tsx側にこの状態を検知して再試行UIを出す
+// フォールバック描画を追加した（resolveRootRouteの契約や戻り値は変更していない）
 
 const BOOLS = [false, true] as const;
 
