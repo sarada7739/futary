@@ -17,7 +17,8 @@ PR #185をRの受け入れ・CI緑を経てmainへsquash merge済み**
 1. GitHub Actionsで待機中の`Deploy`ワークフローを確認し、承認するか判断する
    （0014・0015が本番D1に初めて当たる。invite_failuresの既存行が消える。
    `artifacts/024/manual-check.md`の実機確認項目、特に再認証まわり
-   〈項目8〜12〉を先に済ませることを推奨）
+   〈項目8〜12〉を**承認前にローカルで**先に済ませることを推奨。項目8〜12は
+   024の新しいコードを触るため、本番ではデプロイ後にしか通せない）
 2. デプロイが実際に走ったら、`scripts/check-remote-migration-
    preconditions.mjs`が出す`invite_failures`の件数をGitHub Actionsの
    ジョブログから読み、`docs/worklog.md`に追記する（0件でも書く。
