@@ -1,5 +1,5 @@
 import { healthGetContract } from "./health";
-import { meGetContract, meUpdateContract, meUploadImageUrlContract } from "./me";
+import { meDeleteContract, meGetContract, meUpdateContract, meUploadImageUrlContract } from "./me";
 import { coupleCreateContract, coupleGetContract, coupleUpdateContract } from "./couple";
 export { PRIMARY_DATE_VALUES } from "./couple";
 export type { Couple } from "./couple";
@@ -31,6 +31,7 @@ export const contract = {
     get: meGetContract,
     update: meUpdateContract,
     uploadImageUrl: meUploadImageUrlContract,
+    delete: meDeleteContract,
   },
   couple: {
     create: coupleCreateContract,

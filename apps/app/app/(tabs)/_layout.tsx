@@ -135,6 +135,8 @@ export default function TabsLayout() {
           (tabs)の外にありタブが消えた不具合と同じ構造を、ここでも踏んでいた） */}
       <Tabs.Screen name="memory" options={{ href: null, headerShown: true, title: "思い出" }} />
       <Tabs.Screen name="stats" options={{ href: null, headerShown: true, title: "統計" }} />
+      {/* 024: マイページ下部の「アカウントを削除」の行き先。上と同じ理由でhref: null */}
+      <Tabs.Screen name="delete-account" options={{ href: null, headerShown: true, title: "アカウントを削除" }} />
     </Tabs>
   );
 }

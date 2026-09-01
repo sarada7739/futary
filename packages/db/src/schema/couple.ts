@@ -114,25 +114,35 @@ export const invites = sqliteTable("invites", {
 
 // invite.accept の失敗回数を数えるための記録（security-requirements.md 4節）。
 // IPだけで絞ると同一/64のIPv6内でアドレスを変えるだけで無制限に回避できるため、
-// 認証必須の手続きであることを利用して user_id も併せて記録し、
+// 認証必須の手続きであることを利用して利用者単位のキーも併せて記録し、
 // どちらかが自分の閾値を超えたら拒否する（security-auditor 004監査 High指摘）。
 // ipAddress は取得できない環境（ローカル開発等）では null にする。
 // 固定の代用文字列（"unknown"等）を入れると、将来IP単独で集計するコードを
 // 足したときに無関係な利用者が同じバケットに合流してしまう
 // （security-auditor 004監査2回目 Low指摘）。
-// 成功時は記録しない
+// 成功時は記録しない。
+//
+// 【A決定・024】キーは以前 user_id（userへのFK）だった。取り消した理由:
+// 024（アカウント削除）でuserを消すとこの表の行もFK制約により一緒に
+// 消す必要があり、レート制限のカウンタがリセットされてしまう。
+// 「削除→同じGoogleアカウントで再登録（新しいuser.id）→また10回失敗
+// できる」を無制限に繰り返せてしまい、下の理由に書いた「user_idを
+// 回避するにはGoogleアカウント自体を作り直す必要があり、コストが桁違いに
+// 高い」という前提が024で崩れていた（024のsecurity-auditor監査で発見）。
+// account.accountId（Googleが払い出すsub。アカウントを削除しても
+// 変わらない）の塩付きハッシュに差し替え、userへのFKを外した。
+// 副次的に、アカウント削除のときにこの表を消す必要が無くなった
+// （時間窓〈1時間〉で自然に切れる。apps/api/src/lib/invite-rate-limit.ts）
 export const inviteFailures = sqliteTable(
   "invite_failures",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    userId: text("user_id")
-      .notNull()
-      .references(() => user.id),
+    accountHash: text("account_hash").notNull(),
     ipAddress: text("ip_address"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
-    index("invite_failures_user_created_idx").on(table.userId, table.createdAt),
+    index("invite_failures_account_created_idx").on(table.accountHash, table.createdAt),
     index("invite_failures_ip_created_idx").on(table.ipAddress, table.createdAt),
   ],
 );

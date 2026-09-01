@@ -8034,6 +8034,132 @@ couple.ts`のコメント）が、その制約は`invite.accept`（参加しよ�
 （自動化）は実機確認ができず、`artifacts/025/manual-check.md`に確認
 項目を列挙した。`feature/025-invite-reissue`ブランチとしてPR作成中。
 
+## 2026-09-01 025 PR #184 Rレビュー対応（R-1）・マージ完了（B）
+
+**R-1（要修正・修正済み）**: 満員のペアからの発行でinvite.issueが返す
+FORBIDDENが、クライアント側で「発行できませんでした。もう一度お試し
+ください」という汎用エラーに丸められていた。この画面を開いたまま相手が
+参加すると、statsQueryが古いままボタンが出続け、押すたびに構造的に
+成功しない操作を繰り返し勧める形になる。この文脈で返るFORBIDDENは
+「満員」以外にありえないため（認証済み・writeProcedureのreadonly判定は
+通過済み）、専用の文言（相手が参加済みです）を出し、statsQueryを
+再取得してカード自体も正しい表示に戻すよう修正した。
+`isDefinedError`はcatch節の`error`（unknown）だと型が`never`に潰れて
+絞り込めないため、`calendar.tsx`と同じく`ORPCError`の`instanceof`で
+判定する形にした（Rレビュー後に気づいたtype-checkエラーを実測して修正）。
+
+Rは「再レビューは要りません」と明示していたため、修正後CI green
+（apps/app 167件・apps/api 304件）を確認してPR #184をそのままマージした。
+
+続けて025の追加提案（`targets.length`という合計値の健全性チェックが、
+`targetProcedures`側が増えると`MANUALLY_PLACED_CACHE_KEYS`側が0件に
+減っても埋め合わされて静かに効かなくなる、というRの指摘）に対応。
+上の番人と同じくラベルそのものを固定する形（`arrayContaining`）に訂正。
+「埋め合わせ」が実際に起きる状況（手続きを7本・キーを0件に）を再現し、
+旧チェックでは通るが新チェックでは落ちることを実測してからPR #180として
+マージした。
+
+## 2026-09-01 024（アカウント削除と退会）実装完了（B）
+
+`docs/tasks/024-account-deletion.md`（Rの先読みで訂正された削除順序）
+どおり実装した。
+
+**サーバ側**: `apps/api/src/procedures/me.ts`に`meDelete`（`me.delete`）を
+新設。`authedProcedure`の上に載せる（入力を一切受け取らず、常に
+`context.user.id`だけを対象にする。他人のアカウントを消せないことを
+構造的に保証する。`me.update`と同じ考え方）。
+
+削除順序: `reactions → posts → events → invites/invite_failures →
+couple_members → couples → user`（sessionとaccountはON DELETE cascade）。
+`resolveCoupleContext`から独立して`coupleId`を自前で解決し
+（`couple_members`を消す前にローカル変数へ確保）、`resolveCoupleContext`
+自体には一切触れていない（削除専用の例外を認可の要に開けないため。
+005の判断をそのまま踏襲）。
+
+R2は行から鍵を集めず接頭辞（`couples/{coupleId}/posts/`・
+`users/{userId}/profile/`。2人分）で削除する`deleteAllByPrefix`を新設。
+`post.delete`とは異なりR2の失敗を握りつぶさない（catchせずそのまま
+投げ、error-id.tsの一般的なエラー処理に任せる）。
+
+`apps/api/test/me.test.ts`に`me.delete`のテストを追加（29件。既存20件+
+新規9件）: 未認証FORBIDDEN・ペア未所属での削除・ペア全データの削除と
+相手が読めなくなることの確認・**couple_membersを消した時点で残りの行が
+あっても読めなくなることの直接確認**・**各段で1回止めて再実行しても
+同じ結果になることの確認（it.each 5パターン）**・**受け入れている制約
+（couple_members削除直後に止まるとcouplesが孤児になる）を明示的に
+固定するテスト**・session/accountのcascade確認・**invite_failuresを
+先に消さないとuserがFK制約で落ちることの順序の証明**・再登録後に
+前のペアへ戻らないことの確認。
+
+**クライアント側**: `apps/app/app/(tabs)/delete-account.tsx`を新設。
+2段階の確認（段階1: 何が消えるかの列挙、段階2: 相手のデータも消える旨・
+事前に知らせない旨の明記。チェックを入れるまで最終ボタンが押せない）。
+マイページ下部に入口（「アカウントを削除」）を追加した。削除成功後は
+`signOut()`のみ呼び、明示的なnavigateはしない（識別が変わることで
+Stack.Protectedが自然にサインイン画面へ導く。PR #177の教訓をそのまま
+踏襲）。
+
+`apps/app/test/delete-account-screen.test.tsx`を新設（7件）。
+`profile-screen.test.tsx`に1件追加、`useRouter`の新規使用に伴い
+`expo-router`のモックも追加した（既存テストは無変更で全緑）。
+
+`pnpm -w test`（apps/app 175件・apps/api 317件）・`pnpm run type-check`・
+`eslint .`すべて通過。security-auditor実行中（削除は認可を触るため
+タスク定義の完了条件）。画面は認証必須のためB（自動化）は実機確認が
+できず、`artifacts/024/manual-check.md`に確認項目（本番で試す前に
+ローカルで途中で止めて再実行を確認すること）を列挙した。
+`feature/024-account-deletion`ブランチとしてPR作成予定。
+
+## 2026-09-01 024 security-auditor結果と対応（B）
+
+security-auditorを実行した結果、**High以上はゼロ**（タスク定義の完了
+条件を満たす）。Medium 4件・Low 6件のうち実装レベルで直せるものを
+すべて対応した（詳細は`docs/security-report.md`参照）。
+
+**一番効いた指摘**: 削除の手順1〜6（reactions〜couples）を個別の`run()`で
+実行していたため、削除の実行中に別リクエストが新しい投稿・予定・招待を
+作ると、その行が`posts`/`events`削除より後に着地しうる。`couples`は
+`posts.couple_id`等からON DELETE no actionで参照されているため、その
+状態で`DELETE FROM couples`がFK違反で落ちる。このとき`couple_members`は
+既に消えているため、再実行時は`coupleId`を引けず（couple分岐ごと
+飛ばされ）、**本文と`image_key`を持つ`posts`行が回収不能な孤児として
+恒久的に残り、削除実行者がその投稿の著者なら以降の`user`削除が永久に
+失敗しかねない**。024が受け入れたのは「空の`couples`行が残る」ことだけで、
+本文が残ることでもアカウントが二度と消せなくなることでもなかった
+——「受け入れていた残存リスクの範囲を超えている」という指摘だった。
+
+対処: `couple.create`・`invite.accept`で既に使っている`db.batch()`を
+ここでも使い、reactions〜couples（+相手のuser.imageのNULL化）を1本の
+batchにまとめた。`db.batch()`は文のエラーでロールバックする
+（`couple.ts`の`isConstraintViolation`と同じ根拠）ため、この窓自体が
+無くなり、当初「残る」と受け入れていた孤児`couples`行も同時に解消
+された。**個別の`run()`を並べる設計から入ったのが誤りで、既存の道具
+（batch）を使わなかったことが「受け入れていたはずのリスク」を
+実際より悪化させていた。**
+
+他に対応した指摘: (1) R2の一括削除がD1削除の前だけで窓が残る→D1の
+batch成功後にもう一度`deleteAllByPrefix`を呼ぶ（2) 相手のプロフィール
+画像を消すのに相手の`user.image`列を更新しておらず不変条件が破れる→
+NULLへ戻す文を同じbatchに含める(3) `is_demo=1`のペアへのガードが無い
+→手続き自身でも拒む(4) 無関係な第2のペアを巻き込むバグを検知するテストが
+無い→追加(5) `authorization.test.ts`の未認証FORBIDDEN一覧に`me.delete`が
+抜けていた→追加(6) 削除成功後にキャッシュを明示的に破棄していない→
+`queryClient.clear()`を追加(7) R2エラーメッセージに画像キーが含まれ
+うる（security-requirements.md 8節違反）→`deleteAllByPrefix`が汎用
+メッセージへ詰め替えてから投げる形に(8) クライアント側で削除成功後に
+`signOut()`が失敗すると「削除できませんでした」と誤表示する→削除と
+signOutの成否を分離（旧コードで実際に誤表示することを実測してから直した）。
+
+**Aへ判断を依頼した2件**（実装は保留）: (1) 招待コードのレート制限
+（`invite_failures`）が、アカウント削除→同じGoogleアカウントで再登録、
+を繰り返すことで無限にリセットできる（`security-requirements.md` 4節
+「`user_id`回避のコストは桁違いに高い」という前提が崩れる）(2) 不可逆・
+相手のデータも巻き込む操作に再認証もレート制限も無い（T8の被害範囲が
+拡大した）。`docs/security-requirements.md` 4節にも記録した。
+
+`pnpm -w test`（apps/app 176件・apps/api 321件）・`pnpm run type-check`・
+`eslint .`すべて通過。`feature/024-account-deletion`ブランチとして
+Rへレビュー依頼予定。
 ## 2026-09-01 セッションA: 024のsecurity-auditor指摘2件に判断を出した
 
 **(1) 招待コードのレート制限が、アカウント削除でリセットできる。**
@@ -8094,6 +8220,107 @@ couple.ts`のコメント）が、その制約は`invite.accept`（参加しよ�
 **判定はサーバが真偽値で返す。時刻を返してクライアントに比べさせない。**
 `canEdit` を返したのと同じ理由である。**`me.get` は既に T9 の対象一覧に入っている。**
 
+## 2026-09-01 セッションB: 024のA判断待ちMedium2件を実装
+
+Aの判断（#186・#187）を実装した。
+
+**invite_failuresのキー変更。** `packages/db/src/schema/couple.ts`の
+`inviteFailures`を`userId`（`user`へのFK）から`accountHash`（FK無し）に
+変更。ハッシュは`apps/api/src/lib/account-hash.ts`（`crypto.subtle`の
+HMAC-SHA256、鍵は`BETTER_AUTH_SECRET`）。`invite.accept`
+（`apps/api/src/procedures/couple.ts`）で`account`テーブルから
+`account_id`（provider_id='google'）を引いてハッシュ化する。
+
+マイグレーションは1本にまとめられなかった。`drizzle-kit generate`が
+「これはuserIdのリネームか、削除+追加か」を対話プロンプトで聞いてくる
+仕様で、このシェル環境はTTYが無く必ず`Interactive prompts require a TTY
+terminal`で落ちる。スキーマ変更を2段階（先にuserId列を削除するだけの
+状態でgenerate、次にaccountHash列を追加するだけの状態でgenerate）に
+分けることで、それぞれが単独では曖昧でない変更になり、プロンプト無しで
+生成できた。結果として0014（列を削除）・0015（列を追加）の2本になった。
+
+0015のACCOUNT_HASHはNOT NULLだが、SQLiteは既存行があるテーブルに
+デフォルト無しのNOT NULL列を追加できない。既存行から遡ってハッシュを
+計算する手段も無い（鍵〈BETTER_AUTH_SECRET〉も元のGoogleアカウントIDも
+マイグレーションSQLからは扱えない）ため、列を足す前に`DELETE FROM
+invite_failures`で空にする一文を入れた。実害は「デプロイ直後、レート
+制限のカウントが一度だけ0に戻る」だけ（時間窓1時間・コード空間
+32^6の脅威モデルでは無視できる）。
+
+`conventions.md`6節「既存行の扱いが変わるマイグレーションは、行を入れた
+状態で当てる」に従い、`apps/api/test/migration-existing-rows.test.ts`に
+0014・0015をまとめて当てるテストを追加。旧user_id方式の既存行を1件
+入れてから適用し、(1)行が残らないこと(2)`user_id`列が無くなっている
+こと(3)`account_hash`がNOT NULLとして機能すること、を確認した。
+
+**me.deleteの再認証。** `context.ts`に`sessionCreatedAt: Date | null`と
+`authSecret: string`を追加（`apps/api/src/index.ts`の`/api/*`
+ミドルウェアで、`auth.api.getSession()`の`session.session.createdAt`と
+`c.env.BETTER_AUTH_SECRET`から埋める）。`apps/api/src/lib/reauth.ts`の
+`isSessionFresh()`（5分window）を`meDelete`の先頭でチェックし、
+`REAUTH_REQUIRED`で拒む。`me.get`は`sessionIsFresh`（真偽値）を返す
+（`packages/contract/src/me.ts`）。
+
+**画面側（`apps/app/app/(tabs)/delete-account.tsx`）**: `me.get`の
+`sessionIsFresh`を見て、falseなら段階1/2の確認フローに入れず
+「もう一度ログインしてください」＋再ログインボタン（`signIn.social`。
+`sign-in.tsx`と同じダブルクリック対策）を出す。`me.delete`が
+`REAUTH_REQUIRED`で拒んだ場合（確認をやり切る間に5分を跨いだ場合）も
+同じ画面に切り替える。
+
+**invite_failuresを消す手順自体が不要になった**ため、`meDelete`の
+最後のステップは`db.batch([DELETE invite_failures, DELETE user])`から
+`DELETE FROM user`単独になった。`me.test.ts`の「順序の証明」テスト
+（invite_failuresを残すとFK違反で落ちる）は、FK自体が無くなったため
+逆の内容（残っていても影響しない）に書き換えた。
+
+**新規テストは全てフォルトインジェクションで検証済み**（該当のガードを
+一時的に無効化し、テストが落ちることを確認してから復元）:
+- `me.delete`のREAUTH_REQUIREDチェック
+- `invite.accept`のレート制限キー（同一Googleアカウントなら`user_id`が
+  変わっても引き継がれること）
+- `delete-account.tsx`のsessionIsFreshによる画面分岐
+
+**mainとのコンフリクト**: 実装中にA（PR #186・#187）が同じ決定を
+`security-requirements.md`・`docs/tasks/024-account-deletion.md`へ
+先にマージ済みだったため、`feature/024-account-deletion`へ`main`を
+マージした際に`security-requirements.md`のレート制限キー節で
+コンフリクトが起きた。Aの文面を残し、実装ファイルへのポインタ
+（`apps/api/src/lib/account-hash.ts`等）だけ追記する形で解決した。
+認証節（2節）に重複して書いていた再認証の説明は削除し、9節T8への
+1行の誘導に置き換えた（`conventions.md`「判断は、それが上書きする
+記述と同じ場所に書く」）。
+
+**Bが実装中に見つけた024タスクファイルの訂正待ち1件**を`docs/state.md`
+L90として起票（`docs/tasks/024-account-deletion.md`「2. まっさらな
+状態から登録し直せる」節の「`invite_failures`は`user`より先に消す」が
+PR #186より前の記述のまま取り残されている）。実装は新しい決定
+（消さない・FK無し）で進めた（`conventions.md`「Bが設計ドキュメントの
+誤りを見つけたとき」）。
+
+`pnpm -w test`・型チェック全て緑（apps/app 181件・apps/api 327件）。
+`artifacts/024/manual-check.md`に再認証まわりの人間の実機確認項目を
+追記済み。`feature/024-account-deletion`ブランチとしてRへレビュー依頼予定。
+
+## 2026-09-01 セッションB: Rレビュー指摘（0015の削除件数記録）に対応
+
+RがPR #185で1件指摘: 0015（`invite_failuresのDELETE`）は`architecture.md`
+4節「行を消すマイグレーションは、当てる前に件数を数えて記録する」の対象
+だが、016以降デプロイは無人（`production`環境のRequired reviewersは
+ジョブ開始前のapproveで、ジョブ自体は無人実行）で`worklog.md`へ書ける
+人間が経路上にいない、との指摘。
+
+0013（`events_repeat_yearly_check`のCHECK制約違反行チェック）と同じ仕組み
+（`scripts/check-remote-migration-preconditions.mjs`。`.github/workflows/
+deploy.yml`から`db:migrate:remote`の直前に呼ばれる）に、`invite_failures`
+の件数をデプロイジョブのログへ出力する処理を追加した。0013と違い件数が
+0でなくても止めない（このDELETEは常に意図した動作であり、行が残っている
+こと自体は異常ではない）。デプロイのジョブログをもって「記録する」の
+実装とした（worklog.mdへの追記は無人ジョブからは行わない）。
+
+Rの実測2点（NOT NULL列追加が空でない表では拒否されること・DELETEと
+ADD COLUMNの間で中断しても再実行で自力回復すること）も確認済みとの報告
+を受けた。
 **追記2（同日）**: B が 024 のタスク定義に**古い記述が1行残っている**のを見つけた。
 「2. まっさらな状態から登録し直せる」節の
 **「`invite_failures` は `user` を参照している。`user` より先に消す」**が、

@@ -30,12 +30,20 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
   const name = `テストユーザー${userSeq}`;
   const email = `user-${userSeq}-${crypto.randomUUID()}@example.com`;
   const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare(
-      "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
-    )
-    .bind(id, name, email, now)
-    .run();
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
+      )
+      .bind(id, name, email, now),
+    // invite.acceptがaccount_id（Googleの識別子）を引く（024）。このファイルは
+    // ペア成立にinvite.acceptを使うため、account行が無いと失敗する
+    db
+      .prepare(
+        "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
+      )
+      .bind(crypto.randomUUID(), `google-sub-${id}`, id, now),
+  ]);
   return { id, name, email };
 }
 
@@ -43,7 +51,16 @@ function contextFor(
   user: { id: string; name: string; email: string } | null,
   demoCoupleId: string | null = null,
 ): RpcContext {
-  return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId };
+  return {
+    db,
+    bucket,
+    r2Sign,
+    user: user ? { ...user, image: null } : null,
+    ip: "203.0.113.1",
+    demoCoupleId,
+    sessionCreatedAt: user ? Date.now() : null,
+    authSecret: "test-secret",
+  };
 }
 
 // 023: couple.createは日付を受け取らないため、作成後にcouple.updateで
@@ -235,6 +252,14 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
 
     await expect(
       call(router.me.uploadImageUrl, { contentType: "image/jpeg" }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("me.delete は未認証なら FORBIDDEN（024）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.me.delete, undefined, { context: contextFor(null, demoCoupleId) }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

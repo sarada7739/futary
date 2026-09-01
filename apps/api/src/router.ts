@@ -8,6 +8,7 @@ import { postUploadUrl } from "./procedures/upload";
 import { statsProcedures } from "./procedures/stats";
 import { memoryProcedures } from "./procedures/memory";
 import { resolveUserImage } from "./lib/r2-signed-url";
+import { isSessionFresh } from "./lib/reauth";
 
 export type { RpcContext } from "./context";
 
@@ -22,7 +23,13 @@ const meGet = implementer.me.get.handler(async ({ context }) => {
   const { id, name, email, image } = context.user;
   // imageはGoogleの外部URLか、自分でアップロードした画像のR2キーの
   // どちらもありうる。後者だけ署名付きGET URLへ解決する（019）
-  return { id, name, email, image: await resolveUserImage(context.r2Sign, image ?? null) };
+  return {
+    id,
+    name,
+    email,
+    image: await resolveUserImage(context.r2Sign, image ?? null),
+    sessionIsFresh: isSessionFresh(context.sessionCreatedAt),
+  };
 });
 
 export const router = implementer.router({

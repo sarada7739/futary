@@ -6,6 +6,7 @@ import { formatJstDateTime } from "@futary/date";
 import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
 import { Avatar, Button, Card, colors, radius, Screen, space, Text } from "@futary/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { DateInput8 } from "../../components/date-input8";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
 import { useGuestMode } from "../../lib/guest-mode";
@@ -28,6 +29,7 @@ const PRIMARY_DATE_LABELS: Record<PrimaryDate, string> = {
 };
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const { isGuestMode, exitGuestMode } = useGuestMode();
   // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）。
   // この画面はguestMode中もフックだけは実行される（早期returnより後で
@@ -407,6 +409,13 @@ export default function ProfileScreen() {
             }}
           >
             ログアウト
+          </Button>
+
+          {/* 024: 「アカウントを削除」だけを書かない。ここは入口の1行なので
+              簡潔にするが、実際に消えるのがふたりのデータであることは
+              delete-account.tsxの2段階の確認で詳しく説明する */}
+          <Button variant="ghost" onPress={() => router.push("/delete-account")}>
+            アカウントを削除
           </Button>
       </ScrollView>
     </Screen>
