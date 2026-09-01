@@ -229,3 +229,84 @@ describe("0013マイグレーション: 既存行がevents_repeat_yearly_check�
     }
   });
 });
+
+// 024: invite_failuresのキーをuser_idからaccount_hashへ差し替えた（Aの決定。
+// packages/db/src/schema/couple.tsのinviteFailuresコメント参照）。0014で
+// user_idを列ごと落とし、0015でNOT NULLのaccount_hashを足す。0015のADD COLUMNは
+// 既存行があるとNOT NULLを付けられない（SQLiteの制約）ため、先にDELETEで
+// 空にしてから足す設計にした。「既存行が失われる」こと自体が0015の仕様の
+// 一部なので、それが実際に起きることをここで確かめる
+describe("0014・0015マイグレーション: 既存行はaccount_hash追加のために一度空になる", () => {
+  it("user_id方式の既存行は残らず、account_hashがNOT NULLとして機能する", async () => {
+    const target14 = TEST_MIGRATIONS.find((m) => m.name === "0014_invite_failures_drop_user_id.sql");
+    const target15 = TEST_MIGRATIONS.find((m) => m.name === "0015_invite_failures_add_account_hash.sql");
+    if (!target14 || !target15) {
+      throw new Error("0014/0015のマイグレーションがTEST_MIGRATIONSに見つかりません");
+    }
+
+    const userId = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    await db
+      .prepare(
+        "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, 'テスト', ?2, 1, ?3, ?3)",
+      )
+      .bind(userId, `${crypto.randomUUID()}@example.com`, now)
+      .run();
+
+    // 0013時点（現状の直前の形）のinvite_failures構造を退避し、user_id方式を再現する
+    await db.exec(`ALTER TABLE invite_failures RENAME TO invite_failures_after_0015`);
+    await db.exec(`DROP INDEX invite_failures_account_created_idx`);
+    await db.exec(`DROP INDEX invite_failures_ip_created_idx`);
+    await db.exec(
+      `CREATE TABLE invite_failures (id integer PRIMARY KEY AUTOINCREMENT NOT NULL, user_id text NOT NULL, ip_address text, created_at integer NOT NULL, FOREIGN KEY (user_id) REFERENCES user(id) ON UPDATE no action ON DELETE no action)`,
+    );
+    await db.exec(`CREATE INDEX invite_failures_user_created_idx ON invite_failures (user_id,created_at)`);
+    await db.exec(`CREATE INDEX invite_failures_ip_created_idx ON invite_failures (ip_address,created_at)`);
+
+    await db
+      .prepare(`INSERT INTO invite_failures (user_id, ip_address, created_at) VALUES (?1, ?2, ?3)`)
+      .bind(userId, "203.0.113.9", now)
+      .run();
+
+    await db.prepare(`DELETE FROM d1_migrations WHERE name IN (?1, ?2)`).bind(target14.name, target15.name).run();
+    try {
+      await applyD1Migrations(db, [target14, target15]);
+
+      // 0015が「NOT NULL列を足す前に空にする」ため、user_id方式の既存行は残らない
+      const remaining = await db
+        .prepare(`SELECT COUNT(*) AS count FROM invite_failures`)
+        .first<{ count: number }>();
+      expect(remaining?.count).toBe(0);
+
+      const columns = await db.prepare(`PRAGMA table_info(invite_failures)`).all<{ name: string }>();
+      const columnNames = columns.results.map((c) => c.name);
+      expect(columnNames).not.toContain("user_id");
+      expect(columnNames).toContain("account_hash");
+
+      // account_hashがNOT NULLとして機能している（省略するとエラーになる）
+      await expect(
+        db
+          .prepare(`INSERT INTO invite_failures (ip_address, created_at) VALUES (?1, ?2)`)
+          .bind("203.0.113.9", now)
+          .run(),
+      ).rejects.toThrow();
+
+      // 新しい形（account_hash付き）では通る
+      await expect(
+        db
+          .prepare(`INSERT INTO invite_failures (account_hash, ip_address, created_at) VALUES (?1, ?2, ?3)`)
+          .bind("test-hash", "203.0.113.9", now)
+          .run(),
+      ).resolves.toBeTruthy();
+    } finally {
+      // 後片付け: このテストで作ったinvite_failures（索引ごと）を消し、退避しておいた
+      // 本来のinvite_failures（0015適用後の構造）を戻して索引も作り直す
+      await db.exec(`DROP TABLE IF EXISTS invite_failures`);
+      await db.exec(`ALTER TABLE invite_failures_after_0015 RENAME TO invite_failures`);
+      await db.exec(`CREATE INDEX invite_failures_account_created_idx ON invite_failures (account_hash,created_at)`);
+      await db.exec(`CREATE INDEX invite_failures_ip_created_idx ON invite_failures (ip_address,created_at)`);
+      await db.prepare(`INSERT OR IGNORE INTO d1_migrations (name) VALUES (?1)`).bind(target14.name).run();
+      await db.prepare(`INSERT OR IGNORE INTO d1_migrations (name) VALUES (?1)`).bind(target15.name).run();
+    }
+  });
+});

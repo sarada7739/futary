@@ -1,11 +1,20 @@
-import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { useRef, useState } from "react";
+import { Platform, Pressable, ScrollView, View } from "react-native";
 import { Button, Card, colors, radius, Screen, space, Text } from "@futary/ui";
-import { useMutation } from "@tanstack/react-query";
+import { ORPCError } from "@orpc/client";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { orpc } from "../../lib/orpc";
-import { signOut } from "../../lib/auth-client";
+import { signIn, signOut } from "../../lib/auth-client";
 import { queryClient } from "../../lib/query";
+import { useViewerQueryKey } from "../../lib/viewer-key";
+
+// sign-in.tsxのresolveCallbackURLと同じ理由（ローカル開発でのポート違い・
+// 015でアプリ本体が/app/*に分かれたこと）。戻り先だけこの画面にする
+function resolveReauthCallbackURL(): string {
+  if (Platform.OS === "web" && typeof window !== "undefined") return `${window.location.origin}/app/delete-account`;
+  return "/delete-account";
+}
 
 // 024: アカウント削除と退会。
 //
@@ -23,14 +32,49 @@ export default function DeleteAccountScreen() {
   const [stage, setStage] = useState<1 | 2>(1);
   const [acknowledged, setAcknowledged] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // サーバがREAUTH_REQUIREDで拒んだとき（下のhandleDelete参照）に立てる。
+  // 通常はmeQuery.data.sessionIsFreshで先に弾くため、ここに来るのは
+  // 確認をやり切る間に5分を跨いだときだけ（Aの決定。T5: 止めているのは
+  // サーバである）
+  const [serverRejectedReauth, setServerRejectedReauth] = useState(false);
+  const isSigningInRef = useRef(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const deleteMe = useMutation(orpc.me.delete.mutationOptions());
+  // queryKeyにviewerKeyを含める理由はprofile.tsxと同じ（T9）
+  const viewerKey = useViewerQueryKey();
+  const meQuery = useQuery({
+    ...orpc.me.get.queryOptions(),
+    queryKey: [...orpc.me.get.queryOptions().queryKey, viewerKey],
+  });
+
+  // 024・Aの決定: 「削除確認画面に入れるか」はサーバが真偽値で返す
+  // （sessionIsFresh）。判定はここでだけ行い、時刻を比べる計算はしない
+  const needsReauth = serverRejectedReauth || meQuery.data?.sessionIsFresh === false;
+
+  function handleReauth() {
+    if (isSigningInRef.current) return;
+    isSigningInRef.current = true;
+    setIsSigningIn(true);
+    // sign-in.tsxと同じ理由（signIn.socialのPromiseはredirect開始直後に
+    // resolveするため、成功時は遷移完了までボタンを戻さない）
+    void signIn.social({ provider: "google", callbackURL: resolveReauthCallbackURL() }).then((result) => {
+      if (result?.error) {
+        isSigningInRef.current = false;
+        setIsSigningIn(false);
+      }
+    });
+  }
 
   async function handleDelete() {
     if (!acknowledged) return;
     setErrorMessage(null);
     try {
       await deleteMe.mutateAsync();
-    } catch {
+    } catch (error) {
+      if (error instanceof ORPCError && error.code === "REAUTH_REQUIRED") {
+        setServerRejectedReauth(true);
+        return;
+      }
       setErrorMessage("削除できませんでした。もう一度お試しください");
       return;
     }
@@ -57,7 +101,31 @@ export default function DeleteAccountScreen() {
           ふたりのデータを削除
         </Text>
 
-        {stage === 1 ? (
+        {meQuery.isPending ? (
+          // 読み込み中はsessionIsFreshが分からず、確認画面に入れるかを
+          // 判定できない（profile.tsxと同じ理由。空欄のまま表示しない）
+          <Text color="muted">読み込み中…</Text>
+        ) : needsReauth ? (
+          <>
+            <Card>
+              <View style={{ gap: space.sm }}>
+                <Text weight="bold">もう一度ログインしてください</Text>
+                <Text size="sm" color="muted">
+                  不可逆で相手のデータまで消す操作のため、直近のログインを
+                  確認できたときだけ削除に進めます。
+                </Text>
+              </View>
+            </Card>
+            <View style={{ gap: space.sm }}>
+              <Button onPress={handleReauth} disabled={isSigningIn} testID="delete-account-reauth">
+                もう一度ログインする
+              </Button>
+              <Button variant="ghost" onPress={() => router.back()} disabled={isSigningIn}>
+                やめる
+              </Button>
+            </View>
+          </>
+        ) : stage === 1 ? (
           <>
             <Card>
               <View style={{ gap: space.sm }}>

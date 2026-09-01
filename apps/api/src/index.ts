@@ -101,13 +101,26 @@ app.use("/api/*", async (c, next) => {
   const ip = c.req.header("cf-connecting-ip") ?? null;
   // 空文字も「未設定」として扱う（fail-closed。docs/tasks/005-authorization-middleware.md）
   const demoCoupleId = c.env.DEMO_COUPLE_ID ? c.env.DEMO_COUPLE_ID : null;
+  const sessionCreatedAt = session ? session.session.createdAt : null;
+  // createAuth(c.env) が既に assertValidSecret を通しているため、ここでは
+  // undefinedチェックをしない（auth.tsのコメント参照）
+  const authSecret = c.env.BETTER_AUTH_SECRET as string;
   const r2Sign = {
     accountId: c.env.R2_ACCOUNT_ID ?? "",
     accessKeyId: c.env.R2_ACCESS_KEY_ID ?? "",
     secretAccessKey: c.env.R2_SECRET_ACCESS_KEY ?? "",
     bucketName: R2_BUCKET_NAME,
   };
-  const context: RpcContext = { db: c.env.DB, bucket: c.env.BUCKET, r2Sign, user, ip, demoCoupleId };
+  const context: RpcContext = {
+    db: c.env.DB,
+    bucket: c.env.BUCKET,
+    r2Sign,
+    user,
+    ip,
+    demoCoupleId,
+    sessionCreatedAt,
+    authSecret,
+  };
   const { matched, response } = await handler.handle(c.req.raw, {
     prefix: "/api",
     context,

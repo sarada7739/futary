@@ -1,6 +1,7 @@
 import { implementer } from "../implementer";
 import { generateImageId } from "../lib/ulid";
 import { createPutUrl, MAX_IMAGE_BYTES, resolveUserImage, userImageKeyFor } from "../lib/r2-signed-url";
+import { isSessionFresh } from "../lib/reauth";
 import { authedProcedure } from "./base";
 
 // postUploadUrlContract（apps/api/src/procedures/upload.ts）と同じ値
@@ -109,6 +110,12 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
   const { db, bucket, user } = context;
   const userId = user.id;
 
+  // 【Aの決定・024】不可逆で相手のデータまで消す操作のため、直近5分以内の
+  // サインインを要求する。画面側（delete-account.tsx）はme.get().sessionIsFresh
+  // を見て確認フローに入る前に弾くのが基本経路だが、確認をやり切る間に5分を
+  // 跨ぐことはありうるため、ここがサーバ側の最終防御として必ず要る（T5）
+  if (!isSessionFresh(context.sessionCreatedAt)) throw errors.REAUTH_REQUIRED();
+
   const coupleRow = await db
     .prepare("SELECT couple_id FROM couple_members WHERE user_id = ?1")
     .bind(userId)
@@ -186,15 +193,13 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
     await deleteAllByPrefix(bucket, `users/${userId}/profile/`);
   }
 
-  // invite_failuresはuserを参照している。userより先に消す
-  // （couple_idに依存しない表なので、上のcoupleIdの有無と関係なく消す）。
-  // 2文をbatch()にまとめ、途中で止まって「invite_failuresだけ消えて
-  // userが残る」という中間状態を無くす
-  await db.batch([
-    db.prepare("DELETE FROM invite_failures WHERE user_id = ?1").bind(userId),
-    // sessionとaccountはON DELETE cascadeで落ちる（実測で確認済み）
-    db.prepare("DELETE FROM user WHERE id = ?1").bind(userId),
-  ]);
+  // 【Aの決定・024】invite_failuresは以前ここでuserより先に消していたが、
+  // account_hash（Googleアカウントの塩付きハッシュ）へキーを差し替えた
+  // ことでuserへのFKが無くなり、消す必要自体が無くなった（時間窓〈1時間〉
+  // で自然に切れる設計。packages/db/src/schema/couple.tsのinviteFailures
+  // コメント参照）。sessionとaccountはON DELETE cascadeで落ちる
+  // （実測で確認済み）
+  await db.prepare("DELETE FROM user WHERE id = ?1").bind(userId).run();
 
   return { ok: true as const };
 });

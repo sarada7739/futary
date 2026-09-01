@@ -9,6 +9,7 @@ import app from "../src/index";
 import type { Bindings } from "../src/index";
 import { router } from "../src/router";
 import { generateImageId } from "../src/lib/ulid";
+import { REAUTH_WINDOW_MS } from "../src/lib/reauth";
 import { imageKeyFor, userImageKeyFor } from "../src/lib/r2-signed-url";
 import type { RpcContext } from "../src/context";
 
@@ -40,17 +41,40 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
   const name = `テストユーザー${userSeq}`;
   const email = `user-${userSeq}-${crypto.randomUUID()}@example.com`;
   const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare(
-      "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
-    )
-    .bind(id, name, email, now)
-    .run();
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
+      )
+      .bind(id, name, email, now),
+    // invite.acceptがaccount_id（Googleの識別子）を引く（024）。このファイルは
+    // ペア成立にinvite.acceptを使うため、account行が無いと失敗する
+    db
+      .prepare(
+        "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
+      )
+      .bind(crypto.randomUUID(), `google-sub-${id}`, id, now),
+  ]);
   return { id, name, email };
 }
 
-function contextFor(user: { id: string; name: string; email: string } | null): RpcContext {
-  return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId: null };
+// 024: me.deleteの再認証チェック（sessionIsFresh）をテストするため、
+// sessionCreatedAtを上書きできるようにする。省略時は「たった今サインインした」
+// ことにする（既定の経路が邪魔をしない）
+function contextFor(
+  user: { id: string; name: string; email: string } | null,
+  options: { sessionCreatedAt?: Date | null } = {},
+): RpcContext {
+  return {
+    db,
+    bucket,
+    r2Sign,
+    user: user ? { ...user, image: null } : null,
+    ip: "203.0.113.1",
+    demoCoupleId: null,
+    sessionCreatedAt: user ? (options.sessionCreatedAt ?? new Date()) : null,
+    authSecret: "test-secret",
+  };
 }
 
 // me.uploadImageUrl を経由せず R2 に直接オブジェクトを置く。「アップロード済み」を
@@ -83,6 +107,27 @@ describe("me.get", () => {
     const result = await client.me.get();
 
     expect(result).toBeNull();
+  });
+
+  // 024・Aの決定: 削除確認画面に入れるかの判定はサーバが真偽値で返す
+  // （時刻を返してクライアントに比べさせない。event.tsのcanEditと同じ理由）
+  it("直近5分以内にサインインしていればsessionIsFreshはtrue", async () => {
+    const user = await createUser();
+
+    const result = await call(router.me.get, undefined, { context: contextFor(user) });
+
+    expect(result?.sessionIsFresh).toBe(true);
+  });
+
+  it("サインインから5分を超えているとsessionIsFreshはfalse", async () => {
+    const user = await createUser();
+    const staleSessionCreatedAt = new Date(Date.now() - REAUTH_WINDOW_MS - 1000);
+
+    const result = await call(router.me.get, undefined, {
+      context: contextFor(user, { sessionCreatedAt: staleSessionCreatedAt }),
+    });
+
+    expect(result?.sessionIsFresh).toBe(false);
   });
 });
 
@@ -506,21 +551,23 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT id FROM account WHERE user_id = ?1").bind(user.id).first()).toBeNull();
   });
 
-  // 024タスク定義「userより先にinvite_failuresを消さないと落ちる（順序の証明）」。
-  // FK制約そのものが存在し、順序が意味を持つことを直接確かめる
-  it("順序の証明: invite_failuresを残したままuserを消そうとするとFK制約で失敗する", async () => {
+  // 【Aの決定・024で訂正】以前はinvite_failures.user_idがuserへのFKで、
+  // 消す順序を証明するテストがここにあった。account_hash（Googleアカウントの
+  // 塩付きハッシュ）に差し替えてFK自体を無くしたため、消さなくてもuserの
+  // 削除は落ちない。この逆（FKが無くなったこと）を直接確かめる
+  it("invite_failuresはuserへのFKを持たない: 残っていてもme.deleteに影響しない", async () => {
     const user = await createUser();
     await db
-      .prepare("INSERT INTO invite_failures (user_id, ip_address, created_at) VALUES (?1, ?2, ?3)")
-      .bind(user.id, "203.0.113.1", Math.floor(Date.now() / 1000))
+      .prepare("INSERT INTO invite_failures (account_hash, ip_address, created_at) VALUES (?1, ?2, ?3)")
+      .bind("dummy-account-hash", "203.0.113.1", Math.floor(Date.now() / 1000))
       .run();
 
-    await expect(db.prepare("DELETE FROM user WHERE id = ?1").bind(user.id).run()).rejects.toThrow(
-      /FOREIGN KEY/i,
-    );
+    const result = await call(router.me.delete, undefined, { context: contextFor(user) });
 
-    await db.prepare("DELETE FROM invite_failures WHERE user_id = ?1").bind(user.id).run();
-    await expect(db.prepare("DELETE FROM user WHERE id = ?1").bind(user.id).run()).resolves.toBeTruthy();
+    expect(result.ok).toBe(true);
+    expect(
+      await db.prepare("SELECT id FROM invite_failures WHERE account_hash = ?1").bind("dummy-account-hash").first(),
+    ).not.toBeNull();
   });
 
   it("削除後、同じGoogleアカウントで登録し直しても前のペアに戻らない（新しいuser idになるため）", async () => {
@@ -540,5 +587,32 @@ describe("me.delete", () => {
     expect(
       await db.prepare("SELECT 1 FROM couple_members WHERE user_id = ?1").bind(reregistered.id).first(),
     ).toBeNull();
+  });
+
+  // 024・Aの決定: 不可逆で相手のデータまで消す操作のため、直近5分以内の
+  // サインインを要求する（session.createdAtが動かないことをBetter Auth本体の
+  // ソースで確認済み。context.tsのコメント参照）。画面側（delete-account.tsx）が
+  // me.get().sessionIsFreshを見て確認フローに入る前に弾くのが基本経路だが、
+  // ここではサーバ側の最終防御そのものを確認する
+  it("サインインから5分を超えているとREAUTH_REQUIRED", async () => {
+    const user = await createUser();
+    const staleSessionCreatedAt = new Date(Date.now() - REAUTH_WINDOW_MS - 1000);
+
+    await expect(
+      call(router.me.delete, undefined, { context: contextFor(user, { sessionCreatedAt: staleSessionCreatedAt }) }),
+    ).rejects.toMatchObject({ code: "REAUTH_REQUIRED" });
+
+    expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(user.id).first()).not.toBeNull();
+  });
+
+  it("サインインから5分以内なら削除できる", async () => {
+    const user = await createUser();
+    const freshSessionCreatedAt = new Date(Date.now() - REAUTH_WINDOW_MS + 1000);
+
+    const result = await call(router.me.delete, undefined, {
+      context: contextFor(user, { sessionCreatedAt: freshSessionCreatedAt }),
+    });
+
+    expect(result.ok).toBe(true);
   });
 });

@@ -19,19 +19,32 @@ const r2Sign: RpcContext["r2Sign"] = {
 
 let userSeq = 0;
 
-async function createUser(): Promise<{ id: string; name: string; email: string }> {
+// accountIdを指定できるのは、削除→同じGoogleアカウントで再登録した状態
+// （新しいuser.idだが同じaccount.account_id）を模擬するテストのため（024）
+async function createUser(
+  accountId?: string,
+): Promise<{ id: string; name: string; email: string; accountId: string }> {
   userSeq += 1;
   const id = `user-${userSeq}-${crypto.randomUUID()}`;
   const name = `テストユーザー${userSeq}`;
   const email = `user-${userSeq}-${crypto.randomUUID()}@example.com`;
   const now = Math.floor(Date.now() / 1000);
-  await db
-    .prepare(
-      "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
-    )
-    .bind(id, name, email, now)
-    .run();
-  return { id, name, email };
+  const resolvedAccountId = accountId ?? `google-sub-${crypto.randomUUID()}`;
+  await db.batch([
+    db
+      .prepare(
+        "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
+      )
+      .bind(id, name, email, now),
+    // invite.acceptはaccount_id（Googleの識別子）を必ず引く（このアプリは
+    // Googleログインのみのため）。テストの利用者もaccount行を持たせる
+    db
+      .prepare(
+        "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
+      )
+      .bind(crypto.randomUUID(), resolvedAccountId, id, now),
+  ]);
+  return { id, name, email, accountId: resolvedAccountId };
 }
 
 function contextFor(
@@ -39,7 +52,16 @@ function contextFor(
   ip: string | null = "203.0.113.1",
   demoCoupleId: string | null = null,
 ): RpcContext {
-  return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip, demoCoupleId };
+  return {
+    db,
+    bucket,
+    r2Sign,
+    user: user ? { ...user, image: null } : null,
+    ip,
+    demoCoupleId,
+    sessionCreatedAt: user ? new Date() : null,
+    authSecret: "test-secret",
+  };
 }
 
 async function createCouple(user: { id: string; name: string; email: string }) {
@@ -229,7 +251,7 @@ describe("invite.accept", () => {
   });
 });
 
-describe("invite.accept のレート制限（user_id/IP単位10回/時間）", () => {
+describe("invite.accept のレート制限（account_hash/IP単位10回/時間）", () => {
   it("同一IPからの失敗が10回を超えると RATE_LIMITED になる", async () => {
     const user = await createUser();
     const ip = "198.51.100.9";
@@ -274,7 +296,7 @@ describe("invite.accept のレート制限（user_id/IP単位10回/時間）", (
     ).rejects.toMatchObject({ code: "RATE_LIMITED" });
   });
 
-  it("IPが取得できない場合はuser_id単位で制限され、他ユーザーを巻き込まない", async () => {
+  it("IPが取得できない場合はaccount_hash単位で制限され、他ユーザーを巻き込まない", async () => {
     const user = await createUser();
     for (let i = 0; i < 10; i++) {
       await expect(
@@ -327,5 +349,29 @@ describe("invite.accept のレート制限（user_id/IP単位10回/時間）", (
     await expect(
       call(router.invite.accept, { code: "ZZZZZZ" }, { context: contextFor(user, ip) }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  // 024で発見・修正: 以前はuser_idをキーにしていたため、アカウントを削除して
+  // 同じGoogleアカウントで登録し直すと新しいuser_idになり、失敗回数が
+  // リセットされていた（削除→再登録を繰り返せば無制限に回避できた）。
+  // account_hash（account.account_idの塩付きハッシュ）に差し替えたことで、
+  // user_idが変わっても同じGoogleアカウントである限り同じバケットに乗る
+  it("同じGoogleアカウントなら、user_idが変わっても（削除・再登録を模擬）失敗回数が引き継がれる", async () => {
+    const sharedAccountId = `google-sub-${crypto.randomUUID()}`;
+    const before = await createUser(sharedAccountId);
+    const ip = "198.51.100.201";
+
+    for (let i = 0; i < 10; i++) {
+      await expect(
+        call(router.invite.accept, { code: "ZZZZZZ" }, { context: contextFor(before, ip) }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    }
+
+    // 「削除して同じGoogleアカウントで登録し直す」を、同じaccountIdを持つ
+    // 別のuser行として模擬する（024タスク定義）
+    const after = await createUser(sharedAccountId);
+    await expect(
+      call(router.invite.accept, { code: "ZZZZZZ" }, { context: contextFor(after, ip) }),
+    ).rejects.toMatchObject({ code: "RATE_LIMITED" });
   });
 });

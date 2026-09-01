@@ -35,7 +35,16 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
 }
 
 function contextFor(user: { id: string; name: string; email: string } | null): RpcContext {
-  return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip: "203.0.113.1", demoCoupleId: null };
+  return {
+    db,
+    bucket,
+    r2Sign,
+    user: user ? { ...user, image: null } : null,
+    ip: "203.0.113.1",
+    demoCoupleId: null,
+    sessionCreatedAt: user ? new Date() : null,
+    authSecret: "test-secret",
+  };
 }
 
 async function createCouple(user: { id: string; name: string; email: string }) {

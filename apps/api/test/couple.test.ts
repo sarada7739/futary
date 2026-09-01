@@ -40,7 +40,16 @@ function contextFor(
   ip: string | null = "203.0.113.1",
   demoCoupleId: string | null = null,
 ): RpcContext {
-  return { db, bucket, r2Sign, user: user ? { ...user, image: null } : null, ip, demoCoupleId };
+  return {
+    db,
+    bucket,
+    r2Sign,
+    user: user ? { ...user, image: null } : null,
+    ip,
+    demoCoupleId,
+    sessionCreatedAt: user ? new Date() : null,
+    authSecret: "test-secret",
+  };
 }
 
 // 023: couple.createは日付を一切受け取らない（答えられない質問を必須にしない）
