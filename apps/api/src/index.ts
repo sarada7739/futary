@@ -101,7 +101,7 @@ app.use("/api/*", async (c, next) => {
   const ip = c.req.header("cf-connecting-ip") ?? null;
   // 空文字も「未設定」として扱う（fail-closed。docs/tasks/005-authorization-middleware.md）
   const demoCoupleId = c.env.DEMO_COUPLE_ID ? c.env.DEMO_COUPLE_ID : null;
-  const sessionCreatedAt = session ? session.session.createdAt : null;
+  const sessionCreatedAt = session ? session.session.createdAt.getTime() : null;
   // createAuth(c.env) が既に assertValidSecret を通しているため、ここでは
   // undefinedチェックをしない（auth.tsのコメント参照）
   const authSecret = c.env.BETTER_AUTH_SECRET as string;

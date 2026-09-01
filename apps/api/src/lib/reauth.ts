@@ -6,7 +6,10 @@
 // 返し、時刻をクライアントに比べさせない。event.tsのcanEditと同じ理由）
 export const REAUTH_WINDOW_MS = 5 * 60 * 1000;
 
-export function isSessionFresh(sessionCreatedAt: Date | null, now: Date = new Date()): boolean {
-  if (!sessionCreatedAt) return false;
-  return now.getTime() - sessionCreatedAt.getTime() <= REAUTH_WINDOW_MS;
+// sessionCreatedAtはエポックミリ秒（context.tsのコメント参照）。
+// Date.now()は暦・タイムゾーンの解釈を持たない数値のためeslintの対象外
+// （architecture.md 5節。eslint.config.jsのコメント参照）
+export function isSessionFresh(sessionCreatedAt: number | null, now: number = Date.now()): boolean {
+  if (sessionCreatedAt === null) return false;
+  return now - sessionCreatedAt <= REAUTH_WINDOW_MS;
 }

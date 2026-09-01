@@ -42,7 +42,7 @@ function contextFor(user: { id: string; name: string; email: string } | null): R
     user: user ? { ...user, image: null } : null,
     ip: "203.0.113.1",
     demoCoupleId: null,
-    sessionCreatedAt: user ? new Date() : null,
+    sessionCreatedAt: user ? Date.now() : null,
     authSecret: "test-secret",
   };
 }

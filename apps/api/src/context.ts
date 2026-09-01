@@ -11,8 +11,10 @@ export interface RpcContext {
   // 時刻。Better Auth の session.createdAt は createSession() 時に一度だけ
   // 設定され、以後更新されない（session.updatedAt/expiresAt は定期リフレッシュ
   // 〈updateAge〉で動くため使えない。node_modules内のBetter Auth本体のソースを
-  // 読んで確認済み）。userがnullなら常にnull
-  sessionCreatedAt: Date | null;
+  // 読んで確認済み）。userがnullなら常にnull。エポックミリ秒で持つ
+  // （Dateのままだとnew Date(...)禁止のeslintルールに抵触するファイルが
+  // 増える。architecture.md 5節・eslint.config.js）
+  sessionCreatedAt: number | null;
   // invite.accept のレート制限キー（invite_failures.account_hash）を
   // 組み立てるためだけに使う塩（lib/account-hash.ts）。BETTER_AUTH_SECRETと
   // 同じ値だが、createAuth()が既に検証済み（32バイト以上）であることを

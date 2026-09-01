@@ -63,7 +63,7 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
 // ことにする（既定の経路が邪魔をしない）
 function contextFor(
   user: { id: string; name: string; email: string } | null,
-  options: { sessionCreatedAt?: Date | null } = {},
+  options: { sessionCreatedAt?: number | null } = {},
 ): RpcContext {
   return {
     db,
@@ -72,7 +72,7 @@ function contextFor(
     user: user ? { ...user, image: null } : null,
     ip: "203.0.113.1",
     demoCoupleId: null,
-    sessionCreatedAt: user ? (options.sessionCreatedAt ?? new Date()) : null,
+    sessionCreatedAt: user ? (options.sessionCreatedAt ?? Date.now()) : null,
     authSecret: "test-secret",
   };
 }
@@ -121,7 +121,7 @@ describe("me.get", () => {
 
   it("サインインから5分を超えているとsessionIsFreshはfalse", async () => {
     const user = await createUser();
-    const staleSessionCreatedAt = new Date(Date.now() - REAUTH_WINDOW_MS - 1000);
+    const staleSessionCreatedAt = Date.now() - REAUTH_WINDOW_MS - 1000;
 
     const result = await call(router.me.get, undefined, {
       context: contextFor(user, { sessionCreatedAt: staleSessionCreatedAt }),
@@ -596,7 +596,7 @@ describe("me.delete", () => {
   // ここではサーバ側の最終防御そのものを確認する
   it("サインインから5分を超えているとREAUTH_REQUIRED", async () => {
     const user = await createUser();
-    const staleSessionCreatedAt = new Date(Date.now() - REAUTH_WINDOW_MS - 1000);
+    const staleSessionCreatedAt = Date.now() - REAUTH_WINDOW_MS - 1000;
 
     await expect(
       call(router.me.delete, undefined, { context: contextFor(user, { sessionCreatedAt: staleSessionCreatedAt }) }),
@@ -607,7 +607,7 @@ describe("me.delete", () => {
 
   it("サインインから5分以内なら削除できる", async () => {
     const user = await createUser();
-    const freshSessionCreatedAt = new Date(Date.now() - REAUTH_WINDOW_MS + 1000);
+    const freshSessionCreatedAt = Date.now() - REAUTH_WINDOW_MS + 1000;
 
     const result = await call(router.me.delete, undefined, {
       context: contextFor(user, { sessionCreatedAt: freshSessionCreatedAt }),

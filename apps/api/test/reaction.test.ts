@@ -45,7 +45,7 @@ function contextFor(
     user: user ? { ...user, image: null } : null,
     ip: "203.0.113.1",
     demoCoupleId,
-    sessionCreatedAt: user ? new Date() : null,
+    sessionCreatedAt: user ? Date.now() : null,
     authSecret: "test-secret",
   };
 }
