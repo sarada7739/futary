@@ -183,3 +183,71 @@ describe("ペアのデータ・利用者ごとのデータを読む問い合わ�
     });
   }
 });
+
+// queryClient.setQueryData/getQueryDataを直接呼んでいる箇所も、リテラルの
+// 固定キー（viewerKeyを含まないキー）を書き込む/読み取ると、
+// `[...queryKey, viewerKey]`という実際のキャッシュ枠とは別の場所に触れる
+// ことになり、書き込みが黙って効かない（join.tsxの不具合。PR #199。
+// 人間の本番の実機報告で発覚するまでCIで検知できなかった）。
+//
+// `orpc.*.queryKey()`を直接渡す形はeslint.config.jsのno-restricted-syntax
+// で構文的に禁止した（Rレビュー指摘: ASTなら第1引数がorpcのメンバ呼び出しか
+// 識別子かを確実に区別できる。正規表現の近傍チェックより先に、そもそも
+// 書けない形にする）。ここではlintのセレクタに一致しない残り
+// （orpcを経由しない手書きのキー、例: pendingInviteQueryKey(viewerKey)）を
+// 走査する。
+//
+// 引数が単純な識別子1つだけの呼び出し（例: setQueryData(key, data)。
+// timeline.tsxの楽観的更新ロールバックがこれに当たる。getQueriesDataで
+// 取得した実キーをそのまま書き戻すため、そもそもviewerKeyの近傍チェックが
+// 成立しない）は判定の対象から外す。ファイル名や行番号による除外リストを
+// 作らないのは、**呼び出し側に何の目印も要らない形にするため**
+// （Rレビュー指摘: 独自の目印コメントで除外すると、その目印を書くこと自体が
+// 検査を黙らせる安い手段になる。「識別子1つだけの引数は動的な実キーである」
+// という判定基準そのものが除外条件であり、コード側の協力を要らない）
+describe("queryClient.setQueryData/getQueryDataを直接呼ぶ箇所は、固定キーならviewerKeyを含む（T9）", () => {
+  const DIRECT_CACHE_CALL_PATTERN = /queryClient\.(?:setQueryData|getQueryData)\(/g;
+  // 呼び出し直後が「識別子1つ + カンマ or 閉じ括弧」ならば、動的な実キー
+  // （別の場所で取得した変数）をそのまま渡していると判定し対象外にする。
+  // `orpc.couple.get.queryKey()`のようにドットが続く場合や、
+  // `pendingInviteQueryKey(viewerKey)`のように開き括弧が続く場合は
+  // このパターンに一致せず、対象に残る
+  const SIMPLE_IDENTIFIER_ARG = /^\s*[A-Za-z_$][\w$]*\s*[,)]/;
+  const DIRECT_CACHE_CONTEXT_WINDOW = 100;
+
+  function listDirectCacheCalls(): Array<{ file: string; index: number }> {
+    const files = listAppSourceFiles();
+    const calls: Array<{ file: string; index: number }> = [];
+    for (const file of files) {
+      const content = readFileSync(file, "utf8");
+      for (const match of content.matchAll(DIRECT_CACHE_CALL_PATTERN)) {
+        const argStart = match.index + match[0].length;
+        if (SIMPLE_IDENTIFIER_ARG.test(content.slice(argStart))) continue;
+        calls.push({ file, index: match.index });
+      }
+    }
+    return calls;
+  }
+
+  // 検出ロジック自体の健全性: 既知の固定キー呼び出し（pendingInviteQueryKey。
+  // create.tsx/invite.tsx）を検出できていることを保証する（0件だと下の
+  // itが何もチェックせず成功してしまう）
+  it("固定キーを渡す既知の呼び出しを検出できている", () => {
+    const calls = listDirectCacheCalls();
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("検出した各呼び出しの近傍でviewerKeyを参照している", () => {
+    const calls = listDirectCacheCalls();
+    for (const { file, index } of calls) {
+      const content = readFileSync(file, "utf8");
+      const start = Math.max(0, index - DIRECT_CACHE_CONTEXT_WINDOW);
+      const end = Math.min(content.length, index + DIRECT_CACHE_CONTEXT_WINDOW);
+      const context = content.slice(start, end);
+      expect(
+        context,
+        `${path.relative(repoRoot, file)}（位置 ${index}）のqueryClient呼び出しの近傍にviewerKeyが見つかりません`,
+      ).toMatch(/viewerKey/);
+    }
+  });
+});
