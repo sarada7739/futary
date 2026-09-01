@@ -100,7 +100,9 @@ function main() {
     `invite_failuresの現在の行数: ${inviteFailureCount}件。` +
       `0015が未適用ならこの件数がDELETEで消える（1時間の時間窓で自然に切れる` +
       `一時的なレート制限記録のため、消えること自体は想定どおり。` +
-      `architecture.md 4節の記録として、このログをもって記録済みとする）。`,
+      `architecture.md 4節「記録する」はworklog.mdの重さ。このジョブログは` +
+      `数を出す場所でしかない。この件数をworklog.mdへ写すこと` +
+      `〈マージした者の担当〉。PR #189）。`,
   );
 }
 

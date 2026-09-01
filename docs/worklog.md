@@ -8368,3 +8368,21 @@ B が 0015（`invite_failures` の DELETE）の件数記録を、デプロイ前
 
 **デプロイは `main` へのマージで走る。マージするのは常に誰かのセッションであり、
 完全な無人ではない。**「無人デプロイ」という前提自体が、少しずれていた。
+
+## 2026-09-01 セッションB: 0015（invite_failuresのDELETE）本番適用の件数記録
+
+`architecture.md` 4節・PR #189の決定どおり、マージした者（B）がジョブログの件数を
+`worklog.md` へ写す。
+
+PR #185マージ後、本番へのデプロイをproduction環境の承認を経て人間が承認し、
+0014・0015が本番D1へ適用された（Deploy conclusion=success）。
+`scripts/check-remote-migration-preconditions.mjs`のジョブログ:
+
+```
+0015（invite_failuresのaccount_hash追加）で消える既存行数を記録します...
+invite_failuresの現在の行数: 0件
+```
+
+**消えたのは0件。**本番の`invite_failures`は適用時点で空だった（招待コードの
+失敗記録は1時間の時間窓で自然に切れるため、たまたま空だったとしても不自然ではない）。
+人間のデータは何も失われていない。
