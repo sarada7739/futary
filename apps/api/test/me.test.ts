@@ -470,13 +470,31 @@ describe("me.delete", () => {
       .prepare(`SELECT name AS name, sql AS sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'couples'`)
       .all<{ name: string; sql: string }>();
 
-    const coupleIdTables = tables.filter((t) => /`couple_id`/.test(t.sql)).map((t) => t.name);
+    // 【Rレビュー指摘】バッククォート必須（`couple_id`）だと、手書きの
+    // マイグレーションでバッククォート無しに書かれた表を静かに見逃す。
+    // 緩めても誤検知は増えない（couple_idを含むのに実際は
+    // `WHERE couple_id = ?`が通らない表があれば、下のbeforeチェックで
+    // 例外として落ちる。fail-closed）
+    const coupleIdTables = tables.filter((t) => /couple_id/.test(t.sql)).map((t) => t.name);
 
     // 検出ロジック自体の健全性: 既知の表が最低限含まれていることを保証する
     // （0件だと下のループが何もチェックせず成功してしまう）
     expect(coupleIdTables).toEqual(
       expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes"]),
     );
+
+    // 【Rレビュー指摘R-1】削除前チェックが無いと、将来「couple_idを持つ新しい表」
+    // が増えたときにこのテストがその表へ行を作らないため、削除後の0件確認が
+    // 常に（もともと0件で）通ってしまい、削除文を足し忘れても検知できない
+    // 「空振りの緑」になる。viewer-key-coverage.test.tsのtotalMatches>0と
+    // 同じ形で、消す前に行が実在することを要求する
+    for (const table of coupleIdTables) {
+      const before = await db.prepare(`SELECT 1 FROM ${table} WHERE couple_id = ?1`).bind(couple.id).first();
+      expect(
+        before,
+        `${table} にこのペアの行を作るテストデータがありません。このテストに追加してください`,
+      ).not.toBeNull();
+    }
 
     const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
     expect(result.ok).toBe(true);
