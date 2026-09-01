@@ -69,6 +69,7 @@ export default function TimelineScreen() {
       },
       // 失敗したら onMutate で保存した以前の状態に戻す
       onError: (_error, _input, context) => {
+        // viewer-key-coverage-ignore -- keyはgetQueriesDataが返した実際のキー（既にviewerKeyを含む）をそのまま書き戻すだけで、固定キーではない
         context?.previousQueries.forEach(([key, data]) => queryClient.setQueryData(key, data));
       },
       // 成功時は再フェッチしない。post.list は呼ぶたびに画像の署名付きURLを
