@@ -19,9 +19,19 @@ export default function JoinCoupleScreen() {
 
   const acceptInvite = useMutation(orpc.invite.accept.mutationOptions());
 
+  // 【不具合修正】以前はここで`queryClient.setQueryData(orpc.couple.get.queryKey(), couple)`
+  // としていたが、viewerKeyを含まないキーへの書き込みだった。_layout.tsxの
+  // coupleQueryは`[...orpc.couple.get.queryOptions().queryKey, viewerKey]`
+  // というキーで読んでいる（T9。apps/app/lib/viewer-key.ts）ため、この
+  // setQueryDataは実際には別のキャッシュ枠に書き込むだけで、ルートの
+  // ガード（hasCouple/needsOnboarding）が見ているデータには一切反映
+  // されず、router.replace("/")してもcouple.get未所属のまま
+  // (onboarding)へ差し戻されていた（＝コード入力後、再びコードで参加する
+  // 画面に戻る）。invite.tsxのhandleContinueと同じ、invalidateQueries
+  // （queryKeyの前方一致でviewerKey付きの実キーも対象になる）に揃える
   async function handleSubmit() {
-    const couple = await acceptInvite.mutateAsync({ code });
-    queryClient.setQueryData(orpc.couple.get.queryKey(), couple);
+    await acceptInvite.mutateAsync({ code });
+    await queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() });
     router.replace("/");
   }
 
