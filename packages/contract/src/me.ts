@@ -15,6 +15,13 @@ export const meGetContract = oc.output(
       // Google のプロフィール画像URL、または自分でアップロードした画像の
       // 署名付きGET URL（019）。どちらであってもクライアントからは区別しない
       image: z.string().nullable(),
+      // 024: 削除確認画面に入れるか（直近5分以内にサインインしたか）。
+      // 判定はサーバで行い真偽値だけを返す。時刻を返してクライアントに
+      // 比べさせない（event.tsのcanEditと同じ理由。Aの決定）。falseなら
+      // 画面は確認フローに入れず「もう一度ログインしてください」に落とす
+      // （摩擦は確認の前に置く）。それでも確認をやり切る間に5分を跨いだ
+      // 場合はme.delete側のREAUTH_REQUIREDが最終防御になる（T5）
+      sessionIsFresh: z.boolean(),
     })
     .nullable(),
 );
@@ -62,3 +69,18 @@ export const meUploadImageUrlContract = oc
   .errors({
     FORBIDDEN: {},
   });
+
+// me.delete: アカウント削除・退会（024）。所属しているペアがあれば、
+// ペアのデータ（投稿・リアクション・カレンダー・招待コード）ごと消える
+// （Candle型。docs/tasks/024-account-deletion.md）。入力は受け取らない
+// （常にcontext.user.idだけを対象にする。他人のアカウントを消せないことを
+// 構造的に保証する。me.updateと同じ考え方）
+// REAUTH_REQUIRED: 直近5分以内にサインインしていない場合（Aの決定）。
+// 画面側（delete-account.tsx）はme.get().sessionIsFreshを見て確認フローに
+// 入る前に弾くのが基本経路だが、確認をやり切る間に5分を跨ぐことはありうる
+// ため、ここがサーバ側の最終防御として必ず残る（T5: 止めているのは
+// サーバである）
+export const meDeleteContract = oc.output(z.object({ ok: z.literal(true) })).errors({
+  FORBIDDEN: {},
+  REAUTH_REQUIRED: {},
+});

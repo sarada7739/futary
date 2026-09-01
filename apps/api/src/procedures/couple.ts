@@ -1,11 +1,12 @@
 import { implementer } from "../implementer";
 import { generateInviteCode } from "../lib/invite-code";
+import { hashAccountId } from "../lib/account-hash";
 import { authedProcedure, readProcedure, writeProcedure } from "./base";
 
 const INVITE_TTL_SECONDS = 24 * 60 * 60;
-// user_id 単位はアカウントごとの上限（security-requirements.md 4節の基準そのもの）。
-// ip_address 単位はCGNAT配下（モバイル回線等）で無関係な利用者が同じIPを共有する
-// ことを考慮し、user_id より緩い上限にする
+// account_hash 単位はアカウントごとの上限（security-requirements.md 4節の基準
+// そのもの）。ip_address 単位はCGNAT配下（モバイル回線等）で無関係な利用者が
+// 同じIPを共有することを考慮し、account_hash より緩い上限にする
 // （security-auditor 004監査2回目 Low指摘）
 const INVITE_FAILURE_USER_LIMIT = 10;
 const INVITE_FAILURE_IP_LIMIT = 50;
@@ -167,38 +168,38 @@ const inviteIssue = implementer.invite.issue.use(writeProcedure).handler(async (
 // （security-auditor 004監査 Medium指摘: check-then-insertのTOCTOU）。
 // D1は単一の接続に対して文を順番に実行するため、この1文自体が
 // 並行リクエスト間の直列化点になる。
-// キーはIPだけでなくuser_idも併用する（同一/64のIPv6内でアドレスを変えるだけの
-// 回避を防ぐ。security-auditor 004監査 High指摘）。invite.acceptは認証必須なので
-// user_idは必ず取れる
+// キーはIPだけでなくaccount_hashも併用する（同一/64のIPv6内でアドレスを
+// 変えるだけの回避を防ぐ。security-auditor 004監査 High指摘）。invite.accept
+// は認証必須なのでaccount_hashは必ず取れる
 async function reserveInviteFailureSlot(
   db: D1Database,
-  userId: string,
+  accountHash: string,
   ip: string | null,
   now: number,
   windowStart: number,
 ): Promise<number | null> {
   // IPが取れない環境（ローカル開発等）では ip_address に null を入れ、
-  // user_id 単独で判定する。固定の代用文字列を入れると、将来IP単独で
+  // account_hash 単独で判定する。固定の代用文字列を入れると、将来IP単独で
   // 集計するコードを足したときに無関係な利用者が同じバケットに合流してしまう
   // （security-auditor 004監査2回目 Low指摘）
   const stmt = ip
     ? db
         .prepare(
-          `INSERT INTO invite_failures (user_id, ip_address, created_at)
+          `INSERT INTO invite_failures (account_hash, ip_address, created_at)
            SELECT ?1, ?2, ?3
-            WHERE (SELECT COUNT(*) FROM invite_failures WHERE user_id = ?1 AND created_at > ?4) < ?5
+            WHERE (SELECT COUNT(*) FROM invite_failures WHERE account_hash = ?1 AND created_at > ?4) < ?5
               AND (SELECT COUNT(*) FROM invite_failures WHERE ip_address = ?2 AND created_at > ?4) < ?6
            RETURNING id`,
         )
-        .bind(userId, ip, now, windowStart, INVITE_FAILURE_USER_LIMIT, INVITE_FAILURE_IP_LIMIT)
+        .bind(accountHash, ip, now, windowStart, INVITE_FAILURE_USER_LIMIT, INVITE_FAILURE_IP_LIMIT)
     : db
         .prepare(
-          `INSERT INTO invite_failures (user_id, ip_address, created_at)
+          `INSERT INTO invite_failures (account_hash, ip_address, created_at)
            SELECT ?1, NULL, ?2
-            WHERE (SELECT COUNT(*) FROM invite_failures WHERE user_id = ?1 AND created_at > ?3) < ?4
+            WHERE (SELECT COUNT(*) FROM invite_failures WHERE account_hash = ?1 AND created_at > ?3) < ?4
            RETURNING id`,
         )
-        .bind(userId, now, windowStart, INVITE_FAILURE_USER_LIMIT);
+        .bind(accountHash, now, windowStart, INVITE_FAILURE_USER_LIMIT);
   const row = await stmt.first<{ id: number }>();
   return row?.id ?? null;
 }
@@ -213,11 +214,25 @@ const inviteAccept = implementer.invite.accept.use(authedProcedure).handler(asyn
 
   await db.prepare("DELETE FROM invite_failures WHERE created_at <= ?1").bind(windowStart).run();
 
+  // 【Aの決定・024】レート制限のキーはuser_idではなくGoogleアカウント自体
+  // （account.account_id）の塩付きハッシュにする。userを削除して同じ
+  // Googleアカウントで登録し直すとuser_idは変わるが、account_idは変わらない
+  // ため、削除→再登録を繰り返すことでこのレート制限を無制限に回避する経路を
+  // 塞ぐ（packages/db/src/schema/couple.tsのinviteFailuresコメント参照）。
+  // このアプリはGoogleログインのみのため、認証済みユーザーには必ず
+  // provider_id='google'のaccount行が1件ある
+  const accountRow = await db
+    .prepare("SELECT account_id FROM account WHERE user_id = ?1 AND provider_id = 'google'")
+    .bind(userId)
+    .first<{ account_id: string }>();
+  if (!accountRow) throw new Error("認証済みユーザーにGoogleアカウントの紐付けが見つかりません");
+  const accountHash = await hashAccountId(context.authSecret, accountRow.account_id);
+
   // この時点で「1回分の失敗」を先に予約する。最終的に参加が成立したら後で取り消す
   // （成功した試行はレート制限にカウントしない。security-requirements.md 4節）
   const pendingFailureId = await reserveInviteFailureSlot(
     db,
-    userId,
+    accountHash,
     context.ip,
     now,
     windowStart,
