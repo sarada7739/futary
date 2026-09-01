@@ -8301,3 +8301,23 @@ PR #186より前の記述のまま取り残されている）。実装は新し�
 `pnpm -w test`・型チェック全て緑（apps/app 181件・apps/api 327件）。
 `artifacts/024/manual-check.md`に再認証まわりの人間の実機確認項目を
 追記済み。`feature/024-account-deletion`ブランチとしてRへレビュー依頼予定。
+
+## 2026-09-01 セッションB: Rレビュー指摘（0015の削除件数記録）に対応
+
+RがPR #185で1件指摘: 0015（`invite_failuresのDELETE`）は`architecture.md`
+4節「行を消すマイグレーションは、当てる前に件数を数えて記録する」の対象
+だが、016以降デプロイは無人（`production`環境のRequired reviewersは
+ジョブ開始前のapproveで、ジョブ自体は無人実行）で`worklog.md`へ書ける
+人間が経路上にいない、との指摘。
+
+0013（`events_repeat_yearly_check`のCHECK制約違反行チェック）と同じ仕組み
+（`scripts/check-remote-migration-preconditions.mjs`。`.github/workflows/
+deploy.yml`から`db:migrate:remote`の直前に呼ばれる）に、`invite_failures`
+の件数をデプロイジョブのログへ出力する処理を追加した。0013と違い件数が
+0でなくても止めない（このDELETEは常に意図した動作であり、行が残っている
+こと自体は異常ではない）。デプロイのジョブログをもって「記録する」の
+実装とした（worklog.mdへの追記は無人ジョブからは行わない）。
+
+Rの実測2点（NOT NULL列追加が空でない表では拒否されること・DELETEと
+ADD COLUMNの間で中断しても再実行で自力回復すること）も確認済みとの報告
+を受けた。
