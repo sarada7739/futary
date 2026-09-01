@@ -3,9 +3,27 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-01 / セッションB。**024のA判断待ちだったMedium 2件を
-実装完了。テストは`pnpm -w test`（apps/app 181件・apps/api 327件）が
-すべて緑（詳細は下）。**
+**最終更新**: 2026-09-01 / セッションB。**024（アカウント削除・退会）、
+PR #185をRの受け入れ・CI緑を経てmainへsquash merge済み**
+（`024: アカウント削除と退会 (#185)`）。マージ中に発見した派生の論点
+（invite_failuresのキー変更・0015の削除件数記録・architecture.md 4節の
+読み替え）は、Aが#186〜#189でリアルタイムに判断を出し、Bが同じPRに
+反映した。**mainへのマージでdeployワークフローが起動したが、
+`production`環境のRequired reviewers承認待ちで止まっている**
+（`gh run list`で`Deploy`が`waiting`。architecture.md 6節「リモートD1への
+適用には人間の許可を取る」の実体。**人間の承認が必要**）。
+
+**次にやること（人間 or 次のセッション）**:
+1. GitHub Actionsで待機中の`Deploy`ワークフローを確認し、承認するか判断する
+   （0014・0015が本番D1に初めて当たる。invite_failuresの既存行が消える。
+   `artifacts/024/manual-check.md`の実機確認項目、特に再認証まわり
+   〈項目8〜12〉を**承認前にローカルで**先に済ませることを推奨。項目8〜12は
+   024の新しいコードを触るため、本番ではデプロイ後にしか通せない）
+2. デプロイが実際に走ったら、`scripts/check-remote-migration-
+   preconditions.mjs`が出す`invite_failures`の件数をGitHub Actionsの
+   ジョブログから読み、`docs/worklog.md`に追記する（0件でも書く。
+   `artifacts/024/manual-check.md`「デプロイ時に必ずやること」参照。
+   Aの判断PR #189）
 
 以下、2026-09-01より前の記録。
 
