@@ -8219,3 +8219,85 @@ Rへレビュー依頼予定。
 
 **判定はサーバが真偽値で返す。時刻を返してクライアントに比べさせない。**
 `canEdit` を返したのと同じ理由である。**`me.get` は既に T9 の対象一覧に入っている。**
+
+## 2026-09-01 セッションB: 024のA判断待ちMedium2件を実装
+
+Aの判断（#186・#187）を実装した。
+
+**invite_failuresのキー変更。** `packages/db/src/schema/couple.ts`の
+`inviteFailures`を`userId`（`user`へのFK）から`accountHash`（FK無し）に
+変更。ハッシュは`apps/api/src/lib/account-hash.ts`（`crypto.subtle`の
+HMAC-SHA256、鍵は`BETTER_AUTH_SECRET`）。`invite.accept`
+（`apps/api/src/procedures/couple.ts`）で`account`テーブルから
+`account_id`（provider_id='google'）を引いてハッシュ化する。
+
+マイグレーションは1本にまとめられなかった。`drizzle-kit generate`が
+「これはuserIdのリネームか、削除+追加か」を対話プロンプトで聞いてくる
+仕様で、このシェル環境はTTYが無く必ず`Interactive prompts require a TTY
+terminal`で落ちる。スキーマ変更を2段階（先にuserId列を削除するだけの
+状態でgenerate、次にaccountHash列を追加するだけの状態でgenerate）に
+分けることで、それぞれが単独では曖昧でない変更になり、プロンプト無しで
+生成できた。結果として0014（列を削除）・0015（列を追加）の2本になった。
+
+0015のACCOUNT_HASHはNOT NULLだが、SQLiteは既存行があるテーブルに
+デフォルト無しのNOT NULL列を追加できない。既存行から遡ってハッシュを
+計算する手段も無い（鍵〈BETTER_AUTH_SECRET〉も元のGoogleアカウントIDも
+マイグレーションSQLからは扱えない）ため、列を足す前に`DELETE FROM
+invite_failures`で空にする一文を入れた。実害は「デプロイ直後、レート
+制限のカウントが一度だけ0に戻る」だけ（時間窓1時間・コード空間
+32^6の脅威モデルでは無視できる）。
+
+`conventions.md`6節「既存行の扱いが変わるマイグレーションは、行を入れた
+状態で当てる」に従い、`apps/api/test/migration-existing-rows.test.ts`に
+0014・0015をまとめて当てるテストを追加。旧user_id方式の既存行を1件
+入れてから適用し、(1)行が残らないこと(2)`user_id`列が無くなっている
+こと(3)`account_hash`がNOT NULLとして機能すること、を確認した。
+
+**me.deleteの再認証。** `context.ts`に`sessionCreatedAt: Date | null`と
+`authSecret: string`を追加（`apps/api/src/index.ts`の`/api/*`
+ミドルウェアで、`auth.api.getSession()`の`session.session.createdAt`と
+`c.env.BETTER_AUTH_SECRET`から埋める）。`apps/api/src/lib/reauth.ts`の
+`isSessionFresh()`（5分window）を`meDelete`の先頭でチェックし、
+`REAUTH_REQUIRED`で拒む。`me.get`は`sessionIsFresh`（真偽値）を返す
+（`packages/contract/src/me.ts`）。
+
+**画面側（`apps/app/app/(tabs)/delete-account.tsx`）**: `me.get`の
+`sessionIsFresh`を見て、falseなら段階1/2の確認フローに入れず
+「もう一度ログインしてください」＋再ログインボタン（`signIn.social`。
+`sign-in.tsx`と同じダブルクリック対策）を出す。`me.delete`が
+`REAUTH_REQUIRED`で拒んだ場合（確認をやり切る間に5分を跨いだ場合）も
+同じ画面に切り替える。
+
+**invite_failuresを消す手順自体が不要になった**ため、`meDelete`の
+最後のステップは`db.batch([DELETE invite_failures, DELETE user])`から
+`DELETE FROM user`単独になった。`me.test.ts`の「順序の証明」テスト
+（invite_failuresを残すとFK違反で落ちる）は、FK自体が無くなったため
+逆の内容（残っていても影響しない）に書き換えた。
+
+**新規テストは全てフォルトインジェクションで検証済み**（該当のガードを
+一時的に無効化し、テストが落ちることを確認してから復元）:
+- `me.delete`のREAUTH_REQUIREDチェック
+- `invite.accept`のレート制限キー（同一Googleアカウントなら`user_id`が
+  変わっても引き継がれること）
+- `delete-account.tsx`のsessionIsFreshによる画面分岐
+
+**mainとのコンフリクト**: 実装中にA（PR #186・#187）が同じ決定を
+`security-requirements.md`・`docs/tasks/024-account-deletion.md`へ
+先にマージ済みだったため、`feature/024-account-deletion`へ`main`を
+マージした際に`security-requirements.md`のレート制限キー節で
+コンフリクトが起きた。Aの文面を残し、実装ファイルへのポインタ
+（`apps/api/src/lib/account-hash.ts`等）だけ追記する形で解決した。
+認証節（2節）に重複して書いていた再認証の説明は削除し、9節T8への
+1行の誘導に置き換えた（`conventions.md`「判断は、それが上書きする
+記述と同じ場所に書く」）。
+
+**Bが実装中に見つけた024タスクファイルの訂正待ち1件**を`docs/state.md`
+L90として起票（`docs/tasks/024-account-deletion.md`「2. まっさらな
+状態から登録し直せる」節の「`invite_failures`は`user`より先に消す」が
+PR #186より前の記述のまま取り残されている）。実装は新しい決定
+（消さない・FK無し）で進めた（`conventions.md`「Bが設計ドキュメントの
+誤りを見つけたとき」）。
+
+`pnpm -w test`・型チェック全て緑（apps/app 181件・apps/api 327件）。
+`artifacts/024/manual-check.md`に再認証まわりの人間の実機確認項目を
+追記済み。`feature/024-account-deletion`ブランチとしてRへレビュー依頼予定。
