@@ -3,6 +3,49 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
+**最終更新**: 2026-09-02 / セッションB。**人間の実機報告（「コードで参加する
+を選び、コード入力後に再び参加画面に戻る」）を修正。PR #199・#200、
+Rの受け入れを得てmainへsquash merge済み。**
+
+**PR #199（不具合本体の修正）**: `apps/app/app/(onboarding)/join.tsx`の
+`handleSubmit`が`queryClient.setQueryData(orpc.couple.get.queryKey(),
+couple)`と、**viewerKeyを含まないキー**へ書き込んでいた。`_layout.tsx`の
+ルートガードは`[...orpc.couple.get.queryOptions().queryKey, viewerKey]`
+というキー（T9）で読んでいるため、このsetQueryDataは別のキャッシュ枠に
+書き込むだけで、ガードには一切反映されず、招待コードで参加した利用者が
+`(tabs)`へ進めず未所属のまま`(onboarding)`へ差し戻されていた。
+`invite.tsx`の`handleContinue`と同じ`invalidateQueries`（前方一致）に
+揃えて修正。修正前のコードで回帰テストが実際に失敗することを確認してから
+直した。004（`join.tsx`実装時）は016（T9対策導入）より前で、その時点で
+この画面が見落とされていた。
+
+**PR #200（検出網の拡張）**: Rから「同じ形の見落としが3回目」（#174の
+`me.get`・#179の`pendingInviteQueryKey`に続き）という指摘を受け、
+`viewer-key-coverage.test.ts`の走査に`queryClient.setQueryData/
+getQueryData`の直接呼び出しを追加した。Rレビュー3往復（各往復とも、
+実際に壊した状態で検出できることを確認してから直す形で進めた）:
+- R-1（識別子代入で回避できる）: `const key = orpc.couple.get.queryKey();
+  setQueryData(key, ...)`という、ごく普通のリファクタ1回でlint・走査の
+  両方をすり抜けることが判明。「識別子1つなら自動免除」という判定基準を
+  撤廃し、動的な実キーを渡す正当な理由がある箇所（`timeline.tsx`の
+  楽観的更新ロールバック）だけを`viewer-key-coverage-ignore -- <理由>`
+  という明示コメントで除外する形に直した（独自の目印ではなく、ESLintの
+  disableコメントと同じ「慣用・grep可能・diffに出る」形にする）
+- R-2（ジェネリクス・コメント誤検出）: `getQueryData<T>(...)`のように
+  メソッド名と`(`の間にジェネリクスが挟まる呼び出しを見逃していた
+  （`invite.tsx`）。また、コード中の説明コメント（`join.tsx`の不具合
+  修正コメント）に含まれる`queryClient.setQueryData(...)`という文字列を
+  実際の呼び出しとして誤カウントしていた。両方修正
+
+あわせて、`eslint.config.js`に`queryClient.setQueryData/getQueryData`へ
+`orpc.*.queryKey()`を直接渡す形を禁止する`no-restricted-syntax`ルールを
+新設（ASTで第1引数がorpcのメンバ呼び出しかどうかを構文的に判定）。
+
+`pnpm -w test`（apps/app 197件・apps/api 355件）・型チェック・lint
+全て通過。CIも緑。
+
+以下、2026-09-02より前の記録。
+
 **最終更新**: 2026-09-01 / セッションB。**027（行きたい場所・食べたいもの
 リスト）完了。PR #196、Rの受け入れを得てmainへsquash merge済み**
 （`027: 行きたい場所・食べたいものリスト (#196)`）。
