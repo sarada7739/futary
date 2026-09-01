@@ -209,8 +209,14 @@ describe("ペアのデータ・利用者ごとのデータを読む問い合わ�
 // 出る」形にする（独自の目印コメントを退けたのは「静かに検査を黙らせる
 // 安い手段になるから」であって、慣用の印そのものを禁じたわけではない）
 describe("queryClient.setQueryData/getQueryDataを直接呼ぶ箇所は、固定キーならviewerKeyを含む（T9）", () => {
-  const DIRECT_CACHE_CALL_PATTERN = /queryClient\.(?:setQueryData|getQueryData)\(/g;
-  const IGNORE_COMMENT_PATTERN = /viewer-key-coverage-ignore\b/;
+  // 【Rレビュー指摘R-1】メソッド名と`(`の間にジェネリクス（TypeScriptで
+  // 普通の書き方。例: getQueryData<IssuedInvite>(...)）が挟まると
+  // 素通りしていた。実測するとinvite.tsx:31（getQueryData<IssuedInvite>）が
+  // 検出対象から漏れていた
+  const DIRECT_CACHE_CALL_PATTERN = /queryClient\.(?:setQueryData|getQueryData)\s*(?:<[^>]*>)?\s*\(/g;
+  // 「-- 理由」まで要求する（規約として書くなら、規約が守られていることも
+  // 検査する。Rレビュー指摘・任意対応）
+  const IGNORE_COMMENT_PATTERN = /viewer-key-coverage-ignore\s+--\s+\S/;
   const DIRECT_CACHE_CONTEXT_WINDOW = 100;
 
   // 呼び出し行の直前に連続する`//`コメント行をさかのぼって全て結合する
@@ -230,12 +236,25 @@ describe("queryClient.setQueryData/getQueryDataを直接呼ぶ箇所は、固定
     return lines.join("\n");
   }
 
+  // 【Rレビュー指摘R-2】マッチした行自体が`//`コメント行だと、コード例を
+  // 説明したコメント（join.tsxの不具合修正コメント等）を実際の呼び出しと
+  // 誤って数えてしまう。偽陽性（コメントにviewerKeyが無いと存在しない
+  // 呼び出しで落ちる）と番人の水増し（コメント1件が実コード減少の
+  // 埋め合わせになる）の両方を引き起こすため、行自体がコメントなら除外する
+  function isCommentLine(content: string, index: number): boolean {
+    const lineStart = content.lastIndexOf("\n", index - 1) + 1;
+    const lineEndRaw = content.indexOf("\n", index);
+    const lineEnd = lineEndRaw === -1 ? content.length : lineEndRaw;
+    return /^\s*\/\//.test(content.slice(lineStart, lineEnd));
+  }
+
   function listDirectCacheCalls(): Array<{ file: string; index: number; ignored: boolean }> {
     const files = listAppSourceFiles();
     const calls: Array<{ file: string; index: number; ignored: boolean }> = [];
     for (const file of files) {
       const content = readFileSync(file, "utf8");
       for (const match of content.matchAll(DIRECT_CACHE_CALL_PATTERN)) {
+        if (isCommentLine(content, match.index)) continue;
         const ignored = IGNORE_COMMENT_PATTERN.test(precedingCommentBlock(content, match.index));
         calls.push({ file, index: match.index, ignored });
       }
