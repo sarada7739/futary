@@ -104,6 +104,14 @@ interface PostRow {
   imageHeight: number | null;
 }
 
+interface WishRow {
+  id: string;
+  title: string;
+  createdBy: string;
+  createdAt: number; // 順序が見えるよう明示的に振る（秒。乱数ではない）
+  doneAt: number | null;
+}
+
 export interface DemoSeed {
   coupleId: string;
   users: Array<{ id: string; name: string; email: string; imageKey: string }>;
@@ -112,6 +120,7 @@ export interface DemoSeed {
   posts: PostRow[];
   reactions: Array<{ postId: string; userId: string }>;
   images: Array<{ key: string; assetFile: string }>;
+  wishes: WishRow[];
 }
 
 // 014タスク定義の件数方針:
@@ -304,6 +313,28 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
   images.push({ key: userImageKey(DEMO_USER_WOMAN_ID, "avatar"), assetFile: DEMO_ASSET_FILES.avatarWoman });
   images.push({ key: userImageKey(DEMO_USER_MAN_ID, "avatar"), assetFile: DEMO_ASSET_FILES.avatarMan });
 
+  // --- wishes: 027。「リスト」パネルが押せるようになるため、空のデモは弱い。
+  // 未達成・達成済みの両方を、createdAtをずらして入れる（並び順が見えるように）。
+  // 実在の店名は入れない（014で写真1枚を落としたのと同じ理由）
+  const nowSecondsValue = Math.floor(nowMs / 1000);
+  const DAY_SECONDS = 24 * 60 * 60;
+  const wishDefs: Array<{ title: string; createdBy: string; createdDaysAgo: number; done: boolean; doneDaysAgo?: number }> = [
+    { title: "水族館に行く", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 3, done: false },
+    { title: "新しいカフェを開拓する", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 10, done: false },
+    { title: "キャンプに行く", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 25, done: false },
+    { title: "遊園地で遊ぶ", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 40, done: false },
+    { title: "手作りケーキに挑戦する", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 70, done: true, doneDaysAgo: 50 },
+    { title: "花火大会を見る", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 90, done: true, doneDaysAgo: 60 },
+    { title: "映画館で新作を観る", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 120, done: true, doneDaysAgo: 15 },
+  ];
+  const wishes: WishRow[] = wishDefs.map((w, i) => ({
+    id: `demo-wish-${i}`,
+    title: w.title,
+    createdBy: w.createdBy,
+    createdAt: nowSecondsValue - w.createdDaysAgo * DAY_SECONDS,
+    doneAt: w.done && w.doneDaysAgo !== undefined ? nowSecondsValue - w.doneDaysAgo * DAY_SECONDS : null,
+  }));
+
   return {
     coupleId: DEMO_COUPLE_ID,
     users: [
@@ -325,18 +356,20 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     posts,
     reactions,
     images,
+    wishes,
   };
 }
 
 // 投入の前にデモペアの既存行を消す（014タスク定義）。外部キーの順:
-// reactions -> posts -> events -> invites -> couple_members -> couples -> user。
-// 表が増えたときはここへ足す
+// reactions -> posts -> events -> wishes -> invites -> couple_members -> couples -> user。
+// 表が増えたときはここへ足す（027でwishesを追加）
 function buildDeleteSql(seed: DemoSeed): string[] {
   const userIds = seed.users.map((u) => sqlString(u.id)).join(", ");
   return [
     `DELETE FROM reactions WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ${sqlString(seed.coupleId)});`,
     `DELETE FROM posts WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM events WHERE couple_id = ${sqlString(seed.coupleId)};`,
+    `DELETE FROM wishes WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM invites WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couple_members WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couples WHERE id = ${sqlString(seed.coupleId)};`,
@@ -389,6 +422,13 @@ function buildInsertSql(seed: DemoSeed, nowMs: number): string[] {
     statements.push(
       `INSERT INTO reactions (post_id, user_id, kind, created_at) VALUES ` +
         `(${sqlString(r.postId)}, ${sqlString(r.userId)}, 'heart', ${nowSeconds});`,
+    );
+  }
+
+  for (const w of seed.wishes) {
+    statements.push(
+      `INSERT INTO wishes (id, couple_id, title, created_by, created_at, done_at) VALUES ` +
+        `(${sqlString(w.id)}, ${sqlString(seed.coupleId)}, ${sqlString(w.title)}, ${sqlString(w.createdBy)}, ${w.createdAt}, ${w.doneAt ?? "NULL"});`,
     );
   }
 

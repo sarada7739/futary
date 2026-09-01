@@ -8499,6 +8499,71 @@ Session: A
 
 Session: A
 
+## 2026-09-01 セッションB（027: 行きたい場所・食べたいものリスト、実装完了）
+
+`docs/tasks/027-wish-list.md`どおり実装した。
+
+**バックエンド**: `wishes`テーブル（`0016_wishes.sql`。kind/done_by/note/
+CHECKいずれも持たない）・契約`wish.list`/`create`/`setDone`/`delete`
+（`packages/contract/src/wish.ts`）・手続き（`apps/api/src/procedures/
+wish.ts`。既存の`readProcedure`/`writeProcedure`にそのまま乗る）を実装。
+並び順（未達成が先・達成済みが後、それぞれ新しい順）は
+`ORDER BY (done_at IS NULL) DESC, created_at DESC`の1文で表現。`setDone`は
+`toggle`ではなく`{id,done}`を受け取り、`COALESCE(done_at, ?)`で「同じdoneを
+2回送っても結果が変わらない」冪等性を実装レベルでも担保した。上限
+（1ペア200件）は`SELECT COUNT(*)`してから`INSERT`する2文構成（競合で
+数件超えうる設計判断。security-auditorが「脆弱性ではない」と判定）。
+
+**フロントエンド**: ホームの「リスト」パネル（020で設置済み）に`onPress`を
+追加し`/list`へ。`(tabs)/list.tsx`を新設（モーダルにせず1行入力欄＋
+追加ボタン。3状態を実装。ゲストは入力欄・チェック・削除が押せない形にし、
+014の導線に合わせた）。`wish.list`は`viewerKey`をqueryKeyに含め、
+`viewer-key-coverage.test.ts`が自動検出。
+
+**デモシード**: 未達成4件・達成済み3件を決定的に追加。実在の店名は
+使っていない。
+
+**security-auditorの監査でHigh 1件**: `me.delete`（024）が`wishes`を
+削除する文を持たず、`wishes.couple_id`が`couples(id)`をFK参照する
+（D1は常にFKを強制）ため、**wishを1件でも持つペアはアカウント削除が
+恒久的に失敗する**（`DELETE FROM couples`がFK違反で落ち、`db.batch()`が
+全文ロールバックする。R2画像は既に削除済みのため中間状態にもなりうる）。
+`db.batch()`に`DELETE FROM wishes WHERE couple_id = ?1`を追加して解消し、
+再監査でHigh解消を確認済み。再発防止として、`couple_id`列を持つ全表を
+`sqlite_master`のCREATE TABLE文字列から機械的に検出し（D1は
+`PRAGMA table_info`を許可しないため`SQLITE_AUTH`。実測で確認）、
+`me.delete`後に0件であることを確認するテストを`apps/api/test/me.test.ts`に
+新設した。Medium指摘（同種の機械的検知の欠如）への対応も兼ねる。
+詳細は`docs/security-report.md`「027」・`artifacts/027/security-audit-raw.md`
+（初回・再監査の生ログ両方）参照。
+
+Low指摘3件のうち1件（list.tsxの二重発火防止漏れ。他画面と同じ
+`disabled={... || isPending}`が抜けていた）はconventions.md違反の是正
+として自分で直した。残り2件（200件上限の記述が行数の上限だと読まれうる・
+titleが制御文字を通す）は仕様判断のためAへエスカレーションした。あわせて
+`docs/tasks/027-wish-list.md`90-91行目「他表からFK参照されない」という
+記述が、wishesが`couples`・`user`を参照する側になったこと（削除順序への
+影響）を見落としていた点も訂正依頼として送った。
+
+`git checkout -b task/027-wish-list`を最初に打ち忘れ、`main`のまま実装を
+進めてしまっていた。コミット前（`git status`で気づいた）だったため、
+`git add`する前に`git checkout -b task/027-wish-list`でブランチを作り直し、
+`main`には何も残さずに済んだ。
+
+`pnpm -w test`（apps/app 193件・apps/api 355件・packages/db 20件）・
+`pnpm -r type-check`・`eslint .`全て通過。`wrangler dev`（ローカルD1に
+0016適用済み）+`expo start --web`でBがブラウザ実機確認: 未認証（デモ）
+経路でホームの「リスト」パネルが次フェーズ表示から通常表示に変わり
+`/list`へ遷移、デモの並び順が仕様どおり表示され、デスクトップ幅・
+モバイル幅375×812ともレイアウト崩れなし、ゲストではチェックボックスを
+押しても反応しないことを確認した。認証必須の経路（追加・チェック・削除の
+実機操作）は`artifacts/027/manual-check.md`に人間への確認項目として
+列挙した。
+
+`docs/state.md`を更新（027実装完了・Rへのレビュー依頼予定・A判断待ち
+3件を記載）。次はRへレビュー依頼する。
+
+Session: B
 ## 2026-09-01 セッションA: 027 の論点3件に判断を出した
 
 B が実装中に上げた3件。**1件目は私のタスク定義の誤りである。**
@@ -8545,3 +8610,21 @@ B のブランチの実装差分を読んでいた。**`CLAUDE.md`「A は実装
 **絶対パスで `futary-A` を指してから実行する。**
 
 Session: A
+
+## 2026-09-01 セッションB（027: Aの判断3件を取り込み、Rへレビュー依頼）
+
+エスカレーションしていた3件全てにAが判断を出し、PR #197としてmainへ
+マージ済み（コードは無変更。ドキュメントのみ）。`git pull`して
+`task/027-wish-list`へマージし、push済み。
+
+1. FKの記述は誤りだったとAが認め、`docs/tasks/027-wish-list.md`6節・
+   `architecture.md`4節「表を足したら、消す手順にも足す」（新設）へ反映
+2. 200件上限は「未削除の行数」の上限のままでよいとAが判断。タスク定義
+   5節・`architecture.md`5節へ追記
+3. 制御文字の正規化はしないとAが判断（書ける相手が身内のみのため）。
+   `security-requirements.md`6節・`decisions.md`へ反映。見直す条件を
+   ADR-012と揃えた
+
+CI緑を確認後、PR #196としてRへレビュー依頼した。
+
+Session: B

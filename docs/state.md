@@ -3,13 +3,54 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-01 / セッションB。**024（アカウント削除・退会）、
-PR #185をRの受け入れ・CI緑を経てmainへsquash merge済み**
-（`024: アカウント削除と退会 (#185)`）。マージ中に発見した派生の論点
-（invite_failuresのキー変更・0015の削除件数記録・architecture.md 4節の
-読み替え）は、Aが#186〜#189でリアルタイムに判断を出し、Bが同じPRに
-反映した。**mainへのマージでdeployワークフローが起動したが、
-`production`環境のRequired reviewers承認待ちで止まっている**
+**最終更新**: 2026-09-01 / セッションB。**027（行きたい場所・食べたいもの
+リスト）実装完了。PR #196、CI緑、Rへレビュー依頼済み。**
+ホームの「リスト」パネル（020で設置済み）に`onPress`を追加し、
+`(tabs)/list.tsx`（1行入力欄＋追加ボタン。モーダルにしない）を新設した。
+`wish.list`/`create`/`setDone`/`delete`の4手続き（既存の`readProcedure`/
+`writeProcedure`にそのまま乗る）・`wishes`テーブル（`0016_wishes.sql`。
+kind/done_by/note/CHECKいずれも持たない）・デモシード（未達成4件・
+達成済み3件、決定的）を実装。`setDone`は`toggle`ではなく`{id,done}`を
+受け取り、`COALESCE(done_at, ?)`で真に冪等にした。
+
+**security-auditorの監査でHighが1件見つかり、その場で修正済み**:
+`me.delete`（024）が`wishes`を削除する文を持たず、`wishes.couple_id`が
+`couples(id)`をFK参照する（D1は常にFKを強制）ため、**wishを1件でも
+持つペアはアカウント削除が恒久的に失敗する**という不具合だった。
+`db.batch()`に削除文を追加して解消し、再監査で確認済み（詳細は
+`docs/security-report.md`「027」・`artifacts/027/security-audit-raw.md`）。
+再発防止として、`couple_id`列を持つ全表を`sqlite_master`から機械的に
+検出し`me.delete`後に0件であることを確認するテストを`me.test.ts`に新設
+（次に表が増えたときの同種の漏れを自動検知する）。
+
+**Aが3件全てに判断を出し、PR #197としてmainへマージ済み**（コードは
+無変更。`git pull`して`task/027-wish-list`へマージ済み）:
+1. **FKの記述は誤り（Aが認めた）**。`docs/tasks/027-wish-list.md`6節に訂正を
+   追記し、`architecture.md`4節に「表を足したら、消す手順にも足す」を新設
+   （新しい表は参照される側・参照する側の両方向を書く規則）
+2. **200件上限は「未削除の行数」の上限のままでよい**（Aの判断）。守るのは
+   「1回で全件返す」が壊れないことであり、触れるのはペアの2人だけ。
+   タスク定義5節・`architecture.md`5節に追記
+3. **制御文字・双方向制御文字の正規化はしない**（Aの判断）。書ける相手が
+   ペアの2人しか居ないため。`security-requirements.md`6節に明記し、
+   見直す条件をADR-012と同じ（身内でない利用者を招くとき）に揃えた
+
+`pnpm -w test`（apps/app 193件・apps/api 355件・packages/db 20件）・
+`pnpm -r type-check`・`eslint .`全て通過。CIも緑。Bがブラウザで未認証
+（デモ）経路をデスクトップ幅・モバイル幅の両方で確認済み（`artifacts/027/
+test-results.md`）。認証必須の経路（追加・チェック・削除の実機操作）は
+`artifacts/027/manual-check.md`に人間への確認項目として列挙済み。
+
+**次にやること**: Rのレビュー結果を待つ。
+
+以下、2026-09-01より前の記録。
+
+**024（アカウント削除・退会）、PR #185をRの受け入れ・CI緑を経てmainへ
+squash merge済み**（`024: アカウント削除と退会 (#185)`）。マージ中に
+発見した派生の論点（invite_failuresのキー変更・0015の削除件数記録・
+architecture.md 4節の読み替え）は、Aが#186〜#189でリアルタイムに判断を
+出し、Bが同じPRに反映した。**mainへのマージでdeployワークフローが
+起動したが、`production`環境のRequired reviewers承認待ちで止まっている**
 （`gh run list`で`Deploy`が`waiting`。architecture.md 6節「リモートD1への
 適用には人間の許可を取る」の実体。**人間の承認が必要**）。
 
@@ -24,8 +65,6 @@ PR #185をRの受け入れ・CI緑を経てmainへsquash merge済み**
    ジョブログから読み、`docs/worklog.md`に追記する（0件でも書く。
    `artifacts/024/manual-check.md`「デプロイ時に必ずやること」参照。
    Aの判断PR #189）
-
-以下、2026-09-01より前の記録。
 
 **016（仕上げと公開）、
 本番デプロイ完了。デプロイ後の実機確認で見つかった2件の不具合

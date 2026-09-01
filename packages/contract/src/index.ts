@@ -14,6 +14,7 @@ import {
 } from "./event";
 import { statsGetContract } from "./stats";
 import { memoryGetContract } from "./memory";
+import { wishCreateContract, wishDeleteContract, wishListContract, wishSetDoneContract } from "./wish";
 
 export type { Post } from "./post";
 export { REACTION_KINDS } from "./reaction";
@@ -22,6 +23,7 @@ export { EVENT_KINDS } from "./event";
 export type { DaysTogether, Stats } from "./stats";
 export type { MemoryLabel, MemoryResult } from "./memory";
 export { MEMORY_LABELS } from "./memory";
+export type { Wish } from "./wish";
 
 export const contract = {
   health: {
@@ -62,6 +64,12 @@ export const contract = {
   },
   memory: {
     get: memoryGetContract,
+  },
+  wish: {
+    list: wishListContract,
+    create: wishCreateContract,
+    setDone: wishSetDoneContract,
+    delete: wishDeleteContract,
   },
 };
 

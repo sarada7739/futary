@@ -236,6 +236,34 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("wish.create は DEMO_COUPLE_ID が設定されていても FORBIDDEN（027）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.wish.create, { title: "デモから登録" }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("wish.setDone は DEMO_COUPLE_ID が設定されていても FORBIDDEN（027）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(
+        router.wish.setDone,
+        { id: crypto.randomUUID(), done: true },
+        { context: contextFor(null, demoCoupleId) },
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("wish.delete は DEMO_COUPLE_ID が設定されていても FORBIDDEN（027）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.wish.delete, { id: crypto.randomUUID() }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   // me.update/me.uploadImageUrlはcouple_idを持たず authedProcedure の上に載る
   // （couple_idの有無に関わらず未認証を弾く。019）ため、DEMO_COUPLE_IDの
   // 設定有無を問わずFORBIDDENになることだけを確認する
@@ -327,6 +355,25 @@ describe("3. 未認証アクセスで読み取れるのがデモペアのデー�
     const result = await call(router.memory.get, undefined, { context: contextFor(null, demoCoupleId) });
 
     expect(result?.post.body).toBe("デモの思い出");
+  });
+
+  it("wish.list は DEMO_COUPLE_ID のペアの行だけを返す。他ペアの行は混ざらない（027）", async () => {
+    const demoCoupleId = await createDemoCouple();
+    const demoCreator = await createUser();
+    await db
+      .prepare("INSERT INTO wishes (id, couple_id, title, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5)")
+      .bind(crypto.randomUUID(), demoCoupleId, "デモの行きたい場所", demoCreator.id, Math.floor(Date.now() / 1000))
+      .run();
+
+    const owner = await createUser();
+    await createCouple(owner, "2020-01-01");
+    await call(router.wish.create, { title: "他ペアの行きたい場所" }, { context: contextFor(owner) });
+
+    const result = await call(router.wish.list, {}, { context: contextFor(null, demoCoupleId) });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]?.title).toBe("デモの行きたい場所");
+    expect(result.items.map((w) => w.title)).not.toContain("他ペアの行きたい場所");
   });
 });
 
@@ -439,6 +486,34 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
     await expect(call(router.memory.get, undefined, { context: contextFor(user) })).rejects.toMatchObject({
       code: "NEEDS_ONBOARDING",
     });
+  });
+
+  it("wish.list（027）", async () => {
+    const user = await createUser();
+    await expect(call(router.wish.list, {}, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+  });
+
+  it("wish.create（027）", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
+
+  it("wish.setDone（027）", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.wish.setDone, { id: crypto.randomUUID(), done: true }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
+
+  it("wish.delete（027）", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.wish.delete, { id: crypto.randomUUID() }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 });
 
@@ -805,9 +880,9 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （019時点: health.get/me.get/me.update/me.uploadImageUrl + couple 3 + invite 2 +
-    // post 4 + reaction 1 + event 4 + stats 1 + memory 1 = 20）
-    expect(procedures.length).toBeGreaterThanOrEqual(20);
+    // （027時点: health.get/me.get/me.update/me.uploadImageUrl/me.delete + couple 3 +
+    // invite 2 + post 4 + reaction 1 + event 4 + stats 1 + memory 1 + wish 4 = 25）
+    expect(procedures.length).toBeGreaterThanOrEqual(25);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの
