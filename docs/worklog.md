@@ -8660,3 +8660,67 @@ mainへマージした（`8e4fe133`。Sessionトレーラー`B`を確認済み�
 `docs/state.md`を更新（027完了・マージ済みを記録）。
 
 Session: B
+
+## 2026-09-02 セッションB（招待コード参加後に再び参加画面へ戻る不具合を修正）
+
+人間から実機報告: 「コードで参加するを選び、コードを入力したユーザーの
+遷移の挙動がおかしい。コード入力後、再びコードで参加するの画面にとぶ」。
+
+**調査**: `apps/app/app/(onboarding)/join.tsx`のhandleSubmitが
+`queryClient.setQueryData(orpc.couple.get.queryKey(), couple)`と、
+viewerKeyを含まないキーへ書き込んでいた。`_layout.tsx`のルートガード
+（coupleQuery）は`[...orpc.couple.get.queryOptions().queryKey,
+viewerKey]`というキー（T9。apps/app/lib/viewer-key.ts）で読んでいるため、
+このsetQueryDataは実際には別のキャッシュ枠に書き込むだけで、ガードには
+一切反映されず、router.replace("/")しても未所属のまま(onboarding)へ
+差し戻されていた。同じ画面グループのinvite.tsx・create.tsxは
+`pendingInviteQueryKey(viewerKey)`とviewerKeyを含めており、join.tsxだけが
+T9対策（016）から漏れていた。004（join.tsx実装。016より前）の時点で
+この画面が見落とされていた。
+
+`setQueryData`を直接呼んでいる全箇所（create.tsx・invite.tsx・
+timeline.tsx）を確認し、他は問題ないことを確認（timeline.tsxは
+getQueriesDataで取得した実キーをそのまま書き戻しているだけで正しい）。
+
+**修正（PR #199）**: invite.tsxのhandleContinueと同じinvalidateQueries
+（前方一致でviewerKey付きの実キーも対象になる）に揃えた。回帰テスト
+`apps/app/test/join-flow.test.tsx`を新設し、root-navigator-guest-
+resolves.test.tsxと同じ形で実際のルートガード解決まで含めて固定。
+**修正前のコードでこのテストが実際に失敗することを確認してから直した**
+（(tabs)へ進まず(onboarding)のまま止まることを実測）。
+
+Rが「受け入れます」。ただし「同じ形の見落としが3回目」（#174のme.get・
+#179のpendingInviteQueryKeyに続き）と指摘され、検出網の拡張を依頼された。
+
+**検出網の拡張（PR #200）**:
+1. `eslint.config.js`にno-restricted-syntaxを追加。
+   `queryClient.setQueryData/getQueryData`に`orpc.*.queryKey()`を直接
+   渡す形をASTで構文的に禁止（第1引数がorpcのメンバ呼び出しかどうかを
+   確実に判定）。一時的な違反コード3パターン・修正前のjoin.tsxの両方に
+   当てて実際にエラーが出ることを確認
+2. `viewer-key-coverage.test.ts`に、lintのセレクタに一致しない残り
+   （orpcを経由しない手書きキー）を対象にした走査を追加
+
+Rレビュー3往復、いずれも実際に壊した状態で検出できることを確認しながら
+対応:
+- **R-1**: 「引数が単純な識別子1つだけなら動的な実キーとみなして対象外」
+  という当初の判定基準が、`const key = orpc.couple.get.queryKey();
+  setQueryData(key, couple)`という、ごく普通のリファクタ1回でlint・走査
+  両方をすり抜けることが判明（join.tsxに実際にこのパターンを入れて
+  検出できないことを確認）。識別子引数も含めて全ての呼び出しを対象にし、
+  動的な実キーを渡す正当な理由がある箇所（timeline.tsxの楽観的更新
+  ロールバック）だけを`viewer-key-coverage-ignore -- <理由>`という
+  明示コメントで除外する形に直した。免除箇所は`arrayContaining`ではなく
+  名指しの`toEqual`で固定
+- **R-2**: `getQueryData<T>(...)`のようにメソッド名と`(`の間にジェネリクス
+  が挟まる呼び出し（invite.tsx:31）を見逃していた。また、join.tsxの
+  不具合修正コメント中の`queryClient.setQueryData(...)`という文字列を
+  実際の呼び出しとして誤カウントしていた。両方とも`node -e`で正規表現の
+  挙動を直接検証してから修正
+- 任意対応: 免除コメントに`-- <理由>`を要求する形にした
+
+Rが最終的に「3件とも直っています」「4周した、そのたびに違う抜け方が
+出た」と評価し、「受け入れます」。CI緑を確認してmainへマージ完了
+（PR #199: `7db1055`、PR #200: `81f784d`。いずれもSessionトレーラー`B`）。
+
+Session: B
