@@ -143,7 +143,9 @@ R は「`couples` に削除中の印を立てて `resolveCoupleContext` が弾�
 **前の利用者として復帰する。**
 
 - `account`（Google との紐付け）は `user` の cascade で落ちる
-- **`invite_failures` は `user` を参照している。`user` より先に消す**
+- ~~**`invite_failures` は `user` を参照している。`user` より先に消す**~~
+  → **取り消し。**`invite_failures` は `user` を参照しなくなった（上記1節。
+  キーを Google アカウントのハッシュに変えた）。**削除の対象ではない**
 - 消したあと、**同じ Google アカウントは「初めての利用者」として登録される**
 
 ### T9 と同じ観点で後始末する
