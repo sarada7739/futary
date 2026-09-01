@@ -81,6 +81,7 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
       "index:posts_image_key_unique",
       "index:session_token_unique",
       "index:user_email_unique",
+      "index:wishes_couple_created_idx",
       "trigger:couples_married_after_anniversary_insert",
       "trigger:couples_married_after_anniversary_update",
       "trigger:couples_married_date_required_insert",
