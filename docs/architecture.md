@@ -214,7 +214,10 @@ wishes                                          -- 027。行きたい場所・�
   id          TEXT    PK
   couple_id   TEXT    NOT NULL
   title       TEXT    NOT NULL                  -- 1〜100文字。trim 後に空なら拒否
-  created_by  TEXT    NOT NULL                  -- レスポンスには出さない（5節）
+  note        TEXT    NOT NULL DEFAULT ''       -- 028。自由記述。0〜200文字
+                                                -- 一覧にそのまま出す。折りたたまない
+  created_by  TEXT    NOT NULL                  -- ID は返さない。名前だけ返す（5節。028）
+                                                -- 編集しても変わらない（028）
   created_at  INTEGER NOT NULL
   done_at     INTEGER                           -- 達成したら非NULL。達成しても消さない
   deleted_at  INTEGER                           -- 論理削除
@@ -654,12 +657,17 @@ stats.get           -> { daysTogether, meetupDays, postCount, photoCount }
                       dating_date   1年後まで
                       married_date  2年後まで
 memory.get          -> { post, label } | null
-wish.list           -> { items: [{ id, title, doneAt, createdAt }] }   027
+wish.list           -> { items: [{ id, title, note, doneAt, createdAt, createdByName }] }
                     未達成が先、達成済みが後。それぞれ createdAt の新しい順
-                    created_by は返さない（event.list と同じ）
+                    createdByName は表示名。null 許容（LEFT JOIN）。028
+                    created_by（ユーザーID）は返さない（event.list と同じ）
+                    canEdit を返さない。ペアの2人とも触れるため（028）
+                      021 と同じ形にすると「なぜ常に true か」と読まれる
                     ページングを持たない。代わりに1ペア200件の上限を持つ
                     上限がかかるのは「未削除の行数」。行の総数ではない（027）
-wish.create         { title } -> 作った1件。201件目は LIMIT_REACHED
+wish.create         { title, note? } -> 作った1件。201件目は LIMIT_REACHED
+wish.update         { id, title?, note? } -> 更新後の1件（028）
+                    渡されなかった項目は変えない。created_by は更新しない
 wish.setDone        { id, done } -> 更新後の1件
                     toggle にしない。クライアントが目標の状態を送る。
                     同じ要求が2回届いても結果が同じになる（二重発火。conventions.md 4節）
