@@ -62,6 +62,23 @@ export default tseslint.config(
           message:
             "new Date(...) を packages/date の外で直接使わない（architecture.md 5節）。暦・タイムゾーンの解釈が必要な計算・整形は packages/date の関数を使う",
         },
+        {
+          // apps/app/lib/viewer-key.ts「readProcedureを使う手続き（couple.get・
+          // stats.get等）はcoupleIdを引数に取らないため、TanStack Queryの
+          // キャッシュキーだけでは誰が呼んだか区別できない」の帰結。
+          // queryClient.setQueryData/getQueryDataにorpc.*.queryKey()を直接
+          // 渡すと、viewerKeyを含まない固定キーになり、_layout.tsxのルート
+          // ガード等が実際に読んでいる`[...queryKey, viewerKey]`という
+          // キャッシュ枠とは別の場所に書き込む/読み取ることになる。
+          // join.tsxがこれを踏み、招待コードで参加した利用者が(tabs)へ
+          // 進めない不具合になった（PR #199。人間の実機報告まで
+          // 気づけなかった）。ASTなら第1引数がorpcのメンバ呼び出しか
+          // どうかを構文的に確実に判定できる（Rレビュー指摘）
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name=/^(setQueryData|getQueryData)$/] > CallExpression.arguments:first-child[callee.type='MemberExpression'][callee.property.name='queryKey']",
+          message:
+            "queryClient.setQueryData/getQueryDataにorpc.*.queryKey()を直接渡さない。viewerKeyを含まない固定キーになり、実際のキャッシュ枠（apps/app/lib/viewer-key.ts）と一致しない。invalidateQueries（前方一致でviewerKey付きの実キーも対象になる）を使うか、[...queryKey, viewerKey]の形で明示的にキーを組み立てる",
+        },
       ],
     },
   },
