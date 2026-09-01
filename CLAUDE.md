@@ -34,6 +34,7 @@
 | `docs/conventions.md` | 規約・テスト方針・Git運用 |
 | `docs/security-requirements.md` | 認証・機密・想定脅威 |
 | `docs/decisions.md` | ADR（なぜその設計か） |
+| `docs/manual-check.md` | **未消化の実機確認項目（唯一の一覧）** |
 | `docs/tasks/NNN-*.md` | タスク定義 |
 | `artifacts/NNN/` | 動作証跡 |
 
