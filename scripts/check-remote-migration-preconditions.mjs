@@ -20,6 +20,20 @@
 // 将来、同様に「適用前に人間が数えるべき条件」を持つマイグレーションが
 // 増えたら、ここに追記すること（現状はrepeat_yearlyの1件のみ。
 // `grep -rl "リモートD1へ適用する前に" packages/db/migrations`で確認できる）。
+//
+// 【024・Rレビュー指摘】0015（`packages/db/migrations/0015_invite_failures_
+// add_account_hash.sql`）は`DELETE FROM invite_failures`を含む、行を消す
+// マイグレーションである。`architecture.md`4節「行を消すマイグレーションは、
+// 当てる前に件数を数えて記録する」の対象だが、016以降デプロイは無人
+// （`production`環境のRequired reviewersはジョブ開始前のapprove、この
+// ジョブ自体は無人で走る）で、`worklog.md`へ追記できる人間がpushの経路上に
+// いない。0013と同じ理由・同じ仕組みで、件数をこのジョブのログに出力する
+// ことをもって「記録する」とする。0013と違い件数が0でなくても止めない
+// （このDELETEは常に意図した動作であり、行が残っていること自体が異常では
+// ない）。0015適用後の以降のデプロイでもこのSELECT自体は無害に実行され
+// 続けるが、その時点ではDELETEはもう走らないため出力される件数に対応する
+// 削除は起きない（0013のチェックと同じ「特定のマイグレーション名を見ない」
+// 単純さを優先した）
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,6 +93,15 @@ function main() {
   }
 
   console.log("違反行はありません（0件）。マイグレーションを適用します。");
+
+  console.log("0015（invite_failuresのaccount_hash追加）で消える既存行数を記録します...");
+  const inviteFailureCount = queryRemoteCount("SELECT COUNT(*) AS count FROM invite_failures");
+  console.log(
+    `invite_failuresの現在の行数: ${inviteFailureCount}件。` +
+      `0015が未適用ならこの件数がDELETEで消える（1時間の時間窓で自然に切れる` +
+      `一時的なレート制限記録のため、消えること自体は想定どおり。` +
+      `architecture.md 4節の記録として、このログをもって記録済みとする）。`,
+  );
 }
 
 main();
