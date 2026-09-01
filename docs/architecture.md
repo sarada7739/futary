@@ -209,9 +209,24 @@ events
   CHECK (start_time IS NULL OR kind <> 'anniversary')      -- 5節
   CHECK (end_time IS NULL OR start_time IS NOT NULL)       -- 022
   CHECK (end_time IS NULL OR end_time > start_time)        -- 022。日をまたがない
+
+wishes                                          -- 027。行きたい場所・食べたいもの
+  id          TEXT    PK
+  couple_id   TEXT    NOT NULL
+  title       TEXT    NOT NULL                  -- 1〜100文字。trim 後に空なら拒否
+  created_by  TEXT    NOT NULL                  -- レスポンスには出さない（5節）
+  created_at  INTEGER NOT NULL
+  done_at     INTEGER                           -- 達成したら非NULL。達成しても消さない
+  deleted_at  INTEGER                           -- 論理削除
+  INDEX (couple_id, created_at DESC)
+                                                -- kind を持たない。「カフェ」は場所でもあり
+                                                -- 食べ物でもある。迷わせる分類は書かれない（027）
 ```
 
 ### `posts` を読むクエリには必ず `deleted_at IS NULL` を含める
+
+**027 以降、`wishes` も同じである。**論理削除を持つ表が2つになった。
+**「`posts` の規則」ではなく「論理削除を持つ表の規則」として読む。**
 
 **例外なし。**`posts` は論理削除であり、削除された行はテーブルに残り続ける。
 条件を書き忘れると、**利用者が消したはずの投稿が別の経路から出てくる。**
@@ -618,6 +633,16 @@ stats.get           -> { daysTogether, meetupDays, postCount, photoCount }
                       dating_date   1年後まで
                       married_date  2年後まで
 memory.get          -> { post, label } | null
+wish.list           -> { items: [{ id, title, doneAt, createdAt }] }   027
+                    未達成が先、達成済みが後。それぞれ createdAt の新しい順
+                    created_by は返さない（event.list と同じ）
+                    ページングを持たない。代わりに1ペア200件の上限を持つ
+wish.create         { title } -> 作った1件。201件目は LIMIT_REACHED
+wish.setDone        { id, done } -> 更新後の1件
+                    toggle にしない。クライアントが目標の状態を送る。
+                    同じ要求が2回届いても結果が同じになる（二重発火。conventions.md 4節）
+wish.delete         { id } -> { id }。論理削除
+                    他ペアの id は NOT_FOUND（FORBIDDEN にしない。存在を教えない）
 ```
 
 ### 問い合わせキャッシュのキーに「誰であるか」を含める
