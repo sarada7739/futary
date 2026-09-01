@@ -65,7 +65,7 @@ describe("HomeScreen: 記念日カード", () => {
 });
 
 describe("HomeScreen: 機能パネル", () => {
-  it("動くパネル4枚（タイムライン・カレンダー・思い出・統計）が表示される", async () => {
+  it("動くパネル5枚（タイムライン・カレンダー・思い出・統計・リスト）が表示される", async () => {
     renderScreen();
     await screen.findByText("会った日数：0日");
 
@@ -73,17 +73,19 @@ describe("HomeScreen: 機能パネル", () => {
     expect(screen.getByText("カレンダー")).toBeTruthy();
     expect(screen.getByText("思い出")).toBeTruthy();
     expect(screen.getByText("統計")).toBeTruthy();
+    expect(screen.getByText("リスト")).toBeTruthy();
   });
 
-  it("次フェーズのパネル4枚（今日どうだった？・リスト・気分の記録・AIまとめ）が「次フェーズ」表示で出る", async () => {
+  // 027: 「リスト」パネルにonPressが付き、次フェーズから動くパネルへ移った
+  it("次フェーズのパネル3枚（今日どうだった？・気分の記録・AIまとめ）が「次フェーズ」表示で出る", async () => {
     renderScreen();
     await screen.findByText("会った日数：0日");
 
-    for (const label of ["今日どうだった？", "リスト", "気分の記録", "AIまとめ"]) {
+    for (const label of ["今日どうだった？", "気分の記録", "AIまとめ"]) {
       expect(screen.getByText(label)).toBeTruthy();
     }
-    // 4枚とも「次フェーズ」バッジを持つ（「準備中です」という文言は使わない）
-    expect(screen.getAllByText("次フェーズ")).toHaveLength(4);
+    // 3枚とも「次フェーズ」バッジを持つ（「準備中です」という文言は使わない）
+    expect(screen.getAllByText("次フェーズ")).toHaveLength(3);
     expect(screen.queryByText("準備中です")).toBeNull();
   });
 
@@ -120,6 +122,13 @@ describe("HomeScreen: 機能パネル", () => {
     fireEvent.click(await screen.findByText("統計"));
 
     expect(pushMock).toHaveBeenCalledWith("/stats");
+  });
+
+  it("リストパネルを押すと /list へ遷移する（027）", async () => {
+    renderScreen();
+    fireEvent.click(await screen.findByText("リスト"));
+
+    expect(pushMock).toHaveBeenCalledWith("/list");
   });
 
   it("次フェーズのパネルを押しても何も起きない（遷移しない）", async () => {

@@ -108,6 +108,26 @@ describe("buildDemoSeed", () => {
     expect(dates).toContain("2025-08-31");
   });
 
+  // 027: 「リスト」パネルが押せるようになるため、デモに達成済み・未達成の
+  // 両方を入れる（並び順が見えるように）
+  it("wishesに達成済みと未達成の両方が入っている", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    expect(seed.wishes.some((w) => w.doneAt === null)).toBe(true);
+    expect(seed.wishes.some((w) => w.doneAt !== null)).toBe(true);
+  });
+
+  it("wishesの作成者が両方のユーザーに振り分けられている", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    const creators = new Set(seed.wishes.map((w) => w.createdBy));
+    expect(creators.size).toBe(2);
+  });
+
+  it("wishesのcreatedAtに重複が無い（並び順を実際に確認できる）", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    const createdAts = seed.wishes.map((w) => w.createdAt);
+    expect(new Set(createdAts).size).toBe(createdAts.length);
+  });
+
   it("反応は投稿者本人ではなく相手から付く", () => {
     const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
     const postById = new Map(seed.posts.map((p) => [p.id, p]));
@@ -128,9 +148,9 @@ describe("buildDemoSeedSql", () => {
     expect(firstInsertIndex).toBeGreaterThan(lastDeleteIndex);
   });
 
-  it("外部キーの順で消す: reactions -> posts -> events -> invites -> couple_members -> couples -> user", () => {
+  it("外部キーの順で消す: reactions -> posts -> events -> wishes -> invites -> couple_members -> couples -> user", () => {
     const sql = buildDemoSeedSql(Date.UTC(2026, 7, 31));
-    const order = ["reactions", "posts", "events", "invites", "couple_members", "couples", "user"];
+    const order = ["reactions", "posts", "events", "wishes", "invites", "couple_members", "couples", "user"];
     const positions = order.map((table) => sql.indexOf(`DELETE FROM ${table}`));
     for (const pos of positions) expect(pos).toBeGreaterThan(-1);
     for (let i = 1; i < positions.length; i++) {

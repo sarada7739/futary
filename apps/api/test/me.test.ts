@@ -319,6 +319,10 @@ describe("me.delete", () => {
       { date: "2020-01-01", title: "予定", kind: "plan", repeatYearly: false, startTime: null, endTime: null, isShared: false },
       { context: contextFor(owner) },
     );
+    // 027・security-auditor指摘: wishes.couple_idもcouples(id)を参照するため、
+    // これを消さずにcouplesを消そうとするとFK違反でbatch全体が失敗し、
+    // アカウント削除が恒久的にできなくなる不具合があった（修正済み）
+    await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
 
     const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
     expect(result.ok).toBe(true);
@@ -332,6 +336,7 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT 1 FROM reactions WHERE post_id = ?1").bind(post.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM events WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT code FROM invites WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+    expect(await db.prepare("SELECT id FROM wishes WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
 
     // 自分のuser行は消え、相手のuser行はCandle型として残る（消えるのはペアのデータだけ）
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
@@ -358,6 +363,7 @@ describe("me.delete", () => {
     const partner = await createUser();
     await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
     await call(router.post.create, { body: "投稿" }, { context: contextFor(owner) });
+    await call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(owner) });
 
     await db
       .prepare("DELETE FROM reactions WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ?1)")
@@ -365,6 +371,7 @@ describe("me.delete", () => {
       .run();
     await db.prepare("DELETE FROM posts WHERE couple_id = ?1").bind(couple.id).run();
     await db.prepare("DELETE FROM events WHERE couple_id = ?1").bind(couple.id).run();
+    await db.prepare("DELETE FROM wishes WHERE couple_id = ?1").bind(couple.id).run();
     await db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(couple.id).run();
     await db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(couple.id).run();
 
@@ -395,7 +402,8 @@ describe("me.delete", () => {
     ["reactions削除後で止める", 1],
     ["posts削除後で止める", 2],
     ["events削除後で止める", 3],
-    ["invites削除後で止める", 4],
+    ["wishes削除後で止める", 4],
+    ["invites削除後で止める", 5],
   ] as const)("%s: 再実行すると最後まで進み、同じ結果になる", async (_label, stopAt) => {
     const owner = await createUser();
     const couple = await createCouple(owner);
@@ -404,6 +412,7 @@ describe("me.delete", () => {
     await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
     const post = await call(router.post.create, { body: "投稿" }, { context: contextFor(owner) });
     await call(router.reaction.toggle, { postId: post.id, kind: "heart" }, { context: contextFor(partner) });
+    await call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(owner) });
 
     const steps = [
       () =>
@@ -413,6 +422,7 @@ describe("me.delete", () => {
           .run(),
       () => db.prepare("DELETE FROM posts WHERE couple_id = ?1").bind(couple.id).run(),
       () => db.prepare("DELETE FROM events WHERE couple_id = ?1").bind(couple.id).run(),
+      () => db.prepare("DELETE FROM wishes WHERE couple_id = ?1").bind(couple.id).run(),
       () => db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(couple.id).run(),
     ];
     for (let i = 0; i < stopAt; i++) {
@@ -427,7 +437,54 @@ describe("me.delete", () => {
       await db.prepare("SELECT 1 FROM couple_members WHERE couple_id = ?1").bind(couple.id).first(),
     ).toBeNull();
     expect(await db.prepare("SELECT id FROM posts WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+    expect(await db.prepare("SELECT id FROM wishes WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
+  });
+
+  // 【security-auditor指摘・027】027でwishesを足した際、me.deleteのbatchに
+  // 削除文を足し忘れ、wishを1件でも持つペアはDELETE FROM couples実行時に
+  // FK違反で恒久的に削除が失敗する不具合があった（修正済み）。手で表の
+  // 一覧を並べたテストだけでは「次の表」で同じ漏れ方をするため、
+  // couple_id列を持つ表をsqlite_masterから機械的に検出し、その全表で
+  // me.delete後にペアの行が0件であることを確認する（authorization.test.tsの
+  // collectProcedures走査・viewer-key-coverage.test.tsのfindReadScopedProcedures
+  // と同じ「手で維持する一覧に頼らない」考え方）
+  it("couple_id列を持つ全ての表で、me.delete後にそのペアの行が0件になる", async () => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+    await call(router.post.create, { body: "投稿" }, { context: contextFor(owner) });
+    await call(
+      router.event.create,
+      { date: "2020-01-01", title: "予定", kind: "plan", repeatYearly: false, isShared: false },
+      { context: contextFor(owner) },
+    );
+    await call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(owner) });
+
+    // D1はPRAGMA文を許可しない（SQLITE_AUTH。実測で確認）ため、
+    // schema-integrity.test.tsのextractNamedChecksと同じ方式で、
+    // sqlite_masterのCREATE TABLE文字列から列名を直接拾う
+    const { results: tables } = await db
+      .prepare(`SELECT name AS name, sql AS sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'couples'`)
+      .all<{ name: string; sql: string }>();
+
+    const coupleIdTables = tables.filter((t) => /`couple_id`/.test(t.sql)).map((t) => t.name);
+
+    // 検出ロジック自体の健全性: 既知の表が最低限含まれていることを保証する
+    // （0件だと下のループが何もチェックせず成功してしまう）
+    expect(coupleIdTables).toEqual(
+      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes"]),
+    );
+
+    const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
+    expect(result.ok).toBe(true);
+
+    for (const table of coupleIdTables) {
+      const row = await db.prepare(`SELECT 1 FROM ${table} WHERE couple_id = ?1`).bind(couple.id).first();
+      expect(row, `${table} にペアの行が残っています`).toBeNull();
+    }
   });
 
   // 【記録: 受け入れている制約。security-auditor指摘を受けて範囲を訂正】

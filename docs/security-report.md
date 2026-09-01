@@ -373,3 +373,32 @@ PR #174に構造的修正（queryKeyへの閲覧者識別子追加）をプッ�
 （本文・写真の恒久的な孤児化、削除の恒久的な失敗）を生んでいた。
 `db.batch()`へ変更する1つの手当てで、Medium 1件・当初「受け入れる」と
 書いていた孤児`couples`行の両方が同時に解消された。
+
+---
+
+## [2026-09-01] 027 行きたい場所・食べたいものリスト（`wish.*`）
+
+対象: `apps/api/src/procedures/{wish,me}.ts`, `packages/contract/src/wish.ts`,
+`packages/db/src/schema/wish.ts`, `packages/db/migrations/0016_wishes.sql`,
+`packages/db/seed/demo.ts`, `apps/app/app/(tabs)/list.tsx`
+
+生ログは`artifacts/027/security-audit-raw.md`に初回・再監査の両方をそのまま
+保存済み（`security-requirements.md` 10節）。以下は要約と対応。
+
+| 重大度 | 内容 | 対応 |
+|---|---|---|
+| **High** | `me.delete`（024）が`wishes`を削除する文を持たないため、`wishes.couple_id`が`couples(id)`をFK参照する（D1は常にFKを強制する）ことと相まって、**wishを1件でも持つペアは`DELETE FROM couples`がFK違反で失敗し、アカウント削除が恒久的にできなくなる。**`db.batch()`は文のエラーで全文ロールバックするため、R2の画像は既に削除済みなのに本文等は残る中間状態にもなりうる | **対応済み**。`db.batch()`に`DELETE FROM wishes WHERE couple_id = ?1`をevents削除の直後・invites削除の前に追加。冒頭の削除順序コメントも1〜7に更新。再監査で解消を確認済み |
+| Medium | `couple_id`を持つ表が増えたときに`me.delete`の削除漏れを検知する仕組みが無かった。デモシード側には「表が増えたときはここへ足す」という注記と実際の追加があったのに、`me.delete`側には同種の注記も機械的な番人も無く、027で片方だけ漏れた | **対応済み**。`apps/api/test/me.test.ts`に「`couple_id`列を持つ全ての表で、me.delete後にそのペアの行が0件になる」テストを新設。`sqlite_master`のCREATE TABLE文字列を正規表現で走査し（D1は`PRAGMA table_info`を許可しないため`SQLITE_AUTH`。実測で確認。`schema-integrity.test.ts`の`extractNamedChecks`と同じ方式で代替）、新しい表を手で一覧に足し忘れても次から機械的に検知できる。再監査で解消を確認済み |
+| Low | 200件上限は「行数の上限」ではない。`COUNT`が`deleted_at IS NULL`で絞るため、認証済みメンバーはcreate→delete（論理削除）を繰り返して行を無制限に増やせる。ペア境界は越えず影響はD1のストレージ消費のみ | **A判断待ち**。ドキュメントの表現の問題であり実装のバグではないため、`docs/tasks/027-wish-list.md`5節への追記が必要かAへ判断を依頼した |
+| Low | `titleSchema`はtrimと1〜100文字だけを見ており、制御文字・双方向制御文字（U+202E等）を通す。`post.body`も同じ性質のため027固有ではない | **A判断待ち**。wishだけに正規化を入れると入力検証の規則が2系統に割れるため、`post.body`と共通の正規化を置くかという設計の問いとしてAへ判断を依頼した |
+| Low | 「追加」ボタンに`createWish.isPending`による二重発火防止が無く、`compose.tsx`等の既存画面の規則から1箇所だけ外れていた | **対応済み**。`disabled={!canSubmit \|\| createWish.isPending}`に修正 |
+
+**批評**: `docs/tasks/027-wish-list.md`90-91行目の「新規テーブルであり、
+他表からFK参照されない」という記述は、**参照される側**としては正しいが
+**`wishes`が`couples`・`user`を参照する側になったこと**（＝削除順序に
+影響する）を見落としていた。B（実装者）がこの記述を安全の根拠として
+読んでいたため、実装が漏れた一因になっている。024の`me.delete`実装時に
+`db.batch()`へ1本化する判断があったにもかかわらず、027でその配列に
+新しい表を足す運用がドキュメント上のどこにも明記されていなかった点は、
+024の監査で指摘された「Medium: 表が増えたときの削除漏れ」パターンが
+実際に一度も番人を持たないまま次のタスクで再現した例である。
