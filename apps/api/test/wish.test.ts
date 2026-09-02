@@ -60,19 +60,62 @@ async function createCouple(user: { id: string; name: string; email: string }) {
   return call(router.couple.create, {}, { context: contextFor(user) });
 }
 
-async function createWish(user: { id: string; name: string; email: string }, title = "水族館に行く") {
-  return call(router.wish.create, { title }, { context: contextFor(user) });
+async function createWish(
+  user: { id: string; name: string; email: string },
+  title = "水族館に行く",
+  note?: string,
+) {
+  return call(router.wish.create, { title, note }, { context: contextFor(user) });
 }
 
 describe("wish.create / wish.list（基本のCRUD）", () => {
-  it("作成したものがそのまま一覧に出る（doneAtはnull）", async () => {
+  it("作成したものがそのまま一覧に出る（doneAtはnull・createdByNameが設定者）", async () => {
     const user = await createUser();
     await createCouple(user);
     const created = await createWish(user, "花火大会を見る");
 
     const result = await call(router.wish.list, {}, { context: contextFor(user) });
 
-    expect(result.items).toEqual([{ id: created.id, title: "花火大会を見る", doneAt: null, createdAt: created.createdAt }]);
+    expect(result.items).toEqual([
+      {
+        id: created.id,
+        title: "花火大会を見る",
+        note: "",
+        doneAt: null,
+        createdAt: created.createdAt,
+        createdByName: user.name,
+      },
+    ]);
+  });
+
+  it("noteを付けて作成できる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user, "水族館に行く", "駅前の新しいところ");
+    expect(created.note).toBe("駅前の新しいところ");
+  });
+
+  it("noteが200文字ちょうどなら作れる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user, "行く", "あ".repeat(200));
+    expect(created.note).toHaveLength(200);
+  });
+
+  it("noteが200文字を超えるとINVALID_INPUT", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(router.wish.create, { title: "行く", note: "あ".repeat(201) }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("noteを省略しても空文字で作れる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user);
+    expect(created.note).toBe("");
   });
 
   it("titleがtrim後に空なら拒む", async () => {
@@ -80,6 +123,26 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
     await createCouple(user);
 
     await expect(call(router.wish.create, { title: "   " }, { context: contextFor(user) })).rejects.toThrow();
+  });
+
+  // security-auditor指摘（028）: noteの201文字（上限超え）テストはあったが、
+  // titleの101文字（上限超え）テストが無く、procedures/wish.tsの
+  // assertValidTitleが唯一の保証になっていることを固定するテストが片方
+  // 欠けていた
+  it("titleが100文字ちょうどなら作れる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user, "あ".repeat(100));
+    expect(created.title).toHaveLength(100);
+  });
+
+  it("titleが100文字を超えるとINVALID_INPUT", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(router.wish.create, { title: "あ".repeat(101) }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 
   it("titleは前後の空白がtrimされて保存される", async () => {
@@ -124,6 +187,185 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
 
     const result = await call(router.wish.list, {}, { context: contextFor(user) });
     expect(result.items.map((w) => w.id)).toEqual([undoneNew.id, undoneOld.id, doneNew.id, doneOld.id]);
+  });
+});
+
+// 028: メモを足したことで「消して入れ直す」が成り立たなくなったため新設
+describe("wish.update", () => {
+  it("titleとnoteを両方更新できる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user, "元のタイトル", "元のメモ");
+
+    const updated = await call(
+      router.wish.update,
+      { id: created.id, title: "新しいタイトル", note: "新しいメモ" },
+      { context: contextFor(user) },
+    );
+
+    expect(updated.title).toBe("新しいタイトル");
+    expect(updated.note).toBe("新しいメモ");
+  });
+
+  it("titleだけ更新するとnoteは変わらない", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user, "元のタイトル", "残るはずのメモ");
+
+    const updated = await call(
+      router.wish.update,
+      { id: created.id, title: "新しいタイトル" },
+      { context: contextFor(user) },
+    );
+
+    expect(updated.title).toBe("新しいタイトル");
+    expect(updated.note).toBe("残るはずのメモ");
+  });
+
+  it("noteだけ更新するとtitleは変わらない", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user, "残るはずのタイトル", "元のメモ");
+
+    const updated = await call(
+      router.wish.update,
+      { id: created.id, note: "新しいメモ" },
+      { context: contextFor(user) },
+    );
+
+    expect(updated.title).toBe("残るはずのタイトル");
+    expect(updated.note).toBe("新しいメモ");
+  });
+
+  it("noteを空文字にして消せる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user, "タイトル", "消されるメモ");
+
+    const updated = await call(
+      router.wish.update,
+      { id: created.id, note: "" },
+      { context: contextFor(user) },
+    );
+
+    expect(updated.note).toBe("");
+  });
+
+  it("titleがtrim後に空ならINVALID_INPUT", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user);
+
+    await expect(
+      call(router.wish.update, { id: created.id, title: "   " }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("noteが200文字を超えるとINVALID_INPUT", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user);
+
+    await expect(
+      call(router.wish.update, { id: created.id, note: "あ".repeat(201) }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  // security-auditor指摘（028）: wish.createと対称に、updateでもtitleの
+  // 境界値（100文字は通る・101文字は拒む）を固定する
+  it("titleを100文字ちょうどに更新できる", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user);
+
+    const updated = await call(
+      router.wish.update,
+      { id: created.id, title: "あ".repeat(100) },
+      { context: contextFor(user) },
+    );
+    expect(updated.title).toHaveLength(100);
+  });
+
+  it("titleを100文字を超えて更新するとINVALID_INPUT", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user);
+
+    await expect(
+      call(router.wish.update, { id: created.id, title: "あ".repeat(101) }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  // タスク定義1節: 設定者は編集しても変わらない
+  it("相手が編集しても、設定者の名前（createdByName）は変わらない", async () => {
+    const owner = await createUser();
+    await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+    const created = await createWish(owner, "オーナーの行きたい場所");
+
+    const updated = await call(
+      router.wish.update,
+      { id: created.id, note: "相手が書き足したメモ" },
+      { context: contextFor(partner) },
+    );
+
+    expect(updated.createdByName).toBe(owner.name);
+  });
+
+  // タスク定義2節: 「相手が入れたwishを、もう1人が更新・削除できる」（現状維持の確認）
+  it("作成者でないペアの相手もタイトル・メモを編集できる", async () => {
+    const owner = await createUser();
+    await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+    const created = await createWish(owner);
+
+    const updated = await call(
+      router.wish.update,
+      { id: created.id, title: "相手が改題" },
+      { context: contextFor(partner) },
+    );
+
+    expect(updated.title).toBe("相手が改題");
+  });
+
+  it("他ペアのidを指定するとNOT_FOUNDになり、対象は変わらない", async () => {
+    const userA = await createUser();
+    await createCouple(userA);
+    const wishA = await createWish(userA, "Aのタイトル");
+
+    const userB = await createUser();
+    await createCouple(userB);
+
+    await expect(
+      call(router.wish.update, { id: wishA.id, title: "改ざん" }, { context: contextFor(userB) }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    const row = await db.prepare("SELECT title FROM wishes WHERE id = ?1").bind(wishA.id).first<{ title: string }>();
+    expect(row?.title).toBe("Aのタイトル");
+  });
+
+  it("存在しないidはNOT_FOUND", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(router.wish.update, { id: crypto.randomUUID(), title: "存在しない" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("削除済みのidはNOT_FOUND", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    const created = await createWish(user);
+    await call(router.wish.delete, { id: created.id }, { context: contextFor(user) });
+
+    await expect(
+      call(router.wish.update, { id: created.id, title: "復活させようとする" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });
 

@@ -128,6 +128,14 @@ describe("buildDemoSeed", () => {
     expect(new Set(createdAts).size).toBe(createdAts.length);
   });
 
+  // 028: メモ有り・無しの両方を入れる（設定者2人分と同じく、名前が出ることが
+  // 見えるようにするのと同じ理由でメモがあることも見えるようにする）
+  it("wishesにメモ有りと無しの両方が入っている", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    expect(seed.wishes.some((w) => w.note.length > 0)).toBe(true);
+    expect(seed.wishes.some((w) => w.note.length === 0)).toBe(true);
+  });
+
   it("反応は投稿者本人ではなく相手から付く", () => {
     const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
     const postById = new Map(seed.posts.map((p) => [p.id, p]));

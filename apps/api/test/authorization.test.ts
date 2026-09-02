@@ -256,6 +256,18 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("wish.update は DEMO_COUPLE_ID が設定されていても FORBIDDEN（028）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(
+        router.wish.update,
+        { id: crypto.randomUUID(), title: "デモから改題" },
+        { context: contextFor(null, demoCoupleId) },
+      ),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("wish.delete は DEMO_COUPLE_ID が設定されていても FORBIDDEN（027）", async () => {
     const demoCoupleId = await createDemoCouple();
 
@@ -499,6 +511,13 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
     const user = await createUser();
     await expect(
       call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
+
+  it("wish.update（028）", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.wish.update, { id: crypto.randomUUID(), title: "行きたい場所" }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 
@@ -880,9 +899,9 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （027時点: health.get/me.get/me.update/me.uploadImageUrl/me.delete + couple 3 +
-    // invite 2 + post 4 + reaction 1 + event 4 + stats 1 + memory 1 + wish 4 = 25）
-    expect(procedures.length).toBeGreaterThanOrEqual(25);
+    // （028時点: health.get/me.get/me.update/me.uploadImageUrl/me.delete + couple 3 +
+    // invite 2 + post 4 + reaction 1 + event 4 + stats 1 + memory 1 + wish 5 = 26）
+    expect(procedures.length).toBeGreaterThanOrEqual(26);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの

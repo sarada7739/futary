@@ -1,0 +1,1 @@
+ALTER TABLE `wishes` ADD `note` text DEFAULT '' NOT NULL;
