@@ -1,5 +1,12 @@
 # 028: リストにメモと設定者を足す — テスト結果
 
+**訂正（2026-09-02）**: 本ファイルの「procedures側でINVALID_INPUTを明示的に
+検証する」という実装は`fix/wish-input-validation`で取り消され、契約のZod
+スキーマ（`.min()`/`.max()`）に戻した。理由はAが`conventions.md`5節に
+規約化した「`INVALID_INPUT`はDBを読まないと分からないことだけに使う」
+という線引き。このファイルは当時の記録として残す。詳細は
+`docs/security-report.md`「028」の訂正・`docs/worklog.md`参照。
+
 ## 027からの仕様変更
 
 タスク定義どおり、027の決定を2つ覆した。
