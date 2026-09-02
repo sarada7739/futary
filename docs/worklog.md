@@ -9111,3 +9111,18 @@ security-auditor指摘Low#2（me.deleteのmoods削除がuser_id側FKの不変条
 `docs/state.md`を更新。CI緑を確認してマージする。
 
 Session: B
+
+## 2026-09-02 セッションB（029: マージ完了）
+
+CI緑を確認し、`gh pr merge 209 --squash --delete-branch`でmainへマージ
+（`2c0b571`。Sessionトレーラー`B`を確認済み）。前例（026・fix/wish-
+input-validation等）と同じく、`--delete-branch`のローカルブランチ切り替え
+は`futary-A`ワークツリーが`main`をチェックアウトしているため失敗し、
+リモートブランチの削除だけ`git push origin --delete task/029-mood`で
+手動で行った。
+
+`docs/state.md`を更新（マージ完了を記録）。029（人間の指示→A起票→
+B実装→security-auditor監査→Rレビュー・番人強化→マージ、という
+一連の流れ）はこれで完全にクローズ。次のタスクは人間・Aの指示待ち。
+
+Session: B
