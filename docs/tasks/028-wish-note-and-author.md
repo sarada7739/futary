@@ -103,7 +103,11 @@ wish.update  { id, title?, note? } -> 更新後の1件
 - **`wish.update` で `created_by` が変わらない**
 - 他ペアの `id` を渡した `wish.update` が `NOT_FOUND`
 - ゲストは `wish.update` を通れない
-- `note` が trim 後 200 文字を超えたら `INVALID_INPUT`
+- ~~`note` が trim 後 200 文字を超えたら `INVALID_INPUT`~~
+  → **訂正（2026-09-02）。`BAD_REQUEST` である。**長さは**1つの項目の中で完結する**
+  条件であり、**契約の Zod に置く**（`conventions.md` 5節「入力の誤りを、どこで
+  弾き、どのコードで返すか」）。**この行が原因で、028 は長さの判定を手続き側へ
+  移していた。**A の誤りである。`fix/` で戻す
 - **`note` が空でも作れる・更新できる**
 - 渡さなかった項目が変わらない（`title` だけ更新したとき `note` が残る）
 - 既存行が空の `note` を持つ（マイグレーション）
