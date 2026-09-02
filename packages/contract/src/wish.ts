@@ -1,19 +1,24 @@
 import { oc } from "@orpc/contract";
 import { z } from "zod";
 
-// 長さの上限・下限はここではなくprocedures/wish.ts側でチェックし、
-// INVALID_INPUTとして返す。oRPCは`.input()`のZodスキーマ自体のバリデーション
-// 失敗を契約のエラー名にはマッピングせず、常にBAD_REQUESTとして返す
-// （@orpc/serverのvalidateInputの実装で確認済み）。タスク定義がINVALID_INPUTを
-// 明示しているため、trimだけをここで行い、長さの判定はハンドラに持たせる。
-// 【security-auditor指摘】wish固有の値であることが名前から分かるようにする。
-// event.tsにも同名（意味の違う値）のMAX_TITLE_LENGTHが private に存在しており、
-// パッケージのトップレベルから同名でexportすると、将来event系のコードが
-// うっかり@futary/contractからこちらをimportして上限が静かにすり替わりうる
+// 【訂正・2026-09-02。conventions.md 5節「入力の誤りを、どこで弾き、どの
+// コードで返すか」】長さは1つの項目の中で完結する条件であり、契約のZodに
+// 置く。BAD_REQUESTのままでよい（正しい画面なら送らない。送信前に止まって
+// いるはずで、利用者に見せる文言はそこで見せる）。「INVALID_INPUTにしたい」
+// を理由にZodで書ける条件を手続き側へ移さない、という規約に沿って戻した
+// （028のタスク定義がINVALID_INPUTと書いていたのが原因。Aの誤りとして
+// 訂正済み）。
+// 【security-auditor指摘・維持】wish固有の値であることが名前から分かる
+// ようにする。event.tsにも同名（意味の違う値）のMAX_TITLE_LENGTHが
+// private に存在しており、パッケージのトップレベルから同名でexportすると、
+// 将来event系のコードがうっかり@futary/contractからこちらをimportして
+// 上限が静かにすり替わりうる
 export const MAX_WISH_TITLE_LENGTH = 100;
 export const MAX_WISH_NOTE_LENGTH = 200;
-const titleSchema = z.string().trim();
-const noteSchema = z.string().trim();
+// trim後に空、または100文字を超えると拒否する（タスク定義6節）
+const titleSchema = z.string().trim().min(1, "タイトルを入力してください").max(MAX_WISH_TITLE_LENGTH);
+// メモは任意で空でよい（titleと違いmin(1)は無い）。200文字（trim後）まで
+const noteSchema = z.string().trim().max(MAX_WISH_NOTE_LENGTH, `メモは${MAX_WISH_NOTE_LENGTH}文字以内で入力してください`);
 
 // kindを持たない（027タスク定義1節）。createdByName（表示名。null許容。
 // event.createdByNameと同じ形）を返すが、created_by（ユーザーID）は返さない
@@ -40,14 +45,16 @@ export const wishListContract = oc.output(z.object({ items: z.array(wishSchema) 
 });
 
 // LIMIT_REACHED: 1ペア200件（未削除・達成済みを含む）の上限に達した（タスク定義5節）。
-// 押す前に残り枠を出さない。当たってから伝える
+// 押す前に残り枠を出さない。当たってから伝える。
+// titleSchema/noteSchemaの長さ違反はBAD_REQUEST（Zodのバリデーション失敗。
+// 手続き側でINVALID_INPUTを投げないため.errors()にも宣言しない。
+// conventions.md 5節「投げないコードを宣言しない」）
 export const wishCreateContract = oc
   .input(z.object({ title: titleSchema, note: noteSchema.optional() }))
   .output(wishSchema)
   .errors({
     FORBIDDEN: {},
     NEEDS_ONBOARDING: { status: 409 },
-    INVALID_INPUT: { status: 400 },
     LIMIT_REACHED: { status: 409 },
   });
 
@@ -62,7 +69,6 @@ export const wishUpdateContract = oc
     FORBIDDEN: {},
     NEEDS_ONBOARDING: { status: 409 },
     NOT_FOUND: {},
-    INVALID_INPUT: { status: 400 },
   });
 
 // toggleにしない。クライアントが目標の状態（done）を送る。サーバ側は同じdoneを

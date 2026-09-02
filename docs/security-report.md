@@ -431,3 +431,18 @@ PR #174に構造的修正（queryKeyへの閲覧者識別子追加）をプッ�
 契約のZodスキーマから長さチェックを外し、procedures側の明示的な検証
 （`assertValidTitle`/`assertValidNote`）に統一した。監査でこの実装変更に
 検証漏れ・実装ミスが無いことを確認済み。
+
+**訂正（2026-09-02。`fix/wish-input-validation`）**: Rのレビューで
+「wishだけの話ではない」という指摘を受け、Aが`conventions.md`5節に
+「入力の誤りを、どこで弾き、どのコードで返すか」を規約化した。
+**`INVALID_INPUT`を返すのはDBを読まないと分からないことだけ**で、
+**入力だけで判定できる条件（`title`/`note`の長さ）は契約のZodに置き、
+`BAD_REQUEST`のままでよい**、という線引きが決まった。028のタスク定義が
+`INVALID_INPUT`と書いていたこと自体がAの誤りと訂正され、procedures側の
+`assertValidTitle`/`assertValidNote`は削除し、契約のZodスキーマに
+`.min()`/`.max()`を戻した（上表のLow指摘1〜3の対応内容は、この訂正で
+前提が変わったため実質的に巻き戻っている。ただし**Low2（`MAX_WISH_
+TITLE_LENGTH`へのリネーム）はAが「良い判断」として維持を指示**しており、
+そのまま残る）。テストは全て`INVALID_INPUT`から`BAD_REQUEST`へ張り替えた
+（コードまで突き合わせる。`conventions.md`5節）。詳細は
+`docs/worklog.md`2026-09-02「fix/wish-input-validation」参照。
