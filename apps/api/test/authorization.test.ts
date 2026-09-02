@@ -960,12 +960,49 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   // 機械的に検出する。.use() の書き忘れは型エラーにならないため、これが唯一の防御線
   // （security-auditor 005監査 Medium指摘: authedProcedure の追加だけでは
   // 「.use() を丸ごと忘れる」経路は塞げない。Rレビューで指摘され追加した）
+  // 手続きの一覧を名前で固定する（Rレビュー指摘・029）。以前は数の下限
+  // （`toBeGreaterThanOrEqual`）だけを見ていたが、下限を実数まで上げ忘れても
+  // `>=`は緑のまま通ってしまい、番人が静かに意味を失っていた
+  // （029の起票時点で26のまま放置されていたことをsecurity-auditorが発見）。
+  // 名前の完全一致にすることで、手続きを足した人は先にこの一覧が赤くなり、
+  // 一覧を更新してから追加する形になる（#180で走査対象の一覧に施したのと
+  // 同じ考え方をここにも適用する）
+  const EXPECTED_PROCEDURE_PATHS = [
+    "health.get",
+    "me.get",
+    "me.update",
+    "me.uploadImageUrl",
+    "me.delete",
+    "couple.create",
+    "couple.get",
+    "couple.update",
+    "invite.issue",
+    "invite.accept",
+    "post.list",
+    "post.create",
+    "post.delete",
+    "post.uploadUrl",
+    "reaction.toggle",
+    "event.list",
+    "event.create",
+    "event.update",
+    "event.delete",
+    "stats.get",
+    "memory.get",
+    "wish.list",
+    "wish.create",
+    "wish.update",
+    "wish.setDone",
+    "wish.delete",
+    "mood.setToday",
+    "mood.clearToday",
+    "mood.list",
+  ].sort();
+
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
-    // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （029時点: health.get/me.get/me.update/me.uploadImageUrl/me.delete + couple 3 +
-    // invite 2 + post 4 + reaction 1 + event 4 + stats 1 + memory 1 + wish 5 + mood 3 = 29）
-    expect(procedures.length).toBeGreaterThanOrEqual(29);
+    // 手続きの一覧そのものが期待どおりである（増減・リネームのどちらも検出する）
+    expect(procedures.map((p) => p.path).sort()).toEqual(EXPECTED_PROCEDURE_PATHS);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの

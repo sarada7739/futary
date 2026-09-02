@@ -9086,3 +9086,28 @@ apps/app 213件・apps/api 399件）・`pnpm type-check`・`pnpm lint`全て
 `docs/state.md`を更新。次はコミット・PR作成・CI確認・Rへレビュー依頼。
 
 Session: B
+
+## 2026-09-02 セッションB（029: Rレビュー・受け入れ・認可テストの番人を強化）
+
+Rレビュー（PR #209）。「受け入れます。CIが終わり次第マージしてください」。
+確認事項: 0018のFK・複合主キー・CHECK、setToday/clearTodayがuser_idを
+引数に取らない構造、認可テストのデモ経由FORBIDDEN・他ペア混入無し。
+security-auditor指摘Low#2（me.deleteのmoods削除がuser_id側FKの不変条件に
+依存）について「1つの表の話として書かず、形として書いた（reactionsも
+同じ形と明記した）ので、`reactions`側の同じ弱点も将来見つかる」と
+確認を得た。
+
+**必須ではない追加提案**: `authorization.test.ts`の「許可リストに無い
+手続きは3基底のいずれかを経由している」テストが、手続き数の下限
+（`toBeGreaterThanOrEqual`）のままだった。今回security-auditorが
+「26のまま更新されていない」と指摘した箇所そのものであり、`>=`のため
+下限を上げ忘れても気づかれずに緑のまま通ってしまう構造だった。#180で
+走査対象一覧を数から名前の完全一致に直したのと同じ考え方を適用し、
+`EXPECTED_PROCEDURE_PATHS`（29件のパスを列挙した配列）と
+`toEqual(...sort())`に置き換えた。1つのパス名をわざと変えて実際に
+テストが赤くなることを確認（fault injection）してから元に戻し、
+`pnpm test`・`pnpm type-check`・`pnpm lint`全て通過を再確認した。
+
+`docs/state.md`を更新。CI緑を確認してマージする。
+
+Session: B
