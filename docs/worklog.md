@@ -8833,6 +8833,34 @@ Zodスキーマから長さチェックを外し（`trim()`のみ残す）、pro
 
 Session: B
 
+## 2026-09-02 セッションB（028: Rレビュー1往復・受け入れ・マージ完了）
+
+Rレビュー（PR #203）。「BAD_REQUESTの発見は正しい。ソースで確認した」と
+確認を得た。そのうえで、「wishだけの話ではない」という指摘を受けた。
+`INVALID_INPUT`を宣言している契約は`couple`/`event`/`me`/`post`/`wish`の
+5つあり、「Zodの`.max()`のみの制約は実際にはBAD_REQUESTになる」
+「手続き内で明示的にthrowした場合だけINVALID_INPUTになる」という
+切り分けが、どの手続きにも文書化されないまま暗黙に存在していた（例:
+`post.ts`の本文2000文字制限はZodのみでBAD_REQUEST、「本文と画像が両方
+空」は手続き内チェックでINVALID_INPUT）。027の`titleSchema`が見逃された
+のと同じ形の見落としだが、他の手続きは既存テストが「入力バリデーション
+で弾かれる」（`.rejects.toThrow()`、コード不問）と書かれていたため、
+たまたま無事だった。
+
+この切り分けを規約として明文化するか、028のwishのように全部を手続き側へ
+寄せる方針にするかは028の範囲を超える判断のため、Aへエスカレーションした
+（Rも「028の範囲外」との判断）。CI緑を確認し、Rが「受け入れます」。
+`gh pr merge 203 --squash --delete-branch`でmainへマージした
+（`14faa5f`。Sessionトレーラー`B`を確認済み）。
+
+前回（PR #196・#198）と同様、`gh pr merge`の`--delete-branch`が
+ローカルブランチを`main`へ切り替えようとして失敗した（`futary-A`
+ワークツリーが既に`main`をチェックアウトしているため）。GitHub側の
+マージ自体は成功していたため、リモートブランチの削除だけ手動で行った。
+
+`docs/state.md`を更新（028完了・マージ済み・A判断待ちの論点を記録）。
+
+Session: B
 ## 2026-09-02 セッションA: 入力検証のエラーコードの線を決めた（R の求めに応じて）
 
 028 で B が発見した事実。**oRPC は契約の `.input()`（Zod）の失敗を必ず
@@ -8917,3 +8945,70 @@ Session: A
 **揃えたことも、揃っていないことも書く。**
 
 Session: A
+## 2026-09-02 セッションB（fix/wish-input-validation: 028のエラーコード規約違反を修正）
+
+028のPR #203マージ後、RとAへ「Zodバリデーション失敗がBAD_REQUESTに
+なる」という発見をエスカレーションしていた。Aが判断し、
+`conventions.md`5節に「入力の誤りを、どこで弾き、どのコードで返すか」を
+規約化した（PR #205 / `ce0d5c3`）。
+
+**結論**: 契約のZodで書ける条件（`title`/`note`の長さ）を、
+`INVALID_INPUT`にしたいという理由で手続き側へ移すのは誤りだった。
+`INVALID_INPUT`はDBを読まないと分からないことだけに使う。リポジトリ
+全体で実際にコードを見て文言を出し分けている画面は`calendar.tsx`の
+`event.update`（「その日には既に会った日がある」）1箇所だけだった、と
+Aが根拠を示した。028タスク定義の「noteがtrim後200文字を超えたら
+INVALID_INPUT」という記述自体がAの誤りと訂正され、`fix/`で戻すよう
+指示された。
+
+**対応**:
+- `packages/contract/src/wish.ts`: `titleSchema`/`noteSchema`に
+  `.min(1)`/`.max()`を戻した（trimのみの状態から）
+- `apps/api/src/procedures/wish.ts`: `assertValidTitle`/`assertValidNote`
+  を削除。`wishCreate`/`wishUpdate`から呼び出しも削除
+- `INVALID_INPUT`を投げなくなった`wishCreateContract`/
+  `wishUpdateContract`の`.errors()`から宣言を外した（`LIMIT_REACHED`・
+  `NOT_FOUND`は残る）
+- `apps/api/test/wish.test.ts`: title/noteの境界値テスト（101/201文字）を
+  `INVALID_INPUT`から`BAD_REQUEST`へ張り替えた。「titleがtrim後に空」の
+  既存テストも`.rejects.toThrow()`のみだったのを`code: "BAD_REQUEST"`の
+  明示確認に直した（コードまで突き合わせる。`conventions.md`5節）
+- `MAX_WISH_TITLE_LENGTH`/`MAX_WISH_NOTE_LENGTH`へのリネームは
+  security-auditor指摘への対応としてAが「良い判断」と評価しており、
+  そのまま維持した
+- `docs/security-report.md`「028」・`artifacts/028/test-results.md`は
+  当時の記録として残し、書き換えずに冒頭へ訂正の追記のみ行った
+
+`pnpm -w test`（apps/app 203件・apps/api 377件・packages/db 21件）・
+型チェック・lint全て通過。
+
+`docs/state.md`を更新（訂正内容とAの判断根拠を記録）。次はRへレビュー
+依頼する。
+
+Session: B
+
+## 2026-09-02 セッションB（fix/wish-input-validation: Rレビュー・受け入れ・マージ完了）
+
+Rレビュー（PR #206）。`conventions.md`5節を自分で開いて確認したうえで、
+「Aの判断どおりの形になっている」と確認を得た。具体的に2点を実測で
+確認したとの報告があった:
+
+1. **投げるコードと宣言の数が一致している**: `wish.ts`が投げるものは
+   `LIMIT_REACHED`×1・`NOT_FOUND`×3で、契約が宣言しているものと過不足
+   なし。`INVALID_INPUT`だけが消え、宣言を外しすぎて未宣言のコードが
+   残る形になっていないことを確認
+2. **テストが緩んでいない**: `BAD_REQUEST`を名指ししているテストが13件、
+   素の`.rejects.toThrow()`はゼロ（Rの最初の数え方で1件出たのは
+   コメント文字列を数えていたためと自己訂正していた）
+
+CI緑を確認し、Rが「受け入れます」。`gh pr merge 206 --squash
+--delete-branch`でmainへマージした（`e326b2b`。Sessionトレーラー`B`を
+確認済み）。前回までと異なり、今回は`--delete-branch`のローカル
+ブランチ切り替えが再度失敗したため（`futary-A`ワークツリーが`main`を
+チェックアウトしているため）、リモートブランチの削除だけ手動で行った。
+
+`docs/state.md`を更新（マージ完了を記録）。028（人間の要望→A起票→B実装→
+oRPCの実挙動発見→Rの指摘→Aの規約化→Bが規約に合わせて戻す、という
+一連の往復）はこれで完全にクローズ。
+
+Session: B

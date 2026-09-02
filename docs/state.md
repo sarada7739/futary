@@ -3,8 +3,35 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-02 / セッションB。**028（リストにメモと設定者を足す）
-実装完了。`task/028-wish-note`ブランチとしてRへレビュー依頼予定。**
+**最終更新**: 2026-09-02 / セッションB。**028のwish入力検証をZodスキーマへ
+戻す修正、PR #206をRの受け入れを得てmainへsquash merge済み**
+（`028のwish入力検証をZodスキーマへ戻す（Aの判断） (#206)`）。
+Rが「投げるコードと.errors()宣言が数まで一致している（LIMIT_REACHED×1・
+NOT_FOUND×3）」「BAD_REQUESTを名指ししているテストが13件、素の
+`.rejects.toThrow()`はゼロ」と実測で確認したうえで受け入れた。
+
+Rが「028はwishだけの話ではない」と指摘し、Aが`conventions.md`5節に
+「入力の誤りを、どこで弾き、どのコードで返すか」を規約化した。
+**`INVALID_INPUT`を返すのはDBを読まないと分からないことだけ。**
+入力だけで判定できる条件（`title`/`note`の長さ）は契約のZodに置き、
+`BAD_REQUEST`のままでよい。028のタスク定義が「長さ違反はINVALID_INPUT」
+と書いていたこと自体がAの誤りと訂正され、028で実装した
+`assertValidTitle`/`assertValidNote`（procedures側の明示的な検証）を削除し、
+契約の`titleSchema`/`noteSchema`に`.min()`/`.max()`を戻した。
+`INVALID_INPUT`を投げなくなった`wishCreateContract`/`wishUpdateContract`
+から`.errors()`の宣言も外した（「投げないコードを宣言しない」）。
+テストは全て`BAD_REQUEST`で突き合わせる形に張り替えた
+（`.rejects.toThrow()`だけにしない）。`MAX_WISH_TITLE_LENGTH`/
+`MAX_WISH_NOTE_LENGTH`へのリネームはAが「良い判断」としてそのまま維持を
+指示したため変更していない。
+
+`docs/security-report.md`「028」・`artifacts/028/test-results.md`は
+当時の記録として残し、冒頭に訂正の追記のみ行った（書き換えない）。
+
+`pnpm -w test`（apps/app 203件・apps/api 377件・packages/db 21件）・
+`pnpm -r type-check`・`eslint .`全て通過。
+
+以下、2026-09-02より前の記録。
 
 人間の要望（「設定者の名前を表示。編集権限は両方。メモ欄を追加して、
 自由入力できる」）を受けてAが起票したタスク。027の決定を2つ覆した:
@@ -33,6 +60,17 @@ security-requirements.md 6節の記述漏れ）。詳細は`docs/security-report
 経路をデスクトップ幅・モバイル幅の両方で確認済み（`artifacts/028/
 test-results.md`）。認証必須の経路（実際のタイトル・メモの編集操作）は
 `artifacts/028/manual-check.md`に人間への確認項目として列挙済み。
+
+**Rレビュー（受け入れ・1点はA判断待ち）**: 「BAD_REQUESTの発見は正しい。
+ソースで確認した」と確認を得た上で、**wishだけの話ではない**という指摘を
+受けた。`INVALID_INPUT`を宣言している契約は`couple`/`event`/`me`/`post`/
+`wish`の5つあり、「Zodの`.max()`のみ→実際はBAD_REQUEST」「手続き内で
+明示チェック→INVALID_INPUT」という区別が、どの手続きにもこれまで
+文書化されないまま暗黙に存在していた（027の`titleSchema`が見逃された
+のと同じ形。他の手続きはたまたまテストがコード不問だったため無事だった）。
+**この切り分けを規約として明文化するか、028のwishのように全部を手続き側へ
+寄せる方針にするか**をAへ判断依頼した（028の範囲でpost/event/me/couple
+まで寄せ直すことはしていない。Rも「028の範囲外」との判断）。
 
 **最終更新**: 2026-09-02 / セッションB。**人間の実機報告（「コードで参加する
 を選び、コード入力後に再び参加画面に戻る」）を修正。PR #199・#200、

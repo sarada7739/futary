@@ -1,24 +1,15 @@
-import { MAX_WISH_NOTE_LENGTH, MAX_WISH_TITLE_LENGTH } from "@futary/contract";
 import { implementer } from "../implementer";
 import { readProcedure, writeProcedure } from "./base";
 
 // タスク定義5節: 1ペアあたりの上限。200に当たる利用者はまず居ない
 const MAX_WISHES_PER_COUPLE = 200;
 
-// 契約の`.input()`（Zod）はtrimだけを行い、長さの下限・上限はここで判定する。
-// oRPCの`validateInput`はZodスキーマのバリデーション失敗を常にBAD_REQUESTとして
-// 返し、契約の`.errors()`で宣言したINVALID_INPUTにはマッピングしない
-// （@orpc/serverの実装で確認済み）。タスク定義がINVALID_INPUTを明示している
-// ため、ここで明示的に検証してINVALID_INPUTとして返す
-// errorsの型はhandlerごとにoRPCが生成するため、INVALID_INPUT()の戻り値型
-// （ORPCError<...>）を厳密に固定せず、共変な形（unknownを返す関数）で
-// 受け取る
-function assertValidTitle(title: string, errors: { INVALID_INPUT: () => unknown }): void {
-  if (title.length < 1 || title.length > MAX_WISH_TITLE_LENGTH) throw errors.INVALID_INPUT();
-}
-function assertValidNote(note: string, errors: { INVALID_INPUT: () => unknown }): void {
-  if (note.length > MAX_WISH_NOTE_LENGTH) throw errors.INVALID_INPUT();
-}
+// 【訂正・2026-09-02。conventions.md 5節】titleSchema/noteSchemaの
+// min/max（trim後1〜100文字・0〜200文字）は契約のZodに置く。入力だけで
+// 判定できる条件であり、失敗すればBAD_REQUESTになる（oRPCの標準動作）。
+// 以前ここにあったassertValidTitle/assertValidNote（INVALID_INPUTを明示的に
+// throwする関数）は削除した。「INVALID_INPUTにしたい」を理由にZodで書ける
+// 条件を手続き側へ移さない、という規約に沿う
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -86,12 +77,7 @@ const wishList = implementer.wish.list.use(readProcedure).handler(async ({ conte
 const wishCreate = implementer.wish.create.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
 
-  // 【security-auditor指摘】安く拒否できるものを先に拒否する。D1へのCOUNT
-  // クエリより前に入力の形を確認し、不正な入力ではD1を叩かないようにする
-  // （wish.updateと検証の順序を揃える）
   const note = input.note ?? "";
-  assertValidTitle(input.title, errors);
-  assertValidNote(note, errors);
 
   const countRow = await db
     .prepare(`SELECT COUNT(*) AS count FROM wishes WHERE couple_id = ?1 AND deleted_at IS NULL`)
@@ -105,7 +91,7 @@ const wishCreate = implementer.wish.create.use(writeProcedure).handler(async ({ 
   // 非null（base.ts冒頭コメント参照）。作成者自身の応答なので名前を引き直す
   // 必要はない
   const createdByName = context.user!.name;
-  // input.titleは契約のtitleSchema（trim済み）を通過し、上でassertValidTitle済み
+  // input.titleは契約のtitleSchema（trim済み・1〜100文字）を通過済み
   await db
     .prepare(
       `INSERT INTO wishes (id, couple_id, title, note, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
@@ -124,9 +110,6 @@ const wishCreate = implementer.wish.create.use(writeProcedure).handler(async ({ 
 // （021のplan持ち主の仕組みはここには持ち込まない。タスク定義2節）
 const wishUpdate = implementer.wish.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId } = context;
-
-  if (input.title !== undefined) assertValidTitle(input.title, errors);
-  if (input.note !== undefined) assertValidNote(input.note, errors);
 
   const row = await db
     .prepare(
