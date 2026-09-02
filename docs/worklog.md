@@ -8903,3 +8903,45 @@ R が「規約として明文化するか、028 の wish のように全部を�
   **弾く場所を移してもコードが変わったことに気づけない**
 
 Session: A
+
+## 2026-09-02 セッションB（fix/wish-input-validation: 028のエラーコード規約違反を修正）
+
+028のPR #203マージ後、RとAへ「Zodバリデーション失敗がBAD_REQUESTに
+なる」という発見をエスカレーションしていた。Aが判断し、
+`conventions.md`5節に「入力の誤りを、どこで弾き、どのコードで返すか」を
+規約化した（PR #205 / `ce0d5c3`）。
+
+**結論**: 契約のZodで書ける条件（`title`/`note`の長さ）を、
+`INVALID_INPUT`にしたいという理由で手続き側へ移すのは誤りだった。
+`INVALID_INPUT`はDBを読まないと分からないことだけに使う。リポジトリ
+全体で実際にコードを見て文言を出し分けている画面は`calendar.tsx`の
+`event.update`（「その日には既に会った日がある」）1箇所だけだった、と
+Aが根拠を示した。028タスク定義の「noteがtrim後200文字を超えたら
+INVALID_INPUT」という記述自体がAの誤りと訂正され、`fix/`で戻すよう
+指示された。
+
+**対応**:
+- `packages/contract/src/wish.ts`: `titleSchema`/`noteSchema`に
+  `.min(1)`/`.max()`を戻した（trimのみの状態から）
+- `apps/api/src/procedures/wish.ts`: `assertValidTitle`/`assertValidNote`
+  を削除。`wishCreate`/`wishUpdate`から呼び出しも削除
+- `INVALID_INPUT`を投げなくなった`wishCreateContract`/
+  `wishUpdateContract`の`.errors()`から宣言を外した（`LIMIT_REACHED`・
+  `NOT_FOUND`は残る）
+- `apps/api/test/wish.test.ts`: title/noteの境界値テスト（101/201文字）を
+  `INVALID_INPUT`から`BAD_REQUEST`へ張り替えた。「titleがtrim後に空」の
+  既存テストも`.rejects.toThrow()`のみだったのを`code: "BAD_REQUEST"`の
+  明示確認に直した（コードまで突き合わせる。`conventions.md`5節）
+- `MAX_WISH_TITLE_LENGTH`/`MAX_WISH_NOTE_LENGTH`へのリネームは
+  security-auditor指摘への対応としてAが「良い判断」と評価しており、
+  そのまま維持した
+- `docs/security-report.md`「028」・`artifacts/028/test-results.md`は
+  当時の記録として残し、書き換えずに冒頭へ訂正の追記のみ行った
+
+`pnpm -w test`（apps/app 203件・apps/api 377件・packages/db 21件）・
+型チェック・lint全て通過。
+
+`docs/state.md`を更新（訂正内容とAの判断根拠を記録）。次はRへレビュー
+依頼する。
+
+Session: B
