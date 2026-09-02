@@ -8767,3 +8767,68 @@ Session: B
 同じ場所に書く」）。
 
 Session: A
+
+## 2026-09-02 セッションB（028: リストにメモと設定者を足す、実装完了）
+
+人間から「リスト機能: 設定者の名前を表示。編集権限は両方。メモ欄を
+追加して、自由入力できる」という要望があった。うち2点（設定者の名前表示・
+メモ欄追加）は027で明確に決めていた仕様（「誰が入れたか画面に出さない」
+「メモ欄は持たない」）を覆すものだったため、B単独で判断せずAへ伝えて
+タスク化を依頼した（PR #202 / 028）。
+
+`docs/tasks/028-wish-note-and-author.md`どおり実装した。
+
+**サーバ側**: `wishes.note`列を追加（`0017_wishes_note.sql`。
+`ALTER TABLE ADD COLUMN`一本。表の作り直し無し）。`wish.list`に
+`user`のLEFT JOINを追加し`createdByName`を返す（`created_by`のIDは
+引き続き返さない）。`wish.update`（`{id, title?, note?}`）を新設し、
+`COALESCE`で渡されなかった項目を変えない・`created_by`を更新しない形に
+した。`wish.create`もnote対応、`wish.setDone`もcreatedByName解決を追加。
+
+**重要な発見**: oRPCの`.input()`（Zod）スキーマのバリデーション失敗が、
+契約で`INVALID_INPUT`を宣言していても実際には常に`BAD_REQUEST`になる
+ことが判明した（`@orpc/server`の`validateInput`実装をソースで確認）。
+027の`titleSchema`（Zodの`.min(1).max(100)`のみ）も同じ問題を抱えていたが、
+テストが`.rejects.toThrow()`のみでエラーコード不問だったため気づかれ
+なかった。028のタスク定義がエラーコードを明示していたため、契約の
+Zodスキーマから長さチェックを外し（`trim()`のみ残す）、procedures側で
+`assertValidTitle`/`assertValidNote`という関数を新設して明示的に検証・
+`INVALID_INPUT`として返す形に統一した。
+
+**フロントエンド**: `(tabs)/list.tsx`に設定者名の表示（編集可否とは無関係。
+押せる/押せないの差を名前の横に作らない）・メモの表示（一覧にそのまま、
+折りたたまない）・インライン編集フォーム（モーダルにしない。027の方針を
+編集にも引き継いだ）を実装。
+
+**デモシード**: 既存7件（未達成4件・達成済み3件、設定者2人に分配済み）に
+メモを追加（有り4件・無し3件）。
+
+**security-auditorの監査でHigh以上はゼロ。**Low 4件、全て対応済み:
+1. titleの境界値（101文字）テストが無く、Zodスキーマから外れた唯一の
+   保証（procedures側の手書き関数1行）を固定する回帰テストが欠けていた
+   → title/note双方の境界値テスト（100/200文字ちょうどは通る、
+   101/201文字はINVALID_INPUT）を追加
+2. `MAX_TITLE_LENGTH`という汎用名が`event.ts`内の同名private定数
+   （意味が違う。200文字）と衝突する懸念 →
+   `MAX_WISH_TITLE_LENGTH`/`MAX_WISH_NOTE_LENGTH`にリネーム
+3. `wish.create`が入力検証よりD1へのCOUNT問い合わせを先に行っていた
+   （不正な入力でも必ず1回D1を叩く）→ 検証を先に移し`wish.update`と
+   順序を揃えた
+4. `security-requirements.md`6節の「制御文字を正規化していない対象」の
+   列挙に`wish.note`が入っていなかった → 追記
+詳細は`docs/security-report.md`「028」・`artifacts/028/security-audit-raw.md`
+参照。
+
+`pnpm -w test`（apps/app 203件・apps/api 377件・packages/db 21件）・
+`pnpm -r type-check`・`eslint .`全て通過。`wrangler dev`（ローカルD1に
+0017適用済み）+`expo start --web`でBがブラウザ実機確認: 未認証（デモ）
+経路で設定者名（ゆい・れん）とメモが正しく表示され、デスクトップ幅・
+モバイル幅375×812ともレイアウト崩れなし、ゲストには「編集」ボタンが
+出ないことを確認した。認証必須の経路（実際のタイトル・メモの編集操作、
+相手の編集を確認する2アカウント操作）は`artifacts/028/manual-check.md`に
+人間への確認項目として列挙した。
+
+`docs/state.md`を更新（028実装完了・Rへのレビュー依頼予定を記載）。
+次はRへレビュー依頼する。
+
+Session: B

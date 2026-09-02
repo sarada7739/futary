@@ -5,9 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // 027: 行きたい場所・食べたいものリスト画面の結合テスト。timeline-screen.test.tsxと
 // 同じ形でoRPCクライアントをモックする
-const { listMock, createMock, setDoneMock, deleteMock } = vi.hoisted(() => ({
+const { listMock, createMock, updateMock, setDoneMock, deleteMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
+  updateMock: vi.fn(),
   setDoneMock: vi.fn(),
   deleteMock: vi.fn(),
 }));
@@ -25,6 +26,7 @@ vi.mock("../lib/orpc", async () => {
     wish: {
       list: listMock,
       create: createMock,
+      update: updateMock,
       setDone: setDoneMock,
       delete: deleteMock,
     },
@@ -40,8 +42,10 @@ function makeWish(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: "wish-1",
     title: "水族館に行く",
+    note: "",
     doneAt: null,
     createdAt: Math.floor(Date.now() / 1000),
+    createdByName: "自分",
     ...overrides,
   };
 }
@@ -205,6 +209,97 @@ describe("ListScreen: チェック・削除", () => {
   });
 });
 
+// 028: 設定者の名前・メモの表示
+describe("ListScreen: 設定者の名前・メモ", () => {
+  it("設定者の名前が表示される", async () => {
+    listMock.mockResolvedValue({ items: [makeWish({ createdByName: "れん" })] });
+
+    renderScreen();
+
+    expect(await screen.findByText("水族館に行く")).toBeTruthy();
+    expect(screen.getByText("れん")).toBeTruthy();
+  });
+
+  it("メモがあれば一覧にそのまま表示される（折りたたまない）", async () => {
+    listMock.mockResolvedValue({ items: [makeWish({ note: "駅前の新しいところ" })] });
+
+    renderScreen();
+
+    expect(await screen.findByText("駅前の新しいところ")).toBeTruthy();
+  });
+
+  it("メモが無ければ何も表示されない", async () => {
+    listMock.mockResolvedValue({ items: [makeWish({ note: "" })] });
+
+    renderScreen();
+
+    expect(await screen.findByText("水族館に行く")).toBeTruthy();
+    // メモ欄の要素自体が無いことを確認（空文字のTextが描画されない）
+    expect(screen.queryByTestId("wish-note")).toBeNull();
+  });
+});
+
+// 028: タイトル・メモの編集
+describe("ListScreen: 編集", () => {
+  it("「編集」を押すと入力欄が開き、保存するとwish.updateが呼ばれる", async () => {
+    const wish = makeWish({ id: "to-edit", title: "元のタイトル", note: "元のメモ" });
+    listMock.mockResolvedValueOnce({ items: [wish] });
+    const updated = { ...wish, title: "新しいタイトル", note: "新しいメモ" };
+    updateMock.mockResolvedValue(updated);
+    listMock.mockResolvedValueOnce({ items: [updated] });
+
+    renderScreen();
+    expect(await screen.findByText("元のタイトル")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("編集"));
+    const titleInput = screen.getByTestId("wish-edit-title");
+    const noteInput = screen.getByTestId("wish-edit-note");
+    fireEvent.change(titleInput, { target: { value: "新しいタイトル" } });
+    fireEvent.change(noteInput, { target: { value: "新しいメモ" } });
+    await act(async () => {
+      fireEvent.click(screen.getByText("保存"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(updateMock).toHaveBeenCalledWith(
+        { id: "to-edit", title: "新しいタイトル", note: "新しいメモ" },
+        expect.anything(),
+      ),
+    );
+    expect(await screen.findByText("新しいタイトル")).toBeTruthy();
+  });
+
+  it("「キャンセル」を押すとwish.updateを呼ばずに表示に戻る", async () => {
+    const wish = makeWish({ title: "元のタイトル" });
+    listMock.mockResolvedValue({ items: [wish] });
+
+    renderScreen();
+    expect(await screen.findByText("元のタイトル")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("編集"));
+    const titleInput = screen.getByTestId("wish-edit-title");
+    fireEvent.change(titleInput, { target: { value: "書きかけの変更" } });
+    fireEvent.click(screen.getByText("キャンセル"));
+
+    expect(await screen.findByText("元のタイトル")).toBeTruthy();
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+
+  it("タイトルを空にすると保存ボタンが押せない", async () => {
+    const wish = makeWish({ title: "元のタイトル" });
+    listMock.mockResolvedValue({ items: [wish] });
+
+    renderScreen();
+    fireEvent.click(await screen.findByText("編集"));
+    const titleInput = screen.getByTestId("wish-edit-title");
+    fireEvent.change(titleInput, { target: { value: "   " } });
+
+    fireEvent.click(screen.getByText("保存"));
+    expect(updateMock).not.toHaveBeenCalled();
+  });
+});
+
 // タスク定義11節の確認観点: ゲストで開いたとき、入力欄が押せる形で置かれていないか
 describe("ListScreen: ゲスト閲覧", () => {
   it("入力欄・追加ボタンの代わりにログイン導線が出る。チェック・削除も押せない", async () => {
@@ -226,6 +321,8 @@ describe("ListScreen: ゲスト閲覧", () => {
     expect(screen.queryByText("追加")).toBeNull();
     expect(screen.queryByLabelText("達成済みにする")).toBeNull();
     expect(screen.queryByText("削除")).toBeNull();
+    // 028: 編集ボタンもゲストには出さない
+    expect(screen.queryByText("編集")).toBeNull();
 
     fireEvent.click(screen.getByText("ログイン"));
     expect(exitGuestMode).toHaveBeenCalled();

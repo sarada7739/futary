@@ -402,3 +402,32 @@ PR #174に構造的修正（queryKeyへの閲覧者識別子追加）をプッ�
 新しい表を足す運用がドキュメント上のどこにも明記されていなかった点は、
 024の監査で指摘された「Medium: 表が増えたときの削除漏れ」パターンが
 実際に一度も番人を持たないまま次のタスクで再現した例である。
+
+---
+
+## [2026-09-02] 028 リストにメモと設定者を足す（`wish.*`の拡張）
+
+対象: `apps/api/src/procedures/wish.ts`, `packages/contract/src/wish.ts`,
+`packages/db/src/schema/wish.ts`, `packages/db/migrations/0017_wishes_note.sql`,
+`apps/app/app/(tabs)/list.tsx`
+
+生ログは`artifacts/028/security-audit-raw.md`にそのまま保存済み
+（`security-requirements.md` 10節）。**High以上はゼロ。**Low 4件、全て対応済み。
+
+| 重大度 | 内容 | 対応 |
+|---|---|---|
+| Low | `title`の上限（100文字）テストが無く、契約のZodスキーマから`.max()`を外したことで唯一の保証が手書き関数1行（`assertValidTitle`）に集約されたにもかかわらず、それを固定する回帰テストが欠けていた（`note`の201文字テストは既にあるのに`title`の101文字テストが片方欠けていた） | **対応済み**。`wish.create`/`wish.update`両方にtitleの境界値テスト（100文字ちょうどは通る・101文字はINVALID_INPUT）を追加。noteの200文字ちょうども併せて追加した |
+| Low | wish専用の値（100文字）が`MAX_TITLE_LENGTH`という汎用名で`@futary/contract`のトップレベルからexportされており、`event.ts`内の同名private定数（200文字。意味が違う）と衝突する懸念があった。将来event系のコードがうっかり`@futary/contract`から`MAX_TITLE_LENGTH`をimportすると型エラーもテスト失敗も出ないまま上限が静かにすり替わりうる | **対応済み**。`MAX_WISH_TITLE_LENGTH`/`MAX_WISH_NOTE_LENGTH`にリネームした |
+| Low | `wish.create`が入力検証（`assertValidTitle`/`assertValidNote`）より先に上限判定のCOUNTクエリをD1へ投げていた。不正な入力1件につき必ずD1クエリが1回走る形になっていた（`wish.update`は検証が先で順序が非対称だった） | **対応済み**。検証をCOUNTより前に移し、`wish.update`と順序を揃えた |
+| Low | `security-requirements.md`6節「制御文字・双方向制御文字は正規化していない」の列挙が`wish.title`・`post.body`・`event.title`のままで、028で増えた`wish.note`が入っていなかった | **対応済み**。6節の列挙に`wish.note`を追記した |
+
+**重要な発見（実装上の技術的事実。仕様変更ではない）**: oRPCの`.input()`
+（Zod）スキーマのバリデーション失敗は、契約の`.errors()`で`INVALID_INPUT`を
+宣言していても、`@orpc/server`の`validateInput`実装により**常に
+`BAD_REQUEST`として返る**（ソースコードを実際に読んで確認）。027の
+`titleSchema`（Zodの`.min(1).max(100)`のみ）もこの問題を抱えていたが、
+027のテストが`.rejects.toThrow()`のみでエラーコードを確認していなかった
+ため気づかれなかった。028のタスク定義がエラーコードを明示していたため、
+契約のZodスキーマから長さチェックを外し、procedures側の明示的な検証
+（`assertValidTitle`/`assertValidNote`）に統一した。監査でこの実装変更に
+検証漏れ・実装ミスが無いことを確認済み。
