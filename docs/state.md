@@ -3,9 +3,32 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-02 / セッションB。**028（リストにメモと設定者を足す）
-完了。PR #203、Rの受け入れを得てmainへsquash merge済み**
-（`028: リストにメモと設定者を足す (#203)`）。
+**最終更新**: 2026-09-02 / セッションB。**028のwish入力検証をZodスキーマへ
+戻す修正が完了。`fix/wish-input-validation`ブランチとしてRへレビュー
+依頼予定。**
+
+Rが「028はwishだけの話ではない」と指摘し、Aが`conventions.md`5節に
+「入力の誤りを、どこで弾き、どのコードで返すか」を規約化した。
+**`INVALID_INPUT`を返すのはDBを読まないと分からないことだけ。**
+入力だけで判定できる条件（`title`/`note`の長さ）は契約のZodに置き、
+`BAD_REQUEST`のままでよい。028のタスク定義が「長さ違反はINVALID_INPUT」
+と書いていたこと自体がAの誤りと訂正され、028で実装した
+`assertValidTitle`/`assertValidNote`（procedures側の明示的な検証）を削除し、
+契約の`titleSchema`/`noteSchema`に`.min()`/`.max()`を戻した。
+`INVALID_INPUT`を投げなくなった`wishCreateContract`/`wishUpdateContract`
+から`.errors()`の宣言も外した（「投げないコードを宣言しない」）。
+テストは全て`BAD_REQUEST`で突き合わせる形に張り替えた
+（`.rejects.toThrow()`だけにしない）。`MAX_WISH_TITLE_LENGTH`/
+`MAX_WISH_NOTE_LENGTH`へのリネームはAが「良い判断」としてそのまま維持を
+指示したため変更していない。
+
+`docs/security-report.md`「028」・`artifacts/028/test-results.md`は
+当時の記録として残し、冒頭に訂正の追記のみ行った（書き換えない）。
+
+`pnpm -w test`（apps/app 203件・apps/api 377件・packages/db 21件）・
+`pnpm -r type-check`・`eslint .`全て通過。
+
+以下、2026-09-02より前の記録。
 
 人間の要望（「設定者の名前を表示。編集権限は両方。メモ欄を追加して、
 自由入力できる」）を受けてAが起票したタスク。027の決定を2つ覆した:

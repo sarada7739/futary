@@ -102,13 +102,17 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
     expect(created.note).toHaveLength(200);
   });
 
-  it("noteが200文字を超えるとINVALID_INPUT", async () => {
+  // 【訂正・2026-09-02】長さは契約のZodスキーマ（trim後の.min()/.max()）で
+  // 判定するため、失敗時はINVALID_INPUTではなくBAD_REQUEST（oRPCの標準動作。
+  // conventions.md 5節「入力の誤りを、どこで弾き、どのコードで返すか」）。
+  // コードまで突き合わせる（`.rejects.toThrow()`だけにしない。同節）
+  it("noteが200文字を超えるとBAD_REQUEST", async () => {
     const user = await createUser();
     await createCouple(user);
 
     await expect(
       call(router.wish.create, { title: "行く", note: "あ".repeat(201) }, { context: contextFor(user) }),
-    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("noteを省略しても空文字で作れる", async () => {
@@ -118,16 +122,17 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
     expect(created.note).toBe("");
   });
 
-  it("titleがtrim後に空なら拒む", async () => {
+  it("titleがtrim後に空だとBAD_REQUEST", async () => {
     const user = await createUser();
     await createCouple(user);
 
-    await expect(call(router.wish.create, { title: "   " }, { context: contextFor(user) })).rejects.toThrow();
+    await expect(
+      call(router.wish.create, { title: "   " }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   // security-auditor指摘（028）: noteの201文字（上限超え）テストはあったが、
-  // titleの101文字（上限超え）テストが無く、procedures/wish.tsの
-  // assertValidTitleが唯一の保証になっていることを固定するテストが片方
+  // titleの101文字（上限超え）テストが無く、境界値を固定するテストが片方
   // 欠けていた
   it("titleが100文字ちょうどなら作れる", async () => {
     const user = await createUser();
@@ -136,13 +141,13 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
     expect(created.title).toHaveLength(100);
   });
 
-  it("titleが100文字を超えるとINVALID_INPUT", async () => {
+  it("titleが100文字を超えるとBAD_REQUEST", async () => {
     const user = await createUser();
     await createCouple(user);
 
     await expect(
       call(router.wish.create, { title: "あ".repeat(101) }, { context: contextFor(user) }),
-    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("titleは前後の空白がtrimされて保存される", async () => {
@@ -251,24 +256,24 @@ describe("wish.update", () => {
     expect(updated.note).toBe("");
   });
 
-  it("titleがtrim後に空ならINVALID_INPUT", async () => {
+  it("titleがtrim後に空だとBAD_REQUEST", async () => {
     const user = await createUser();
     await createCouple(user);
     const created = await createWish(user);
 
     await expect(
       call(router.wish.update, { id: created.id, title: "   " }, { context: contextFor(user) }),
-    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
-  it("noteが200文字を超えるとINVALID_INPUT", async () => {
+  it("noteが200文字を超えるとBAD_REQUEST", async () => {
     const user = await createUser();
     await createCouple(user);
     const created = await createWish(user);
 
     await expect(
       call(router.wish.update, { id: created.id, note: "あ".repeat(201) }, { context: contextFor(user) }),
-    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   // security-auditor指摘（028）: wish.createと対称に、updateでもtitleの
@@ -286,14 +291,14 @@ describe("wish.update", () => {
     expect(updated.title).toHaveLength(100);
   });
 
-  it("titleを100文字を超えて更新するとINVALID_INPUT", async () => {
+  it("titleを100文字を超えて更新するとBAD_REQUEST", async () => {
     const user = await createUser();
     await createCouple(user);
     const created = await createWish(user);
 
     await expect(
       call(router.wish.update, { id: created.id, title: "あ".repeat(101) }, { context: contextFor(user) }),
-    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   // タスク定義1節: 設定者は編集しても変わらない
