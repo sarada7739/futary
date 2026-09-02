@@ -224,6 +224,19 @@ wishes                                          -- 027。行きたい場所・�
   INDEX (couple_id, created_at DESC)
                                                 -- kind を持たない。「カフェ」は場所でもあり
                                                 -- 食べ物でもある。迷わせる分類は書かれない（027）
+
+moods                                           -- 029。1日1回の気分
+  couple_id   TEXT    NOT NULL
+  user_id     TEXT    NOT NULL
+  date        TEXT    NOT NULL                  -- YYYY-MM-DD（JST）
+  level       INTEGER NOT NULL
+  created_at  INTEGER NOT NULL
+  updated_at  INTEGER NOT NULL
+  PRIMARY KEY (couple_id, user_id, date)        -- 1日1件/人をDBで担保
+  CONSTRAINT moods_level_range_check CHECK (level BETWEEN 1 AND 5)
+                                                -- 論理削除を持たない。取り消しは物理削除
+                                                -- （029。1〜5の数値1つは入れ直せる。
+                                                --  deleted_at は主キーと衝突する）
 ```
 
 ### `posts` を読むクエリには必ず `deleted_at IS NULL` を含める
@@ -673,6 +686,13 @@ wish.setDone        { id, done } -> 更新後の1件
                     同じ要求が2回届いても結果が同じになる（二重発火。conventions.md 4節）
 wish.delete         { id } -> { id }。論理削除
                     他ペアの id は NOT_FOUND（FORBIDDEN にしない。存在を教えない）
+mood.setToday       { level } -> { date, level }   029。自分の今日の分。upsert
+                    user_id を引数に取らない（ctx.userId）。渡せないものは間違えて渡せない
+mood.clearToday     () -> { date }。自分の今日の分を消す（物理削除）
+mood.list           { from, to } -> { mine:    [{ date, level }],
+                                      partner: { name, items: [{ date, level }] } }
+                    2人分を分けて返す。1本の配列に userId を混ぜない
+                    範囲は最大400日。超えたら INVALID_INPUT（event.list と同じ数）
 ```
 
 ### 問い合わせキャッシュのキーに「誰であるか」を含める
@@ -1238,6 +1258,18 @@ PUT しただけで`post.create`/`me.update`を呼ばなければ、D1に一切�
 | `event-anniversary` | `#E36387` | カレンダー（011）記念日マーカー |
 | `event-plan` | `#D9A441` | カレンダー（011）予定マーカー |
 | `event-meetup` | `#4C8C8B` | カレンダー（011）会った日マーカー |
+
+**役割ごとに1トークン。量には作らない。**
+
+029 の気分は5段階だが、**色トークンを5つ足していない。`primary` の濃さで表す。**
+`event-anniversary`・`event-plan`・`event-meetup` は**種類が違うもの**であり、
+気分の5段は**同じものの量**である。**量は色を増やさずに表せる。**
+
+**濃いほど良い。**青⇄ピンクの2色軸にすると、**どちらが良いかを色の意味に頼る。**
+**未記録は地のまま枠線だけにする。**薄い色と未記録を見間違えないため。
+
+**色だけで区別しない。**選んだ段階は言葉でも出し、マスには
+`accessibilityLabel`（日付と段階）を付ける。
 
 ### 形
 
