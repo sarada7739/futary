@@ -137,6 +137,8 @@ export default function TabsLayout() {
       <Tabs.Screen name="stats" options={{ href: null, headerShown: true, title: "統計" }} />
       {/* 027: ホームの機能パネル「リスト」の行き先。上と同じ理由でhref: null */}
       <Tabs.Screen name="list" options={{ href: null, headerShown: true, title: "リスト" }} />
+      {/* 029: ホームの機能パネル「気分の記録」の行き先。上と同じ理由でhref: null */}
+      <Tabs.Screen name="mood" options={{ href: null, headerShown: true, title: "気分の記録" }} />
       {/* 024: マイページ下部の「アカウントを削除」の行き先。上と同じ理由でhref: null */}
       <Tabs.Screen name="delete-account" options={{ href: null, headerShown: true, title: "アカウントを削除" }} />
     </Tabs>

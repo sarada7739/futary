@@ -161,4 +161,13 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
       "WHEN NEW.married_date IS NOT NULL AND NEW.dating_date IS NOT NULL AND NEW.married_date < NEW.dating_date",
     );
   });
+
+  // 029: levelの範囲（1〜5）は入力だけで判定できるためZodで弾くが
+  // （conventions.md 5節）、DB側にも名前付きCHECKを置く二重の防御。
+  // 022と同じ壊れ方（表の作り直しでCHECKだけ落ちる）を防ぐ
+  it("moods のCHECK制約（名前の付いたもの）が全部そろっている", async () => {
+    const checks = await listTableChecks("moods");
+
+    expect(checks).toEqual(["moods_level_range_check"]);
+  });
 });

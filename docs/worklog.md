@@ -9012,3 +9012,102 @@ oRPCの実挙動発見→Rの指摘→Aの規約化→Bが規約に合わせて�
 一連の往復）はこれで完全にクローズ。
 
 Session: B
+
+## 2026-09-02 セッションB（029: 気分の記録。実装完了）
+
+Aから`docs/tasks/029-mood.md`の指示を受けて着手。人間の指示による
+`requirements.md`5節スコープ外項目の3つ目。
+
+**データモデル・契約**: `moods`テーブル（複合主キー
+`couple_id/user_id/date`。CHECK`moods_level_range_check`でlevel1〜5を
+DB側にも固定）を新設。`mood.setToday`/`clearToday`/`list`の3手続きを
+`packages/contract/src/mood.ts`に定義。`setToday`/`clearToday`は
+`user_id`を引数に取らず`ctx.userId`のみ使う。`todayJst()`をサーバ側で
+計算し、クライアントから日付を受け取らない構造で「今日の分しか記録
+できない」を担保した。`mood.list`は`mine`/`partner`を分けて返す
+（1本の配列に`userId`を混ぜない。`created_by`を返さない方針と同じ）。
+範囲は最大400日で`event.list`と揃えた。
+
+**物理削除**: `requirements.md`6節の論理削除原則の例外。`deleted_at`を
+足すと複合主キーと衝突し、消したあと同じ日を再登録できなくなるため
+（タスク定義に明記済みの判断で、B独自の逸脱ではない）。
+
+**me.delete**: `moods`の削除文を`wishes`の直後・`invites`の前に追加。
+027でwishesの削除文を足し忘れてFK違反で削除が恒久的に失敗するバグを
+踏んだのと同じ形だが、今回はタスク起票の時点でテスト項目に入っており
+踏んでいない。`me.test.ts`の「`couple_id`列を持つ全表を機械的に検出して
+0件確認する」テストにも`mood.setToday`呼び出しを1行加えるだけで
+自動的に拾われた。
+
+**フロントエンド**: `(tabs)/mood.tsx`を新設。上に5段階の選択ボタン
+（もう一度押すと取り消す）、下に「わたし」「相手」の月マス目を2段。
+`components/mood-month-grid.tsx`は`month-grid.tsx`と同じ形だが、
+グラフ描画ライブラリを使わず`View`の背景色だけで濃さを表現する。
+新しい色トークンを追加せず、`colors.primary`から不透明度（0.2〜1.0の
+5段階）をその場で計算して導出した。未記録は枠線だけにし、色の濃淡
+ではなく枠線の有無で「薄い色と未記録を見間違えない」ようにした。
+色だけで区別しないよう「今日: ふつう」のように言葉でも段階を出し、
+マスに`accessibilityLabel`（日付+段階）を付けた。
+
+**T9**: `mood.list`は利用者ごとに違う値を返すため、2箇所とも
+`viewerKey`をqueryKeyに含めた。`use(readProcedure)`を経由するため
+`viewer-key-coverage.test.ts`の機械的走査に自動的に拾われ、手動登録は
+不要だった。
+
+**デモシード**: `packages/db/seed/demo.ts`に2人分・3ヶ月（90日）分の
+moodsを追加。固定パターン配列（`null`混じり）と`addDays`のみで日付を
+決定的に組み立て、乱数は使っていない。2人で異なるパターンを使い、
+傾向の違い（ゆいは総じて高め、れんは起伏が大きい）を出した。
+
+**security-auditorの監査でHigh以上はゼロ。**Low 3件:
+1. 「認可の基底を経由しない手続きが無い」テストの番人の下限値が
+   026当時の26のまま更新されていなかった → 29に修正
+2. `me.delete`のmoods削除が`couple_id`だけで、`moods.user_id`が
+   `user(id)`をON DELETE no actionで参照する不変条件に依存している
+   （現状は`couple_members.user_id`のUNIQUE制約により到達不能だが、
+   将来「ペア解消／退会せずにペアだけ抜ける」機能を実装する場合は
+   `couple_members`を消す文と同じところで`moods`〈と同じ形の
+   `reactions`〉も消す必要がある。**Aへの引き継ぎ事項として記録**）
+3. `dateSchema`が実在しない日付（2月99日等）を弾かない。ただし
+   `event.list`と共通の既存パターンであり、mood固有の退行ではないため
+   mood単独では対応しなかった
+
+詳細は`artifacts/029/security-audit-raw.md`・`test-results.md`・
+`manual-check.md`参照。
+
+`pnpm test`（packages/date 46件・packages/ui 7件・packages/db 25件・
+apps/app 213件・apps/api 399件）・`pnpm type-check`・`pnpm lint`全て
+通過。ローカルD1へ0018を適用しデモを再投入したうえで、Bがブラウザで
+未認証（デモ）経路をデスクトップ幅・モバイル幅375×812の両方で確認
+（コンソールエラー無し）。認証必須の経路（実際の記録・取り消し操作）は
+自動化では確認できないため`artifacts/029/manual-check.md`に人間への
+確認項目として列挙した。
+
+`docs/state.md`を更新。次はコミット・PR作成・CI確認・Rへレビュー依頼。
+
+Session: B
+
+## 2026-09-02 セッションB（029: Rレビュー・受け入れ・認可テストの番人を強化）
+
+Rレビュー（PR #209）。「受け入れます。CIが終わり次第マージしてください」。
+確認事項: 0018のFK・複合主キー・CHECK、setToday/clearTodayがuser_idを
+引数に取らない構造、認可テストのデモ経由FORBIDDEN・他ペア混入無し。
+security-auditor指摘Low#2（me.deleteのmoods削除がuser_id側FKの不変条件に
+依存）について「1つの表の話として書かず、形として書いた（reactionsも
+同じ形と明記した）ので、`reactions`側の同じ弱点も将来見つかる」と
+確認を得た。
+
+**必須ではない追加提案**: `authorization.test.ts`の「許可リストに無い
+手続きは3基底のいずれかを経由している」テストが、手続き数の下限
+（`toBeGreaterThanOrEqual`）のままだった。今回security-auditorが
+「26のまま更新されていない」と指摘した箇所そのものであり、`>=`のため
+下限を上げ忘れても気づかれずに緑のまま通ってしまう構造だった。#180で
+走査対象一覧を数から名前の完全一致に直したのと同じ考え方を適用し、
+`EXPECTED_PROCEDURE_PATHS`（29件のパスを列挙した配列）と
+`toEqual(...sort())`に置き換えた。1つのパス名をわざと変えて実際に
+テストが赤くなることを確認（fault injection）してから元に戻し、
+`pnpm test`・`pnpm type-check`・`pnpm lint`全て通過を再確認した。
+
+`docs/state.md`を更新。CI緑を確認してマージする。
+
+Session: B

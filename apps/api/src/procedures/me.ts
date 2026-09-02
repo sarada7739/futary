@@ -92,9 +92,10 @@ async function deleteAllByPrefix(bucket: R2Bucket, prefix: string): Promise<void
 //   3. events
 //   4. wishes（027追加。couples(id)をON DELETE no actionで参照するため、
 //      couplesを消す前に消さないとFK違反で落ちる。他のcouple_id系DELETEと同じ理由）
-//   5. invites
-//   6. couple_members ← ここまで来れば、あとはcouple_idが要らない
-//   7. couples
+//   5. moods（029追加。wishesと同じ理由）
+//   6. invites
+//   7. couple_members ← ここまで来れば、あとはcouple_idが要らない
+//   8. couples
 //   （相手のuser.imageをNULLに。下のコメント参照）
 // 上記は1本のdb.batch()にまとめる（【security-auditor指摘】個別のrun()
 // だと、削除の実行中に別リクエストが新しい投稿・予定・招待を作った場合、
@@ -171,6 +172,9 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       // 限定しない設計。docs/tasks/027-wish-list.md 4節）ため、position自体は
       // couple_id系のどこでもよいが、他のcouple_id系DELETEと隣接させる
       db.prepare("DELETE FROM wishes WHERE couple_id = ?1").bind(coupleId),
+      // 【029・タスク定義8節】moods.couple_id/user_idも同じ理由でcouples/user
+      // を参照する。起票の時点でテスト項目に入れてある（027で一度踏んだ形）
+      db.prepare("DELETE FROM moods WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couples WHERE id = ?1").bind(coupleId),

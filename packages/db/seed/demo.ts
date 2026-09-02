@@ -113,6 +113,12 @@ interface WishRow {
   doneAt: number | null;
 }
 
+interface MoodRow {
+  userId: string;
+  date: string;
+  level: number;
+}
+
 export interface DemoSeed {
   coupleId: string;
   users: Array<{ id: string; name: string; email: string; imageKey: string }>;
@@ -122,6 +128,7 @@ export interface DemoSeed {
   reactions: Array<{ postId: string; userId: string }>;
   images: Array<{ key: string; assetFile: string }>;
   wishes: WishRow[];
+  moods: MoodRow[];
 }
 
 // 014タスク定義の件数方針:
@@ -345,6 +352,31 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     doneAt: w.done && w.doneDaysAgo !== undefined ? nowSecondsValue - w.doneDaysAgo * DAY_SECONDS : null,
   }));
 
+  // --- moods: 029。2人分・3ヶ月ぶん（90日）を決定的に組み立てる。乱数は
+  // 使わない（固定パターンをaddDaysだけで日付にする。014「日付に乱数を
+  // 使わない」と同じ方針）。空の日を混ぜる（毎日埋まっていると未記録の
+  // 見え方が確認できない）。2人の傾向を変える（同じ列が並ぶと、2段ある
+  // 意味が見えない。ゆいは総じて高め・れんは起伏が大きい）
+  const WOMAN_MOOD_PATTERN: Array<number | null> = [
+    3, 4, 4, 5, 4, 3, null, 4, 5, 5, 4, 3, 2, null, 3, 4, 4, 5, 5, 4,
+  ];
+  const MAN_MOOD_PATTERN: Array<number | null> = [
+    2, 3, 2, null, 4, 2, 3, 3, null, 2, 4, 3, 2, 3, null, 4, 3, 2, 3, 2,
+  ];
+  const MOOD_DAYS = 90;
+  const moods: MoodRow[] = [];
+  for (let i = 0; i < MOOD_DAYS; i++) {
+    const date = addDays(today, -i);
+    const womanLevel = WOMAN_MOOD_PATTERN[i % WOMAN_MOOD_PATTERN.length];
+    if (womanLevel !== null && womanLevel !== undefined) {
+      moods.push({ userId: DEMO_USER_WOMAN_ID, date, level: womanLevel });
+    }
+    const manLevel = MAN_MOOD_PATTERN[i % MAN_MOOD_PATTERN.length];
+    if (manLevel !== null && manLevel !== undefined) {
+      moods.push({ userId: DEMO_USER_MAN_ID, date, level: manLevel });
+    }
+  }
+
   return {
     coupleId: DEMO_COUPLE_ID,
     users: [
@@ -367,12 +399,13 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     reactions,
     images,
     wishes,
+    moods,
   };
 }
 
 // 投入の前にデモペアの既存行を消す（014タスク定義）。外部キーの順:
-// reactions -> posts -> events -> wishes -> invites -> couple_members -> couples -> user。
-// 表が増えたときはここへ足す（027でwishesを追加）
+// reactions -> posts -> events -> wishes -> moods -> invites -> couple_members -> couples -> user。
+// 表が増えたときはここへ足す（027でwishes・029でmoodsを追加）
 function buildDeleteSql(seed: DemoSeed): string[] {
   const userIds = seed.users.map((u) => sqlString(u.id)).join(", ");
   return [
@@ -380,6 +413,7 @@ function buildDeleteSql(seed: DemoSeed): string[] {
     `DELETE FROM posts WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM events WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM wishes WHERE couple_id = ${sqlString(seed.coupleId)};`,
+    `DELETE FROM moods WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM invites WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couple_members WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couples WHERE id = ${sqlString(seed.coupleId)};`,
@@ -439,6 +473,14 @@ function buildInsertSql(seed: DemoSeed, nowMs: number): string[] {
     statements.push(
       `INSERT INTO wishes (id, couple_id, title, note, created_by, created_at, done_at) VALUES ` +
         `(${sqlString(w.id)}, ${sqlString(seed.coupleId)}, ${sqlString(w.title)}, ${sqlString(w.note)}, ${sqlString(w.createdBy)}, ${w.createdAt}, ${w.doneAt ?? "NULL"});`,
+    );
+  }
+
+  for (const m of seed.moods) {
+    const createdAt = noonJstSeconds(m.date);
+    statements.push(
+      `INSERT INTO moods (couple_id, user_id, date, level, created_at, updated_at) VALUES ` +
+        `(${sqlString(seed.coupleId)}, ${sqlString(m.userId)}, ${sqlString(m.date)}, ${m.level}, ${createdAt}, ${createdAt});`,
     );
   }
 
