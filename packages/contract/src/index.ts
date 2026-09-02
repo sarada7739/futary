@@ -14,7 +14,13 @@ import {
 } from "./event";
 import { statsGetContract } from "./stats";
 import { memoryGetContract } from "./memory";
-import { wishCreateContract, wishDeleteContract, wishListContract, wishSetDoneContract } from "./wish";
+import {
+  wishCreateContract,
+  wishDeleteContract,
+  wishListContract,
+  wishSetDoneContract,
+  wishUpdateContract,
+} from "./wish";
 
 export type { Post } from "./post";
 export { REACTION_KINDS } from "./reaction";
@@ -24,6 +30,7 @@ export type { DaysTogether, Stats } from "./stats";
 export type { MemoryLabel, MemoryResult } from "./memory";
 export { MEMORY_LABELS } from "./memory";
 export type { Wish } from "./wish";
+export { MAX_WISH_NOTE_LENGTH, MAX_WISH_TITLE_LENGTH } from "./wish";
 
 export const contract = {
   health: {
@@ -68,6 +75,7 @@ export const contract = {
   wish: {
     list: wishListContract,
     create: wishCreateContract,
+    update: wishUpdateContract,
     setDone: wishSetDoneContract,
     delete: wishDeleteContract,
   },

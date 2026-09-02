@@ -4,7 +4,7 @@ import { couples } from "./couple";
 
 // 027: 行きたい場所・食べたいものリスト。分類（kind）を持たない
 // （「カフェ」は場所でもあり食べ物でもある。迷わせる分類は書かれない。タスク定義1節）。
-// done_by・note も持たない（画面に出さない列・titleで足りる列を増やさない）。
+// done_by は持たない（画面に出さない列を増やさない）。
 // CHECKも持たない（書ける条件が無い。done_at >= created_atは時計のずれで壊れる。
 // タスク定義6節）
 export const wishes = sqliteTable(
@@ -15,7 +15,10 @@ export const wishes = sqliteTable(
       .notNull()
       .references(() => couples.id),
     title: text("title").notNull(),
-    // レスポンスには出さない（event.createdByと同じ理由。architecture.md 5節）
+    // 028: 自由記述。0〜200文字（trim後）。一覧にそのまま出す（折りたたまない）
+    note: text("note").notNull().default(""),
+    // IDはレスポンスに出さない。createdByNameとして名前だけ返す（028。
+    // event.createdByNameと同じ形。architecture.md 5節）。編集しても変わらない
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),

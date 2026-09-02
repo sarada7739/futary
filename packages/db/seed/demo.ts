@@ -107,6 +107,7 @@ interface PostRow {
 interface WishRow {
   id: string;
   title: string;
+  note: string; // 028。メモ有り・無しの両方をデモに入れる
   createdBy: string;
   createdAt: number; // 順序が見えるよう明示的に振る（秒。乱数ではない）
   doneAt: number | null;
@@ -315,21 +316,30 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
 
   // --- wishes: 027。「リスト」パネルが押せるようになるため、空のデモは弱い。
   // 未達成・達成済みの両方を、createdAtをずらして入れる（並び順が見えるように）。
-  // 実在の店名は入れない（014で写真1枚を落としたのと同じ理由）
+  // 実在の店名は入れない（014で写真1枚を落としたのと同じ理由）。
+  // 028: メモ有り・無しの両方を混ぜる（設定者2人分は元々分かれている）
   const nowSecondsValue = Math.floor(nowMs / 1000);
   const DAY_SECONDS = 24 * 60 * 60;
-  const wishDefs: Array<{ title: string; createdBy: string; createdDaysAgo: number; done: boolean; doneDaysAgo?: number }> = [
-    { title: "水族館に行く", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 3, done: false },
-    { title: "新しいカフェを開拓する", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 10, done: false },
-    { title: "キャンプに行く", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 25, done: false },
-    { title: "遊園地で遊ぶ", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 40, done: false },
-    { title: "手作りケーキに挑戦する", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 70, done: true, doneDaysAgo: 50 },
-    { title: "花火大会を見る", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 90, done: true, doneDaysAgo: 60 },
-    { title: "映画館で新作を観る", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 120, done: true, doneDaysAgo: 15 },
+  const wishDefs: Array<{
+    title: string;
+    note: string;
+    createdBy: string;
+    createdDaysAgo: number;
+    done: boolean;
+    doneDaysAgo?: number;
+  }> = [
+    { title: "水族館に行く", note: "夜のライトアップの時間帯がいいらしい", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 3, done: false },
+    { title: "新しいカフェを開拓する", note: "", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 10, done: false },
+    { title: "キャンプに行く", note: "テントはまだ持ってない。レンタルできるところを探す", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 25, done: false },
+    { title: "遊園地で遊ぶ", note: "", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 40, done: false },
+    { title: "手作りケーキに挑戦する", note: "誕生日に間に合うように", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 70, done: true, doneDaysAgo: 50 },
+    { title: "花火大会を見る", note: "", createdBy: DEMO_USER_MAN_ID, createdDaysAgo: 90, done: true, doneDaysAgo: 60 },
+    { title: "映画館で新作を観る", note: "続編が公開される前に1作目を見返しておく", createdBy: DEMO_USER_WOMAN_ID, createdDaysAgo: 120, done: true, doneDaysAgo: 15 },
   ];
   const wishes: WishRow[] = wishDefs.map((w, i) => ({
     id: `demo-wish-${i}`,
     title: w.title,
+    note: w.note,
     createdBy: w.createdBy,
     createdAt: nowSecondsValue - w.createdDaysAgo * DAY_SECONDS,
     doneAt: w.done && w.doneDaysAgo !== undefined ? nowSecondsValue - w.doneDaysAgo * DAY_SECONDS : null,
@@ -427,8 +437,8 @@ function buildInsertSql(seed: DemoSeed, nowMs: number): string[] {
 
   for (const w of seed.wishes) {
     statements.push(
-      `INSERT INTO wishes (id, couple_id, title, created_by, created_at, done_at) VALUES ` +
-        `(${sqlString(w.id)}, ${sqlString(seed.coupleId)}, ${sqlString(w.title)}, ${sqlString(w.createdBy)}, ${w.createdAt}, ${w.doneAt ?? "NULL"});`,
+      `INSERT INTO wishes (id, couple_id, title, note, created_by, created_at, done_at) VALUES ` +
+        `(${sqlString(w.id)}, ${sqlString(seed.coupleId)}, ${sqlString(w.title)}, ${sqlString(w.note)}, ${sqlString(w.createdBy)}, ${w.createdAt}, ${w.doneAt ?? "NULL"});`,
     );
   }
 

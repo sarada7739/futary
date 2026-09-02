@@ -310,3 +310,49 @@ describe("0014・0015マイグレーション: 既存行はaccount_hash追加の
     }
   });
 });
+
+// 028: wishesはFK参照される親テーブルでもなく、0017は`ALTER TABLE ... ADD
+// COLUMN`一本の単純な追加であるため、0011・0012のような「表を作り直す」形の
+// 退避・復元は要らない（タスク定義5節「行を消さない。件数を数える手順は
+// 要らない」）。note列だけを一時的に落として0016時点の構造を再現する
+describe("0017マイグレーション: 既存行がnote列の追加を生き延び、noteは空文字になる", () => {
+  it("note列を持たない既存行に0017を当てると、noteが空文字で読める", async () => {
+    const target = TEST_MIGRATIONS.find((m) => m.name === "0017_wishes_note.sql");
+    if (!target) throw new Error("0017のマイグレーションがTEST_MIGRATIONSに見つかりません");
+
+    const userId = crypto.randomUUID();
+    const coupleId = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    await db
+      .prepare(
+        "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, 'テスト', ?2, 1, ?3, ?3)",
+      )
+      .bind(userId, `${crypto.randomUUID()}@example.com`, now)
+      .run();
+    await db
+      .prepare("INSERT INTO couples (id, dating_date, created_at) VALUES (?1, '2020-01-01', ?2)")
+      .bind(coupleId, now)
+      .run();
+
+    // 0017適用後（現在）のnote列を一時的に落とし、0016時点の構造を再現する
+    await db.exec(`ALTER TABLE wishes DROP COLUMN note`);
+
+    const wishId = crypto.randomUUID();
+    await db
+      .prepare(
+        `INSERT INTO wishes (id, couple_id, title, created_by, created_at) VALUES (?1, ?2, '既存の行きたい場所', ?3, ?4)`,
+      )
+      .bind(wishId, coupleId, userId, now)
+      .run();
+
+    // d1_migrationsの記録を消し、0017を「未適用」に戻してから、本物のSQLファイルで再適用する
+    await db.prepare(`DELETE FROM d1_migrations WHERE name = ?1`).bind(target.name).run();
+    await applyD1Migrations(db, [target]);
+
+    const row = await db
+      .prepare(`SELECT note AS note FROM wishes WHERE id = ?1`)
+      .bind(wishId)
+      .first<{ note: string }>();
+    expect(row?.note).toBe("");
+  });
+});
