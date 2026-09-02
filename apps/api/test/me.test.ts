@@ -323,6 +323,8 @@ describe("me.delete", () => {
     // これを消さずにcouplesを消そうとするとFK違反でbatch全体が失敗し、
     // アカウント削除が恒久的にできなくなる不具合があった（修正済み）
     await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
+    // 029: moods.couple_idも同じ理由でcouplesを参照する
+    await call(router.mood.setToday, { level: 5 }, { context: contextFor(owner) });
 
     const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
     expect(result.ok).toBe(true);
@@ -337,6 +339,7 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT id FROM events WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT code FROM invites WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM wishes WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+    expect(await db.prepare("SELECT 1 FROM moods WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
 
     // 自分のuser行は消え、相手のuser行はCandle型として残る（消えるのはペアのデータだけ）
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
@@ -462,6 +465,8 @@ describe("me.delete", () => {
       { context: contextFor(owner) },
     );
     await call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(owner) });
+    // 029: moodsもcouple_idを持つ表として、この機械的走査に自動的に拾われる
+    await call(router.mood.setToday, { level: 3 }, { context: contextFor(owner) });
 
     // D1はPRAGMA文を許可しない（SQLITE_AUTH。実測で確認）ため、
     // schema-integrity.test.tsのextractNamedChecksと同じ方式で、
@@ -480,7 +485,7 @@ describe("me.delete", () => {
     // 検出ロジック自体の健全性: 既知の表が最低限含まれていることを保証する
     // （0件だと下のループが何もチェックせず成功してしまう）
     expect(coupleIdTables).toEqual(
-      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes"]),
+      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes", "moods"]),
     );
 
     // 【Rレビュー指摘R-1】削除前チェックが無いと、将来「couple_idを持つ新しい表」

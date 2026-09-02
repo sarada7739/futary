@@ -1,5 +1,6 @@
+import { addDays, todayJst } from "@futary/date";
 import { describe, expect, it } from "vitest";
-import { buildDemoSeed, buildDemoSeedSql } from "./demo";
+import { buildDemoSeed, buildDemoSeedSql, DEMO_USER_MAN_ID, DEMO_USER_WOMAN_ID } from "./demo";
 
 // 014タスク定義の完了条件を、実際にD1/R2へ投入する前に固定する。
 // 「見つかった場合に対応する」ではなく、この生成ロジックが違反を作らないことを
@@ -136,6 +137,55 @@ describe("buildDemoSeed", () => {
     expect(seed.wishes.some((w) => w.note.length === 0)).toBe(true);
   });
 
+  // 029: 気分の記録。3ヶ月ぶん・2人分・空の日・傾向の違いをそれぞれ固定する
+  it("moodsが2人分入っており、levelが1〜5の範囲である", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    expect(seed.moods.length).toBeGreaterThan(0);
+    const userIds = new Set(seed.moods.map((m) => m.userId));
+    expect(userIds).toEqual(new Set([DEMO_USER_WOMAN_ID, DEMO_USER_MAN_ID]));
+    for (const m of seed.moods) {
+      expect(m.level).toBeGreaterThanOrEqual(1);
+      expect(m.level).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("moodsが3ヶ月（90日）分の範囲に収まる", () => {
+    const nowMs = Date.UTC(2026, 7, 31);
+    const seed = buildDemoSeed(nowMs);
+    const today = todayJst(nowMs);
+    const oldest = addDays(today, -89);
+    expect(seed.moods.every((m) => m.date >= oldest && m.date <= today)).toBe(true);
+  });
+
+  // 未記録の日と、いちばん薄い日を見間違えないかの確認観点（タスク定義）は
+  // 画面側の話だが、そもそも空の日が無いとデモで確認できない
+  it("moodsに空の日（記録が無い日）が両者とも混ざっている", () => {
+    const nowMs = Date.UTC(2026, 7, 31);
+    const seed = buildDemoSeed(nowMs);
+    const today = todayJst(nowMs);
+    const womanDates = new Set(seed.moods.filter((m) => m.userId === DEMO_USER_WOMAN_ID).map((m) => m.date));
+    const manDates = new Set(seed.moods.filter((m) => m.userId === DEMO_USER_MAN_ID).map((m) => m.date));
+    let womanHasGap = false;
+    let manHasGap = false;
+    for (let i = 0; i < 90; i++) {
+      const date = addDays(today, -i);
+      if (!womanDates.has(date)) womanHasGap = true;
+      if (!manDates.has(date)) manHasGap = true;
+    }
+    expect(womanHasGap).toBe(true);
+    expect(manHasGap).toBe(true);
+  });
+
+  // 2人の傾向が違うように入れる（タスク定義12節「同じ列が並ぶと、2段ある
+  // 意味が見えない」）。同じ日の値が全て一致していないことで確認する
+  it("2人のmoodsが同じ傾向（全て同じ値）にならない", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    const womanByDate = new Map(seed.moods.filter((m) => m.userId === DEMO_USER_WOMAN_ID).map((m) => [m.date, m.level]));
+    const manByDate = new Map(seed.moods.filter((m) => m.userId === DEMO_USER_MAN_ID).map((m) => [m.date, m.level]));
+    const commonDates = [...womanByDate.keys()].filter((date) => manByDate.has(date));
+    expect(commonDates.some((date) => womanByDate.get(date) !== manByDate.get(date))).toBe(true);
+  });
+
   it("反応は投稿者本人ではなく相手から付く", () => {
     const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
     const postById = new Map(seed.posts.map((p) => [p.id, p]));
@@ -156,9 +206,9 @@ describe("buildDemoSeedSql", () => {
     expect(firstInsertIndex).toBeGreaterThan(lastDeleteIndex);
   });
 
-  it("外部キーの順で消す: reactions -> posts -> events -> wishes -> invites -> couple_members -> couples -> user", () => {
+  it("外部キーの順で消す: reactions -> posts -> events -> wishes -> moods -> invites -> couple_members -> couples -> user", () => {
     const sql = buildDemoSeedSql(Date.UTC(2026, 7, 31));
-    const order = ["reactions", "posts", "events", "wishes", "invites", "couple_members", "couples", "user"];
+    const order = ["reactions", "posts", "events", "wishes", "moods", "invites", "couple_members", "couples", "user"];
     const positions = order.map((table) => sql.indexOf(`DELETE FROM ${table}`));
     for (const pos of positions) expect(pos).toBeGreaterThan(-1);
     for (let i = 1; i < positions.length; i++) {

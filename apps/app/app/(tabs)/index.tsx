@@ -45,7 +45,7 @@ export default function HomeScreen() {
           <FeaturePanel label="統計" icon={iconPanelStats} onPress={() => router.push("/stats")} />
           <FeaturePanel label="今日どうだった？" icon={iconPanelToday} />
           <FeaturePanel label="リスト" icon={iconPanelList} onPress={() => router.push("/list")} />
-          <FeaturePanel label="気分の記録" icon={iconPanelMood} />
+          <FeaturePanel label="気分の記録" icon={iconPanelMood} onPress={() => router.push("/mood")} />
           <FeaturePanel label="AIまとめ" icon={iconPanelAi} />
         </View>
       </ScrollView>

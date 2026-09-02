@@ -21,6 +21,7 @@ import {
   wishSetDoneContract,
   wishUpdateContract,
 } from "./wish";
+import { moodClearTodayContract, moodListContract, moodSetTodayContract } from "./mood";
 
 export type { Post } from "./post";
 export { REACTION_KINDS } from "./reaction";
@@ -31,6 +32,7 @@ export type { MemoryLabel, MemoryResult } from "./memory";
 export { MEMORY_LABELS } from "./memory";
 export type { Wish } from "./wish";
 export { MAX_WISH_NOTE_LENGTH, MAX_WISH_TITLE_LENGTH } from "./wish";
+export type { MoodEntry } from "./mood";
 
 export const contract = {
   health: {
@@ -78,6 +80,11 @@ export const contract = {
     update: wishUpdateContract,
     setDone: wishSetDoneContract,
     delete: wishDeleteContract,
+  },
+  mood: {
+    setToday: moodSetTodayContract,
+    clearToday: moodClearTodayContract,
+    list: moodListContract,
   },
 };
 

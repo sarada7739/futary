@@ -3,6 +3,51 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
+**最終更新**: 2026-09-02 / セッションB。**029（気分の記録）実装完了。
+Rへレビュー依頼予定（このセッションではまだPR未作成）。**
+
+人間の指示による`requirements.md`5節スコープ外項目の3つ目。ホームの
+「気分の記録」パネル（020で設置済み）に`onPress`を追加し、`(tabs)/mood.tsx`
+（5段階の選択ボタン＋「わたし」「相手」の月マス目2段）を新設した。
+グラフ描画ライブラリを追加せず、`month-grid.tsx`と同じ形のマス目に
+`colors.primary`の不透明度5段（新しい色トークンは追加しない）で濃さを
+表現。未記録は枠線だけで、色の濃淡ではなく枠線の有無で区別する。
+
+`moods`テーブル（複合主キー`couple_id/user_id/date`。CHECK
+`moods_level_range_check`）・`mood.setToday`/`clearToday`/`list`の3手続きを
+新設。`setToday`/`clearToday`は`user_id`を引数に取らず`ctx.userId`のみを
+使う（渡せないものは間違えて渡せない）。`todayJst()`をサーバ側で計算し、
+今日の分しか記録できないことを構造的に担保した。消せるが物理削除
+（`requirements.md`6節の例外。`deleted_at`を足すと複合主キーと衝突するため）。
+`me.delete`のDELETE文にmoodsを追加（027でwishesを踏んだのと同じ形。
+今回は起票の時点でテスト項目に入っており踏んでいない）。
+
+**security-auditorの監査でHigh以上はゼロ。**Low 3件、詳細は
+`artifacts/029/security-audit-raw.md`参照:
+1. 「認可の基底を経由しない手続きが無い」テストの番人の下限値が古いまま
+   （26のまま）だった → 29に修正済み
+2. `me.delete`のmoods削除が`couple_id`だけで、`user_id`側のFKに依存した
+   不変条件がある（現状は到達不能。将来「ペア解消」機能実装時の設計メモ
+   として記録。Aへの引き継ぎ事項）
+3. `dateSchema`が実在しない日付を弾かない（`event.list`と共通の既存
+   パターンで、mood固有の退行ではない）
+
+デモシード（`packages/db/seed/demo.ts`）に2人分・3ヶ月（90日）分の
+moodsを決定的に追加（固定パターン配列＋`addDays`のみ。乱数不使用）。
+空の日を混ぜ、2人で異なるパターン（ゆいは総じて高め、れんは起伏が
+大きい）を使って傾向の違いを出した。
+
+`pnpm test`（packages/date 46件・packages/ui 7件・packages/db 25件・
+apps/app 213件・apps/api 399件）・`pnpm type-check`・`pnpm lint`全て通過。
+Bがブラウザで未認証（デモ）経路をデスクトップ幅・モバイル幅375×812の
+両方で確認済み（`artifacts/029/test-results.md`）。認証必須の経路
+（実際の記録・取り消し操作）は`artifacts/029/manual-check.md`に人間への
+確認項目として列挙済み。
+
+**次にやること**: コミット・PR作成・CI確認・Rへレビュー依頼。
+
+以下、2026-09-02より前の記録。
+
 **最終更新**: 2026-09-02 / セッションB。**028のwish入力検証をZodスキーマへ
 戻す修正、PR #206をRの受け入れを得てmainへsquash merge済み**
 （`028のwish入力検証をZodスキーマへ戻す（Aの判断） (#206)`）。

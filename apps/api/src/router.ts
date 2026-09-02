@@ -8,6 +8,7 @@ import { postUploadUrl } from "./procedures/upload";
 import { statsProcedures } from "./procedures/stats";
 import { memoryProcedures } from "./procedures/memory";
 import { wishProcedures } from "./procedures/wish";
+import { moodProcedures } from "./procedures/mood";
 import { resolveUserImage } from "./lib/r2-signed-url";
 import { isSessionFresh } from "./lib/reauth";
 
@@ -46,4 +47,5 @@ export const router = implementer.router({
   stats: statsProcedures,
   memory: memoryProcedures,
   wish: wishProcedures,
+  mood: moodProcedures,
 });

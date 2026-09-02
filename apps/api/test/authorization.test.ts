@@ -276,6 +276,22 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("mood.setToday は DEMO_COUPLE_ID が設定されていても FORBIDDEN（029）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.mood.setToday, { level: 3 }, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("mood.clearToday は DEMO_COUPLE_ID が設定されていても FORBIDDEN（029）", async () => {
+    const demoCoupleId = await createDemoCouple();
+
+    await expect(
+      call(router.mood.clearToday, undefined, { context: contextFor(null, demoCoupleId) }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   // me.update/me.uploadImageUrlはcouple_idを持たず authedProcedure の上に載る
   // （couple_idの有無に関わらず未認証を弾く。019）ため、DEMO_COUPLE_IDの
   // 設定有無を問わずFORBIDDENになることだけを確認する
@@ -386,6 +402,33 @@ describe("3. 未認証アクセスで読み取れるのがデモペアのデー�
     expect(result.items).toHaveLength(1);
     expect(result.items[0]?.title).toBe("デモの行きたい場所");
     expect(result.items.map((w) => w.title)).not.toContain("他ペアの行きたい場所");
+  });
+
+  it("mood.list は DEMO_COUPLE_ID のペアの記録だけを返す。他ペアの記録は混ざらない（029）", async () => {
+    const demoCoupleId = await createDemoCouple();
+    const demoMember = await createUser();
+    await db
+      .prepare("INSERT INTO couple_members (couple_id, user_id, slot, joined_at) VALUES (?1, ?2, 1, ?3)")
+      .bind(demoCoupleId, demoMember.id, Math.floor(Date.now() / 1000))
+      .run();
+    await db
+      .prepare(
+        "INSERT INTO moods (couple_id, user_id, date, level, created_at, updated_at) VALUES (?1, ?2, '2026-01-01', 4, ?3, ?3)",
+      )
+      .bind(demoCoupleId, demoMember.id, Math.floor(Date.now() / 1000))
+      .run();
+
+    const owner = await createUser();
+    await createCouple(owner, "2020-01-01");
+    await call(router.mood.setToday, { level: 1 }, { context: contextFor(owner) });
+
+    const result = await call(
+      router.mood.list,
+      { from: "2025-12-01", to: "2026-01-31" },
+      { context: contextFor(null, demoCoupleId) },
+    );
+
+    expect(result.mine).toEqual([{ date: "2026-01-01", level: 4 }]);
   });
 });
 
@@ -532,6 +575,27 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
     const user = await createUser();
     await expect(
       call(router.wish.delete, { id: crypto.randomUUID() }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
+
+  it("mood.setToday（029）", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.mood.setToday, { level: 3 }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
+
+  it("mood.clearToday（029）", async () => {
+    const user = await createUser();
+    await expect(call(router.mood.clearToday, undefined, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+  });
+
+  it("mood.list（029）", async () => {
+    const user = await createUser();
+    await expect(
+      call(router.mood.list, { from: "2026-01-01", to: "2026-01-31" }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 });
@@ -899,9 +963,9 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
     const procedures = collectProcedures(router);
     // 空配列だと以下のループが何もチェックせず成功してしまうため、実在数を保証する
-    // （028時点: health.get/me.get/me.update/me.uploadImageUrl/me.delete + couple 3 +
-    // invite 2 + post 4 + reaction 1 + event 4 + stats 1 + memory 1 + wish 5 = 26）
-    expect(procedures.length).toBeGreaterThanOrEqual(26);
+    // （029時点: health.get/me.get/me.update/me.uploadImageUrl/me.delete + couple 3 +
+    // invite 2 + post 4 + reaction 1 + event 4 + stats 1 + memory 1 + wish 5 + mood 3 = 29）
+    expect(procedures.length).toBeGreaterThanOrEqual(29);
 
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの
