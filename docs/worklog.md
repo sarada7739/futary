@@ -9160,3 +9160,105 @@ Session: B
 `docs/sample/README.md` に出自と、正方形版を別に置く理由を追記した。
 
 Session: A
+
+## 2026-09-04 セッションB（030: アプリアイコンと favicon の差し替え。実装完了）
+
+Aから`docs/tasks/030-app-icon.md`の指示を受けて着手。人間が生成AIで
+作ったハート型アイコンを、ブラウザのタブとiPhoneのホーム画面に出す。
+
+**画像の書き出し**: `futary-icon-square-1024.png`（角の白を背景で埋めた
+正方形版。1024×1024・RGB）から、Pillowの`LANCZOS`リサンプリングで
+`favicon.png`(48×48)・`apple-touch-icon.png`(180×180)・
+`icon-192.png`/`icon-512.png`(512×512)・`icon.png`(1024×1024。縮小なし)
+を書き出した。ソースが1024×1024であることをスクリプト側で検証し、
+角丸の元画像を誤って渡すとその場で失敗する形にした。生成スクリプトは
+Pythonのみに依存するためリポジトリには残していない（このJS/TS
+モノレポの他のどこにも無い依存のため。再現方法は`artifacts/030/
+test-results.md`に記録）。
+
+**配置場所を実装時に技術調査して決め直した**: タスク定義は4つの画像を
+`apps/app/assets/`に置くとしていたが、Expoの静的Web書き出し
+（`expo export --platform web`）の実際の挙動を実測したところ、
+`assets/`配下は`require()`されない限り出力に含まれない（既存の
+`app.json`の`web.favicon`/`icon`が指す2枚だけが対象）ことが判明した。
+`+html.tsx`から固定パスで参照する必要がある4ファイル
+（`apple-touch-icon.png`・`manifest.webmanifest`・`icon-192.png`・
+`icon-512.png`）は、Expoの`public/`フォルダ機構（`@expo/cli`の
+`publicFolder.js`。書き出し時に出力ディレクトリ直下へそのまま
+コピーされる）を使い`apps/app/public/`に置いた。既存の
+`favicon.png`・`icon.png`だけを`apps/app/assets/`に残した。この判断は
+タスク定義の文言と一致しないため、Aへの報告事項としてstate.mdに明記した。
+
+**`apps/app/app/+html.tsx`（新設）**: Expo Routerの既定HTMLテンプレートに
+`apple-touch-icon`・`manifest`への`<link>`を追加。`baseUrl`は
+`process.env.EXPO_BASE_URL`から取り、ハードコードしなかった（この
+環境変数が静的書き出し時に`experiments.baseUrl`の値`/app`へ実際に
+解決されることを、既定のfaviconリンクが`/app/favicon.ico`になる仕組みと
+同じであることを含めて実測で確認した）。`apple-mobile-web-app-title`は
+追加し、`apple-mobile-web-app-capable`は意図的に入れていない
+（`standalone`にするとホーム画面から開いたときSafariの枠が消え、
+Googleログインの遷移が戻ってこないことがあるため。タスク定義4節・
+Aの判断どおり）。
+
+**`manifest.webmanifest`（新設）**: `display: "browser"`。アイコンの
+パスは相対パス（自身のURLからの相対）にし、`baseUrl`が変わっても
+書き直さなくてよい形にした。
+
+**`apps/landing/index.html`**: `<link rel="apple-touch-icon">`を1行追加。
+
+**配信経路の確認（タスク定義5節）**: `node scripts/build-public.mjs`で
+実ビルドを生成し、`wrangler dev`で配信してBrowser paneから確認した。
+`/`・`/app/`の両方で参照している全パス（`/app/manifest.webmanifest`・
+`/app/apple-touch-icon.png`・`/app/icon-192.png`・`/app/icon-512.png`・
+`/app/favicon.ico`・`/assets/apple-touch-icon.png`・
+`/assets/favicon.png`）が`200`であることをfetchで確認。CSPの
+`manifest-src`は明示していない（`default-src 'self'`へのフォールバックで
+足りる想定）が、「たぶん通る」で終わらせず、実際にページを開いて
+コンソールにCSP違反のエラーが1件も出ないこと、`document.querySelector`
+で`link[rel="manifest"]`・`link[rel="apple-touch-icon"]`が正しい
+`/app/...`のURLに解決されていることを実測で確認した。
+
+`pnpm test`（apps/app 213件・apps/api 399件、他パッケージ含め全て緑）・
+`pnpm type-check`・`pnpm lint`全て通過（`+html.tsx`新設・画像差し替え
+のみで既存ロジックには触れていないが、念のためフルスイートを実行）。
+
+**iPhoneでの「ホーム画面に追加」の実機確認はB（自動化）ではできない**
+（タスク定義・確認観点）。`artifacts/030/manual-check.md`に人間への
+確認項目（アイコンの見た目・四隅の欠け・Safariの枠が残っているか・
+ログインが通るか）を列挙した。
+
+`docs/state.md`を更新。次はコミット・PR作成・CI確認・Rへレビュー依頼。
+
+Session: B
+
+## 2026-09-04 セッションB（030: Rレビュー・受け入れ・theme-colorの非対称を解消）
+
+Rレビュー（PR #212）。「受け入れます。CIが終わり次第マージしてください」。
+確認事項: 色がトークン（`colors.primary`/`colors.bg`）と完全一致・
+manifestのアイコンパスが相対（`baseUrl`非依存でより壊れにくい）・
+CSPの`manifest-src`のフォールバックの読みが正しい・元画像両方が
+追跡されていて次の人が試し直せる・`assets/`→`public/`の判断が実測に
+基づいている、いずれも確認を得た。
+
+**R-1（小・対応）**: `theme-color`を`+html.tsx`（`/app/*`側）にだけ
+足しており、`apps/landing/index.html`（`/`側）に無い非対称があった。
+同じサイトなのに`/`と`/app/*`でAndroid Chromeのブラウザ枠の色が
+変わってしまうため、`apps/landing/index.html`にも同じ値の
+`<meta name="theme-color">`を追加して揃えた。あわせて、`+html.tsx`の
+`theme-color`が`colors.primary`と同じ値のリテラルである理由
+（`@futary/ui`から直接importすると静的書き出しのNode側バンドルに
+`react-native`が入ってしまうため）をコメントに明記した（指摘: 理由が
+コメントに無いと次の人が「トークンを使えばいいのに」と思いかねない）。
+
+`node scripts/build-public.mjs`で再ビルドし`/`・`/app/`両方に
+`theme-color`が入ることを確認。`wrangler dev`で再度配信しコンソール
+エラー無しを確認。`pnpm type-check`・`pnpm lint`も再実行し通過。
+
+Rから記録として、CIが`build:public`を走らせない（015で確認済みの
+既知の穴）ため`+html.tsx`・`public/`の仕組みはCIで一度も動いておらず、
+壊れて赤くなるのはデプロイ時になる、という指摘があった。030の範囲では
+対応しない（既知の穴の上に機能が乗った、という記録として残す）。
+
+`docs/state.md`を更新。CI緑を確認してマージする。
+
+Session: B

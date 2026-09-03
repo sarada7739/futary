@@ -3,6 +3,66 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
+**最終更新**: 2026-09-04 / セッションB。**030（アプリアイコンと
+favicon の差し替え）、Rが「受け入れます」。CI緑を確認しマージ予定。**
+
+Rから小さい指摘（R-1）を受け対応済み: `theme-color`を`+html.tsx`
+（`/app/*`側）にだけ足しており、`apps/landing/index.html`（`/`側）に
+無い非対称があった。同じサイトなのに`/`と`/app/*`でAndroid Chromeの
+ブラウザ枠の色が変わってしまうため、両方に揃えた。あわせて
+`theme-color`が`colors.primary`と同じ値のリテラルである理由
+（`@futary/ui`から直接importすると静的書き出しのNode側バンドルに
+react-nativeが入るため）をコメントに明記した。
+
+人間が生成AIで作ったハート型アイコン（`docs/sample/icon/
+futary-icon-square-1024.png`。角の白を背景で埋めた正方形版）から、
+`favicon.png`(48×48)・`apple-touch-icon.png`(180×180)・
+`icon-192.png`/`icon-512.png`(manifest用)・`icon.png`(1024×1024。
+ネイティブ用)を書き出した。**角丸の元画像（`futary-icon-source.png`）は
+使っていない**（iOSのマスク半径〈約22.4%〉より元画像の角丸〈約24.5%〉が
+丸く、四隅に白い欠けが出るため。Aの調査どおり）。
+
+`/`（`apps/landing/index.html`）に`apple-touch-icon`を追加。`/app/*`
+（Expo Web Export）には`apps/app/app/+html.tsx`を新設し、
+`apple-touch-icon`・`manifest`への`<link>`と`apple-mobile-web-app-title`を
+追加した。**`apple-mobile-web-app-capable`は入れていない**
+（`standalone`にするとホーム画面から開いたときSafariの枠が消え、
+Googleログインの遷移が戻ってこないことがあるため。Aの判断どおり）。
+`manifest.webmanifest`の`display`は`"browser"`。
+
+**B独自の技術判断（Aへの報告事項）**: タスク定義は4つの画像を
+`apps/app/assets/`に置くとしていたが、実装時にExpoの静的Web書き出しの
+挙動を確認したところ、`assets/`配下は`require()`されない限り書き出され
+ない（既存の`web.favicon`/`icon`が指す2枚だけが対象）ことが判明した。
+`+html.tsx`から固定パス（`/app/manifest.webmanifest`等）で参照する
+必要がある4ファイル（`apple-touch-icon.png`・`manifest.webmanifest`・
+`icon-192.png`・`icon-512.png`）はExpoの`public/`フォルダ機構
+（`apps/app/public/`。書き出し時に出力ディレクトリ直下へそのまま
+コピーされる）に置いた。既存の`favicon.png`・`icon.png`
+（`app.json`が指すもの）だけを`apps/app/assets/`に残した。
+
+`process.env.EXPO_BASE_URL`（静的書き出し時に`experiments.baseUrl`が
+入る。実測で確認済み）を使い、`baseUrl`をハードコードせずに`+html.tsx`の
+リンクを組み立てた。
+
+`node scripts/build-public.mjs`で実ビルドを生成し、`wrangler dev`で
+配信して`/`・`/app/`の両方をブラウザで確認: 参照している全パス
+（`/app/manifest.webmanifest`・`/app/apple-touch-icon.png`・
+`/app/icon-192.png`・`/app/icon-512.png`・`/app/favicon.ico`・
+`/assets/apple-touch-icon.png`・`/assets/favicon.png`）が`200`。
+CSPの`manifest-src`は明示していないが（`default-src 'self'`への
+フォールバックで足りる）、実際にコンソールへCSP違反が1件も出ないことを
+実測で確認した（「たぶん通る」で終わらせない。タスク定義5節）。
+
+`pnpm test`（apps/app 213件・apps/api 399件、他パッケージ含め全て緑）・
+`pnpm type-check`・`pnpm lint`全て通過。**iPhoneでの「ホーム画面に追加」の
+実機確認はB（自動化）ではできない**ため、`artifacts/030/manual-check.md`に
+人間への確認項目を列挙済み。
+
+**次にやること**: CI緑を確認してマージする。
+
+以下、2026-09-04より前の記録。
+
 **最終更新**: 2026-09-02 / セッションB。**029（気分の記録）完了。
 PR #209、Rの受け入れを得てmainへsquash merge済み**
 （`029: 気分の記録 (#209)`）。
