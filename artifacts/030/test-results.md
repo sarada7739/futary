@@ -135,3 +135,24 @@ Expo Routerの既定HTMLテンプレートには`apple-touch-icon`・`manifest`�
 
 **iPhoneでの「ホーム画面に追加」の実機確認はB（自動化）ではできない**
 （タスク定義・確認観点）。`artifacts/030/manual-check.md`参照。
+
+## Rレビュー対応（R-1）
+
+`theme-color`を`+html.tsx`（`/app/*`側）にだけ足しており、
+`apps/landing/index.html`（`/`側）に無い非対称があった（Rレビュー指摘）。
+同じサイトなのに`/`と`/app/*`でAndroid Chromeのブラウザ枠の色が
+変わってしまうため、`apps/landing/index.html`にも同じ値
+（`#F5868D`）の`<meta name="theme-color">`を追加して揃えた。
+
+あわせて、`+html.tsx`の`theme-color`が`colors.primary`と同じ値の
+リテラルである理由（`@futary/ui`から直接importすると、
+`packages/ui/src/index.ts`がcomponentsを丸ごとre-exportしているため、
+静的書き出しを実行するNode側のバンドルに`react-native`が入ってしまう。
+`apps/landing/style.css`が同じ理由でパレットを丸写ししているのと同じ
+事情）をコメントに明記した（指摘: 理由がコメントに無いと、次の人が
+「トークンを使えばいいのに」と思って触りかねない）。
+
+`node scripts/build-public.mjs`で再ビルドし、`/`・`/app/`両方の
+生成HTMLに`<meta name="theme-color" content="#F5868D">`が入っている
+ことを確認。`wrangler dev`で再度配信し、両ページともコンソールエラー
+無しを確認した。`pnpm type-check`・`pnpm lint`も再実行し通過。

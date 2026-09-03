@@ -9230,3 +9230,35 @@ Aの判断どおり）。
 `docs/state.md`を更新。次はコミット・PR作成・CI確認・Rへレビュー依頼。
 
 Session: B
+
+## 2026-09-04 セッションB（030: Rレビュー・受け入れ・theme-colorの非対称を解消）
+
+Rレビュー（PR #212）。「受け入れます。CIが終わり次第マージしてください」。
+確認事項: 色がトークン（`colors.primary`/`colors.bg`）と完全一致・
+manifestのアイコンパスが相対（`baseUrl`非依存でより壊れにくい）・
+CSPの`manifest-src`のフォールバックの読みが正しい・元画像両方が
+追跡されていて次の人が試し直せる・`assets/`→`public/`の判断が実測に
+基づいている、いずれも確認を得た。
+
+**R-1（小・対応）**: `theme-color`を`+html.tsx`（`/app/*`側）にだけ
+足しており、`apps/landing/index.html`（`/`側）に無い非対称があった。
+同じサイトなのに`/`と`/app/*`でAndroid Chromeのブラウザ枠の色が
+変わってしまうため、`apps/landing/index.html`にも同じ値の
+`<meta name="theme-color">`を追加して揃えた。あわせて、`+html.tsx`の
+`theme-color`が`colors.primary`と同じ値のリテラルである理由
+（`@futary/ui`から直接importすると静的書き出しのNode側バンドルに
+`react-native`が入ってしまうため）をコメントに明記した（指摘: 理由が
+コメントに無いと次の人が「トークンを使えばいいのに」と思いかねない）。
+
+`node scripts/build-public.mjs`で再ビルドし`/`・`/app/`両方に
+`theme-color`が入ることを確認。`wrangler dev`で再度配信しコンソール
+エラー無しを確認。`pnpm type-check`・`pnpm lint`も再実行し通過。
+
+Rから記録として、CIが`build:public`を走らせない（015で確認済みの
+既知の穴）ため`+html.tsx`・`public/`の仕組みはCIで一度も動いておらず、
+壊れて赤くなるのはデプロイ時になる、という指摘があった。030の範囲では
+対応しない（既知の穴の上に機能が乗った、という記録として残す）。
+
+`docs/state.md`を更新。CI緑を確認してマージする。
+
+Session: B

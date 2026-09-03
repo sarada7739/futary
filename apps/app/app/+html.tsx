@@ -27,6 +27,12 @@ export default function Root({ children }: { children: React.ReactNode }) {
             （standaloneにすると、ホーム画面から開いたときSafariの枠が消え、
             Googleログインの遷移が戻ってこないことがあるため） */}
         <meta name="apple-mobile-web-app-title" content="futary" />
+        {/* colors.primaryと同じ値のリテラル。@futary/uiから直接importしない
+            （Rレビュー指摘）: packages/ui/src/index.tsはcomponentsを丸ごと
+            re-exportしており、colorsだけを取り出せない。@futary/ui経由で
+            importすると、この静的書き出しを実行するNode側のバンドルに
+            react-nativeが入ってしまう。apps/landing/style.cssが同じ理由で
+            パレットを丸写ししているのと同じ事情 */}
         <meta name="theme-color" content="#F5868D" />
       </head>
       <body>{children}</body>
