@@ -27,7 +27,11 @@ export const IMAGE_ID_PATTERN = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;
 export const MAX_POST_IMAGES = 4;
 
 export const postImageSchema = z.object({
-  url: z.string(),
+  // 033・security-auditor指摘: 形式を絞る制約が無かった。この値はサーバが
+  // 発行する署名付きURLしか入らない前提だが、将来出どころが増えたときの
+  // 保険として、クライアントのImageコンポーネントへそのまま渡る値の形式を
+  // ここで縛る（防御の深さ。出力スキーマのためoRPCがサーバ側でも検証する）
+  url: z.string().url(),
   width: z.number(),
   height: z.number(),
 });

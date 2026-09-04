@@ -1,7 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Post } from "@futary/contract";
 import { PostCard } from "../components/post-card";
+import { ROW_ITEM_WIDTH_RATIO } from "../components/post-images";
 
 function makePost(overrides: Partial<Post> = {}): Post {
   return {
@@ -135,7 +136,7 @@ describe("PostCard の複数画像（031）", () => {
     expect(screen.getByLabelText("画像を全画面表示（3枚目）")).toBeTruthy();
   });
 
-  it("タップした枚数目からライトボックスが開き、枚数が表示される（左右送り・スワイプにしない）", () => {
+  it("タップした枚数目からライトボックスが開き、枚数が表示される（左右ボタンで送れる）", () => {
     render(<PostCard post={makePost({ images: makeImages(3) })} isOwn={false} />);
 
     fireEvent.click(screen.getByLabelText("画像を全画面表示（2枚目）"));
@@ -157,5 +158,96 @@ describe("PostCard の複数画像（031）", () => {
     expect(screen.queryByTestId("image-viewer-counter")).toBeNull();
     expect(screen.queryByTestId("image-viewer-prev")).toBeNull();
     expect(screen.queryByTestId("image-viewer-next")).toBeNull();
+  });
+});
+
+// react-native-webのScrollViewは、発火したDOM `scroll` イベントの
+// `e.target.scrollLeft`/`e.target.offsetWidth`を直接読む
+// （image-viewer.tsxのhandleScrollのコメント参照）。fireEventの第二引数に
+// nativeEventを渡しても読まれないため、DOM要素自体のプロパティを
+// 差し替えてから素の'scroll'イベントを発火させる。
+// react-native-web内部はscrollEventThrottleとscrollイベント終了の検知に
+// 実時間のsetTimeoutを使っており、同一ミリ秒内で連続発火させると2件目以降が
+// 間引かれる（実測して判明）。フェイクタイマーで100ms以上進め、
+// 内部のデバウンス（handleScrollEnd）を確実に発火させる
+function simulateSwipeTo(scrollNode: HTMLElement, scrollLeft: number, pageWidth: number) {
+  Object.defineProperty(scrollNode, "offsetWidth", { value: pageWidth, configurable: true });
+  Object.defineProperty(scrollNode, "scrollLeft", { value: scrollLeft, configurable: true, writable: true });
+  fireEvent.scroll(scrollNode);
+  act(() => {
+    vi.advanceTimersByTime(150);
+  });
+}
+
+// 033: 複数画像をXのように横一列に並べ、指で送れるようにした
+// （031の正方形グリッドを覆した）。ライトボックスもスワイプに対応した
+// （031のボタンのみから覆した。ボタンは残す）
+describe("PostCard の複数画像（033: 横スワイプ）", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("2枚以上は横一列のScrollView（post-images-row）に並ぶ。1枚のときは使わない", () => {
+    const { rerender } = render(<PostCard post={makePost({ images: makeImages(2) })} isOwn={false} />);
+    expect(screen.getByTestId("post-images-row")).toBeTruthy();
+
+    rerender(<PostCard post={makePostWithImage()} isOwn={false} />);
+    expect(screen.queryByTestId("post-images-row")).toBeNull();
+  });
+
+  it("各画像はコンテナ幅の一部（ROW_ITEM_WIDTH_RATIO）で、コンテナいっぱいではない", () => {
+    // 033・実機確認で発見: 横スクロールの中身は幅が定まらないコンテナに
+    // なるため、子要素の幅はpx換算でonLayoutの実測値から算出する
+    // （post-images.tsx）。onLayoutはjsdomでは発火しない（ResizeObserver
+    // 依存）ため、ここでは「コンテナいっぱいの1.0ではなく1未満の比率で
+    // 幅を決めている」という設計自体を固定する。実際に次の端が見える
+    // 見え方はBrowser paneでの実機確認・人間の実機確認で担保する
+    // （タスク定義2節「端がどれくらい見えれば気づくかは実機でしか分からない」）
+    expect(ROW_ITEM_WIDTH_RATIO).toBeLessThan(1);
+    expect(ROW_ITEM_WIDTH_RATIO).toBeGreaterThan(0.5);
+  });
+
+  it("ドットのインジケータを置かない（一覧行に見出し数字・ドット要素が無い）", () => {
+    render(<PostCard post={makePost({ images: makeImages(3) })} isOwn={false} />);
+    // 一覧行自体にはimage-viewer-counterに相当する要素を持たない
+    // （カウンターはライトボックス側だけに出す。タスク定義2節・3節）
+    expect(screen.queryByTestId("image-viewer-counter")).toBeNull();
+  });
+
+  it("ライトボックスをスワイプ（ScrollViewのonMomentumScrollEnd）で送ると枚数が更新される", () => {
+    render(<PostCard post={makePost({ images: makeImages(3) })} isOwn={false} />);
+    fireEvent.click(screen.getByLabelText("画像を全画面表示（1枚目）"));
+    expect(screen.getByTestId("image-viewer-counter").textContent).toBe("1 / 3");
+
+    const scrollNode = screen.getByTestId("image-viewer-scroll");
+    simulateSwipeTo(scrollNode, 800, 400);
+    expect(screen.getByTestId("image-viewer-counter").textContent).toBe("3 / 3");
+
+    simulateSwipeTo(scrollNode, 400, 400);
+    expect(screen.getByTestId("image-viewer-counter").textContent).toBe("2 / 3");
+  });
+
+  it("スワイプで送ったあともボタンで続けて送れる（両方が効く）", () => {
+    render(<PostCard post={makePost({ images: makeImages(3) })} isOwn={false} />);
+    fireEvent.click(screen.getByLabelText("画像を全画面表示（1枚目）"));
+
+    simulateSwipeTo(screen.getByTestId("image-viewer-scroll"), 400, 400);
+    expect(screen.getByTestId("image-viewer-counter").textContent).toBe("2 / 3");
+
+    fireEvent.click(screen.getByTestId("image-viewer-next"));
+    expect(screen.getByTestId("image-viewer-counter").textContent).toBe("3 / 3");
+  });
+
+  it("スワイプで背景タップの閉じる操作と混ざらない（送ったあとも開いたまま）", () => {
+    render(<PostCard post={makePost({ images: makeImages(3) })} isOwn={false} />);
+    fireEvent.click(screen.getByLabelText("画像を全画面表示（1枚目）"));
+
+    simulateSwipeTo(screen.getByTestId("image-viewer-scroll"), 400, 400);
+
+    expect(screen.getByTestId("image-viewer-backdrop")).toBeTruthy();
+    expect(screen.getByTestId("image-viewer-counter").textContent).toBe("2 / 3");
   });
 });
