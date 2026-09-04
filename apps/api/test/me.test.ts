@@ -513,6 +513,148 @@ describe("me.delete", () => {
     }
   });
 
+  // 【032】上のテストは`couple_id`という列名に頼っているため、その列を
+  // 持たない表（`reactions`・`post_images`。ともに`post_id`で参照する側）が
+  // 網に映らない。031のレビューで実際にこの2つが漏れていた（R指摘）。
+  // 「`post_id`も見る」に足すと次の列名でまた漏れる（列名を並べる一覧に
+  // 戻ってしまう）ため、列名ではなく「me.delete後、登録の無い表は全部
+  // 0件」に変える。テストのDBにはこのペアのデータしか無いため、joinの経路を
+  // 辿らずに「0件かどうか」だけを見れば足りる（032タスク定義3節）
+  it("me.delete後、登録の無い全表が0件になる（列名ではなく表全体で見る）", async () => {
+    // `sqlite_%`はSQLiteの内部表（032タスク定義3節。`invite_failures`が
+    // AUTOINCREMENTのため`sqlite_sequence`が存在する）。`d1_migrations`
+    // （drizzle-kitのマイグレーション適用記録）・`_cf_METADATA`（D1が内部で
+    // 使う表）はアプリの表ではなく、D1がクエリ自体を拒む
+    // （実行して確認: `SQLITE_AUTH: not authorized`）。いずれも免除の
+    // 一覧には入れない。アプリの表ではないものをアプリの判断として登録すると、
+    // 次に読む人が「これは消すべきなのか」と考える
+    const { results: tables } = await db
+      .prepare(
+        `SELECT name AS name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA')`,
+      )
+      .all<{ name: string }>();
+    const tableNames = tables.map((t) => t.name);
+
+    // 検出ロジック自体の健全性（上のcoupleIdTablesの健全性チェックと同じ形）
+    expect(tableNames).toEqual(
+      expect.arrayContaining([
+        "user",
+        "session",
+        "account",
+        "verification",
+        "invite_failures",
+        "couples",
+        "couple_members",
+        "invites",
+        "posts",
+        "post_images",
+        "reactions",
+        "events",
+        "wishes",
+        "moods",
+      ]),
+    );
+
+    // 【実測して分かったこと】このテストファイルはD1の状態がit()をまたいで
+    // 共有されている。「isolated per-test storage」を謳うプラグインだが、
+    // このテスト単体では通り、フルスイートで実行すると`couples`に他の
+    // テストが残した行が既に1件見える（`SELECT COUNT(*) FROM couples`を
+    // このテストの先頭で実行して確認した）。よって「削除後は0件」という
+    // 032タスク定義3節の前提（「DBにはこのペアしか居ない」）は、この
+    // テストファイル内では成立しない。「このテストが増やした分が、
+    // 削除後にちょうど元へ戻ったか」（件数の差分）で見る。件数だけを見る
+    // ため、他のテストが残した行の中身を読む必要はない
+    const baselineCounts = new Map<string, number>();
+    for (const name of tableNames) {
+      const row = await db.prepare(`SELECT COUNT(*) AS c FROM ${name}`).first<{ c: number }>();
+      baselineCounts.set(name, row?.c ?? 0);
+    }
+
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+
+    // sessionはBetter Authの実テーブルだが、contextForは実際の行を経由せず
+    // RpcContextを直接組み立てているため、この網に映すには手で行を作る
+    // （自分のsessionが残っていたら落ちる、を証明するために必要。下記）
+    const now = Math.floor(Date.now() / 1000);
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO session (id, expires_at, token, created_at, updated_at, user_id) VALUES (?1, ?2, ?3, ?4, ?4, ?5)",
+        )
+        .bind(crypto.randomUUID(), now + 3600, crypto.randomUUID(), now, owner.id),
+      db
+        .prepare(
+          "INSERT INTO session (id, expires_at, token, created_at, updated_at, user_id) VALUES (?1, ?2, ?3, ?4, ?4, ?5)",
+        )
+        .bind(crypto.randomUUID(), now + 3600, crypto.randomUUID(), now, partner.id),
+    ]);
+
+    const postImageId = await uploadTestPostImage(couple.id);
+    const post = await call(
+      router.post.create,
+      { body: "テスト投稿", images: [{ imageId: postImageId, width: 100, height: 100 }] },
+      { context: contextFor(owner) },
+    );
+    await call(router.reaction.toggle, { postId: post.id, kind: "heart" }, { context: contextFor(partner) });
+    await call(
+      router.event.create,
+      { date: "2020-01-01", title: "予定", kind: "plan", repeatYearly: false, startTime: null, endTime: null, isShared: false },
+      { context: contextFor(owner) },
+    );
+    await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
+    await call(router.mood.setToday, { level: 5 }, { context: contextFor(owner) });
+
+    // 免除は「表」ではなく「残ってよい行の条件」で登録する（Rレビュー指摘。
+    // 032タスク定義3節）。表ごと免除にすると、自分のsessionが残っていても
+    // 鳴らない（ログアウトされていないことを見逃す。T8・024の再認証に直結）。
+    // ここに無い表は「このテストが増やした分がちょうど0へ戻ること」が既定
+    // （下のループ参照）。値はB自身が1ペア・2人で実測して確かめた
+    // （`couples`はこのテストの増分がちょうど0へ戻った）
+    const ALLOWED_TO_REMAIN: Record<string, string | null> = {
+      user: "id <> ?1", // 相手のuser行は残る（Candle型。024）
+      session: "user_id <> ?1", // 自分のsessionはCASCADEで消える。相手の分は残る
+      account: "user_id <> ?1", // sessionと同じ理由
+      verification: null, // Better Authの作業行。利用者に紐づかない
+      invite_failures: null, // 消さないと決めた（PR #186。時間窓1時間で切れる）
+    };
+
+    // 消す前チェック（空振りの緑を防ぐ）。couple_id列を持つ表は既存の網と
+    // 同じ考え方、それ以外（reactions・post_images等）は「baselineより
+    // 増えていること」だけを要求する（032タスク定義4節。どのペアの行かを
+    // 判定しなくてよい。このテストが作った分の増減だけを見る）
+    for (const name of tableNames) {
+      if (name in ALLOWED_TO_REMAIN) continue;
+      const row = await db.prepare(`SELECT COUNT(*) AS c FROM ${name}`).first<{ c: number }>();
+      const after = row?.c ?? 0;
+      expect(
+        after,
+        `${name} にこのペアの行を作るテストデータがありません。このテストに追加してください`,
+      ).toBeGreaterThan(baselineCounts.get(name) ?? 0);
+    }
+
+    const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
+    expect(result.ok).toBe(true);
+
+    for (const name of tableNames) {
+      if (name in ALLOWED_TO_REMAIN) {
+        const allowed = ALLOWED_TO_REMAIN[name];
+        if (allowed === null) continue; // 全部残ってよい表（verification・invite_failures）
+        const row = await db.prepare(`SELECT 1 FROM ${name} WHERE NOT (${allowed})`).bind(owner.id).first();
+        expect(row, `${name} に残ってはいけない行が残っています`).toBeNull();
+      } else {
+        const row = await db.prepare(`SELECT COUNT(*) AS c FROM ${name}`).first<{ c: number }>();
+        expect(
+          row?.c ?? 0,
+          `${name} にこのテストで作った行が残っています`,
+        ).toBe(baselineCounts.get(name) ?? 0);
+      }
+    }
+  });
+
   // 【記録: 受け入れている制約。security-auditor指摘を受けて範囲を訂正】
   // reactions〜couplesはdb.batch()1本にまとめたため（下のmeDeleteのコメント
   // 参照）、me.delete自身の実行中にcouple_membersだけが消えてcouplesが
