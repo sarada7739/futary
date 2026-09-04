@@ -9899,3 +9899,9 @@ D1の書き込みが`it()`をまたいで見えている。
 詳細・生ログは`artifacts/032/test-results.md`参照。
 
 Session: B
+
+## 2026-09-04 セッションB: 032マージ完了
+
+PR #231、CIグリーンでmainへsquash merge済み（コミット`d4b438b`）。
+
+Session: B
