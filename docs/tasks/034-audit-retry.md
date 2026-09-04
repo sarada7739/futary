@@ -90,7 +90,9 @@ POST が `error (23)` / `503` でタイムアウトしている。
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へ
 
 ## 進捗
-- [ ] 区別の実測
-- [ ] 共通のリトライ
-- [ ] `ci.yml` / `deploy.yml`
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] 区別の実測（脆弱性検出時はリトライ無し・通信失敗時はリトライ有り。
+      `artifacts/034/test-results.md`）
+- [x] 共通のリトライ（`scripts/pnpm-audit.mjs`。`.npmrc`のfetch-retriesは
+      実測で効かないと判明したため、確実に効くCLIフラグの形にした）
+- [x] `ci.yml` / `deploy.yml`（両方とも`scripts/pnpm-audit.mjs`経由に変更）
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記

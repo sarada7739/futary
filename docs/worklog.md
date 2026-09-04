@@ -9741,3 +9741,56 @@ Session: B
 同じ形をもう一度作らない。**
 
 Session: A
+
+## 2026-09-04 セッションB: 034（pnpm auditの通信リトライ）実装完了
+
+`docs/tasks/034-audit-retry.md`（PR #227で訂正された内容。「外側にリトライを
+足す」ではなく「pnpmの待ちを延ばす」）に従い実装した。
+
+### 3節（先に実測すること）を先に済ませた
+
+**`.npmrc`の`fetch-retries`設定は効かないと実測で判明した。** 到達不能な
+レジストリ（`http://127.0.0.1:9/`）に繰り返し実行しても、`.npmrc`に
+`fetch-retries=5`を書いて既定の2回のまま変わらなかった。`pnpm audit`
+だけでなく`pnpm add`でも同様に効かず、audit固有の問題ではないと分かった。
+`npm_config_fetch_retries`環境変数も同様に無効だった。**CLIフラグ
+`--fetch-retries=5`のみが確実に効いた**（同じ到達不能レジストリで
+「2 retries left」→「5 retries left」への変化を確認）。pnpmのソース
+（`pnpm.mjs`。`createAuditNetworkOptions()`・`rcOptionsTypes21()`）を読むと
+`.npmrc`からも読めるはずに見えるコードだったが、コードの見た目より実測を
+優先し、CLIフラグを採用した。
+
+脆弱性検出時にリトライしないことも実測した。npmの`POST
+/-/npm/v1/security/advisories/bulk`と同じ形式で固定の脆弱性を返す
+使い捨てのモックHTTPサーバーを立て、`--fetch-retries=5`を渡していても
+正常な200応答（脆弱性あり）へのリクエストは1回だけ・0.5秒で終了コード1に
+なることを確認した。`Will retry`は一度も出ない。
+
+### 実装
+
+`scripts/pnpm-audit.mjs`を新設し、`pnpm audit`を叩く3箇所すべて
+（`ci.yml`・`deploy.yml`の出力専用/ゲートの2箇所、
+`check-audit-ignore-staleness.mjs`内部の呼び出し）がこれを経由する形にした。
+リトライ設定値（`--fetch-retries=5`）はこの1箇所にのみ存在する。ラッパー
+自身は「リトライすべきか」を判断していない（`spawnSync`で`pnpm audit`を
+そのまま呼び、終了コードと出力をそのまま返すだけ）。脆弱性か通信失敗かの
+区別ロジックを自作していないため、区別を誤って脆弱性を通す経路も無い。
+
+効果が無いと判明した`.npmrc`（当初の実装。fetch-retries=5をプロジェクト
+ルートに置いていた）は削除した。
+
+到達不能なレジストリに対しラッパー経由で実行し、待ちが既定の約3分10秒
+（10秒→1分×1回。計2回リトライ）から約4分10秒（10秒→1分×4回。計5回
+リトライ）に伸びることをタイムスタンプ付きログで確認した。全リトライ失敗後は
+終了コード1（`continue-on-error`等は使っていない。逃げ道を作っていない）。
+
+### テスト
+
+`pnpm -r test`（apps/app 222件・apps/api 409件、全て緑）・`pnpm -r
+type-check`・`pnpm -w eslint .`、全て通過。実レジストリに対しても
+`check-audit-ignore-staleness.mjs`（無視リスト2件とも陳腐化なし）・
+ゲート（既知2件を除きhigh以上ゼロ）の両方が正常終了することを確認した。
+
+詳細・生ログは`artifacts/034/test-results.md`参照。
+
+Session: B
