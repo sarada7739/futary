@@ -356,3 +356,125 @@ describe("0017マイグレーション: 既存行がnote列の追加を生き延
     expect(row?.note).toBe("");
   });
 });
+
+// 031: posts.image_key は posts_image_key_unique（UNIQUEインデックス）に
+// 使われている。SQLiteは索引に使われている列をDROP COLUMNできないため、
+// 0019_post_images.sqlはDROP INDEX → DROP COLUMNの順で書いた。
+// 「通るはずだ」で進めず、順序を飛ばすと実際に落ちることをここで実測する
+// （023がcouplesで同じことをやっている。docs/tasks/031-multi-image.md 4節）
+describe("0019マイグレーション: DROP INDEXを飛ばすとDROP COLUMNが落ちる（手順の根拠）", () => {
+  it("posts_image_key_unique が残ったままだと image_key のDROP COLUMNが失敗し、DROP INDEX後は成功する", async () => {
+    // 0019適用後（現在）のpostsはimage_key列を持たないため、一時的に足し戻して
+    // 索引ありの状態を再現する
+    await db.exec(`ALTER TABLE posts ADD COLUMN image_key text`);
+    await db.exec(`CREATE UNIQUE INDEX posts_image_key_unique ON posts (image_key)`);
+
+    try {
+      // 索引が残ったままのDROP COLUMNは失敗する（実測。手順の根拠）
+      await expect(db.exec(`ALTER TABLE posts DROP COLUMN image_key`)).rejects.toThrow();
+
+      // DROP INDEXしてからなら成功する
+      await db.exec(`DROP INDEX posts_image_key_unique`);
+      await expect(db.exec(`ALTER TABLE posts DROP COLUMN image_key`)).resolves.not.toThrow();
+    } finally {
+      // 後片付け: 失敗せずに終わった場合に備え、両方とも存在しない状態に揃える
+      const columns = await db.prepare(`PRAGMA table_info(posts)`).all<{ name: string }>();
+      if (columns.results.some((c) => c.name === "image_key")) {
+        await db.exec(`ALTER TABLE posts DROP COLUMN image_key`).catch(() => {});
+      }
+      const indexes = await db
+        .prepare(`SELECT name AS name FROM sqlite_master WHERE type = 'index' AND name = 'posts_image_key_unique'`)
+        .all<{ name: string }>();
+      if (indexes.results.length > 0) {
+        await db.exec(`DROP INDEX posts_image_key_unique`).catch(() => {});
+      }
+    }
+  });
+});
+
+// 031: 既存の1枚（posts.image_key）がpost_imagesのposition=0へ移ることを、
+// 実際に行を入れた状態でマイグレーションを当てて確認する（conventions.md 6節）。
+// postsはcouples/eventsと違い表を作り直さない（列を足し戻すだけで0018時点の
+// 構造を再現できる。0017テストと同じ簡潔な形）
+describe("0019マイグレーション: 既存の1枚がpost_imagesのposition=0へ移る", () => {
+  it("posts.image_keyに値が入った既存行が、post_images(position=0)へそのまま移り、posts側の列は消える", async () => {
+    const target = TEST_MIGRATIONS.find((m) => m.name === "0019_post_images.sql");
+    if (!target) throw new Error("0019のマイグレーションがTEST_MIGRATIONSに見つかりません");
+
+    const userId = crypto.randomUUID();
+    const coupleId = crypto.randomUUID();
+    const postId = crypto.randomUUID();
+    const now = Math.floor(Date.now() / 1000);
+    await db
+      .prepare(
+        "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, 'テスト', ?2, 1, ?3, ?3)",
+      )
+      .bind(userId, `${crypto.randomUUID()}@example.com`, now)
+      .run();
+    await db
+      .prepare("INSERT INTO couples (id, dating_date, created_at) VALUES (?1, '2020-01-01', ?2)")
+      .bind(coupleId, now)
+      .run();
+
+    // 0019適用後（現在）はpost_imagesが実表であり、postsはimage_key等を
+    // 持たない。0018時点の構造（image_key/width/height列+UNIQUE索引、
+    // post_images無し）を一時的に再現する
+    await db.exec(`DROP TABLE post_images`);
+    await db.exec(`ALTER TABLE posts ADD COLUMN image_key text`);
+    await db.exec(`ALTER TABLE posts ADD COLUMN image_width integer`);
+    await db.exec(`ALTER TABLE posts ADD COLUMN image_height integer`);
+    await db.exec(`CREATE UNIQUE INDEX posts_image_key_unique ON posts (image_key)`);
+
+    const imageKey = `couples/${coupleId}/posts/${crypto.randomUUID()}.jpg`;
+    await db
+      .prepare(
+        `INSERT INTO posts (id, couple_id, author_id, body, image_key, image_width, image_height, created_at)
+         VALUES (?1, ?2, ?3, '既存の投稿', ?4, 1600, 1200, ?5)`,
+      )
+      .bind(postId, coupleId, userId, imageKey, now)
+      .run();
+
+    // 031・security-auditor指摘: 007の旧設計は論理削除後もimage_keyを残していた
+    // ため、既に論理削除済みの投稿が画像付きのままDBに残っている状態がありうる。
+    // これをpost_imagesへ移してしまうと、031の新しい不変条件（論理削除済みの
+    // 投稿はpost_imagesを持たない。post.deleteが物理削除する）と矛盾した状態を
+    // 移行直後から作ってしまうため、移さないことを確認する
+    const deletedPostId = crypto.randomUUID();
+    const deletedImageKey = `couples/${coupleId}/posts/${crypto.randomUUID()}.jpg`;
+    await db
+      .prepare(
+        `INSERT INTO posts (id, couple_id, author_id, body, image_key, image_width, image_height, created_at, deleted_at)
+         VALUES (?1, ?2, ?3, '削除済みの投稿', ?4, 800, 600, ?5, ?5)`,
+      )
+      .bind(deletedPostId, coupleId, userId, deletedImageKey, now)
+      .run();
+
+    // d1_migrationsの記録を消し、0019を「未適用」に戻してから、本物のSQLファイルで再適用する
+    await db.prepare(`DELETE FROM d1_migrations WHERE name = ?1`).bind(target.name).run();
+    await applyD1Migrations(db, [target]);
+
+    const imageRow = await db
+      .prepare(
+        `SELECT position AS position, key AS key, width AS width, height AS height
+           FROM post_images WHERE post_id = ?1`,
+      )
+      .bind(postId)
+      .first<{ position: number; key: string; width: number; height: number }>();
+    expect(imageRow?.position).toBe(0);
+    expect(imageRow?.key).toBe(imageKey);
+    expect(imageRow?.width).toBe(1600);
+    expect(imageRow?.height).toBe(1200);
+
+    const deletedImageRow = await db
+      .prepare(`SELECT 1 FROM post_images WHERE post_id = ?1`)
+      .bind(deletedPostId)
+      .first();
+    expect(deletedImageRow).toBeNull();
+
+    const columns = await db.prepare(`PRAGMA table_info(posts)`).all<{ name: string }>();
+    const columnNames = columns.results.map((c) => c.name);
+    expect(columnNames).not.toContain("image_key");
+    expect(columnNames).not.toContain("image_width");
+    expect(columnNames).not.toContain("image_height");
+  });
+});

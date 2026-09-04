@@ -77,8 +77,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
       "index:events_meetup_unique",
       "index:invite_failures_account_created_idx",
       "index:invite_failures_ip_created_idx",
+      "index:post_images_key_unique",
       "index:posts_couple_created_idx",
-      "index:posts_image_key_unique",
       "index:session_token_unique",
       "index:user_email_unique",
       "index:wishes_couple_created_idx",
@@ -169,5 +169,21 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     const checks = await listTableChecks("moods");
 
     expect(checks).toEqual(["moods_level_range_check"]);
+  });
+
+  // 031: 枚数の上限（4枚）はposition(0..3)のCHECKと主キーでDB側にも表す。
+  // アプリの条件（Zodのmax(4)）だけに頼らない
+  it("post_images のCHECK制約（名前の付いたもの）が全部そろっている", async () => {
+    const checks = await listTableChecks("post_images");
+
+    expect(checks).toEqual(["post_images_position_range_check"]);
+  });
+
+  it("post_images_key_unique は key 列のUNIQUEインデックスのままである", async () => {
+    const objects = await listIndexesAndTriggers();
+    const index = objects.find((o) => o.name === "post_images_key_unique");
+
+    expect(index?.sql).toContain("UNIQUE INDEX");
+    expect(index?.sql).toContain("(`key`)");
   });
 });

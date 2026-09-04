@@ -81,11 +81,15 @@ const statsGet = implementer.stats.get.use(readProcedure).handler(async ({ conte
       .bind(coupleId)
       .first<CountRow>(),
     // L65: deleted_at IS NULL が抜けていた（タスク定義・architecture.md 4節どちらにも
-    // 無かった）。007の決定で論理削除後もimage_keyは残るため、これが無いと
-    // 削除済みの写真投稿まで数えてしまう
+    // 無かった）。post.delete経由ならpost_imagesも一緒に消えるが、防御的に
+    // 条件を保つ（031: image_key列はposts_imagesへ移った。「写真の枚数」は
+    // 投稿件数ではなく実際の画像枚数を返す。1投稿に複数枚付けられるように
+    // なったため両者は一致しなくなった）
     db
       .prepare(
-        "SELECT COUNT(*) AS count FROM posts WHERE couple_id = ?1 AND deleted_at IS NULL AND image_key IS NOT NULL",
+        `SELECT COUNT(*) AS count FROM post_images
+           JOIN posts ON posts.id = post_images.post_id
+          WHERE posts.couple_id = ?1 AND posts.deleted_at IS NULL`,
       )
       .bind(coupleId)
       .first<CountRow>(),

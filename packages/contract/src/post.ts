@@ -21,6 +21,17 @@ export const reactionSummarySchema = z.object({
 // 操作できてしまう余地があった）。me.ts でも使うため export する
 export const IMAGE_ID_PATTERN = /^[0-9A-HJKMNPQRSTVWXYZ]{26}$/;
 
+// 031: 1投稿に画像を4枚まで（post_images。position順）。url は署名付き GET
+// URL（有効期限1時間。architecture.md 6節）であり、post.list/post.create の
+// たびに毎回新しく発行し直す
+export const MAX_POST_IMAGES = 4;
+
+export const postImageSchema = z.object({
+  url: z.string(),
+  width: z.number(),
+  height: z.number(),
+});
+
 export const postSchema = z.object({
   id: z.string(),
   authorId: z.string(),
@@ -29,17 +40,16 @@ export const postSchema = z.object({
   authorName: z.string().nullable(),
   authorImage: z.string().nullable(),
   body: z.string(),
-  // 画像が無い投稿は null。imageUrl は署名付き GET URL（有効期限1時間。architecture.md 6節）
-  // であり、post.list/post.create のたびに毎回新しく発行し直す
-  imageUrl: z.string().nullable(),
-  imageWidth: z.number().nullable(),
-  imageHeight: z.number().nullable(),
+  // 031: imageUrl（単数）は契約から消した。残すと「1枚目だけ見ればいい」
+  // 経路ができ、2枚目以降が静かに落ちるため。画像が無い投稿は空配列
+  images: z.array(postImageSchema),
   createdAt: z.number(),
   // 009: 投稿ごとのリアクション集計。件数0のkindも含めてよい（UI側でcount>0のみ表示する）
   reactions: z.array(reactionSummarySchema),
 });
 
 export type Post = z.infer<typeof postSchema>;
+export type PostImage = z.infer<typeof postImageSchema>;
 
 // post.list: カーソルページング（1回20件固定）。cursor は created_at と id の
 // 複合を不透明な文字列にエンコードしたもので、クライアントは中身を解釈しない
@@ -56,22 +66,29 @@ export const postListContract = oc
 // post.create: imageKey ではなく imageId を受け取る（architecture.md 5節）。
 // 鍵は couples/{coupleId}/... という形をしており、これを受け取ることは
 // coupleId を受け取ることと同じになるため、クライアントからは受け取らない。
-// imageId は post.uploadUrl がサーバ側で生成して返したものだけが有効
+// imageId は post.uploadUrl がサーバ側で生成して返したものだけが有効。
+// 031: images は最大4件（枚数はZodで弾く。5件渡すとBAD_REQUEST。
+// conventions.md 5節「入力だけで判定できることはZodに置く」）。空配列は
+// 無いものとして扱う（undefinedと分けない）
+const postCreateImageSchema = z.object({
+  imageId: z.string().regex(IMAGE_ID_PATTERN),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+
 export const postCreateContract = oc
   .input(
     z.object({
       body: z.string().max(MAX_BODY_LENGTH, `本文は${MAX_BODY_LENGTH}文字以内で入力してください`),
-      imageId: z.string().regex(IMAGE_ID_PATTERN).optional(),
-      imageWidth: z.number().int().positive().optional(),
-      imageHeight: z.number().int().positive().optional(),
+      images: z.array(postCreateImageSchema).max(MAX_POST_IMAGES).optional(),
     }),
   )
   .output(postSchema)
   .errors({
     FORBIDDEN: {},
     NEEDS_ONBOARDING: { status: 409 },
-    // 本文（trim後）と imageId が両方空、または imageId に対応する R2 の実体が無い、
-    // または同じ imageId が既に別の投稿に使われている場合
+    // 本文（trim後）と images が両方空、または imageId のいずれかに対応する
+    // R2の実体が無い、または同じ imageId が既に別の投稿に使われている場合
     INVALID_INPUT: { status: 400 },
   });
 

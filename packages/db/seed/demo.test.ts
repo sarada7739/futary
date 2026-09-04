@@ -31,22 +31,36 @@ describe("buildDemoSeed", () => {
     expect(countOf("anniversary")).toBeLessThanOrEqual(5);
   });
 
-  it("投稿が30〜50件、うち画像付きは4件である", () => {
-    // タスク定義の目安は5〜8件だが、素材5枚のうち1枚（旧meetup-3.jpg）に
-    // 実在しそうな店名の看板が写り込んでいたため使わないことにした
-    // （security-auditor指摘。docs/sample/README.mdがeHaCqEMx.jpgを
-    // 除外したのと同じ理由）。残り4枚を使う
+  it("投稿が30〜50件、うち画像付きは5件（グリッド4件+マイルストーン1件）である", () => {
     const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
     expect(seed.posts.length).toBeGreaterThanOrEqual(30);
     expect(seed.posts.length).toBeLessThanOrEqual(50);
-    const withImage = seed.posts.filter((p) => p.imageKey !== null);
-    expect(withImage.length).toBe(4);
+    const withImage = seed.posts.filter((p) => p.images.length > 0);
+    expect(withImage.length).toBe(5);
   });
 
-  it("画像付きの投稿は、同じ画像を使い回さない", () => {
+  // 031: 1・2・3・4枚の投稿がそれぞれ1件以上デモに入っていることを確認する
+  // （タスク定義7節「デモに入れる」）
+  it("1枚・2枚・3枚・4枚の投稿がそれぞれ1件以上ある", () => {
     const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
-    const imageKeys = seed.posts.map((p) => p.imageKey).filter((k): k is string => k !== null);
+    for (const count of [1, 2, 3, 4]) {
+      expect(seed.posts.some((p) => p.images.length === count)).toBe(true);
+    }
+    // 5枚を超える投稿は作らない（上限4枚。タスク定義1節）
+    expect(seed.posts.every((p) => p.images.length <= 4)).toBe(true);
+  });
+
+  it("post_imagesのkeyは、投稿・位置をまたいで重複しない（UNIQUE制約に沿う）", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    const imageKeys = seed.posts.flatMap((p) => p.images.map((image) => image.key));
     expect(new Set(imageKeys).size).toBe(imageKeys.length);
+  });
+
+  it("各投稿の画像は position 0 から連番で、posts.images の並び順どおりに保たれる", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    for (const post of seed.posts) {
+      expect(post.images.length).toBeLessThanOrEqual(4);
+    }
   });
 
   it("repeat_yearly=true の行は kind='anniversary' だけである（events_repeat_yearly_check）", () => {
@@ -206,9 +220,20 @@ describe("buildDemoSeedSql", () => {
     expect(firstInsertIndex).toBeGreaterThan(lastDeleteIndex);
   });
 
-  it("外部キーの順で消す: reactions -> posts -> events -> wishes -> moods -> invites -> couple_members -> couples -> user", () => {
+  it("外部キーの順で消す: reactions -> post_images -> posts -> events -> wishes -> moods -> invites -> couple_members -> couples -> user", () => {
     const sql = buildDemoSeedSql(Date.UTC(2026, 7, 31));
-    const order = ["reactions", "posts", "events", "wishes", "moods", "invites", "couple_members", "couples", "user"];
+    const order = [
+      "reactions",
+      "post_images",
+      "posts",
+      "events",
+      "wishes",
+      "moods",
+      "invites",
+      "couple_members",
+      "couples",
+      "user",
+    ];
     const positions = order.map((table) => sql.indexOf(`DELETE FROM ${table}`));
     for (const pos of positions) expect(pos).toBeGreaterThan(-1);
     for (let i = 1; i < positions.length; i++) {

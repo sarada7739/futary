@@ -41,9 +41,7 @@ function makeResult(overrides: Partial<Record<string, unknown>> = {}) {
     post: {
       id: "post-1",
       body: "初めて一緒に海を見に行った日",
-      imageUrl: null,
-      imageWidth: null,
-      imageHeight: null,
+      images: [] as Array<{ url: string; width: number; height: number }>,
       createdAt: Math.floor(Date.UTC(2026, 5, 15, 3, 0, 0) / 1000), // JST 2026-06-15 12:00
     },
     label: "oneMonthAgo",
@@ -73,7 +71,7 @@ describe("MemoryCard", () => {
   it("画像があるとタップで全画面表示が開く", async () => {
     memoryGetMock.mockResolvedValue(
       makeResult({
-        post: { ...makeResult().post, imageUrl: "https://example.com/memory.jpg" },
+        post: { ...makeResult().post, images: [{ url: "https://example.com/memory.jpg", width: 800, height: 600 }] },
       }),
     );
 
@@ -89,7 +87,7 @@ describe("MemoryCard", () => {
   // には画像側のタップ先が無く、本文を最後まで読む手段が無くなる穴があった。
   // 本文タップでの展開/折りたたみで塞いだ
   it("本文をタップすると展開/折りたたみが切り替わる（画像が無い思い出でも読み返せる）", async () => {
-    memoryGetMock.mockResolvedValue(makeResult({ post: { ...makeResult().post, imageUrl: null } }));
+    memoryGetMock.mockResolvedValue(makeResult({ post: { ...makeResult().post, images: [] } }));
 
     renderCard();
     const body = await screen.findByLabelText("本文をすべて表示");

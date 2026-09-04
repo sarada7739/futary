@@ -88,14 +88,17 @@ async function deleteAllByPrefix(bucket: R2Bucket, prefix: string): Promise<void
 // docs/tasks/024-account-deletion.md「訂正: 『最初に読めなくする』は、
 // 誰も守っていなかった」）:
 //   1. reactions（postsとuserを参照）
-//   2. posts
-//   3. events
-//   4. wishes（027追加。couples(id)をON DELETE no actionで参照するため、
-//      couplesを消す前に消さないとFK違反で落ちる。他のcouple_id系DELETEと同じ理由）
-//   5. moods（029追加。wishesと同じ理由）
-//   6. invites
-//   7. couple_members ← ここまで来れば、あとはcouple_idが要らない
-//   8. couples
+//   2. post_images（031追加。postsを参照するため、postsを消す前に消す。
+//      027 wishes・029 moodsに続き3回目。architecture.md 4節「表を足したら、
+//      消す手順にも足す」）
+//   3. posts
+//   4. events
+//   5. wishes（027追加。couples(id)をON DELETE no actionで参照するため、
+//      couplesを消す前に消さないとFK違反で落ちるため、他のcouple_id系DELETEと同じ理由）
+//   6. moods（029追加。wishesと同じ理由）
+//   7. invites
+//   8. couple_members ← ここまで来れば、あとはcouple_idが要らない
+//   9. couples
 //   （相手のuser.imageをNULLに。下のコメント参照）
 // 上記は1本のdb.batch()にまとめる（【security-auditor指摘】個別のrun()
 // だと、削除の実行中に別リクエストが新しい投稿・予定・招待を作った場合、
@@ -103,7 +106,7 @@ async function deleteAllByPrefix(bucket: R2Bucket, prefix: string): Promise<void
 // posts.couple_id等からON DELETE no actionで参照されているため、その
 // 状態でDELETE FROM couplesがFK違反で落ちる。このときcouple_membersは
 // 既に消えているため、再実行時はcoupleIdを引けず（couple分岐ごと
-// 飛ばされ）、本文・image_keyを持つ行が回収不能な孤児として恒久的に残る
+// 飛ばされ）、本文・画像（post_images）を持つ行が回収不能な孤児として恒久的に残る
 // うえ、削除実行者がその投稿の著者なら以降のuser削除がFK違反で永久に
 // 失敗しかねない。db.batch()は文のエラーでロールバックする
 // 〈couple.tsのisConstraintViolationのコメントと同じ根拠〉ため、原子化
@@ -163,6 +166,14 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
     await db.batch([
       db
         .prepare("DELETE FROM reactions WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ?1)")
+        .bind(coupleId),
+      // 【031・タスク定義3節】post_images.post_idもpostsをON DELETE no actionで
+      // 参照するため、postsを消す前に消さないとFK違反で落ちる。足さないと
+      // 画像付きの投稿を持つペアはアカウント削除が恒久的に失敗する
+      // （027 wishes・029 moodsで踏んだのと同じ形。起票の時点でテスト項目に
+      // 入れてあるため今回は踏んでいない）
+      db
+        .prepare("DELETE FROM post_images WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ?1)")
         .bind(coupleId),
       db.prepare("DELETE FROM posts WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM events WHERE couple_id = ?1").bind(coupleId),

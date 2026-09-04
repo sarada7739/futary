@@ -310,7 +310,7 @@ describe("me.delete", () => {
     const postImageId = await uploadTestPostImage(couple.id);
     const post = await call(
       router.post.create,
-      { body: "テスト投稿", imageId: postImageId, imageWidth: 100, imageHeight: 100 },
+      { body: "テスト投稿", images: [{ imageId: postImageId, width: 100, height: 100 }] },
       { context: contextFor(owner) },
     );
     await call(router.reaction.toggle, { postId: post.id, kind: "heart" }, { context: contextFor(partner) });
@@ -336,6 +336,9 @@ describe("me.delete", () => {
     ).toBeNull();
     expect(await db.prepare("SELECT id FROM posts WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT 1 FROM reactions WHERE post_id = ?1").bind(post.id).first()).toBeNull();
+    // 031: post_imagesはcouple_id列を持たない（postsをpost_idで参照する側）
+    // ため、下の機械的走査には拾われない。reactionsと同じ理由で手で確認する
+    expect(await db.prepare("SELECT 1 FROM post_images WHERE post_id = ?1").bind(post.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM events WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT code FROM invites WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM wishes WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
@@ -544,7 +547,7 @@ describe("me.delete", () => {
     const postImageId = await uploadTestPostImage(couple.id);
     await call(
       router.post.create,
-      { body: "消える投稿", imageId: postImageId, imageWidth: 100, imageHeight: 100 },
+      { body: "消える投稿", images: [{ imageId: postImageId, width: 100, height: 100 }] },
       { context: contextFor(owner) },
     );
 
@@ -553,7 +556,7 @@ describe("me.delete", () => {
     const otherImageId = await uploadTestPostImage(otherCouple.id);
     const otherPost = await call(
       router.post.create,
-      { body: "残る投稿", imageId: otherImageId, imageWidth: 100, imageHeight: 100 },
+      { body: "残る投稿", images: [{ imageId: otherImageId, width: 100, height: 100 }] },
       { context: contextFor(otherOwner) },
     );
 
@@ -561,6 +564,7 @@ describe("me.delete", () => {
 
     expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(otherCouple.id).first()).not.toBeNull();
     expect(await db.prepare("SELECT id FROM posts WHERE id = ?1").bind(otherPost.id).first()).not.toBeNull();
+    expect(await db.prepare("SELECT 1 FROM post_images WHERE post_id = ?1").bind(otherPost.id).first()).not.toBeNull();
     expect(await bucket.head(imageKeyFor(otherCouple.id, otherImageId))).not.toBeNull();
   });
 
