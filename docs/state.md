@@ -4,7 +4,9 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-09-04 / セッションB。**031（1投稿に複数画像。最大4枚）
-実装完了。`task/031-multi-image`ブランチで作業し、Rのレビュー待ち。**
+完了。PR #215、Rの受け入れを得てmainへsquash merge済み**
+（`031: 1投稿に複数画像（最大4枚） (#215)`）。次は033（Xのような横スワイプ
+表示。Aが起票・PR #221）へ進む。
 
 Aが起票した5つの判断（上限4枚・`posts`に列を足さず`post_images`へ・
 `imageUrl`単数を契約から消す・ライトボックスは左右ボタンでスワイプに
@@ -93,8 +95,31 @@ SQLで確認、`post.list`のレスポンス（images配列・並び順）をfet
 実機確認ができない**。`artifacts/031/manual-check.md`に人間への確認項目を
 列挙済み。
 
-**次にやること**: `task/031-multi-image`をpushしてPRを作成し、Rのレビューを
-依頼する。
+**Rが受け入れ・マージ完了までの経緯**: Rが#215を受け入れる過程で、
+`scripts/check-remote-migration-preconditions.mjs`のコメント（0019が
+NOT NULL違反で落ちたときの残骸の記述）が実態と違うことを実測で指摘した
+（`CREATE TABLE`/`CREATE UNIQUE INDEX`は成功し`INSERT`だけが落ちるため、
+`post_images`・`post_images_key_unique`が残骸として残る。0013と同じ形）。
+`DROP TABLE IF EXISTS post_images;`を是正手順の先頭に追加して修正した。
+
+CIは`pnpm audit`（high以上）のステップで2回連続失敗（`registry.npmjs.org`の
+セキュリティ勧告APIへのタイムアウト/503）した。status.npmjs.orgを確認したが
+当日分のインシデント報告は無く、**レジストリ側の障害だとは確認できなかった
+（原因不明のまま3回目で通った）**。マージ時、origin/mainにAの複数PR
+（`docs/`のみ。033起票・harness.md更新等）が積まれており
+`the merge commit cannot be cleanly created`になったため、ローカルで
+`git merge origin/main`してからpushした（衝突なし。architecture.mdの
+031分の編集が正しく残ることを確認済み）。CI再確認後、`gh pr merge --squash
+--delete-branch`でmainへマージ（`941b8da`）。
+
+**Aから033（Xのような横スワイプ表示）が起票された**（PR #221。
+`task/033-image-swipe`）。031の「ライトボックスはスワイプにしない」の
+理由づけ（ジェスチャライブラリがスコープ外）が、ページング付き
+`ScrollView`には効かない誤りだったとAが訂正し、033で覆す。着手前に
+「react-native-web 0.21.1で`ScrollView horizontal pagingEnabled`が
+実際に効くか」を確かめる0節がある。
+
+**次にやること**: `task/033-image-swipe`へ進み、0節の検証から着手する。
 
 以下、2026-09-04（031より前）の記録。
 
