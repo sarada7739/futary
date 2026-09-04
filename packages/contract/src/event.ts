@@ -74,7 +74,7 @@ const eventInputBaseSchema = z.object({
 
 // repeatYearly は kind='anniversary' のときだけ true にできる（L67・Aの決定）。
 // DBのCHECK制約は置かない。書き込み口がこの入力スキーマの1つしか無く、
-// ここで弾けば到達しないため（posts.image_keyのUNIQUE制約とは事情が違う。
+// ここで弾けば到達しないため（post_images.keyのUNIQUE制約とは事情が違う。
 // あちらは複数行を数えて判断する形を避けるための宣言的制約）
 function refineRepeatYearlyKind<T extends z.ZodType<{ kind: string; repeatYearly: boolean }>>(schema: T) {
   return schema.refine((value) => value.kind === "anniversary" || !value.repeatYearly, {

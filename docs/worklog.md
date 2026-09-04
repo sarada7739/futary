@@ -9316,6 +9316,60 @@ Session: B
 
 Session: A
 
+## 2026-09-04 セッションB（031: 1投稿に複数画像。実装完了）
+
+Aの5つの判断（上限4枚・`post_images`へ分離・`imageUrl`単数を消す・
+ライトボックスは左右ボタン・1枚のときの見え方を変えない）をそのまま実装。
+
+`0019_post_images.sql`は`CREATE TABLE`→`INSERT ... SELECT`→`DROP INDEX
+posts_image_key_unique`→`ALTER TABLE ... DROP COLUMN`×3の順で書き、
+**「3を飛ばすと4が落ちる」をローカルD1で実測してから書いた**
+（`apps/api/test/migration-existing-rows.test.ts`に実測テストを追加）。
+
+契約（`post.create`の`images`配列・`post.list`/`memory.get`の`images`配列）、
+サーバ側（`post.ts`のlist/create/delete全面書き換え、`memory.ts`の画像優先
+判定書き換え、`stats.ts`の写真の枚数算出変更）、`me.delete`への
+`post_images`削除文追加（3回目。027 wishes・029 moodsに続く）、
+フロントエンド（`compose.tsx`複数選択・`image-viewer.tsx`複数画像対応・
+新設`post-images.tsx`のグリッド表示）を実装。
+
+ブラウザでの実機確認で、react-native-webが`accessibilityRole="button"`の
+Pressableを入れ子にすると`<button>`の入れ子になりDOM構造エラーが出ることを
+発見・修正した（017の1個から031で3個に増えて顕在化。B独自の技術判断）。
+
+**security-auditorの監査でHigh以上はゼロ。**Medium 2件・Low 5件のうち
+6件をその場で修正:
+- `post.delete`が他ペアの`post_images`を消さないことを固定するテストが
+  無かった→追加
+- 孤児オブジェクト回収手順のドキュメント（`architecture.md`6節・
+  `security-requirements.md`5節）が031で物理削除に変わった実装と食い違って
+  いた→`post_images.key`ベースへ書き換え
+- 論理削除済みの投稿の画像がpost_imagesへ移ってしまう経路→マイグレーション
+  のINSERT SELECTに`deleted_at IS NULL`を追加し、移行テストで固定
+- `bucket.head`/`delete`の例外に画像キーが含まれうる状態（024のme.tsと
+  同種の再発）→汎用メッセージへ詰め替え
+- 署名付きURL発行のたびに`AwsClient`を作り直しSigV4鍵導出がキャッシュ
+  されない（031で1リクエスト最大80件まで増えた）→モジュールスコープで
+  キャッシュ
+- `0019`が旧NULL許容だった`image_width`/`image_height`を想定しておらず
+  リモート適用が失敗しうる→`scripts/check-remote-migration-
+  preconditions.mjs`に0013と同じfail-closedの前提条件チェックを追加
+（詳細は`artifacts/031/security-audit-raw.md`）。
+
+**本番には既に画像付きの投稿がある。** リモートD1への適用前に
+`check-remote-migration-preconditions.mjs`が出す「image_keyを持つ未削除
+postsの現在の行数」（移る件数）を、デプロイのジョブログから読んで
+`worklog.md`へ記録すること（**マージした者の担当**。0015のinvite_failures
+と同じ運用）。
+
+デモシードに1・2・3・4枚の投稿を1件以上ずつ入れ、ローカルD1・R2へ
+`pnpm seed:local`で実投入して確認。`pnpm -r test`（packages/date 46・
+packages/ui 7・packages/db 27・apps/app 216・apps/api 409、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+`docs/state.md`を更新。`task/031-multi-image`をpushしてPRを作成する。
+
+Session: B
 ## 2026-09-04 セッションA: 032（削除の網の張り方）を起票した
 
 R が 031 のレビューで報告した。**`me.delete` の網から `post_images` と
