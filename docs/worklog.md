@@ -9622,3 +9622,25 @@ Session: A
 **着手は 031（PR #215）のマージ後。**
 
 Session: A
+
+## 2026-09-04 セッションA: GitHub は union を適用しないことを書いた
+
+2026-09-04 に **A（#214）と B（#215）が同じ日に同じところで止まった。**
+`docs/worklog.md` に追記した PR が、main が進んだあと GitHub 側で
+`the merge commit cannot be cleanly created` になる。
+
+**`.gitattributes` の merge driver はローカルの設定であり、GitHub のマージは
+適用しない。手元では衝突しないので、出すまで気づかない。**
+
+`conventions.md` 7節の union の節に、手順（`git merge origin/main` してから
+push）と一緒に書いた。**union は「衝突を無くす設定」ではなく
+「手元での衝突を無くす設定」である。**
+
+**あわせて記録**: 031 の CI が `pnpm audit` のステップで2回連続で落ち、
+3回目で緑になった。B が `status.npmjs.org` を確認したところ
+**Security Audit は稼働率100%表示、当日のインシデント報告は無し**
+（前日の障害は Publish が対象で Audit ではない）。
+**「レジストリ側の障害だとは確認できなかった。原因不明のまま3回目で通った」
+が正確な記録である**と B が書いた。**「無関係だった」で閉じなかったのが正しい。**
+
+Session: A
