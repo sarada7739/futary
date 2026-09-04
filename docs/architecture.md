@@ -173,13 +173,22 @@ posts
   couple_id    TEXT    NOT NULL
   author_id    TEXT    NOT NULL
   body         TEXT    NOT NULL DEFAULT ''
-  image_key    TEXT    UNIQUE                -- R2 オブジェクトキー。サーバが組み立てる
-                                            -- UNIQUE: 同じ画像を複数の投稿から参照させない
-  image_width  INTEGER
-  image_height INTEGER
+                                            -- 031 で image_key / image_width /
+                                            -- image_height を post_images へ移した
   created_at   INTEGER NOT NULL
   deleted_at   INTEGER                       -- 論理削除
   INDEX (couple_id, created_at DESC)
+
+post_images                                 -- 031。1投稿に4枚まで
+  post_id   TEXT    NOT NULL -> posts.id
+  position  INTEGER NOT NULL              -- 0..3。並び順
+  key       TEXT    NOT NULL UNIQUE       -- R2 オブジェクトキー。サーバが組み立てる
+                                          -- UNIQUE: 実体と行の対応を1対1に保つ（6節）
+  width     INTEGER NOT NULL
+  height    INTEGER NOT NULL
+  PRIMARY KEY (post_id, position)
+  CONSTRAINT post_images_position_range_check CHECK (position BETWEEN 0 AND 3)
+                                          -- 枚数の上限をDB側にも表す
 
 reactions
   post_id     TEXT    NOT NULL
@@ -632,8 +641,12 @@ invite.issue        -> { code, expiresAt }
 invite.accept       { code }
 post.list           { cursor?, limit } -> { items, nextCursor }
                     items の各要素は投稿者の表示名・プロフィール画像を含む（下記）
-post.create         { body, imageId?, imageWidth?, imageHeight? }
-                    body を trim した結果と imageId が両方空なら INVALID_INPUT
+                    items[].images  [{ url, width, height }]（031。position 順）
+                    imageUrl（単数）は 031 で消した。残すと2枚目以降が静かに落ちる
+post.create         { body, images?: [{ imageId, width, height }] }   最大4件（031）
+                    body を trim した結果と images が両方空なら INVALID_INPUT
+                    images の全ての実体が R2 にあることを確認してから書く。
+                    1枚でも欠けたら投稿ごと拒む（部分的に作らない）
 post.delete         { id }
 post.uploadUrl      { contentType } -> { imageId, url }  署名付きPUT・有効期限5分
                     imageId はサーバが生成する（ULID）
