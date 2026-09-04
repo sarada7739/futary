@@ -121,7 +121,12 @@ export function ImageViewer({ visible, images, initialIndex = 0, onClose }: Imag
   // いるだけで、Web版のベース実装からは一度も呼ばれない（ネイティブ
   // 〈iOS/Android〉では実際のスクロール終了イベントとして届くが、Webでは
   // 届かない）。そのため`onScroll`を使い、ドラッグ中も含めて都度
-  // 計算し直す（最後に呼ばれた値が着地点になる。デバウンスは要らない）
+  // 計算し直す（最後に呼ばれた値が着地点になる）。
+  // 【Rレビュー指摘】「デバウンスは要らない」は正しさの説明であって、
+  // 「毎回計算が入る」ことへの答えではなかった。費用が問題にならない
+  // 理由: `Math.round(offset / pageWidth)`はドラッグ中の大半で同じ値を
+  // 返し、`setIndex`に同じ値を渡してもReactは再描画しない。再描画が
+  // 起きるのはページ境界を越えた瞬間だけである
   function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
     scrolledSincePressInRef.current = true;
     const pageWidth = e.nativeEvent.layoutMeasurement.width;
