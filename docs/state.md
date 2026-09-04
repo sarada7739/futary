@@ -4,7 +4,8 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-09-04 / セッションB。**032（削除の網を、表の名前ではなく
-「残っていないこと」で張る）実装完了。**
+「残っていないこと」で張る）完了。PR #231、CIグリーンでmainへsquash merge
+済み。**
 
 `me.delete`の網から`post_images`・`reactions`（どちらも`couple_id`ではなく
 `post_id`で参照する側）が漏れていた（031のレビューでRが報告）。
@@ -34,8 +35,7 @@ DELETEを外す）→ CASCADEで連動する`session`/`account`が残り赤
 `pnpm run test`（apps/app 222件・apps/api **410件**）・`pnpm -r
 type-check`・`pnpm -w eslint .`、全て通過。
 
-**次にやること**: `docs/tasks/032-delete-scan.md`の完了条件・進捗を更新
-済み。PRを作成しRのレビューを依頼する。
+**次にやること**: 次のタスクの指示を待つ。
 
 以下、2026-09-04（032より前）の記録。
 
