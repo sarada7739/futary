@@ -205,7 +205,7 @@ describe("post.list のリアクション集計（N+1回避）", () => {
     expect(result.items[0]?.reactions).toEqual([]);
   });
 
-  it("複数投稿にリアクションが付いていても、投稿一覧の取得は1クエリ＋集計1クエリの計2クエリで済む", async () => {
+  it("複数投稿にリアクションが付いていても、投稿一覧の取得は1クエリ＋集計1クエリ＋画像1クエリの計3クエリで済む", async () => {
     const user = await createUser();
     await createCouple(user);
     const post1 = await call(router.post.create, { body: "1件目" }, { context: contextFor(user) });
@@ -234,9 +234,10 @@ describe("post.list のリアクション集計（N+1回避）", () => {
     expect(result.items).toHaveLength(2);
     expect(result.items.every((item) => item.reactions.some((r) => r.kind === "heart" && r.count === 1))).toBe(true);
     // 1: readProcedure による couple_id 解決（couple_members の SELECT）、
-    // 2: 投稿一覧の SELECT、3: リアクション集計の SELECT。
-    // 投稿件数が増えても3のまま変わらないことが N+1 でないことの証拠
-    expect(prepareCallCount).toBe(3);
+    // 2: 投稿一覧の SELECT、3: リアクション集計の SELECT、
+    // 4: 画像一覧の SELECT（031・post_images）。
+    // 投稿件数が増えても4のまま変わらないことが N+1 でないことの証拠
+    expect(prepareCallCount).toBe(4);
   });
 
   it("投稿がゼロ件のときはリアクション集計クエリを発行しない", async () => {

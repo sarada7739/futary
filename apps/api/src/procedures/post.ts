@@ -15,9 +15,6 @@ interface PostRow {
   author_name: string | null;
   author_image: string | null;
   body: string;
-  image_key: string | null;
-  image_width: number | null;
-  image_height: number | null;
   created_at: number;
 }
 
@@ -27,8 +24,7 @@ interface PostRow {
 // （認可の範囲を JOIN で広げない）
 const POST_COLUMNS =
   "posts.id AS id, posts.author_id AS author_id, user.name AS author_name, " +
-  "user.image AS author_image, posts.body AS body, posts.image_key AS image_key, " +
-  "posts.image_width AS image_width, posts.image_height AS image_height, posts.created_at AS created_at";
+  "user.image AS author_image, posts.body AS body, posts.created_at AS created_at";
 const POST_FROM = "posts LEFT JOIN user ON user.id = posts.author_id";
 
 function nowSeconds(): number {
@@ -85,10 +81,56 @@ async function fetchReactionSummaries(
   return summaries;
 }
 
-// image_key が非NULLなら署名付き GET URL を発行する（有効期限1時間。architecture.md 6節）。
+// 031: 1投稿に画像を4枚まで（post_images。position順）
+interface PostImageRow {
+  post_id: string;
+  position: number;
+  key: string;
+  width: number;
+  height: number;
+}
+
+// 投稿一覧の取得と合わせて1〜2クエリで解決する（fetchReactionSummariesと同じ形。
+// N+1にしない）。ORDER BY post_id, position で返すため、Map に積む順序が
+// そのまま並び順になる
+async function fetchPostImages(db: D1Database, postIds: readonly string[]): Promise<Map<string, PostImageRow[]>> {
+  const imagesByPost = new Map<string, PostImageRow[]>();
+  if (postIds.length === 0) return imagesByPost;
+
+  const placeholders = postIds.map((_, i) => `?${i + 1}`).join(", ");
+  const { results } = await db
+    .prepare(
+      `SELECT post_id AS post_id, position AS position, key AS key, width AS width, height AS height
+         FROM post_images
+        WHERE post_id IN (${placeholders})
+        ORDER BY post_id, position`,
+    )
+    .bind(...postIds)
+    .all<PostImageRow>();
+
+  for (const row of results) {
+    const list = imagesByPost.get(row.post_id) ?? [];
+    list.push(row);
+    imagesByPost.set(row.post_id, list);
+  }
+  return imagesByPost;
+}
+
+// 署名付き GET URL を発行する（有効期限1時間。architecture.md 6節）。
 // 鍵そのものはクライアントに渡さず、都度発行し直す短命URLだけを渡す
-async function toPost(row: PostRow, r2Sign: R2SignConfig, reactions: ReactionSummary[] = []) {
-  const imageUrl = row.image_key ? await createGetUrl(r2Sign, row.image_key) : null;
+async function toPost(
+  row: PostRow,
+  imageRows: PostImageRow[],
+  r2Sign: R2SignConfig,
+  reactions: ReactionSummary[] = [],
+) {
+  const images = await Promise.all(
+    imageRows.map(async (image) => ({
+      url: await createGetUrl(r2Sign, image.key),
+      width: image.width,
+      height: image.height,
+    })),
+  );
   // authorImageはGoogleの外部URLか、投稿者が自分でアップロードした画像の
   // R2キーのどちらもありうる。後者だけ署名付きGET URLへ解決する（019）
   const authorImage = await resolveUserImage(r2Sign, row.author_image);
@@ -98,9 +140,7 @@ async function toPost(row: PostRow, r2Sign: R2SignConfig, reactions: ReactionSum
     authorName: row.author_name,
     authorImage,
     body: row.body,
-    imageUrl,
-    imageWidth: row.image_width,
-    imageHeight: row.image_height,
+    images,
     createdAt: row.created_at,
     reactions,
   };
@@ -171,14 +211,17 @@ const postList = implementer.post.list.use(readProcedure).handler(async ({ conte
   const lastRow = pageRows[pageRows.length - 1];
   const nextCursor = hasMore && lastRow ? encodeCursor({ createdAt: lastRow.created_at, id: lastRow.id }) : null;
 
-  // 投稿一覧クエリ1回 + リアクション集計クエリ1回の計2クエリで解決する（タスク009）
-  const reactionSummaries = await fetchReactionSummaries(
-    db,
-    pageRows.map((row) => row.id),
-    context.userId,
-  );
+  // 投稿一覧クエリ1回 + リアクション集計クエリ1回 + 画像一覧クエリ1回の
+  // 計3クエリで解決する（タスク009・031。N+1にしない）
+  const postIds = pageRows.map((row) => row.id);
+  const [reactionSummaries, postImages] = await Promise.all([
+    fetchReactionSummaries(db, postIds, context.userId),
+    fetchPostImages(db, postIds),
+  ]);
   const items = await Promise.all(
-    pageRows.map((row) => toPost(row, r2Sign, reactionSummaries.get(row.id) ?? [])),
+    pageRows.map((row) =>
+      toPost(row, postImages.get(row.id) ?? [], r2Sign, reactionSummaries.get(row.id) ?? []),
+    ),
   );
   return { items, nextCursor };
 });
@@ -186,20 +229,37 @@ const postList = implementer.post.list.use(readProcedure).handler(async ({ conte
 const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId, userId, r2Sign } = context;
 
+  // 031: images は空配列を「無いもの」として扱う（undefinedと区別しない）
+  const images = input.images ?? [];
+
   // 本文（trim後）と画像がどちらも空の投稿は作れない（旧L30。architecture.md 5節）。
   // 空白のみの本文も空として扱う
   const trimmedBody = input.body.trim();
-  if (trimmedBody === "" && !input.imageId) {
+  if (trimmedBody === "" && images.length === 0) {
     throw errors.INVALID_INPUT();
   }
 
-  let imageKey: string | null = null;
-  if (input.imageId) {
-    imageKey = imageKeyFor(coupleId, input.imageId);
+  // 途中で止まっても半端な投稿を作らない（タスク定義5節）。DBに1行も書く前に、
+  // images の全ての imageId について R2 に実体があることを確認する
+  const imageKeys: string[] = [];
+  for (const image of images) {
+    const imageKey = imageKeyFor(coupleId, image.imageId);
     // image_key が非NULLなら R2 に実体がある、という不変条件を保つため、
     // 書く前に確認する（architecture.md 6節）。未アップロードの imageId で
-    // 投稿を作らせない
-    const head = await bucket.head(imageKey);
+    // 投稿を作らせない。
+    // 【031・security-auditor指摘】head/deleteの例外をそのまま投げると、
+    // withErrorId（error-id.ts）がcatchした例外をconsole.errorへ渡すため、
+    // R2のエラーメッセージに含まれうる画像キーがログに出てしまう
+    // （024のme.ts deleteAllByPrefixと同じ理由。security-requirements.md
+    // 8節「画像キーをログに出さない」）。031で1リクエストあたりのhead呼び出しが
+    // 最大4回に増え、当たる確率も上がったため鍵を含まない汎用メッセージへ
+    // 詰め替えてから投げ直す
+    let head: R2Object | null;
+    try {
+      head = await bucket.head(imageKey);
+    } catch {
+      throw new Error("R2からの画像実体確認に失敗しました");
+    }
     if (!head) throw errors.INVALID_INPUT();
     // サイズ上限・Content-Type はどちらも署名付きURL自体では強制できない
     // （r2-signed-url.ts のコメント参照）ため、実体確認のタイミングで検査する。
@@ -207,15 +267,18 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
     // 二度とこの imageId で投稿を作れなくなる（UNIQUE制約と同じ形の孤児）ため削除する
     // （007 security-auditor 指摘: Content-Type検証を追加）
     if (head.size > MAX_IMAGE_BYTES || head.httpMetadata?.contentType !== UPLOAD_CONTENT_TYPE) {
-      await bucket.delete(imageKey);
+      try {
+        await bucket.delete(imageKey);
+      } catch {
+        throw new Error("R2からの画像削除に失敗しました");
+      }
       throw errors.INVALID_INPUT();
     }
+    imageKeys.push(imageKey);
   }
 
   const id = crypto.randomUUID();
   const now = nowSeconds();
-  const imageWidth = input.imageWidth ?? null;
-  const imageHeight = input.imageHeight ?? null;
   // context.user は resolveCoupleContext が mode="member" を返した時点で必ず
   // 非null（auth-context.ts: member分岐はcontext.userがtruthyのときだけ発生する）。
   // CoupleContext の型は user と mode の対応関係を表現できないため、
@@ -223,16 +286,28 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
   const authorName = context.user!.name;
   const authorImage = context.user!.image;
 
+  // posts と post_images への書き込みを1本の batch() にまとめる（architecture.md
+  // 4節「条件を書き込み文のWHEREに埋め込み、更新件数で結果を判定する」の
+  // 原則と同じく、途中で割れた状態を作らない）。batch()は文のエラーで
+  // ロールバックするため、post_images.key のUNIQUE違反（同じimageIdが既に
+  // 使われている）が起きればpostsへのINSERTごと取り消される
+  const statements = [
+    db
+      .prepare(`INSERT INTO posts (id, couple_id, author_id, body, created_at) VALUES (?1, ?2, ?3, ?4, ?5)`)
+      .bind(id, coupleId, userId, trimmedBody, now),
+    ...images.map((image, position) =>
+      db
+        .prepare(
+          `INSERT INTO post_images (post_id, position, key, width, height) VALUES (?1, ?2, ?3, ?4, ?5)`,
+        )
+        .bind(id, position, imageKeys[position], image.width, image.height),
+    ),
+  ];
+
   try {
-    await db
-      .prepare(
-        `INSERT INTO posts (id, couple_id, author_id, body, image_key, image_width, image_height, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
-      )
-      .bind(id, coupleId, userId, trimmedBody, imageKey, imageWidth, imageHeight, now)
-      .run();
+    await db.batch(statements);
   } catch (error) {
-    // image_key の UNIQUE 違反 = 同じ imageId が既に別の投稿に使われている
+    // post_images.key の UNIQUE 違反 = 同じ imageId が既に別の投稿に使われている
     if (isConstraintViolation(error)) throw errors.INVALID_INPUT();
     throw error;
   }
@@ -244,11 +319,15 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
       author_name: authorName,
       author_image: authorImage,
       body: input.body,
-      image_key: imageKey,
-      image_width: imageWidth,
-      image_height: imageHeight,
       created_at: now,
     },
+    images.map((image, position) => ({
+      post_id: id,
+      position,
+      key: imageKeys[position] as string,
+      width: image.width,
+      height: image.height,
+    })),
     r2Sign,
   );
 });
@@ -261,19 +340,19 @@ const postDelete = implementer.post.delete.use(writeProcedure).handler(async ({ 
 
   // D1 を先に更新し、そのあと R2 の削除を試みる（architecture.md 6節）。
   // 逆順にすると「投稿は残るのに画像が消える」壊れ方が利用者から見えてしまう。
-  // RETURNING で image_key を受け取り、削除対象を再度 SELECT しない。
-  // reactions の削除を同じ batch に含める（M2まとめ監査 Low指摘: 論理削除後も
-  // リアクション行が永久に残留していた）。DELETE 文にも couple_id 条件を
-  // EXISTS で含める必要がある。含めないと、他ペアの投稿IDを指定した場合
-  // UPDATE は0件で NOT_FOUND になる一方 DELETE だけが無条件で成立してしまい、
-  // 「投稿は消せないがリアクションだけ消せる」経路が生まれる
-  // （実装時に post.test.ts 相当のテストで実際に検出した）
-  const batchResults = await db.batch<{ image_key: string | null }>([
+  // reactions・post_images の削除を同じ batch に含める（M2まとめ監査 Low指摘 /
+  // 031タスク定義6節）。DELETE 文にも couple_id 条件を EXISTS で含める必要が
+  // ある。含めないと、他ペアの投稿IDを指定した場合 UPDATE は0件で NOT_FOUND
+  // になる一方 DELETE だけが無条件で成立してしまい、「投稿は消せないが
+  // 画像だけ消せる」経路が生まれる（reactionsで実装時に実際に検出した形と同じ）。
+  // post_images は論理削除を持たせない（行が残ると key の UNIQUE が空きを塞ぐ。
+  // 031タスク定義6節）ため、ここで物理削除する
+  const batchResults = await db.batch<{ id?: string; key?: string; width?: number; height?: number }>([
     db
       .prepare(
         `UPDATE posts SET deleted_at = ?1
           WHERE id = ?2 AND couple_id = ?3 AND deleted_at IS NULL
-         RETURNING image_key AS image_key`,
+         RETURNING id AS id`,
       )
       .bind(nowSeconds(), input.id, coupleId),
     db
@@ -283,18 +362,32 @@ const postDelete = implementer.post.delete.use(writeProcedure).handler(async ({ 
             AND EXISTS (SELECT 1 FROM posts WHERE id = ?1 AND couple_id = ?2)`,
       )
       .bind(input.id, coupleId),
+    db
+      .prepare(
+        `DELETE FROM post_images
+          WHERE post_id = ?1
+            AND EXISTS (SELECT 1 FROM posts WHERE id = ?1 AND couple_id = ?2)
+         RETURNING key AS key, width AS width, height AS height`,
+      )
+      .bind(input.id, coupleId),
   ]);
 
   const row = batchResults[0]?.results[0];
   if (!row) throw errors.NOT_FOUND();
 
-  if (row.image_key) {
+  const imageKeys = (batchResults[2]?.results ?? [])
+    .map((image) => image.key)
+    .filter((key): key is string => typeof key === "string");
+
+  if (imageKeys.length > 0) {
     try {
-      await bucket.delete(row.image_key);
+      await bucket.delete(imageKeys);
     } catch {
       // R2 の削除に失敗しても post.delete は成功として返す（利用者の操作を
-      // 掃除の失敗で失敗させない）。image_key は消さないため孤児は後から回収できる。
-      // image_key はログに出さない（security-requirements.md 8節）
+      // 掃除の失敗で失敗させない）。post_images の行は既に消えているため、
+      // 失敗した分は孤児オブジェクトとしてR2に残る（架空リンクの参照は
+      // 無くなるため開示の実害は無い。architecture.md 6節）。
+      // 画像キーはログに出さない（security-requirements.md 8節）
     }
   }
 

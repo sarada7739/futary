@@ -79,6 +79,20 @@ async function uploadTestImage(coupleId: string, sizeBytes = 100, contentType = 
   return imageId;
 }
 
+// 031: post.create の images 入力を組み立てる。widthsの長さぶん、
+// アップロード済みのimageIdを発行して並べる
+async function uploadTestImages(
+  coupleId: string,
+  widths: number[],
+): Promise<Array<{ imageId: string; width: number; height: number }>> {
+  const images = [];
+  for (const width of widths) {
+    const imageId = await uploadTestImage(coupleId);
+    images.push({ imageId, width, height: Math.round(width * 0.75) });
+  }
+  return images;
+}
+
 describe("post.create", () => {
   it("認証済みメンバーが投稿を作成できる", async () => {
     const user = await createUser();
@@ -88,32 +102,66 @@ describe("post.create", () => {
 
     expect(post.body).toBe("こんにちは");
     expect(post.authorId).toBe(user.id);
-    expect(post.imageUrl).toBeNull();
+    expect(post.images).toEqual([]);
   });
 
   it("アップロード済みの imageId を指定すると画像付きで保存され、署名付きURLが返る", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
-    const imageId = await uploadTestImage(couple.id);
+    const images = await uploadTestImages(couple.id, [800]);
 
     const post = await call(
       router.post.create,
-      { body: "写真つき", imageId, imageWidth: 800, imageHeight: 600 },
+      { body: "写真つき", images },
       { context: contextFor(user) },
     );
 
-    expect(post.imageUrl).not.toBeNull();
-    expect(post.imageWidth).toBe(800);
-    expect(post.imageHeight).toBe(600);
+    expect(post.images).toHaveLength(1);
+    expect(post.images[0]?.url).not.toBeNull();
+    expect(post.images[0]?.width).toBe(800);
+    expect(post.images[0]?.height).toBe(600);
+  });
+
+  // 031: 1投稿に画像を4枚まで。並び順は渡した順（position 0..3）のまま返る
+  it("複数枚（4枚）を指定すると、渡した順に position 0..3 で保存され、その順で返る", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const images = await uploadTestImages(couple.id, [100, 200, 300, 400]);
+
+    const post = await call(router.post.create, { body: "4枚", images }, { context: contextFor(user) });
+
+    expect(post.images.map((i) => i.width)).toEqual([100, 200, 300, 400]);
+
+    const rows = await db
+      .prepare("SELECT position AS position, width AS width FROM post_images WHERE post_id = ?1 ORDER BY position")
+      .bind(post.id)
+      .all<{ position: number; width: number }>();
+    expect(rows.results.map((r) => r.position)).toEqual([0, 1, 2, 3]);
+    expect(rows.results.map((r) => r.width)).toEqual([100, 200, 300, 400]);
+  });
+
+  it("5枚渡すと拒まれる（Zodのmax(4)。BAD_REQUEST。conventions.md 5節）", async () => {
+    const user = await createUser();
+    await createCouple(user);
+    // 実体をR2に置く必要はない。枚数の検証は実体確認より前（入力スキーマ）で効く
+    const images = Array.from({ length: 5 }, () => ({
+      imageId: generateImageId(),
+      width: 100,
+      height: 100,
+    }));
+
+    await expect(
+      call(router.post.create, { body: "5枚", images }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
   it("本文が空でも画像があれば作成できる", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
-    const imageId = await uploadTestImage(couple.id);
+    const images = await uploadTestImages(couple.id, [800]);
 
-    const post = await call(router.post.create, { body: "", imageId }, { context: contextFor(user) });
-    expect(post.imageUrl).not.toBeNull();
+    const post = await call(router.post.create, { body: "", images }, { context: contextFor(user) });
+    expect(post.images).toHaveLength(1);
   });
 
   it("本文と画像がどちらも空だと INVALID_INPUT（旧L30）", async () => {
@@ -122,6 +170,16 @@ describe("post.create", () => {
 
     await expect(
       call(router.post.create, { body: "" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  // 031タスク定義5節「imagesが空配列のときは、無いものとして扱う（undefinedと分けない）」
+  it("imagesが空配列でも、本文が空なら省略時と同じくINVALID_INPUT", async () => {
+    const user = await createUser();
+    await createCouple(user);
+
+    await expect(
+      call(router.post.create, { body: "", images: [] }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 
@@ -141,10 +199,32 @@ describe("post.create", () => {
     await expect(
       call(
         router.post.create,
-        { body: "", imageId: generateImageId() },
+        { body: "", images: [{ imageId: generateImageId(), width: 100, height: 100 }] },
         { context: contextFor(user) },
       ),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  // 031タスク定義5節「1枚でも欠けていたら、投稿ごと拒む。部分的に作らない」。
+  // 1枚目はアップロード済み・2枚目は未アップロードという状態で、
+  // 1枚目すら書かれていないことまで確認する
+  it("複数枚のうち1枚でもR2に実体が無ければ、投稿ごと拒まれる（1枚も書かれていない）", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const [uploaded] = await uploadTestImages(couple.id, [800]);
+    const images = [uploaded as { imageId: string; width: number; height: number }, { imageId: generateImageId(), width: 100, height: 100 }];
+
+    await expect(
+      call(router.post.create, { body: "半端な投稿", images }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+
+    const postRow = await db.prepare("SELECT COUNT(*) AS count FROM posts WHERE body = '半端な投稿'").first<{ count: number }>();
+    expect(postRow?.count).toBe(0);
+    const imageRow = await db
+      .prepare("SELECT COUNT(*) AS count FROM post_images WHERE key = ?1")
+      .bind(imageKeyFor(couple.id, uploaded!.imageId))
+      .first<{ count: number }>();
+    expect(imageRow?.count).toBe(0);
   });
 
   it("imageId が ULID の形式でない場合は入力バリデーションで弾かれる（007 security-auditor 指摘）", async () => {
@@ -154,7 +234,7 @@ describe("post.create", () => {
     await expect(
       call(
         router.post.create,
-        { body: "", imageId: "../../other-couple/posts/x" },
+        { body: "", images: [{ imageId: "../../other-couple/posts/x", width: 100, height: 100 }] },
         { context: contextFor(user) },
       ),
     ).rejects.toThrow();
@@ -163,12 +243,12 @@ describe("post.create", () => {
   it("同じ imageId を2つの投稿で使うと2回目は INVALID_INPUT（UNIQUE制約）", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
-    const imageId = await uploadTestImage(couple.id);
+    const images = await uploadTestImages(couple.id, [800]);
 
-    await call(router.post.create, { body: "1件目", imageId }, { context: contextFor(user) });
+    await call(router.post.create, { body: "1件目", images }, { context: contextFor(user) });
 
     await expect(
-      call(router.post.create, { body: "2件目", imageId }, { context: contextFor(user) }),
+      call(router.post.create, { body: "2件目", images }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 
@@ -179,7 +259,7 @@ describe("post.create", () => {
     const key = imageKeyFor(couple.id, imageId);
 
     await expect(
-      call(router.post.create, { body: "", imageId }, { context: contextFor(user) }),
+      call(router.post.create, { body: "", images: [{ imageId, width: 100, height: 100 }] }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
 
     expect(await bucket.head(key)).toBeNull();
@@ -192,7 +272,7 @@ describe("post.create", () => {
     const key = imageKeyFor(couple.id, imageId);
 
     await expect(
-      call(router.post.create, { body: "", imageId }, { context: contextFor(user) }),
+      call(router.post.create, { body: "", images: [{ imageId, width: 100, height: 100 }] }, { context: contextFor(user) }),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
 
     expect(await bucket.head(key)).toBeNull();
@@ -206,7 +286,11 @@ describe("post.create", () => {
     const imageIdOfB = await uploadTestImage(coupleB.id);
 
     await expect(
-      call(router.post.create, { body: "", imageId: imageIdOfB }, { context: contextFor(userA) }),
+      call(
+        router.post.create,
+        { body: "", images: [{ imageId: imageIdOfB, width: 100, height: 100 }] },
+        { context: contextFor(userA) },
+      ),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
 
     // Bの実体自体は無事（Aの操作でBのオブジェクトが消えたりしない）
@@ -342,11 +426,37 @@ describe("post.list", () => {
   it("画像付きの投稿は署名付きGET URLを含む", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
-    const imageId = await uploadTestImage(couple.id);
-    await call(router.post.create, { body: "", imageId }, { context: contextFor(user) });
+    const images = await uploadTestImages(couple.id, [800]);
+    await call(router.post.create, { body: "", images }, { context: contextFor(user) });
 
     const result = await call(router.post.list, {}, { context: contextFor(user) });
-    expect(result.items[0]?.imageUrl).not.toBeNull();
+    expect(result.items[0]?.images[0]?.url).not.toBeNull();
+  });
+
+  // 031: imageUrl（単数）は契約から消した。post.listのレスポンスに
+  // 残っていないことを確認する（タスク定義「テストで証明すること」）
+  it("post.list に imageUrl（単数）が残っていない", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const images = await uploadTestImages(couple.id, [800]);
+    await call(router.post.create, { body: "", images }, { context: contextFor(user) });
+
+    const result = await call(router.post.list, {}, { context: contextFor(user) });
+    expect(result.items[0]).not.toHaveProperty("imageUrl");
+    expect(result.items[0]).not.toHaveProperty("imageWidth");
+    expect(result.items[0]).not.toHaveProperty("imageHeight");
+  });
+
+  // 031: post_imagesのORDER BY positionが、一覧のimages配列の並び順に
+  // そのまま反映されることを確認する
+  it("画像の並び順が position のとおりに返る", async () => {
+    const user = await createUser();
+    const couple = await createCouple(user);
+    const images = await uploadTestImages(couple.id, [111, 222, 333]);
+    await call(router.post.create, { body: "並び順", images }, { context: contextFor(user) });
+
+    const result = await call(router.post.list, {}, { context: contextFor(user) });
+    expect(result.items[0]?.images.map((i) => i.width)).toEqual([111, 222, 333]);
   });
 
   // 008・architecture.md 5節: 投稿カードの投稿者名・アバターのため
@@ -383,10 +493,17 @@ describe("post.delete", () => {
     expect(row?.deleted_at).not.toBeNull();
   });
 
-  it("他ペアの投稿IDを指定すると NOT_FOUND になり、対象は削除されない（005の認可テストと同じ形）", async () => {
+  // 031・security-auditor指摘: post_imagesのDELETE文はEXISTS(posts WHERE
+  // id=?1 AND couple_id=?2)で他ペアを弾いているが、これを固定するテストが
+  // 無かった（reactionsと同じ形のEXISTS句が抜けると、UPDATEは0件でNOT_FOUND
+  // になる一方でDELETEだけが無条件で成立し「投稿は消せないが画像だけ消せる」
+  // 経路が生まれうる）。Aの画像付き投稿を持たせ、image_key（他ペアの
+  // post_images行・R2実体）に影響が無いことまで確認する
+  it("他ペアの投稿IDを指定すると NOT_FOUND になり、対象は削除されない（画像・post_imagesも含めて）", async () => {
     const userA = await createUser();
-    await createCouple(userA);
-    const postA = await call(router.post.create, { body: "Aの投稿" }, { context: contextFor(userA) });
+    const coupleA = await createCouple(userA);
+    const images = await uploadTestImages(coupleA.id, [800]);
+    const postA = await call(router.post.create, { body: "Aの投稿", images }, { context: contextFor(userA) });
 
     const userB = await createUser();
     await createCouple(userB);
@@ -400,6 +517,13 @@ describe("post.delete", () => {
       .bind(postA.id)
       .first<{ deleted_at: number | null }>();
     expect(row?.deleted_at).toBeNull();
+
+    const imageRow = await db
+      .prepare("SELECT COUNT(*) AS count FROM post_images WHERE post_id = ?1")
+      .bind(postA.id)
+      .first<{ count: number }>();
+    expect(imageRow?.count).toBe(1);
+    expect(await bucket.head(imageKeyFor(coupleA.id, images[0]!.imageId))).not.toBeNull();
   });
 
   it("存在しないIDは NOT_FOUND", async () => {
@@ -434,29 +558,36 @@ describe("post.delete", () => {
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 
-  it("画像付きの投稿を削除すると R2 からもオブジェクトが消え、image_key は DB に残る", async () => {
+  // 031タスク定義6節: 「枚数ぶん消す」「post_imagesの行も消す（論理削除を
+  // 持たせない）」。4枚とも消えることを確認する
+  it("画像付きの投稿を削除すると、枚数ぶんR2のオブジェクトも post_images の行も消える", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
-    const imageId = await uploadTestImage(couple.id);
-    const key = imageKeyFor(couple.id, imageId);
-    const post = await call(router.post.create, { body: "", imageId }, { context: contextFor(user) });
+    const images = await uploadTestImages(couple.id, [100, 200, 300, 400]);
+    const keys = images.map((image) => imageKeyFor(couple.id, image.imageId));
+    const post = await call(router.post.create, { body: "", images }, { context: contextFor(user) });
 
     await call(router.post.delete, { id: post.id }, { context: contextFor(user) });
 
-    expect(await bucket.head(key)).toBeNull();
+    for (const key of keys) {
+      expect(await bucket.head(key)).toBeNull();
+    }
     const row = await db
-      .prepare("SELECT image_key FROM posts WHERE id = ?1")
+      .prepare("SELECT COUNT(*) AS count FROM post_images WHERE post_id = ?1")
       .bind(post.id)
-      .first<{ image_key: string | null }>();
-    expect(row?.image_key).toBe(key);
+      .first<{ count: number }>();
+    expect(row?.count).toBe(0);
   });
 
-  it("R2の削除に失敗しても post.delete は成功として返る（image_key は残る）", async () => {
+  // 031: 論理削除を持たせない設計（post_imagesの行は物理削除される）ため、
+  // R2の削除に失敗してもDB側の行はposts更新と同じbatch()で既に消えている。
+  // R2に残った実体は孤児として受け入れる（architecture.md 6節の既定を変えない）
+  it("R2の削除に失敗しても post.delete は成功として返り、post_images の行は消える", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
-    const imageId = await uploadTestImage(couple.id);
-    const key = imageKeyFor(couple.id, imageId);
-    const post = await call(router.post.create, { body: "", imageId }, { context: contextFor(user) });
+    const images = await uploadTestImages(couple.id, [800]);
+    const key = imageKeyFor(couple.id, images[0]!.imageId);
+    const post = await call(router.post.create, { body: "", images }, { context: contextFor(user) });
 
     const failingBucket = {
       ...bucket,
@@ -466,14 +597,14 @@ describe("post.delete", () => {
     const result = await call(router.post.delete, { id: post.id }, { context: { ...contextFor(user), bucket: failingBucket } });
     expect(result.id).toBe(post.id);
 
-    // 実際には削除を試みていない（failingBucket）ため実体は残っている。
-    // image_key が DB から消されていないことのほうが本題
+    // post_images の行は既に消えている（DB側はbatch()で先に確定する）
     const row = await db
-      .prepare("SELECT image_key, deleted_at FROM posts WHERE id = ?1")
+      .prepare("SELECT COUNT(*) AS count FROM post_images WHERE post_id = ?1")
       .bind(post.id)
-      .first<{ image_key: string | null; deleted_at: number | null }>();
-    expect(row?.image_key).toBe(key);
-    expect(row?.deleted_at).not.toBeNull();
+      .first<{ count: number }>();
+    expect(row?.count).toBe(0);
+    // 実際には削除を試みていない（failingBucket）ため実体はR2に孤児として残る
+    expect(await bucket.head(key)).not.toBeNull();
   });
 });
 

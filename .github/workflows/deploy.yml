@@ -113,8 +113,9 @@ jobs:
       # ある状態でマイグレーションを当てると__new_eventsが残骸として残り、
       # 是正しないまま再実行すると別のエラーになり、人間が手で入るまで以降の
       # 全pushが同じ場所で落ち続ける（#170レビューで実測済み）。
-      # 024・Rレビュー指摘で0015（invite_failuresのDELETE）の件数記録も追加した
-      - name: マイグレーション前提条件の確認（0013のCHECK制約違反・0015で消える行数）
+      # 024・Rレビュー指摘で0015（invite_failuresのDELETE）の件数記録も追加した。
+      # 031で0019（posts.image_keyをpost_imagesへ移す）の件数記録も追加した
+      - name: マイグレーション前提条件の確認（0013のCHECK制約違反・0015で消える行数・0019で移る行数）
         run: node scripts/check-remote-migration-preconditions.mjs
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

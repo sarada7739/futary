@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Image, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { formatJstDate } from "@futary/date";
-import { Avatar, Button, Card, colors, radius, space, Text } from "@futary/ui";
+import { Avatar, Button, Card, space, Text } from "@futary/ui";
 import type { Post } from "@futary/contract";
-import { ImageViewer } from "./image-viewer";
+import { PostImages } from "./post-images";
 
 type ReactionKind = Post["reactions"][number]["kind"];
 
@@ -60,13 +60,10 @@ function DeleteMenu({ onDelete }: { onDelete: () => void | Promise<void> }) {
 }
 
 export function PostCard({ post, isOwn, onDelete, onToggleReaction }: PostCardProps) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const [viewerOpen, setViewerOpen] = useState(false);
   // architecture.md 5節: authorName は user 行が無いと null。代替表示に落とし、
   // 投稿本文は必ず読める状態を保つ
   const authorName = post.authorName ?? "（削除されたユーザー）";
   const hasBody = post.body.trim().length > 0;
-  const aspectRatio = post.imageWidth && post.imageHeight ? post.imageWidth / post.imageHeight : 1;
   // まず heart の1種だけ（state.md 論点L4）
   const heart = post.reactions.find((r) => r.kind === "heart") ?? {
     kind: "heart" as const,
@@ -90,36 +87,7 @@ export function PostCard({ post, isOwn, onDelete, onToggleReaction }: PostCardPr
 
         {hasBody && <Text>{post.body}</Text>}
 
-        {post.imageUrl &&
-          (imageFailed ? (
-            <View
-              style={{
-                padding: space.md,
-                borderRadius: radius.input,
-                backgroundColor: colors.surfaceTint,
-                alignItems: "center",
-              }}
-            >
-              <Text size="sm" color="muted">
-                画像を読み込めませんでした
-              </Text>
-            </View>
-          ) : (
-            // 開く操作に副作用は無いため二重発火ガードは不要（conventions.md 4節。
-            // 017の確認観点）。生のPressableでよい
-            <Pressable onPress={() => setViewerOpen(true)} accessibilityRole="button" accessibilityLabel="画像を全画面表示">
-              <Image
-                source={{ uri: post.imageUrl }}
-                style={{ width: "100%", aspectRatio, borderRadius: radius.input }}
-                resizeMode="cover"
-                onError={() => setImageFailed(true)}
-              />
-            </Pressable>
-          ))}
-
-        {post.imageUrl && (
-          <ImageViewer visible={viewerOpen} imageUrl={post.imageUrl} onClose={() => setViewerOpen(false)} />
-        )}
+        <PostImages images={post.images} accessibilityLabel="画像を全画面表示" />
 
         {onToggleReaction && (
           <View style={{ flexDirection: "row" }}>

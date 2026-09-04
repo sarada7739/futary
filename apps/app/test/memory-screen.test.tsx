@@ -36,9 +36,7 @@ describe("MemoryScreen", () => {
       post: {
         id: "post-1",
         body: "初めて一緒に海を見に行った日",
-        imageUrl: null,
-        imageWidth: null,
-        imageHeight: null,
+        images: [],
         createdAt: Math.floor(Date.now() / 1000),
       },
       label: "oneYearAgo",

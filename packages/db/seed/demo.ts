@@ -94,14 +94,19 @@ interface EventRow {
   isShared: boolean;
 }
 
+interface PostImageRow {
+  key: string;
+  width: number;
+  height: number;
+}
+
 interface PostRow {
   id: string;
   authorId: string;
   body: string;
   date: string; // created_atの由来（この日の正午JST）
-  imageKey: string | null;
-  imageWidth: number | null;
-  imageHeight: number | null;
+  // 031: position は配列の添字（0..3）。空配列は画像なし
+  images: PostImageRow[];
 }
 
 interface WishRow {
@@ -234,13 +239,24 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
   // --- posts: 40件（14日おき）+ 思い出し用の3マイルストーン = 43件 ---
   const posts: PostRow[] = [];
   const images: Array<{ key: string; assetFile: string }> = [];
-  // 画像は4枚（MEETUP_PHOTOS）。1つは思い出し（1ヶ月前）に使い、
-  // 残り3つをグリッド投稿に配る。写真付き投稿は合計4件になる
-  // （security-auditor指摘でmeetup-3.jpg相当の1枚を除外したため、
-  // 当初の目安「5〜8件」からは外れるが、店名の看板が写り込んだ画像を
-  // 使わないことを優先した。同じ写真は使い回さない）
-  const imagePostGridIndexes = [5, 15, 25];
-  let photoIndex = 0;
+  // 031: 1投稿に4枚まで。1・2・3・4枚の投稿をそれぞれ1件以上デモに入れる
+  // （タスク定義7節）。写真は MEETUP_PHOTOS の4枚を使い回す。key は
+  // 投稿・position ごとに別に生成する（同じ写真を別の投稿・別の位置で
+  // 使ってよいが、key（R2オブジェクトキー）は必ず別。post_images.key の
+  // UNIQUE制約に沿う）
+  let photoCounter = 0;
+  function nextPhotoImage(): PostImageRow {
+    const photo = MEETUP_PHOTOS[photoCounter % MEETUP_PHOTOS.length];
+    if (!photo) throw new Error("MEETUP_PHOTOSが空です");
+    photoCounter += 1;
+    const imageId = `demo-post-image-${photoCounter}`;
+    const key = postImageKey(imageId);
+    images.push({ key, assetFile: photo.file });
+    return { key, width: photo.width, height: photo.height };
+  }
+
+  // グリッド上の特定indexに、1・2・3・4枚をそれぞれ割り当てる
+  const imagePostGridCounts: Record<number, number> = { 5: 1, 15: 2, 25: 3, 35: 4 };
 
   const POST_GRID_COUNT = 40;
   const POST_INTERVAL_DAYS = 14;
@@ -248,65 +264,39 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     const date = addDays(datingDate, i * POST_INTERVAL_DAYS);
     const authorId = i % 2 === 0 ? DEMO_USER_WOMAN_ID : DEMO_USER_MAN_ID;
     const body = POST_BODIES[i % POST_BODIES.length] ?? "";
-    let imageKey: string | null = null;
-    let imageWidth: number | null = null;
-    let imageHeight: number | null = null;
-    if (imagePostGridIndexes.includes(i)) {
-      const photo = MEETUP_PHOTOS[photoIndex];
-      photoIndex += 1;
-      if (photo) {
-        const imageId = `demo-post-image-${photoIndex}`;
-        imageKey = postImageKey(imageId);
-        imageWidth = photo.width;
-        imageHeight = photo.height;
-        images.push({ key: imageKey, assetFile: photo.file });
-      }
-    }
+    const imageCount = imagePostGridCounts[i] ?? 0;
+    const postImages = Array.from({ length: imageCount }, () => nextPhotoImage());
     posts.push({
       id: `demo-post-${i}`,
       authorId,
       body,
       date,
-      imageKey,
-      imageWidth,
-      imageHeight,
+      images: postImages,
     });
   }
 
   // memory.get の探索順（1ヶ月前→半年前→1年前）が必ず1件ずつ拾えるように、
   // ぴったりその日付の投稿を用意する（architecture.md 5節）
-  const milestonePhoto = MEETUP_PHOTOS[photoIndex];
-  const milestoneImageId = "demo-post-image-milestone";
-  const milestoneImageKey = milestonePhoto ? postImageKey(milestoneImageId) : null;
-  if (milestonePhoto && milestoneImageKey) {
-    images.push({ key: milestoneImageKey, assetFile: milestonePhoto.file });
-  }
   posts.push({
     id: "demo-post-milestone-1month",
     authorId: DEMO_USER_WOMAN_ID,
     body: "1ヶ月前の記録。ふたりで撮った写真。",
     date: monthsBefore(today, 1),
-    imageKey: milestoneImageKey,
-    imageWidth: milestonePhoto?.width ?? null,
-    imageHeight: milestonePhoto?.height ?? null,
+    images: [nextPhotoImage()],
   });
   posts.push({
     id: "demo-post-milestone-6months",
     authorId: DEMO_USER_MAN_ID,
     body: "半年前はこんなことを話していた。",
     date: monthsBefore(today, 6),
-    imageKey: null,
-    imageWidth: null,
-    imageHeight: null,
+    images: [],
   });
   posts.push({
     id: "demo-post-milestone-1year",
     authorId: DEMO_USER_WOMAN_ID,
     body: "1年前の今日の記録。",
     date: yearsBefore(today, 1),
-    imageKey: null,
-    imageWidth: null,
-    imageHeight: null,
+    images: [],
   });
 
   // reactions: 著者以外のパートナーからheartを付ける（5件に1件は付けない。全部に
@@ -404,12 +394,13 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
 }
 
 // 投入の前にデモペアの既存行を消す（014タスク定義）。外部キーの順:
-// reactions -> posts -> events -> wishes -> moods -> invites -> couple_members -> couples -> user。
-// 表が増えたときはここへ足す（027でwishes・029でmoodsを追加）
+// reactions -> post_images -> posts -> events -> wishes -> moods -> invites -> couple_members -> couples -> user。
+// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_imagesを追加）
 function buildDeleteSql(seed: DemoSeed): string[] {
   const userIds = seed.users.map((u) => sqlString(u.id)).join(", ");
   return [
     `DELETE FROM reactions WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ${sqlString(seed.coupleId)});`,
+    `DELETE FROM post_images WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ${sqlString(seed.coupleId)});`,
     `DELETE FROM posts WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM events WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM wishes WHERE couple_id = ${sqlString(seed.coupleId)};`,
@@ -456,10 +447,15 @@ function buildInsertSql(seed: DemoSeed, nowMs: number): string[] {
 
   for (const p of seed.posts) {
     statements.push(
-      `INSERT INTO posts (id, couple_id, author_id, body, image_key, image_width, image_height, created_at) VALUES ` +
-        `(${sqlString(p.id)}, ${sqlString(seed.coupleId)}, ${sqlString(p.authorId)}, ${sqlString(p.body)}, ` +
-        `${sqlString(p.imageKey)}, ${p.imageWidth ?? "NULL"}, ${p.imageHeight ?? "NULL"}, ${noonJstSeconds(p.date)});`,
+      `INSERT INTO posts (id, couple_id, author_id, body, created_at) VALUES ` +
+        `(${sqlString(p.id)}, ${sqlString(seed.coupleId)}, ${sqlString(p.authorId)}, ${sqlString(p.body)}, ${noonJstSeconds(p.date)});`,
     );
+    p.images.forEach((image, position) => {
+      statements.push(
+        `INSERT INTO post_images (post_id, position, key, width, height) VALUES ` +
+          `(${sqlString(p.id)}, ${position}, ${sqlString(image.key)}, ${image.width}, ${image.height});`,
+      );
+    });
   }
 
   for (const r of seed.reactions) {

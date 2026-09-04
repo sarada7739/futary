@@ -57,6 +57,8 @@ function secondsAt(date: string): number {
   return Math.floor(jstDayRangeMs(date).fromMs / 1000) + 12 * 60 * 60;
 }
 
+// 031: image_key列は無くなり、post_images（子テーブル）へ移った。
+// imageKeyを渡すとposition=0の画像を1枚追加する
 async function insertPost(
   coupleId: string,
   authorId: string,
@@ -65,13 +67,20 @@ async function insertPost(
 ) {
   const createdAt = secondsAt(date);
   const deletedAt = options.deleted ? createdAt + 1 : null;
+  const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO posts (id, couple_id, author_id, body, image_key, created_at, deleted_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)`,
+      `INSERT INTO posts (id, couple_id, author_id, body, created_at, deleted_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
     )
-    .bind(crypto.randomUUID(), coupleId, authorId, options.body ?? "思い出の投稿", options.imageKey ?? null, createdAt, deletedAt)
+    .bind(id, coupleId, authorId, options.body ?? "思い出の投稿", createdAt, deletedAt)
     .run();
+  if (options.imageKey) {
+    await db
+      .prepare(`INSERT INTO post_images (post_id, position, key, width, height) VALUES (?1, 0, ?2, 100, 100)`)
+      .bind(id, options.imageKey)
+      .run();
+  }
 }
 
 describe("memory.get", () => {
@@ -207,7 +216,8 @@ describe("memory.get", () => {
 
     const result = await call(router.memory.get, undefined, { context: contextFor(user) });
 
-    expect(result?.post.imageUrl).not.toBeNull();
+    expect(result?.post.images).toHaveLength(1);
+    expect(result?.post.images[0]?.url).not.toBeNull();
   });
 
   it("他ペアの投稿は混ざらない", async () => {
