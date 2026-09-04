@@ -43,8 +43,12 @@ function main() {
     let rawOutput;
     try {
       // --ignore-registry-errors: レジストリの障害だけで赤くしない
-      // （security-requirements.md 9節）。検査そのものを殺す圧力を作らないため
-      rawOutput = execSync("pnpm audit --json --ignore-registry-errors", { encoding: "utf8" });
+      // （security-requirements.md 9節）。検査そのものを殺す圧力を作らないため。
+      // リトライ設定はscripts/pnpm-audit.mjsに1箇所にまとめてある
+      // （docs/tasks/034-audit-retry.md 4節）
+      rawOutput = execSync("node scripts/pnpm-audit.mjs --json --ignore-registry-errors", {
+        encoding: "utf8",
+      });
     } catch (error) {
       // pnpm audit は脆弱性が見つかると非ゼロ終了するため、stdout を拾う
       rawOutput = error.stdout?.toString() ?? "";
