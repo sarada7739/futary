@@ -38,15 +38,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # 出力専用（全重大度）。失敗させない。人間が読む前提の材料であり統制ではない
-      # （security-requirements.md 9節「陳腐化の検出」）
+      # （security-requirements.md 9節「陳腐化の検出」）。
+      # npmのセキュリティ勧告APIへの通信リトライはscripts/pnpm-audit.mjsに
+      # 1箇所にまとめてある（docs/tasks/034-audit-retry.md 4節）
       - name: pnpm audit（全重大度・出力のみ）
-        run: pnpm audit || true
+        run: node scripts/pnpm-audit.mjs || true
 
       # ゲート。high以上で赤（moderate以下は上の出力専用ステップに任せる）。
       # pnpm-workspace.yaml の auditConfig.ignoreGhsas（到達不能・修正版無しの
       # 勧告のみ、A の承認制）がここに効く
       - name: pnpm audit（high以上で赤。security-requirements.md 9節）
-        run: pnpm audit --audit-level=high
+        run: node scripts/pnpm-audit.mjs --audit-level=high
 
       # 陳腐化の検出。無視リストの項目が、無視を外した状態のauditにまだ
       # 現れるかを見る。現れなくなっていたら（修正版が出た・依存が消えた等）

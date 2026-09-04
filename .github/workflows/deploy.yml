@@ -65,12 +65,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # 出力専用（全重大度）。失敗させない（ci.ymlと同じ）
+      # 出力専用（全重大度）。失敗させない（ci.ymlと同じ）。
+      # npmのセキュリティ勧告APIへの通信リトライはscripts/pnpm-audit.mjsに
+      # 1箇所にまとめてある（docs/tasks/034-audit-retry.md 4節）
       - name: pnpm audit（全重大度・出力のみ）
-        run: pnpm audit || true
+        run: node scripts/pnpm-audit.mjs || true
 
       - name: pnpm audit（high以上で赤。security-requirements.md 9節）
-        run: pnpm audit --audit-level=high
+        run: node scripts/pnpm-audit.mjs --audit-level=high
 
       - name: pnpm audit（無視リストの陳腐化検出）
         run: node scripts/check-audit-ignore-staleness.mjs
