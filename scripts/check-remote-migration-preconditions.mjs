@@ -105,14 +105,16 @@ function main() {
       `〈マージした者の担当〉。PR #189）。`,
   );
 
-  // 【031・security-auditor指摘】旧posts.image_width/image_heightはNULL許容
-  // だった（0003_post.sql）。旧contractのpost.createもimageIdだけを送り
-  // imageWidth/imageHeightを省略できる形になっていた（アプリ自身は常に3つを
-  // 揃えて送っていたが、契約上は独立してoptionalだった）。post_images側は
-  // width/height共にNOT NULLのため、image_keyがありwidth/heightのどちらかが
-  // NULLの行が1件でもあると0019のINSERTがNOT NULL違反で失敗し、
-  // __new_postsのような残骸こそ残らないものの以降のデプロイが同じ場所で
-  // 失敗し続ける（0013と同じ壊れ方）。0013と同じくfail-closedで止める
+  // 【031・security-auditor指摘、Rが実測して訂正】旧posts.image_width/
+  // image_heightはNULL許容だった（0003_post.sql）。旧contractのpost.create
+  // もimageIdだけを送りimageWidth/imageHeightを省略できる形になっていた
+  // （アプリ自身は常に3つを揃えて送っていたが、契約上は独立してoptionalだった）。
+  // post_images側はwidth/height共にNOT NULLのため、image_keyがあり
+  // width/heightのどちらかがNULLの行が1件でもあると0019のINSERTが
+  // NOT NULL違反で失敗する。**CREATE TABLEとCREATE UNIQUE INDEXは成功済みの
+  // ため、post_images・post_images_key_uniqueが残骸として残る**（0013と
+  // 同じ形。Rが実測: 是正せず再実行すると`table post_images already exists`
+  // で同じ場所に落ち続ける）。0013と同じくfail-closedで止める
   console.log("0019のNOT NULL列（post_images.width/height）に違反する既存行が無いか確認します...");
   let malformedImageCount;
   try {
@@ -128,9 +130,15 @@ function main() {
     throw new Error(
       `image_keyがありimage_width/image_heightのどちらかがNULLの既存行が` +
         `${malformedImageCount}件あります。このままマイグレーションを当てると` +
-        `post_images.width/heightのNOT NULL制約違反で失敗し、以降のデプロイが` +
-        `同じ場所で失敗し続けます。事前に是正するか、その投稿の画像を除いて` +
-        `もよいかを判断してください（例: 実寸が分からないなら画像参照ごと外す）。`,
+        `CREATE TABLE/CREATE UNIQUE INDEXは成功したままpost_images.width/height` +
+        `のNOT NULL制約違反でINSERTが失敗し、post_images・post_images_key_unique` +
+        `が残骸として残ります。是正しないまま再実行するとtable post_images ` +
+        `already existsで同じ場所に落ち続けます。事前に是正してください` +
+        `（その投稿の画像を除いてもよいかを判断する。例: 実寸が分からないなら` +
+        `画像参照ごと外す）:\n` +
+        `  DROP TABLE IF EXISTS post_images;\n` +
+        `是正後、残骸が既に残っている場合は上のDROP TABLEを先に実行してから` +
+        `再実行すること。`,
     );
   }
   console.log("違反行はありません。マイグレーションを適用します。");
