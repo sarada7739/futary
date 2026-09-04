@@ -23,7 +23,8 @@ import {
 } from "./wish";
 import { moodClearTodayContract, moodListContract, moodSetTodayContract } from "./mood";
 
-export type { Post } from "./post";
+export type { Post, PostImage } from "./post";
+export { MAX_POST_IMAGES } from "./post";
 export { REACTION_KINDS } from "./reaction";
 export type { Event } from "./event";
 export { EVENT_KINDS } from "./event";

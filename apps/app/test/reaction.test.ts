@@ -9,9 +9,7 @@ function makePost(reactions: Post["reactions"] = []): Post {
     authorName: "自分",
     authorImage: null,
     body: "こんにちは",
-    imageUrl: null,
-    imageWidth: null,
-    imageHeight: null,
+    images: [],
     createdAt: Math.floor(Date.now() / 1000),
     reactions,
   };

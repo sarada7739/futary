@@ -3,6 +3,101 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
+**最終更新**: 2026-09-04 / セッションB。**031（1投稿に複数画像。最大4枚）
+実装完了。`task/031-multi-image`ブランチで作業し、Rのレビュー待ち。**
+
+Aが起票した5つの判断（上限4枚・`posts`に列を足さず`post_images`へ・
+`imageUrl`単数を契約から消す・ライトボックスは左右ボタンでスワイプに
+しない・1枚のときの見え方を変えない）はすべてそのまま実装した。
+
+**マイグレーション（`0019_post_images.sql`）**: `CREATE TABLE` →
+`INSERT ... SELECT`（既存の1枚をposition=0へ）→ `DROP INDEX
+posts_image_key_unique` → `ALTER TABLE ... DROP COLUMN`×3の順で書いた。
+**「3を飛ばすと4が落ちる」をローカルD1で実測してから書いた**
+（`migration-existing-rows.test.ts`に実測テストを追加。023の`couples`と
+同じ形）。drizzleのスキーマ変更から`pnpm generate`した結果が「No schema
+changes」になることを確認済み（手書きしたmeta/journalがdrizzle-kit自身の
+生成結果と完全一致）。
+
+**契約**: `post.create`が`imageId`単数から`images: [{imageId,width,height}]`
+（最大4件）へ、`post.list`/`memory.get`が`imageUrl`単数から`images: [{url,
+width,height}]`へ変わった。5件渡すとZodのmax(4)でBAD_REQUESTになる。
+
+**サーバ側**: `post.create`はDBに1行も書く前にimagesの全imageIdについて
+R2実体を確認し（1枚でも欠けたら投稿ごと拒む）、`posts`と`post_images`への
+書き込みを1本の`db.batch()`にまとめた。`post.delete`は`posts`の論理削除・
+`reactions`削除・`post_images`の**物理削除**（論理削除を持たせない設計。
+行が残るとkeyのUNIQUEが空きを塞ぐため）を同じbatchにまとめ、R2は枚数ぶん
+まとめて削除を試みる（失敗しても孤児として受け入れる。既定を変えない）。
+`memory.get`の画像優先判定を`image_key IS NULL`からpost_imagesのEXISTS判定へ
+書き換えた。`stats.get`の「写真の枚数」は「画像付き投稿の件数」から
+「実際の画像枚数」（post_imagesの行数）に変わった。
+
+**`me.delete`への追加。3回目**（027 wishes・029 moodsに続き）。
+`post_images`の削除文を`posts`より先・`reactions`の直後に追加した
+（起票の時点でタスク定義に書かれており、今回は踏んでいない）。
+
+**フロントエンド**: `compose.tsx`は複数選択（最大4枚、上限で選択ボタンを
+隠す）・並列アップロードに対応。`image-viewer.tsx`は複数画像対応
+（左右ボタン・「n / 総数」カウンター。1枚のときは出さない）。新設した
+`post-images.tsx`（1枚はアスペクト比維持、2枚以上は正方形2列グリッド、
+奇数枚は最後の1枚を横幅いっぱいに）を`post-card.tsx`・`memory-card.tsx`の
+両方で共通利用する構成にした。
+
+**ブラウザでの実機確認で発見・修正した点（B独自の技術判断）**:
+react-native-webは`accessibilityRole="button"`のPressableを実際の
+`<button>`要素として描画する。ライトボックスのbackdrop（button）の中に
+×・‹・›の3つのボタン（同じくbutton）を入れ子にすると、ブラウザの
+コンソールに「buttonがbuttonを含められない」というDOM構造エラーが出ることを
+発見した（017の×ボタン1個のときから存在していたが、031で3個に増えて
+顕在化。クリックの挙動自体は壊れない）。backdropから`accessibilityRole`を
+外して解消した。
+
+**security-auditorの監査でHigh以上はゼロ。**Medium 2件・Low 5件、うち
+6件をその場で修正した（詳細は`artifacts/031/security-audit-raw.md`）:
+- Medium: `post.delete`が他ペアの`post_images`を消さないことを固定する
+  テストが無かった→追加
+- Medium: 孤児オブジェクト回収手順のドキュメント（`architecture.md`6節・
+  `security-requirements.md`5節）が旧`posts.image_key`を参照したまま
+  だった（031で物理削除に変更済み）→`post_images.key`ベースへ書き換え
+- Low: 論理削除済みの投稿の画像がpost_imagesへ移ってしまう経路→
+  マイグレーションのINSERT SELECTに`deleted_at IS NULL`を追加
+- Low: `bucket.head`/`delete`の例外に画像キーが含まれうる状態
+  （024のme.tsと同種の再発）→汎用メッセージへ詰め替え
+- Low: 署名付きURL発行のたびに`AwsClient`を作り直しSigV4鍵導出が
+  キャッシュされない（031で1リクエスト最大80件まで増えた）→
+  モジュールスコープでキャッシュ
+- Low: `0019`が旧NULL許容だった`image_width`/`image_height`を想定しておらず
+  リモート適用が失敗しうる→`check-remote-migration-preconditions.mjs`に
+  0013と同じfail-closedの前提条件チェックを追加
+- （Low1件は容量・費用の記録のみ。追加対応なし）
+
+**本番には既に画像付きの投稿がある。** リモートD1への適用前に、
+`check-remote-migration-preconditions.mjs`が出す「image_keyを持つ未削除
+postsの現在の行数」（移る件数）と「NOT NULL列に違反する行数」（0件のはず。
+0件でなければデプロイが止まる）を、デプロイのジョブログから読み取り
+`worklog.md`へ記録すること（**マージした者の担当**。0015のinvite_failures
+と同じ運用）。
+
+`pnpm -r test`（packages/date 46・packages/ui 7・packages/db 27・
+apps/app 216・apps/api 409、全て緑）・`pnpm -r type-check`・
+`pnpm -w eslint .`、全て通過。デモシードに1・2・3・4枚の投稿を1件以上ずつ
+入れ、ローカルD1・R2へ`pnpm seed:local`で実投入して`post_images`の枚数を
+SQLで確認、`post.list`のレスポンス（images配列・並び順）をfetchで確認、
+タイムラインで4枚投稿の正方形2列グリッド表示とライトボックスの左右送り・
+カウンターをBrowser paneで確認済み（`artifacts/031/test-results.md`）。
+**画像の実体そのものはローカル環境では表示できない**（署名付きURLが
+実クラウドR2を指すため。既知の制約。API層・レイアウト構造は確認済み）。
+
+**認証必須の経路（実際に画像を選んで投稿する操作）はB（自動化）では
+実機確認ができない**。`artifacts/031/manual-check.md`に人間への確認項目を
+列挙済み。
+
+**次にやること**: `task/031-multi-image`をpushしてPRを作成し、Rのレビューを
+依頼する。
+
+以下、2026-09-04（031より前）の記録。
+
 **最終更新**: 2026-09-04 / セッションB。**030（アプリアイコンと
 favicon の差し替え）完了。PR #212、Rの受け入れを得てmainへ
 squash merge済み**（`030: アプリアイコンと favicon を差し替える (#212)`）。

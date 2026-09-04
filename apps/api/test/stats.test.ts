@@ -77,20 +77,30 @@ async function insertEvent(coupleId: string, createdBy: string, kind: string, da
     .run();
 }
 
+// 031: image_key列は無くなり、post_images（子テーブル）へ移った。
+// imageKeyを渡すとposition=0の画像を1枚追加する
 async function insertPost(
   coupleId: string,
   authorId: string,
   options: { imageKey?: string; deleted?: boolean } = {},
-) {
+): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const deletedAt = options.deleted ? now : null;
+  const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO posts (id, couple_id, author_id, body, image_key, created_at, deleted_at)
-       VALUES (?1, ?2, ?3, '投稿', ?4, ?5, ?6)`,
+      `INSERT INTO posts (id, couple_id, author_id, body, created_at, deleted_at)
+       VALUES (?1, ?2, ?3, '投稿', ?4, ?5)`,
     )
-    .bind(crypto.randomUUID(), coupleId, authorId, options.imageKey ?? null, now, deletedAt)
+    .bind(id, coupleId, authorId, now, deletedAt)
     .run();
+  if (options.imageKey) {
+    await db
+      .prepare(`INSERT INTO post_images (post_id, position, key, width, height) VALUES (?1, 0, ?2, 100, 100)`)
+      .bind(id, options.imageKey)
+      .run();
+  }
+  return id;
 }
 
 function couple(
@@ -314,8 +324,9 @@ describe("stats.get", () => {
     expect(stats.postCount).toBe(1);
   });
 
-  // L65（Rの先読み指摘）: 削除済みでもimage_keyは残る（007の決定）ため、
-  // deleted_at IS NULLを条件に含めないとphotoCountがpostCountを上回ってしまう
+  // L65（Rの先読み指摘）: post.delete経由なら画像行も一緒に消えるが、
+  // このテストは直接SQLでdeleted_at付きの行を作るため、防御的に
+  // deleted_at IS NULLを条件に含めないとphotoCountがpostCountを上回りうる
   it("photoCountは未削除・画像ありの投稿のみを数える（削除済みの写真投稿は含めない）", async () => {
     const user = await createUser();
     const couple = await createCouple(user, todayJst());

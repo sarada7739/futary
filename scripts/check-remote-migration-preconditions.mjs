@@ -104,6 +104,71 @@ function main() {
       `数を出す場所でしかない。この件数をworklog.mdへ写すこと` +
       `〈マージした者の担当〉。PR #189）。`,
   );
+
+  // 【031・security-auditor指摘、Rが実測して訂正】旧posts.image_width/
+  // image_heightはNULL許容だった（0003_post.sql）。旧contractのpost.create
+  // もimageIdだけを送りimageWidth/imageHeightを省略できる形になっていた
+  // （アプリ自身は常に3つを揃えて送っていたが、契約上は独立してoptionalだった）。
+  // post_images側はwidth/height共にNOT NULLのため、image_keyがあり
+  // width/heightのどちらかがNULLの行が1件でもあると0019のINSERTが
+  // NOT NULL違反で失敗する。**CREATE TABLEとCREATE UNIQUE INDEXは成功済みの
+  // ため、post_images・post_images_key_uniqueが残骸として残る**（0013と
+  // 同じ形。Rが実測: 是正せず再実行すると`table post_images already exists`
+  // で同じ場所に落ち続ける）。0013と同じくfail-closedで止める
+  console.log("0019のNOT NULL列（post_images.width/height）に違反する既存行が無いか確認します...");
+  let malformedImageCount;
+  try {
+    malformedImageCount = queryRemoteCount(
+      "SELECT COUNT(*) AS count FROM posts WHERE image_key IS NOT NULL AND deleted_at IS NULL " +
+        "AND (image_width IS NULL OR image_height IS NULL)",
+    );
+  } catch {
+    // image_key列が既に無い（0019適用済み）。移行は完了しているため0件として扱う
+    malformedImageCount = 0;
+  }
+  if (malformedImageCount > 0) {
+    throw new Error(
+      `image_keyがありimage_width/image_heightのどちらかがNULLの既存行が` +
+        `${malformedImageCount}件あります。このままマイグレーションを当てると` +
+        `CREATE TABLE/CREATE UNIQUE INDEXは成功したままpost_images.width/height` +
+        `のNOT NULL制約違反でINSERTが失敗し、post_images・post_images_key_unique` +
+        `が残骸として残ります。是正しないまま再実行するとtable post_images ` +
+        `already existsで同じ場所に落ち続けます。事前に是正してください` +
+        `（その投稿の画像を除いてもよいかを判断する。例: 実寸が分からないなら` +
+        `画像参照ごと外す）:\n` +
+        `  DROP TABLE IF EXISTS post_images;\n` +
+        `是正後、残骸が既に残っている場合は上のDROP TABLEを先に実行してから` +
+        `再実行すること。`,
+    );
+  }
+  console.log("違反行はありません。マイグレーションを適用します。");
+
+  // 【031・タスク定義4節】0019はposts.image_key/image_width/image_heightを
+  // post_imagesへ移してから列を落とす。列を消すが、行（の一部）は
+  // post_imagesへ形を変えて残る（0015のDELETEとは違い消滅ではない）。
+  // それでも「行を消すマイグレーションは、当てる前に件数を数えて記録する」
+  // （architecture.md 4節）と同じ理由で、この列がposts.image_keyという形として
+  // 消える件数をここで記録する。0019適用後もこのSELECTは無害に実行され続けるが
+  // （image_key列自体が無くなるためcatchして0を返す）、その時点では移行は
+  // 既に終わっている。
+  // 【031・security-auditor指摘】論理削除済みの投稿は移行対象に含めない
+  // （0019のINSERT自体がdeleted_at IS NULLを条件にしたため。ここも揃える）
+  console.log("0019（posts.image_keyをpost_imagesへ移す）で移る既存行数を記録します...");
+  let postImageMigrationCount;
+  try {
+    postImageMigrationCount = queryRemoteCount(
+      "SELECT COUNT(*) AS count FROM posts WHERE image_key IS NOT NULL AND deleted_at IS NULL",
+    );
+  } catch {
+    // image_key列が既に無い（0019適用済み）。移行は完了しているため0件として扱う
+    postImageMigrationCount = 0;
+  }
+  console.log(
+    `image_keyを持つ未削除postsの現在の行数: ${postImageMigrationCount}件。` +
+      `0019が未適用ならこの件数がpost_images（position=0）へ移る` +
+      `（消えるのではなく形を変えて残る）。この件数をworklog.mdへ写すこと` +
+      `〈マージした者の担当〉。docs/tasks/031-multi-image.md 4節）。`,
+  );
 }
 
 main();

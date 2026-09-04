@@ -26,18 +26,34 @@ function endpointFor(config: R2SignConfig, key: string): URL {
   return new URL(`https://${config.accountId}.r2.cloudflarestorage.com/${config.bucketName}/${key}`);
 }
 
+// 031・security-auditor指摘: 呼び出しのたびに新しいAwsClientを作ると、
+// aws4fetchが内部に持つ署名鍵キャッシュ（AwsClient#cache。HMACの導出鍵4連鎖の
+// 使い回し）が毎回空になり、SigV4の鍵導出をリクエストのたびにやり直すことになる。
+// post.listが1リクエストで複数枚（最大4枚）ぶんcreateGetUrlを呼ぶようになり
+// （031）、未認証のデモ閲覧からも到達するreadProcedureのためWorkerのCPU時間が
+// 画像枚数に比例して増える。認証情報（accessKeyId/secretAccessKey）ごとに
+// AwsClientを1つだけ作り、モジュールスコープ（Workerのアイソレートが生きている
+// 間はリクエストをまたいで保持される）で使い回す
+const clientCache = new Map<string, AwsClient>();
+
 function clientFor(config: R2SignConfig): AwsClient {
   // R2 API トークン未設定（Cloudflareダッシュボードでの発行がまだ、等）なら
   // その場でエラーにする。空文字のまま署名すると不正な署名のURLを返してしまう
   if (!config.accountId || !config.accessKeyId || !config.secretAccessKey) {
     throw new Error("R2 の署名鍵が設定されていません（R2_ACCOUNT_ID/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY）");
   }
-  return new AwsClient({
+  const cacheKey = `${config.accessKeyId}:${config.secretAccessKey}`;
+  const cached = clientCache.get(cacheKey);
+  if (cached) return cached;
+
+  const client = new AwsClient({
     accessKeyId: config.accessKeyId,
     secretAccessKey: config.secretAccessKey,
     service: "s3",
     region: "auto",
   });
+  clientCache.set(cacheKey, client);
+  return client;
 }
 
 // couple_id を含む鍵はサーバだけが組み立てる（architecture.md 5節）。

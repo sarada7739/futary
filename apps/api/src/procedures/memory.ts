@@ -10,30 +10,48 @@ import { readProcedure } from "./base";
 interface PostRow {
   id: string;
   body: string;
-  image_key: string | null;
-  image_width: number | null;
-  image_height: number | null;
   created_at: number;
 }
 
-const POST_COLUMNS =
-  "id AS id, body AS body, image_key AS image_key, image_width AS image_width, " +
-  "image_height AS image_height, created_at AS created_at";
+interface PostImageRow {
+  key: string;
+  width: number;
+  height: number;
+}
 
-async function toMemoryPost(row: PostRow, r2Sign: R2SignConfig) {
-  const imageUrl = row.image_key ? await createGetUrl(r2Sign, row.image_key) : null;
+const POST_COLUMNS = "id AS id, body AS body, created_at AS created_at";
+
+// 031: 1投稿に画像を4枚まで。position順に返す
+async function fetchImages(db: D1Database, postId: string): Promise<PostImageRow[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT key AS key, width AS width, height AS height
+         FROM post_images WHERE post_id = ?1 ORDER BY position`,
+    )
+    .bind(postId)
+    .all<PostImageRow>();
+  return results;
+}
+
+async function toMemoryPost(db: D1Database, row: PostRow, r2Sign: R2SignConfig) {
+  const imageRows = await fetchImages(db, row.id);
   return {
     id: row.id,
     body: row.body,
-    imageUrl,
-    imageWidth: row.image_width,
-    imageHeight: row.image_height,
+    images: await Promise.all(
+      imageRows.map(async (image) => ({
+        url: await createGetUrl(r2Sign, image.key),
+        width: image.width,
+        height: image.height,
+      })),
+    ),
     createdAt: row.created_at,
   };
 }
 
 // 指定したJSTの暦日ぴったりの投稿を1件探す。複数あれば画像のある投稿を優先し、
-// なければ最新を返す（docs/tasks/013-memory.md）
+// なければ最新を返す（docs/tasks/013-memory.md）。031: image_key列が無くなった
+// ため、post_images の存在で判定する
 async function findOnDate(db: D1Database, coupleId: string, date: string): Promise<PostRow | null> {
   const { fromMs, toMs } = jstDayRangeMs(date);
   const row = await db
@@ -41,7 +59,7 @@ async function findOnDate(db: D1Database, coupleId: string, date: string): Promi
       `SELECT ${POST_COLUMNS} FROM posts
         WHERE couple_id = ?1 AND deleted_at IS NULL
           AND created_at >= ?2 AND created_at < ?3
-        ORDER BY (image_key IS NULL) ASC, created_at DESC
+        ORDER BY (NOT EXISTS (SELECT 1 FROM post_images WHERE post_images.post_id = posts.id)) ASC, created_at DESC
         LIMIT 1`,
     )
     .bind(coupleId, Math.floor(fromMs / 1000), Math.floor(toMs / 1000))
@@ -103,11 +121,11 @@ const memoryGet = implementer.memory.get.use(readProcedure).handler(async ({ con
 
   for (const milestone of milestones) {
     const row = await findOnDate(db, coupleId, milestone.date);
-    if (row) return { post: await toMemoryPost(row, r2Sign), label: milestone.label };
+    if (row) return { post: await toMemoryPost(db, row, r2Sign), label: milestone.label };
   }
 
   const randomRow = await findRandomOld(db, coupleId, today);
-  if (randomRow) return { post: await toMemoryPost(randomRow, r2Sign), label: "random" as const };
+  if (randomRow) return { post: await toMemoryPost(db, randomRow, r2Sign), label: "random" as const };
 
   return null;
 });

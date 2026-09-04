@@ -1,10 +1,10 @@
-import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import { check, index, integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 import { couples } from "./couple";
 
 // 画像アップロード本体は 007 で実装した（architecture.md 6節）。
-// image_key が非NULLなら R2 に実体がある、という不変条件を保つため、
-// post.create が R2 に実体があることを確認してから書く
+// 画像は 031 で post_images へ移した（1投稿に4枚まで。下のテーブル参照）
 export const posts = sqliteTable(
   "posts",
   {
@@ -16,15 +16,8 @@ export const posts = sqliteTable(
       .notNull()
       .references(() => user.id),
     body: text("body").notNull().default(""),
-    // UNIQUE: 同じ imageId を複数の投稿から参照させない（architecture.md 6節）。
-    // SQLite の UNIQUE インデックスは NULL 同士を区別するため、
-    // 画像なしの投稿（NULL）はいくつあっても衝突しない（制約は下の table builder 側）
-    imageKey: text("image_key"),
-    imageWidth: integer("image_width"),
-    imageHeight: integer("image_height"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-    // 非NULLなら論理削除済み。post.list は deleted_at IS NULL で絞る。
-    // 論理削除後も image_key は消さない（孤児オブジェクトを後から回収できる状態を保つ）
+    // 非NULLなら論理削除済み。post.list は deleted_at IS NULL で絞る
     deletedAt: integer("deleted_at", { mode: "timestamp" }),
   },
   (table) => [
@@ -33,6 +26,32 @@ export const posts = sqliteTable(
     // SQLite は昇順インデックスを逆順に辿れるため、DESC 指定なしでも
     // ORDER BY created_at DESC のスキャンに使われる
     index("posts_couple_created_idx").on(table.coupleId, table.createdAt),
-    unique("posts_image_key_unique").on(table.imageKey),
+  ],
+);
+
+// 031: 1投稿に画像を4枚まで（architecture.md 4節）。position（0..3）が並び順。
+// key が非NULL列として存在すれば実体がある、という不変条件は posts.image_key の
+// ときと同じ（architecture.md 6節「画像の実体と行の対応を1対1に保つ」）。
+// 論理削除を持たせない（posts と違い、行が残ると key の UNIQUE が空きを塞ぐ。
+// post.delete は行ごと物理削除する）
+export const postImages = sqliteTable(
+  "post_images",
+  {
+    postId: text("post_id")
+      .notNull()
+      .references(() => posts.id),
+    position: integer("position").notNull(),
+    // UNIQUE: 同じ imageId（key）を複数の投稿・行から参照させない
+    // （posts_image_key_unique が持っていた性質を移した先で失わない）
+    key: text("key").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.postId, table.position] }),
+    unique("post_images_key_unique").on(table.key),
+    // 枚数の上限（4枚）を position の CHECK と主キーで DB 側にも表す。
+    // アプリの条件（Zodのmax(4)）だけに頼らない
+    check("post_images_position_range_check", sql`${table.position} BETWEEN 0 AND 3`),
   ],
 );
