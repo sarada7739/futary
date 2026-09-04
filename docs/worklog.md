@@ -9662,3 +9662,40 @@ Rの受け入れを得て、PR #215をmainへsquash mergeした（`941b8da`。
 `ScrollView horizontal pagingEnabled`が実際に効くか）の検証から着手する。
 
 Session: B
+
+## 2026-09-04 セッションB（033: 複数画像を横にスライド。実装完了）
+
+人間の「Xのように複数画像を右にスライドできるようにしたい」という要望を
+受け、Aが031の2つの判断（正方形グリッド・ライトボックスはボタンのみ）を
+覆して起票した033を実装した。
+
+0節（`ScrollView horizontal pagingEnabled`がreact-native-web 0.21.2で
+効くか）を使い捨ての検証画面で実測してから着手（`artifacts/033/
+0-node-verification.md`）。Aの指摘（次の画像の端を見せるには子要素を
+コンテナより狭くする必要がある）を受け、`ROW_ITEM_WIDTH_RATIO=0.88`
+（仮置き）で設計した。
+
+実装中に2つの不具合を実測で発見・修正した:
+1. react-native-webの横スクロールの中身は幅が定まらないコンテナになるため、
+   子要素への相対幅指定（`width:"88%"`）が正しく解決されない
+   （561px幅のコンテナで77pxにしかならないことを発見）。`onLayout`実測の
+   px値へ直した（一覧行・ライトボックスの両方）
+2. react-native-webの`ScrollView`は内部で`onScroll`しか呼ばず
+   `onMomentumScrollEnd`はWeb版から一度も呼ばれない（ソースを読んで確認）。
+   `onScroll`（都度計算し直す）へ設計を直した
+
+**security-auditorの監査でHigh・Medium以上はゼロ。**Low5件のうち4件を
+その場で修正: indexのクランプ範囲拡大、失敗記録を添字からURLキーへ
+（署名付きURL失効後に回復しない不具合の修正）、デスクトップのマウス
+ドラッグがライトボックスを誤って閉じる不具合（Browser paneで実際に
+再現・修正後に解消することを確認）、契約のurlに`.url()`制約を追加。
+
+`pnpm -r test`（apps/app 222件、全て緑）・`pnpm -r type-check`・
+`pnpm -w eslint .`、全て通過。デスクトップ幅・モバイル幅375×812の両方で
+Browser paneから確認済み。ライトボックス内での実機タッチ/トラックパッドの
+スワイプ操作と、「次の端がどれくらい見えれば気づくか」は人間の実機確認が
+必要（`artifacts/033/manual-check.md`）。
+
+`docs/state.md`を更新。`task/033-image-swipe`をpushしてPRを作成する。
+
+Session: B
