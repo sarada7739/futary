@@ -86,5 +86,21 @@ export const layout = {
   maxWidth: 640,
 } as const;
 
+// 035書体仕様1節。日本語にWebフォントを当てず、フォールバックの並びだけ
+// 明示する（0KB）。iOS/macOSはヒラギノ、Windowsは`BIZ UDPGothic`を
+// `Yu Gothic UI`より先に置く（Windows 10 1809以降に同梱。かなが大きく
+// 線が太めで、Yu Gothicの「細くて薄い」印象が消える）
+const JA_STACK =
+  '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Meiryo", "Yu Gothic UI", "Noto Sans CJK JP", "Noto Sans JP", sans-serif';
+
+export const fontFamily = {
+  ja: JA_STACK,
+  // 数字・欧文のみで構成される要素専用（記念日カードの72pt・会った日数の
+  // 数字・COMING SOON）。日本語が混ざる行には使わない（桁ごとに幅が変わる
+  // Poppinsを日本語の中に混ぜると落ち着かないため。035書体仕様2節）。
+  // 後ろにjaの列を続けるのは、万一日本語が混ざったときに欠けさせないため
+  numeric: `Poppins, ${JA_STACK}`,
+} as const;
+
 export type ColorToken = keyof typeof colors;
 export type SpaceToken = keyof typeof space;

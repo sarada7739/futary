@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Image, Text as RNText, Pressable, View } from "react-native";
 import type { Stats } from "@futary/contract";
-import { Avatar, Badge, Button, Card, colors, radius, shadow, space, sparkle, Text } from "@futary/ui";
+import { Avatar, Badge, Button, Card, colors, fontFamily, radius, shadow, space, sparkle, Text } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { daysTogetherParts } from "../lib/stats";
@@ -52,7 +52,11 @@ function MemberAvatar({ member }: { member?: Member }) {
   return (
     <View style={{ alignItems: "center" }}>
       <Avatar name={name} imageUrl={member.image ?? undefined} size={AVATAR_SIZE} glow />
-      <RNText style={{ fontSize: 12, fontWeight: "500", color: colors.text, marginTop: space.sm }}>{name}</RNText>
+      {/* 035書体仕様3節: 「ゆい／れん」はweight400（Poppinsを混植しない
+          日本語要素）*/}
+      <RNText style={{ fontFamily: fontFamily.ja, fontSize: 12, fontWeight: "400", color: colors.text, marginTop: space.sm }}>
+        {name}
+      </RNText>
     </View>
   );
 }
@@ -180,19 +184,30 @@ export function StatsCard() {
 
         {parts && (
           <>
+            {/* 035書体仕様3節: 「付き合って」はweight400（日本語。Poppins混植しない） */}
             <RNText
               testID="stats-card-days-prefix"
-              style={{ fontSize: 14, fontWeight: "500", color: colors.text, lineHeight: 20, marginTop: space.md }}
+              style={{
+                fontFamily: fontFamily.ja,
+                fontSize: 14,
+                fontWeight: "400",
+                color: colors.text,
+                lineHeight: 20,
+                marginTop: space.md,
+              }}
             >
               {parts.prefix}
             </RNText>
             <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
               <View>
+                {/* 035書体仕様2節・4節: 「数字が主役の箱」。Poppins。
+                    700か800かは実測して比較する（Aの指示。数値は暫定） */}
                 <RNText
                   testID="stats-card-days-number"
                   style={{
+                    fontFamily: fontFamily.numeric,
                     fontSize: 72,
-                    fontWeight: "800",
+                    fontWeight: "700",
                     lineHeight: 76,
                     letterSpacing: -2,
                     color: colors.text,
@@ -218,6 +233,7 @@ export function StatsCard() {
               <RNText
                 testID="stats-card-days-suffix"
                 style={{
+                  fontFamily: fontFamily.ja,
                   fontSize: 18,
                   fontWeight: "700",
                   color: colors.brandInk,
@@ -246,8 +262,17 @@ export function StatsCard() {
             Badgeはstyleを受け取らないため、間隔は外側のViewで付ける */}
         <View style={{ marginTop: space.sm }}>
           <Badge>
-            <RNText testID="stats-card-meetup-pill" style={{ fontSize: 12, fontWeight: "500", color: colors.text }}>
-              会った日数：<RNText style={{ color: colors.primary, fontWeight: "700" }}>{stats.meetupDays}</RNText>日
+            {/* 035書体仕様: 「会った日数」「日」はweight400（日本語）、
+                数字だけPoppins weight500（数字が主役の箱） */}
+            <RNText
+              testID="stats-card-meetup-pill"
+              style={{ fontFamily: fontFamily.ja, fontSize: 12, fontWeight: "400", color: colors.text }}
+            >
+              会った日数：
+              <RNText style={{ fontFamily: fontFamily.numeric, color: colors.primary, fontWeight: "500" }}>
+                {stats.meetupDays}
+              </RNText>
+              日
             </RNText>
           </Badge>
         </View>

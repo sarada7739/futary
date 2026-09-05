@@ -1,5 +1,5 @@
 import { Image, Pressable, Text as RNText, View } from "react-native";
-import { colors, gradients, layout, space, sparkle } from "@futary/ui";
+import { colors, fontFamily, gradients, layout, space, sparkle } from "@futary/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useGuestMode } from "../lib/guest-mode";
@@ -43,13 +43,25 @@ export function DemoBanner() {
             resizeMode="contain"
           />
           <RNText
-            style={{ flex: 1, fontSize: 11, color: colors.text }}
+            style={{ fontFamily: fontFamily.ja, flex: 1, fontSize: 11, fontWeight: "400", color: colors.text }}
             numberOfLines={1}
           >
             これはデモです。ログインで記録を残せます
           </RNText>
           <Pressable onPress={exitGuestMode} accessibilityRole="button" testID="demo-banner-login">
-            <RNText style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>ログイン</RNText>
+            {/* 035書体仕様: ボタン相当の文字はweight600〜700・字間0.04em
+                （11pt×0.04=0.44） */}
+            <RNText
+              style={{
+                fontFamily: fontFamily.ja,
+                fontSize: 11,
+                fontWeight: "700",
+                letterSpacing: 0.44,
+                color: colors.primary,
+              }}
+            >
+              ログイン
+            </RNText>
           </Pressable>
         </LinearGradient>
       </View>

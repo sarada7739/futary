@@ -10336,3 +10336,59 @@ Session: A
 角ゴだった経緯・`medium` の追加まで）。
 
 Session: A
+
+## 2026-09-05 セッションB: 035 書体仕様を実装
+
+Aが「フォントがださい」を受けて起こした書体仕様（`docs/tasks/035-rich-ui.md`
+「書体仕様」節。PR #237）を「やる順」1〜5で実装した。
+
+### 1. `fontFamily.ja`（0KB）
+
+`packages/ui/src/tokens.ts`に日本語フォールバック列（ヒラギノ→BIZ
+UDPGothic→Meiryo→Yu Gothic UI→Noto Sans CJK JP→Noto Sans JP）を追加し、
+共有`Text`と生`RNText`（記念日カード・機能パネル・デモバナー・サインイン
+のタグライン・`Button`内部）の両方に適用した。適用前後を撮影し、Windows
+（Chrome）でもYu Gothicの細さが解消されることを確認した。
+
+### 2. Poppinsのself-host
+
+`apps/app/public/fonts/`に`poppins-500.woff2`・`poppins-700.woff2`
+（latin、各約7.6KB）を配置し、`+html.tsx`にインライン`@font-face`を書いた
+（Google FontsのCDNは参照しない）。`fontFamily.numeric`を新設し、「数字が
+主役の箱」（記念日カードの72pt・会った日数の94・COMING SOON）だけに
+当てた。日本語には混植していない。`document.fonts`でPoppinsが
+`status:"loaded"`になることを実測で確認した。
+
+開発サーバー固有の詰まりを発見・記録した: `+html.tsx`の`${baseUrl}`
+（"/app"）付きURLは、ローカルの`expo start --web`ではpublic配下の実際の
+配信パスと合わず404になる（`apple-touch-icon.png`も同様で、035より前
+からの既知の状態と今回はじめて実測して判明した）。コードは`${baseUrl}`
+のまま維持し、確認作業だけ一時的にプレフィックス無しへ書き換えて撮影・
+確認後に戻した（差分には残していない）。
+
+### 3. `weight`に`medium`(600)を追加
+
+共有`Text`の`weight`を`regular`/`medium`/`bold`の3値にした。
+
+### 4. 字間・行送り
+
+サインインのタグライン（0.15em・行送り1.9）・ボタンの文字（0.04em）・
+デモバナーの「ログイン」（0.04em）・COMING SOON（Poppins・0.08em）を
+仕様どおりに実装した。COMING SOONの字間を0.08em（0.64）に変えたところ、
+Poppinsでの1行の高さが11→16pxに伸び、`CARD_HEIGHT`(108)で再び4px
+はみ出す不具合を実測で発見した。113に再調整して解消を確認した。
+
+### 5. 72ptの数字: 700 vs 800
+
+Aの指示どおり自分では決めず、比較用の`@font-face`（weight800）を一時的に
+追加して両方を撮影した。`document.fonts`で該当ウエイトが本物（ブラウザの
+疑似太字ではない）として`loaded`になることを確認した上で比較したところ、
+**目視では800の方が明らかに線が太い**。判断はAに委ねる（現在のコードは
+800のまま。並べた比較画像は`artifacts/035/font-700-vs-800.png`）。
+
+### テスト
+
+`pnpm --filter @futary/app test`（222件緑）・型チェック・lint、全て通過。
+詳細は`artifacts/035/font.md`参照。
+
+Session: B

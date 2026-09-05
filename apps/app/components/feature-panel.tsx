@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { ImageSourcePropType } from "react-native";
 import { Image, Pressable, Text as RNText, View } from "react-native";
-import { colors, radius, shadow } from "@futary/ui";
+import { colors, fontFamily, radius, shadow } from "@futary/ui";
 
 export type FeaturePanelProps = {
   label: string;
@@ -19,12 +19,13 @@ export type FeaturePanelProps = {
 // （apps/app/app/(tabs)/index.tsx）のcolumnGap/rowGapで作るため、ここでは
 // カードの中身の寸法だけを持つ
 const ICON_SIZE = 28;
-// 視覚仕様3節は96だが、「今日どうだった？」（ラベル2行）+COMING SOON（1行。
-// letterSpacingを1.2→0.8に落として1行に収めた）の実際の中身が実測107pxで、
-// 96だとCOMING SOONがカードの下にはみ出していた（Aの指摘・人間の実機確認で
-// 発覚）。全セル同じ高さのまま108に上げて解消した（Aの提示した2案のうち、
-// 1（letterSpacing）だけでは足りず、2（高さを取り直す）も併用した）
-const CARD_HEIGHT = 108;
+// 視覚仕様3節は96だが、「今日どうだった？」（ラベル2行）+COMING SOON（1行）の
+// 実際の中身が96に収まらず、COMING SOONがカードの下にはみ出していた
+// （Aの指摘・人間の実機確認で発覚）。全セル同じ高さのまま108→113に上げて
+// 解消した（108は`letterSpacing:0.8`・システムフォントでの暫定値。書体
+// 仕様でCOMING SOONをPoppins/8pt/字間0.08emに変えたところ実測で1行の高さが
+// 11→16pxに伸び、108でも4pxはみ出したため113に再調整した）
+const CARD_HEIGHT = 113;
 
 // 035（見た目を作り込む）: 020で「枠線も背景も持たない」と決めたが、モックが
 // 白い面＋影（枠線ではない）だったため判断を覆した（020が嫌ったのは薄い枠
@@ -78,6 +79,7 @@ export function FeaturePanel({ label, icon, onPress, width }: FeaturePanelProps)
           （視覚仕様3節。12pt以上だと375幅では入らない） */}
       <RNText
         style={{
+          fontFamily: fontFamily.ja,
           marginTop: 14,
           fontSize: 11,
           fontWeight: "600",
@@ -89,14 +91,20 @@ export function FeaturePanel({ label, icon, onPress, width }: FeaturePanelProps)
         {label}
       </RNText>
       {isNextPhase && (
+        // 035書体仕様: 「COMING SOON」は英字のみ→Poppins weight500・字間0.08em
+        // （8pt×0.08=0.64）。letterSpacing 0.8では2行に折り返していたラベル
+        // ("今日どうだった？"等)の高さ超過対策とは別の値のため、0.64で
+        // 1行に収まるか確認しながら適用する
         <RNText
           style={{
+            fontFamily: fontFamily.numeric,
             marginTop: 4,
             fontSize: 8,
-            fontWeight: "600",
-            letterSpacing: 0.8,
+            fontWeight: "500",
+            letterSpacing: 0.64,
             color: colors.textMuted,
             textAlign: "center",
+            textTransform: "uppercase",
           }}
         >
           COMING SOON

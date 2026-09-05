@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Text as RNText, type TextProps as RNTextProps } from "react-native";
-import { colors } from "../tokens";
+import { colors, fontFamily } from "../tokens";
 
 const sizes = {
   xs: 12,
@@ -34,10 +34,19 @@ const textColors: Record<TextColor, string> = {
 
 export type TextAlign = "left" | "center" | "right";
 
+// 035書体仕様3節: モックのラベル（タイムライン・統計・ログイン）はW6相当で、
+// regular(400)とbold(700)の2択では再現できないため、既存の軸に値を1つ
+// 足した（新しい軸は増やしていない）
+const fontWeights = {
+  regular: "400",
+  medium: "600",
+  bold: "700",
+} as const;
+
 export type TextProps = Omit<RNTextProps, "style"> & {
   size?: TextSize;
   color?: TextColor;
-  weight?: "regular" | "bold";
+  weight?: "regular" | "medium" | "bold";
   align?: TextAlign;
   children: ReactNode;
 };
@@ -54,10 +63,11 @@ export function Text({
     <RNText
       {...rest}
       style={{
+        fontFamily: fontFamily.ja,
         fontSize: sizes[size],
         lineHeight: lineHeights[size],
         color: textColors[color],
-        fontWeight: weight === "bold" ? "700" : "400",
+        fontWeight: fontWeights[weight],
         textAlign: align,
       }}
     >

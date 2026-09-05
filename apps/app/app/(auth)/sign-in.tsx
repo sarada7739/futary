@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { Button, Screen, Text, space } from "@futary/ui";
-import { Platform, View } from "react-native";
+import { Button, colors, fontFamily, Screen, Text, space } from "@futary/ui";
+import { Platform, Text as RNText, View } from "react-native";
 import { signIn } from "../../lib/auth-client";
 import { useGuestMode } from "../../lib/guest-mode";
 
@@ -69,8 +69,35 @@ export default function SignInScreen() {
           <Text size="xl" weight="bold" color="brand">
             futary
           </Text>
-          <Text color="muted">大切な人と、ずっとつながるための</Text>
-          <Text color="muted">ふたり専用SNS</Text>
+          {/* 035書体仕様: タグラインはweight400・字間0.15em（16pt×0.15=2.4）・
+              行送り1.9（16pt×1.9=30.4）。共有Textはletterspacing/この
+              行送りを持たないため、ここだけ生Textで組む */}
+          <RNText
+            style={{
+              fontFamily: fontFamily.ja,
+              fontSize: 16,
+              fontWeight: "400",
+              letterSpacing: 2.4,
+              lineHeight: 30.4,
+              color: colors.textMuted,
+              textAlign: "center",
+            }}
+          >
+            大切な人と、ずっとつながるための
+          </RNText>
+          <RNText
+            style={{
+              fontFamily: fontFamily.ja,
+              fontSize: 16,
+              fontWeight: "400",
+              letterSpacing: 2.4,
+              lineHeight: 30.4,
+              color: colors.textMuted,
+              textAlign: "center",
+            }}
+          >
+            ふたり専用SNS
+          </RNText>
         </View>
 
         <View style={{ width: "100%", gap: space.md }}>

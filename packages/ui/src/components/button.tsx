@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
-import { Pressable, type PressableProps } from "react-native";
-import { colors, radius, space } from "../tokens";
-import { Text } from "./text";
+import { Pressable, Text as RNText, type PressableProps } from "react-native";
+import { colors, fontFamily, radius, space } from "../tokens";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost";
 
@@ -97,13 +96,26 @@ export function Button({ variant = "primary", disabled, onPress, children, ...re
         };
       }}
     >
-      <Text
-        size="md"
-        weight="bold"
-        color={effectiveDisabled ? "muted" : variant === "primary" ? "inverse" : "brand"}
+      {/* 035書体仕様3節: ボタンの文字はweight600〜700・字間0.04em
+          （16pt×0.04=0.64）。共有Textはletterspacingを持たないため、
+          ここだけ生Textで組む（Buttonの外からはstyleを渡せないまま） */}
+      <RNText
+        style={{
+          fontFamily: fontFamily.ja,
+          fontSize: 16,
+          lineHeight: 22,
+          fontWeight: "700",
+          letterSpacing: 0.64,
+          textAlign: "center",
+          color: effectiveDisabled
+            ? colors.textMuted
+            : variant === "primary"
+              ? colors.surface
+              : colors.brandInk,
+        }}
       >
         {children}
-      </Text>
+      </RNText>
     </Pressable>
   );
 }
