@@ -9,6 +9,7 @@ import { useGuestMode } from "../../lib/guest-mode";
 import { MOOD_LABELS, MOOD_LEVELS } from "../../lib/mood-labels";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
 function levelsOf(items: { date: string; level: number }[]): Record<string, number> {
@@ -72,7 +73,7 @@ export default function MoodScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.md }}>
         <Card>
           <View style={{ gap: space.sm }}>
             <Text weight="bold">今日の気分</Text>

@@ -13,6 +13,7 @@ import { formatEventTimeRange } from "../../lib/event-time";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
 type FormState = { mode: "create" | "edit"; date: string; event?: Event };
@@ -171,7 +172,7 @@ export default function CalendarScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.md }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <Pressable onPress={() => goToMonth(-1)} accessibilityRole="button" accessibilityLabel="前月" hitSlop={space.md}>
             <Text size="lg">‹ 前月</Text>

@@ -34,6 +34,36 @@ export default function Root({ children }: { children: React.ReactNode }) {
             react-nativeが入ってしまう。apps/landing/style.cssが同じ理由で
             パレットを丸写ししているのと同じ事情 */}
         <meta name="theme-color" content="#F5868D" />
+        {/* 035書体仕様2節: 数字・欧文専用のPoppins（SIL OFL）をself-host。
+            Google FontsのCDNは書かない（CSPで落ちる。font-src 'self'のまま）。
+            latinサブセットのみ、1ウエイト約8KB。日本語本文には使わない
+            （fontFamily.numericを当てた要素だけがここへ辿り着く）。
+            500は「会った日数」の数字・COMING SOON、800は72ptの記念日
+            数字に使う（700 vs 800はAの指示で実測比較し、800を採用した） */}
+        <link rel="preload" href={`${baseUrl}/fonts/poppins-500.woff2`} as="font" type="font/woff2" crossOrigin="" />
+        <link rel="preload" href={`${baseUrl}/fonts/poppins-800.woff2`} as="font" type="font/woff2" crossOrigin="" />
+        {/* @font-faceはCSSとしてのみ書ける。外部URLを含まない静的な
+            文字列であり、利用者の入力は一切含まない */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              @font-face {
+                font-family: 'Poppins';
+                font-style: normal;
+                font-weight: 500;
+                font-display: swap;
+                src: url('${baseUrl}/fonts/poppins-500.woff2') format('woff2');
+              }
+              @font-face {
+                font-family: 'Poppins';
+                font-style: normal;
+                font-weight: 800;
+                font-display: swap;
+                src: url('${baseUrl}/fonts/poppins-800.woff2') format('woff2');
+              }
+            `,
+          }}
+        />
       </head>
       <body>{children}</body>
     </html>

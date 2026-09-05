@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { orpc } from "../../lib/orpc";
 import { signIn, signOut } from "../../lib/auth-client";
 import { queryClient } from "../../lib/query";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
 // sign-in.tsxのresolveCallbackURLと同じ理由（ローカル開発でのポート違い・
@@ -96,7 +97,7 @@ export default function DeleteAccountScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.lg }}>
         <Text size="lg" weight="bold">
           ふたりのデータを削除
         </Text>
