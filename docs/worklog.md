@@ -10032,3 +10032,15 @@ Browser paneでの確認に必要なローカルのデモデータが無かっ�
 には進んでいない。詳細は`artifacts/035/checkpoint.md`参照。
 
 Session: B
+
+## 2026-09-05 セッションB: 035チェックポイントのスクリーンショットを保存
+
+Aから「人間は別端末から見ているため、ローカルサーバは開けない。画像
+ファイルとして保存してほしい」と指摘を受けた。Playwright
+（`playwright-core`。システムインストール済みのChromeを`channel: "chrome"`
+指定で使用。新規のブラウザダウンロードは発生していない）でゲスト閲覧の
+ホーム画面をモバイル幅（375×812）・デスクトップ幅（1280×900）それぞれ
+撮影し、`artifacts/035/checkpoint-mobile.png`・`checkpoint-desktop.png`
+として保存・pushした。
+
+Session: B
