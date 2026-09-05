@@ -238,15 +238,17 @@ wishes                                          -- 027。行きたい場所・�
 
 ai_summaries                                    -- 037。月ごとのAIまとめ
   couple_id       TEXT    NOT NULL
-  month           TEXT    NOT NULL            -- YYYY-MM（JST）
+  period_kind     TEXT    NOT NULL            -- 'month' | 'week'
+  period_key      TEXT    NOT NULL            -- 'YYYY-MM' | 'YYYY-Www'（JST・ISO 8601）
   body            TEXT    NOT NULL
   provider        TEXT    NOT NULL            -- 'openai' | 'anthropic'
   model           TEXT    NOT NULL            -- どのモデルが書いたかを残す
-  generated_count INTEGER NOT NULL DEFAULT 1  -- 1ペア1ヶ月3回まで
+  generated_count INTEGER NOT NULL DEFAULT 1  -- 期間ごと3回。暦月の合計は10回
   created_at      INTEGER NOT NULL
   updated_at      INTEGER NOT NULL
-  PRIMARY KEY (couple_id, month)
+  PRIMARY KEY (couple_id, period_kind, period_key)
   CONSTRAINT ai_summaries_provider_check CHECK (provider IN ('openai','anthropic'))
+  CONSTRAINT ai_summaries_period_kind_check CHECK (period_kind IN ('month','week'))
 
 moods                                           -- 029。1日1回の気分
   couple_id   TEXT    NOT NULL
@@ -744,11 +746,14 @@ wish.setDone        { id, done } -> 更新後の1件
                     同じ要求が2回届いても結果が同じになる（二重発火。conventions.md 4節）
 wish.delete         { id } -> { id }。論理削除
                     他ペアの id は NOT_FOUND（FORBIDDEN にしない。存在を教えない）
-aiSummary.get       { month } -> { body, provider, model, updatedAt, generatedCount } | null
-aiSummary.generate  { month } -> 生成して保存し、同じ形を返す（037）
+aiSummary.get       { periodKind, periodKey } -> { body, provider, model, updatedAt, generatedCount } | null
+                    periodKind は 'month' | 'week'。週は ISO 8601（月曜始まり・JST）
+aiSummary.generate  { periodKind, periodKey } -> 生成して保存し、同じ形を返す（037）
                     2人とも同意していなければ FORBIDDEN
-                    投稿3件未満は INVALID_INPUT。4回目は LIMIT_REACHED
-                    入力は本文だけ。画像・利用者名・IDを入れない
+                    投稿3件未満は INVALID_INPUT
+                    その期間の4回目・その暦月の11回目は LIMIT_REACHED
+                    入力は本文と匿名の記号（A/B。slot 由来）だけ。
+                    画像・利用者名・ID を入れない
 me.setAiOptIn       { optIn } -> { aiOptIn }。自分の分だけ（user_id を引数に取らない）
 mood.setToday       { level } -> { date, level }   029。自分の今日の分。upsert
                     user_id を引数に取らない（ctx.userId）。渡せないものは間違えて渡せない
