@@ -190,8 +190,10 @@ export default function DeleteAccountScreen() {
             )}
 
             <View style={{ gap: space.sm }}>
+              {/* 036: 取り返しのつかない操作（物理削除）のためdanger
+                  （architecture.md 7節。塗りつぶしにしない＝押しやすくしない） */}
               <Button
-                variant="secondary"
+                variant="danger"
                 onPress={handleDelete}
                 disabled={!acknowledged || deleteMe.isPending}
                 testID="delete-account-confirm"
