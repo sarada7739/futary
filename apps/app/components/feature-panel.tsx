@@ -12,14 +12,22 @@ export type FeaturePanelProps = {
 const ICON_SIZE = 32;
 const LABEL_LINES = 2;
 const BADGE_LINES = 1;
-const CARD_PADDING = space.sm;
+const CARD_PADDING_VERTICAL = space.sm;
+// 035で白いカード化した際、左右にもspace.smを取ったところ「タイムライン」
+// （6文字。1行で収まっていた）が2行に折り返す不具合が出た（Aへの報告・
+// 人間の実機確認で発覚）。カード化前は左右の余白がグリッドの隙間
+// （外側View側のspace.xs）だけだったため、カード自身の左右の余白を
+// 無くして幅を戻す（Aの提示した選択肢のうち「カードの左右余白を詰める」を
+// 採った。space.xs=4での実測ではまだ折り返したため0にした。視覚仕様が
+// 出たら見直す前提の暫定値）
+const CARD_PADDING_HORIZONTAL = 0;
 // ラベルが2行に折り返しても8枚の高さが揃うよう固定する（「今日どうだった？」が
 // スマホ幅の4列で1行に入らないため。docs/tasks/020-home-panels.md）。
 // 一番きついのは、2行に折り返すラベルと「COMING SOON」の行を両方持つパネル
 // （「今日どうだった？」）。数値を積み上げて導出する（勘で決めない。
 // Rレビュー指摘: 92では文字の行の高さを明示していないぶんの余白が足りなかった）
 const CELL_HEIGHT =
-  CARD_PADDING * 2 +
+  CARD_PADDING_VERTICAL * 2 +
   ICON_SIZE +
   space.xs + // アイコンとラベルの間のgap
   lineHeights.xs * LABEL_LINES +
@@ -38,7 +46,8 @@ function PanelSurface({ children, isNextPhase }: { children: ReactNode; isNextPh
       style={{
         backgroundColor: colors.surface,
         borderRadius: radius.card,
-        padding: CARD_PADDING,
+        paddingVertical: CARD_PADDING_VERTICAL,
+        paddingHorizontal: CARD_PADDING_HORIZONTAL,
         opacity: isNextPhase ? 0.6 : 1,
         ...shadow.card,
       }}
@@ -57,7 +66,7 @@ export function FeaturePanel({ label, icon, onPress }: FeaturePanelProps) {
   const isNextPhase = !onPress;
 
   const content = (
-    <View style={{ gap: space.xs, height: CELL_HEIGHT - CARD_PADDING * 2 }}>
+    <View style={{ gap: space.xs, height: CELL_HEIGHT - CARD_PADDING_VERTICAL * 2 }}>
       <Image
         source={icon}
         style={{ width: ICON_SIZE, height: ICON_SIZE, alignSelf: "center", tintColor: colors.text }}
