@@ -1,0 +1,26 @@
+{
+  "390": {
+    "screenshotSize": "390x900",
+    "controlMaxDiff": 1,
+    "fadeMaxDiff": 1.5,
+    "flatRunsOfAtLeast20Rows": []
+  },
+  "768": {
+    "screenshotSize": "768x900",
+    "controlMaxDiff": 1,
+    "fadeMaxDiff": 2,
+    "flatRunsOfAtLeast20Rows": []
+  },
+  "1280": {
+    "screenshotSize": "1280x900",
+    "controlMaxDiff": 1,
+    "fadeMaxDiff": 1.5,
+    "flatRunsOfAtLeast20Rows": []
+  },
+  "1920": {
+    "screenshotSize": "1920x900",
+    "controlMaxDiff": 0.75,
+    "fadeMaxDiff": 1.5,
+    "flatRunsOfAtLeast20Rows": []
+  }
+}

@@ -28,7 +28,14 @@ function listAppSourceFiles(): string[] {
 
 describe("dangerバリアントはdelete-account.tsxだけで使う（036）", () => {
   it("variant=\"danger\"はdelete-account.tsxにしか出現しない", () => {
-    const pattern = /variant="danger"/g;
+    // 【Rレビュー指摘】gフラグ付きの正規表現を.test()で複数ファイルに
+    // 使い回すとlastIndexが前回の一致位置から進んだままになり、2件目以降の
+    // ファイルがその位置より手前でしか一致しない場合に取りこぼす
+    // （viewer-key-coverage.test.tsと同じ形のミュータブルな正規表現状態の
+    // バグ）。ファイルごとに新しい正規表現を作るか、gを外して都度先頭から
+    // 判定する。ここではgを使う理由が無い（1ファイルにつき有無だけ見る）
+    // ためgを外した
+    const pattern = /variant="danger"/;
     const filesWithMatch: string[] = [];
 
     for (const file of listAppSourceFiles()) {
