@@ -207,7 +207,7 @@ export function StatsCard() {
                   style={{
                     fontFamily: fontFamily.numeric,
                     fontSize: 72,
-                    fontWeight: "700",
+                    fontWeight: "800",
                     lineHeight: 76,
                     letterSpacing: -2,
                     color: colors.text,
