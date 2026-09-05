@@ -28,3 +28,7 @@ export { default as iconPanelAi } from "../assets/panel-ai.png";
 // 035: 記念日カード・デモバナーの装飾用スパークル。同スプライトシート
 // （6sj6V6ve.png）から、ピンクの4方向の星を切り出した
 export { default as sparkle } from "../assets/sparkle.png";
+// 035視覚仕様4節: Screenの地に敷く光のボケ。新しく作るのではなく、
+// docs/sample/mockup/signin.jpgのy260〜560px（人物も文字も無い純粋な
+// 背景の帯）を切り出した。出自はdocs/sample/README.md参照
+export { default as bokeh } from "../assets/bokeh.png";

@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
-import { View } from "react-native";
+import { Image, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { bokeh } from "../assets";
 import { gradients, layout } from "../tokens";
+
+// 035視覚仕様4節: 画面上部だけに敷く光のボケの高さ。カード（記念日カード等、
+// 主役の要素）の背後に来る位置という想定
+const BOKEH_HEIGHT = 420;
 
 export type ScreenProps = {
   children: ReactNode;
@@ -22,6 +27,11 @@ export function Screen({ children, unconstrained = false }: ScreenProps) {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <Image
+        source={bokeh}
+        resizeMode="cover"
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: BOKEH_HEIGHT, opacity: 0.5 }}
       />
       <View
         style={
