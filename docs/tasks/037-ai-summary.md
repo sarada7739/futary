@@ -69,14 +69,49 @@ ADR-012 で**「運営は全部読める。対策していない」**と決め�
 **モデル名も環境変数にしない。**`lib/ai.ts` の中に、プロバイダごとの既定を書く。
 **環境変数を増やすほど、本番とローカルがずれる経路が増える。**
 
-## 4. 月ごとにする。週次は作らない
+## 4. 月次と週次の両方を作る（2026-09-06。人間の指示で追加）
 
-`requirements.md` は「週次・月次」と書いていたが、**まず月次だけ。**
+~~まず月次だけ。週次を足すかは、月次が使われてから決める。~~
 
-**週の投稿は少なすぎて、まとめる意味が出ない。**
-**月ごとなら「思い出」として意味が出る。**
+**人間から「週間も欲しい」との要望。足す。**
 
-**週次を足すかは、月次が使われてから決める。**
+**私が「週の投稿は少なすぎる」としたのは見立てであって、実測ではない。**
+**使う人が要ると言っているなら、そちらが正しい。**
+
+### 期間を1つの表で持つ
+
+**`month` 列をやめ、`period_kind` と `period_key` にする**（6節）。
+
+| `period_kind` | `period_key` | 例 |
+|---|---|---|
+| `month` | `YYYY-MM` | `2026-08` |
+| `week` | `YYYY-Www` | `2026-W36` |
+
+**まだ本番に出ていない。いま変える方が安い。**
+
+### 週の定義
+
+**ISO 8601（月曜始まり）。JST で計算する。**
+
+**`packages/date` に置く**（`architecture.md` 5節「日付計算は `packages/date` に置く」）。
+**手続きの中で週を計算しない。**
+
+### 投稿の下限は週も3件のまま
+
+**期間で基準を変えない。**変えると**週だけ薄いまとめが出る。**
+
+**3件に満たない週は生成できない。それでよい。**
+
+### 歯止めを2段にする
+
+**週次を足すと、生成の回数が跳ねる**（月3 + 週5×3 = 18回/月）。
+
+| | |
+|---|---|
+| **期間ごと** | **3回まで**（作り直しの余地） |
+| **1ペア・1暦月の合計** | **10回まで** |
+
+**片方だけでは止まらない。**期間ごとだけだと総量が跳ね、総量だけだと1つの期間で使い切れる。
 
 ## 5. 費用の歯止め（設計に入れる）
 
@@ -99,15 +134,17 @@ couple_members
 
 ai_summaries                              -- 037
   couple_id   TEXT    NOT NULL -> couples.id
-  month       TEXT    NOT NULL            -- YYYY-MM（JST）
+  period_kind TEXT    NOT NULL            -- 'month' | 'week'
+  period_key  TEXT    NOT NULL            -- 'YYYY-MM' | 'YYYY-Www'（JST・ISO 8601）
   body        TEXT    NOT NULL
   provider    TEXT    NOT NULL            -- 'openai' | 'anthropic'
   model       TEXT    NOT NULL
-  generated_count INTEGER NOT NULL DEFAULT 1  -- 5節の回数の歯止め
+  generated_count INTEGER NOT NULL DEFAULT 1  -- 期間ごと3回
   created_at  INTEGER NOT NULL
   updated_at  INTEGER NOT NULL
-  PRIMARY KEY (couple_id, month)
+  PRIMARY KEY (couple_id, period_kind, period_key)
   CONSTRAINT ai_summaries_provider_check CHECK (provider IN ('openai','anthropic'))
+  CONSTRAINT ai_summaries_period_kind_check CHECK (period_kind IN ('month','week'))
 ```
 
 - **`provider` と `model` を残す。**あとで「どのモデルが書いたか」が分からなくなる
@@ -131,14 +168,15 @@ ai_summaries                              -- 037
 me.get              -> ... aiOptIn: boolean, partnerAiOptIn: boolean を足す
 me.setAiOptIn       { optIn: boolean } -> { aiOptIn }
                     自分の分だけ。user_id を引数に取らない（029 と同じ）
-aiSummary.get       { month } -> { body, provider, model, updatedAt, generatedCount } | null
-aiSummary.generate  { month } -> 生成して保存し、同じ形を返す
+aiSummary.get       { periodKind, periodKey } -> { body, provider, model, updatedAt, generatedCount } | null
+aiSummary.generate  { periodKind, periodKey } -> 生成して保存し、同じ形を返す
                     2人とも同意していなければ FORBIDDEN
                     投稿が3件未満なら INVALID_INPUT
-                    4回目は LIMIT_REACHED
+                    その期間の4回目は LIMIT_REACHED
+                    その暦月の11回目も LIMIT_REACHED
 ```
 
-- **`month` は `YYYY-MM`。未来の月は拒む**
+- **未来の期間は拒む。**今月・今週も**終わっていないので拒む**
 - **T9 の対象。**`aiSummary.get` のキャッシュキーに `viewerKey` を含める
 
 ## 8. 出力を信用しない
@@ -153,14 +191,21 @@ aiSummary.generate  { month } -> 生成して保存し、同じ形を返す
 
 **プロンプトインジェクションで書き換えられても、表示が変になるだけで済む形にする。**
 
-**入力に入れるのは本文だけ。**利用者名・メールアドレス・画像・IDを入れない。
+**入力に入れるのは本文と、投稿ごとの匿名の記号（A / B）だけ。**
+**利用者名・メールアドレス・画像・ID を入れない。**
+
+記号は **`couple_members.slot` から機械的に決まる**（slot 1 が A、2 が B）。
+**個人を特定しない。**「どちらが書いたか」がまとまりに出るために要る（人間の指摘）。
+
+**本文の中に名前が書かれていれば、A が誰かは分かる。だが本文はもともと送っている。
+記号そのものは情報を増やしていない。**
 
 ## 9. 画面
 
 **`(tabs)/ai-summary.tsx`。**ボトムタブには出さない（027・029 と同じ）。
 
 - ホームの「AIまとめ」パネルから `router.push("/ai-summary")`
-- **月を選ぶ**（既定は先月。**今月はまだ終わっていない**）
+- **月と週を切り替える。**既定は**先月**（今月はまだ終わっていない）
 - **同意していないとき**: チェックを入れる導線。**「投稿の本文が外部の生成AIに送られます」と書く**
 - **相手が同意していないとき**: 「相手の同意を待っています」。**押せるボタンを出さない**
 - **まだ生成していない月**: 「まとめを作る」ボタン
@@ -183,15 +228,17 @@ aiSummary.generate  { month } -> 生成して保存し、同じ形を返す
 - **2人とも同意していないと `generate` が FORBIDDEN**（片方だけ・両方無し の両方）
 - **1人のペアでは通らない**
 - **ゲストは通らない**
-- **4回目が `LIMIT_REACHED`**
+- **その期間の4回目が `LIMIT_REACHED`**
+- **その暦月の11回目が `LIMIT_REACHED`**（期間ごとの枠が余っていても止まる）
+- **週の境目**（月曜始まり・年をまたぐ週）が `packages/date` のテストで固定されている
 - **投稿3件未満の月が `INVALID_INPUT`**
-- **未来の月が拒まれる**
+- **未来の期間が拒まれる。今月・今週も拒まれる**
 - **入力が 8000 文字で切られ、古い方から落ちている**
 - **`AI_PROVIDER` が指すキーが無いと起動時に落ちる**
 - **`AI_PROVIDER` を切り替えると、呼ばれる先が変わる**（プロバイダは差し替えて確かめる。
   **本物のAPIをテストで叩かない**）
 - **`me.delete` が `ai_summaries` を消す**（032 の走査に映ることも）
-- **画像・利用者名・IDが入力に入っていない**
+- **画像・利用者名・ID が入力に入っていない。入っているのは本文と A / B の記号だけ**
 - キャッシュキーに閲覧者が含まれる（T9）
 
 ## 確認観点
