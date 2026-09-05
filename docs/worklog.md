@@ -10513,3 +10513,17 @@ PR #238を作成した。本文には「寄せなかったもの」（数字の�
 `architecture.md`7節に記載済みであることを書いた。
 
 Session: B
+
+## 2026-09-05 セッションB: 035 PR #238 レビュー対応（tabular-nums）
+
+RがPR #238を受け入れ、要修正2件のうち`architecture.md`（700のままだった
+記述）はA自身がPR #239で直接修正した。残る1件（会った日数のピル
+「94」に`fontVariant: ["tabular-nums"]`が当たっていなかった）を修正した。
+72ptの記念日数字には元から入っていたが、桁上がりで幅が跳ねないように
+する理由は会った日数にも当てはまるため両方に揃えた
+（`stats-card.tsx`）。
+
+`pnpm --filter @futary/app test`（222件緑）・型チェック・lint、全て通過。
+`task/035-rich-ui`にコミット・push済み（650ad6b）。Rの再確認へ進む。
+
+Session: B
