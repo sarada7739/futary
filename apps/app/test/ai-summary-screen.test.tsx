@@ -230,7 +230,13 @@ describe("AiSummaryScreen: ゲスト（デモ）", () => {
 });
 
 describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
-  it("前月・翌月ボタンで表示される月が変わる", async () => {
+  // 【Rレビュー指摘R-3】このテストの題名は「前月・翌月ボタンで」なのに
+  // 実際には前月しか押していなかった（conventions.md 6節「期待値と
+  // 突き合わせるテストが見ないもの」）。既定が先月のため、翌月へ1回
+  // 戻す（＝前月とは逆方向へ1回）操作を確かめないと、翌月ボタン自体は
+  // 一度も検証されないまま緑になる。前月へ移動してから翌月で元へ戻す
+  // 形で両方向を確かめる
+  it("前月・翌月ボタンで表示される月が変わる（両方とも押す）", async () => {
     meGetMock.mockResolvedValue(makeMe({ aiOptIn: true, partnerAiOptIn: true }));
 
     renderScreen();
@@ -239,10 +245,43 @@ describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
     expect(first.periodKind).toBe("month");
 
     fireEvent.click(screen.getByLabelText("前月"));
+    let afterPrev: { periodKind: string; periodKey: string } = first;
     await waitFor(() => {
       const latest = getMock.mock.calls.at(-1)?.[0] as { periodKind: string; periodKey: string };
       expect(latest.periodKey).not.toBe(first.periodKey);
+      afterPrev = latest;
     });
+
+    // 翌月ボタンで前月移動を打ち消し、最初の（先月の）periodKeyへ戻ることを
+    // 確かめる。既定は先月＝翌月ボタンがまだ押せる位置なので、ここでは
+    // 無効化されていない
+    fireEvent.click(screen.getByLabelText("翌月"));
+    await waitFor(() => {
+      const latest = getMock.mock.calls.at(-1)?.[0] as { periodKind: string; periodKey: string };
+      expect(latest.periodKey).not.toBe(afterPrev.periodKey);
+      expect(latest.periodKey).toBe(first.periodKey);
+    });
+  });
+
+  // 【Rレビュー指摘R-3の本題】既定の先月から翌月ボタンを1回押すと今月に
+  // 入り、サーバがINVALID_INPUTで拒む→「読み込めませんでした」になる
+  // （再試行しても今月を指定し続ける限り永久に失敗する）詰まりがあった。
+  // エラーにする代わりに、そもそも今月へは進めないようボタン自体を
+  // 押せなくする（020「押せないボタンを置かない」）
+  it("既定（先月）表示では翌月ボタンが押せない（今月へは進めない）", async () => {
+    meGetMock.mockResolvedValue(makeMe({ aiOptIn: true, partnerAiOptIn: true }));
+
+    renderScreen();
+    await waitFor(() => expect(getMock).toHaveBeenCalled());
+    const callCountBefore = getMock.mock.calls.length;
+
+    const nextButton = screen.getByLabelText("翌月");
+    expect(nextButton.getAttribute("aria-disabled")).toBe("true");
+
+    fireEvent.click(nextButton);
+    // disabledなPressableはonPressが発火しない。問い合わせ回数が
+    // 増えていない（＝今月へ進まなかった）ことで確認する
+    expect(getMock.mock.calls.length).toBe(callCountBefore);
   });
 
   it("「週」に切り替えるとperiodKindがweekになり、YYYY-Www形式のキーで問い合わせる", async () => {
@@ -258,7 +297,8 @@ describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
     });
   });
 
-  it("週表示で前週・翌週ボタンを押すと表示される週が変わる", async () => {
+  // 【Rレビュー指摘R-3】月と同じく、前週だけでなく翌週も押す
+  it("週表示で前週・翌週ボタンを押すと表示される週が変わる（両方とも押す）", async () => {
     meGetMock.mockResolvedValue(makeMe({ aiOptIn: true, partnerAiOptIn: true }));
 
     renderScreen();
@@ -267,9 +307,35 @@ describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
     const first = getMock.mock.calls.at(-1)?.[0] as { periodKind: string; periodKey: string };
 
     fireEvent.click(screen.getByLabelText("前週"));
+    let afterPrev: { periodKind: string; periodKey: string } = first;
     await waitFor(() => {
       const latest = getMock.mock.calls.at(-1)?.[0] as { periodKind: string; periodKey: string };
       expect(latest.periodKey).not.toBe(first.periodKey);
+      afterPrev = latest;
     });
+
+    fireEvent.click(screen.getByLabelText("翌週"));
+    await waitFor(() => {
+      const latest = getMock.mock.calls.at(-1)?.[0] as { periodKind: string; periodKey: string };
+      expect(latest.periodKey).not.toBe(afterPrev.periodKey);
+      expect(latest.periodKey).toBe(first.periodKey);
+    });
+  });
+
+  // 月と同じ詰まりが週にもある（既定が先週のため、翌週ボタンを1回押すと
+  // 今週に入りINVALID_INPUTになる）
+  it("既定（先週）表示では翌週ボタンが押せない（今週へは進めない）", async () => {
+    meGetMock.mockResolvedValue(makeMe({ aiOptIn: true, partnerAiOptIn: true }));
+
+    renderScreen();
+    fireEvent.click(await screen.findByText("週"));
+    await waitFor(() => expect(getMock).toHaveBeenCalled());
+    const callCountBefore = getMock.mock.calls.length;
+
+    const nextButton = screen.getByLabelText("翌週");
+    expect(nextButton.getAttribute("aria-disabled")).toBe("true");
+
+    fireEvent.click(nextButton);
+    expect(getMock.mock.calls.length).toBe(callCountBefore);
   });
 });

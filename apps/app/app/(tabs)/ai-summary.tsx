@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { addDays, addMonths, isoWeekKey, todayJst } from "@futary/date";
+import { addDays, addMonths, currentMonthJst, currentWeekJst, isoWeekKey, todayJst } from "@futary/date";
 import { Button, Card, Screen, space, Text } from "@futary/ui";
 import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -40,6 +40,26 @@ export default function AiSummaryScreen() {
     () => (periodKind === "month" ? monthKey(year, month) : isoWeekKey(weekRefDate)),
     [periodKind, year, month, weekRefDate],
   );
+
+  // 【Rレビュー指摘R-3】既定が先月・先週のため、翌月・翌週ボタンを1回押すと
+  // 今月・今週に入ってしまい、サーバがINVALID_INPUTで拒む→「読み込めません
+  // でした」＋「再試行」になるが、今月・今週を指定している限り再試行は
+  // 永久に失敗する。初めて開いた人が1クリックで踏む詰まりだった。
+  // エラーにする代わりに、そもそも今月・今週へ進めないようボタン自体を
+  // 押せなくする（020「押せないボタンを置かない」）。サーバ側の拒否
+  // （isCurrentOrFuturePeriod）はそのまま残す（T5と同じ考え方。UI側の
+  // 制御に依存しない防御）。YYYY-MM/YYYY-Wwwはゼロ埋めのため、辞書順の
+  // 比較が数値順と一致する（apps/api/src/procedures/ai-summary.tsの
+  // isCurrentOrFuturePeriodと同じ比較）
+  const nextPeriodKey = useMemo(() => {
+    if (periodKind === "month") {
+      const next = addMonths(year, month, 1);
+      return monthKey(next.year, next.month);
+    }
+    return isoWeekKey(addDays(weekRefDate, 7));
+  }, [periodKind, year, month, weekRefDate]);
+  const nextDisabled =
+    periodKind === "month" ? nextPeriodKey >= currentMonthJst() : nextPeriodKey >= currentWeekJst();
 
   // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
   const viewerKey = useViewerQueryKey();
@@ -123,9 +143,12 @@ export default function AiSummaryScreen() {
           </Text>
           <Pressable
             onPress={() => goToPeriod(1)}
+            disabled={nextDisabled}
             accessibilityRole="button"
             accessibilityLabel={`翌${periodLabel}`}
+            accessibilityState={{ disabled: nextDisabled }}
             hitSlop={space.md}
+            style={{ opacity: nextDisabled ? 0.3 : 1 }}
           >
             <Text size="lg">翌{periodLabel} ›</Text>
           </Pressable>

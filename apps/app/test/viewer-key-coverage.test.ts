@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 // ペアのデータ・利用者ごとのデータを読む問い合わせは、クライアント側で
@@ -41,23 +42,43 @@ const MANUALLY_INCLUDED_PROCEDURES = [
 // （me.getが抜けたのと同じ形が2回目に出た）、「手続き名+自動導出した
 // 呼び出しパターン」ではなく「ラベル+呼び出しパターンそのもの」を
 // 明示的に登録できる形に一般化した
-interface ManuallyPlacedCacheKey {
+// 【Rレビュー指摘R-2・作りを変えた】検証の粒度は当初「呼び出し箇所の前後
+// N文字にviewerKeyという文字列があるか」（テキストの近傍）だったが、
+// 隣接する別の呼び出し（例: ai-summary.tsxのmeQuery宣言がsummaryQueryの
+// 直前2行にある）の宣言をviewerKeyの根拠として誤って拾ってしまい、
+// summaryQueryのqueryKeyから実際にviewerKeyを外しても15件全部緑のまま、
+// という検知漏れをRが実測した（300→100文字への訂正を含め、これで3回目の
+// 破れ）。「窓を狭めない。作りを変える」というAの指示どおり、TypeScript
+// コンパイラのAST解析に置き換えた。呼び出し1つ1つについて、それが実際に
+// どのuseQuery/useInfiniteQuery呼び出しのqueryKeyに使われているかを
+// 構文木で辿って特定し、そのqueryKey配列（の初期化式）自体の中に
+// viewerKeyという識別子があるかだけを見る。これなら「別の呼び出しの宣言が
+// たまたま近くにある」ことでは緑にならない（構造的に別の式のため）
+interface ViewerKeyTarget {
   label: string;
-  // グローバルフラグ付き正規表現であること（matchAllで全件拾うため）
-  callPattern: RegExp;
 }
 
-const MANUALLY_PLACED_CACHE_KEYS: ManuallyPlacedCacheKey[] = [
+interface OrpcQueryTarget extends ViewerKeyTarget {
+  kind: "orpc";
+  namespace: string;
+  method: string;
+}
+
+interface ManualCacheKeyTarget extends ViewerKeyTarget {
+  kind: "manual";
+  // viewerKeyを直接引数に取る関数呼び出しの識別子名
+  calleeName: string;
+}
+
+type Target = OrpcQueryTarget | ManualCacheKeyTarget;
+
+const MANUALLY_PLACED_CACHE_KEYS: ManualCacheKeyTarget[] = [
   {
+    kind: "manual",
     label: "onboarding.pendingInvite",
-    callPattern: /pendingInviteQueryKey\(/g,
+    calleeName: "pendingInviteQueryKey",
   },
 ];
-//
-// 検証の粒度: 呼び出し箇所を含むファイルに`viewerKey`という識別子への
-// 参照があることだけを見る（そのqueryKeyに実際に渡されているかまでは
-// 見ない）。完全なAST解析はしないが、「対策そのものを丸ごと忘れる」という
-// 主要なリスクは検出できる
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(testDir, "..");
@@ -94,23 +115,197 @@ function listAppSourceFiles(): string[] {
     .filter((f) => f.endsWith(".tsx") || f.endsWith(".ts"));
 }
 
-// 手続き名（"couple.get"のような形）から、oRPCの呼び出しパターンを導出する
-function orpcCallTarget(procedure: string): ManuallyPlacedCacheKey {
+// 手続き名（"couple.get"のような形）から、oRPCの呼び出し対象を導出する
+function orpcCallTarget(procedure: string): OrpcQueryTarget {
   const parts = procedure.split(".");
   if (parts.length !== 2) throw new Error(`想定外の手続き名の形式です: ${procedure}`);
   const [namespace, method] = parts;
-  return {
-    label: procedure,
-    callPattern: new RegExp(`orpc\\.${namespace}\\.${method}\\.(queryOptions|infiniteOptions)\\(`, "g"),
-  };
+  if (!namespace || !method) throw new Error(`想定外の手続き名の形式です: ${procedure}`);
+  return { kind: "orpc", label: procedure, namespace, method };
+}
+
+function parseSource(file: string): ts.SourceFile {
+  const content = readFileSync(file, "utf8");
+  return ts.createSourceFile(
+    file,
+    content,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+}
+
+// nodeの部分木のどこかに、名前がnameと一致する識別子があるかを見る
+function containsIdentifierNamed(node: ts.Node, name: string): boolean {
+  let found = false;
+  function visit(n: ts.Node): void {
+    if (found) return;
+    if (ts.isIdentifier(n) && n.text === name) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(n, visit);
+  }
+  visit(node);
+  return found;
+}
+
+function isOrpcQueryCall(node: ts.Node, namespace: string, method: string): node is ts.CallExpression {
+  if (!ts.isCallExpression(node)) return false;
+  const memberAccess = node.expression;
+  if (!ts.isPropertyAccessExpression(memberAccess)) return false;
+  if (memberAccess.name.text !== "queryOptions" && memberAccess.name.text !== "infiniteOptions") return false;
+  const methodAccess = memberAccess.expression;
+  if (!ts.isPropertyAccessExpression(methodAccess) || methodAccess.name.text !== method) return false;
+  const namespaceAccess = methodAccess.expression;
+  if (!ts.isPropertyAccessExpression(namespaceAccess) || namespaceAccess.name.text !== namespace) return false;
+  return ts.isIdentifier(namespaceAccess.expression) && namespaceAccess.expression.text === "orpc";
+}
+
+function isUseQueryCall(node: ts.Node): node is ts.CallExpression {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    (node.expression.text === "useQuery" || node.expression.text === "useInfiniteQuery")
+  );
+}
+
+function queryKeyInitializer(objectLiteral: ts.ObjectLiteralExpression): ts.Node | null {
+  const prop = objectLiteral.properties.find(
+    (p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === "queryKey",
+  );
+  return prop ? prop.initializer : null;
+}
+
+// 【Rレビュー指摘R-2・作りを変えた】orpc.<ns>.<method>.queryOptions(...)の
+// 呼び出し1件について、それが実際にどのuseQuery/useInfiniteQueryの
+// queryKeyへ渡っているかをAST上で辿り、そのqueryKey配列（の初期化式）
+// そのものを返す。近傍の文字列ではなく、構文的に同じ式に属するノードだけを
+// 見るため、隣接する別の宣言・別の呼び出しを誤って拾うことがない。
+// 実際のコードにある3つの書き方に対応する:
+//   (a) useQuery({ ...orpc.x.method.queryOptions(), queryKey: [...] })
+//       （options.queryKeyへのspreadに直接使う形。1つのuseQuery呼び出しの
+//       中にこの関数と同じ呼び出しがもう1回、(b)として現れる）
+//   (b) [...orpc.x.method.queryOptions().queryKey, viewerKey]
+//       （queryKeyだけを取り出してspreadする形。(a)と同じuseQuery呼び出し
+//       の中にある2つ目の出現）
+//   (c) const xOptions = orpc.x.method.queryOptions(...); のように変数に
+//       受けてから、離れた場所のuseQuery({ ...xOptions, queryKey: [...] })
+//       で使う形（ai-summary.tsx等）
+// どの形にも当てはまらなければnull（＝viewerKeyの利用が確認できない）を返す
+function resolveOrpcCallCheckNode(call: ts.CallExpression): ts.Node | null {
+  const parent = call.parent;
+
+  // (b) call.queryKey が配列へspreadされている
+  if (ts.isPropertyAccessExpression(parent) && parent.name.text === "queryKey") {
+    const spread = parent.parent;
+    if (ts.isSpreadElement(spread) && ts.isArrayLiteralExpression(spread.parent)) {
+      return spread.parent;
+    }
+    return null;
+  }
+
+  // (a) useQuery/useInfiniteQueryの引数オブジェクトへ直接spreadしている
+  if (ts.isSpreadAssignment(parent) && ts.isObjectLiteralExpression(parent.parent)) {
+    const objectLiteral = parent.parent;
+    if (isUseQueryCall(objectLiteral.parent)) {
+      return queryKeyInitializer(objectLiteral);
+    }
+    return null;
+  }
+
+  // (c) 一度変数に受けてから、同じファイル内のuseQuery/useInfiniteQueryへ
+  // spreadしている（呼び出しそのものは1回しか現れないため、変数名を
+  // 手がかりに、それをspreadしているuseQuery呼び出しを別途探す）
+  if (ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) {
+    const varName = parent.name.text;
+    const sourceFile = call.getSourceFile();
+    let found: ts.Node | null = null;
+    function visit(n: ts.Node): void {
+      if (found) return;
+      const firstArg = isUseQueryCall(n) && n.arguments.length === 1 ? n.arguments[0] : undefined;
+      if (firstArg && ts.isObjectLiteralExpression(firstArg)) {
+        const objectLiteral = firstArg;
+        const spreadsVar = objectLiteral.properties.some(
+          (p) => ts.isSpreadAssignment(p) && ts.isIdentifier(p.expression) && p.expression.text === varName,
+        );
+        if (spreadsVar) {
+          found = queryKeyInitializer(objectLiteral);
+          return;
+        }
+      }
+      ts.forEachChild(n, visit);
+    }
+    visit(sourceFile);
+    return found;
+  }
+
+  return null;
+}
+
+interface CallSiteResult {
+  file: string;
+  position: number;
+  hasViewerKey: boolean;
+  // このcheckNode自体のソース上の範囲（フォールトインジェクション用。
+  // 「viewerKeyという文字列をここだけ書き換えたら赤くなるか」を確かめる
+  // ために使う。見つからなかった場合はnull）
+  checkRange: [number, number] | null;
+}
+
+// filesOverride: {ファイルパス: 差し替えたソース文字列}。フォールト
+// インジェクションのテストで、実ファイルを書き換えずに「ある1箇所だけ
+// viewerKeyを外した状態」を再現するために使う
+function checkTarget(target: Target, files: string[], filesOverride: Record<string, string> = {}): CallSiteResult[] {
+  const results: CallSiteResult[] = [];
+  for (const file of files) {
+    const sourceFile = Object.hasOwn(filesOverride, file)
+      ? ts.createSourceFile(
+          file,
+          filesOverride[file] as string,
+          ts.ScriptTarget.Latest,
+          true,
+          file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+        )
+      : parseSource(file);
+    function visit(node: ts.Node): void {
+      if (target.kind === "orpc" && isOrpcQueryCall(node, target.namespace, target.method)) {
+        const checkNode = resolveOrpcCallCheckNode(node);
+        results.push({
+          file,
+          position: node.getStart(sourceFile),
+          hasViewerKey: checkNode !== null && containsIdentifierNamed(checkNode, "viewerKey"),
+          checkRange: checkNode ? [checkNode.getStart(sourceFile), checkNode.getEnd()] : null,
+        });
+      } else if (
+        target.kind === "manual" &&
+        ts.isCallExpression(node) &&
+        ts.isIdentifier(node.expression) &&
+        node.expression.text === target.calleeName
+      ) {
+        // 手書きの固定キー関数は、viewerKeyがその呼び出し自身の引数として
+        // 直接渡されているかだけを見ればよい（useQueryのqueryKeyのような
+        // 別の式を辿る必要が無い）
+        results.push({
+          file,
+          position: node.getStart(sourceFile),
+          hasViewerKey: containsIdentifierNamed(node, "viewerKey"),
+          checkRange: [node.getStart(sourceFile), node.getEnd()],
+        });
+      }
+      ts.forEachChild(node, visit);
+    }
+    visit(sourceFile);
+  }
+  return results;
 }
 
 describe("ペアのデータ・利用者ごとのデータを読む問い合わせは、queryKeyにviewerKeyを含める（T9）", () => {
   const targetProcedures = [...findReadScopedProcedures(), ...MANUALLY_INCLUDED_PROCEDURES];
   // 「手続きの戻り値」（oRPC経由）と「利用者ごとに違う値を持つ、こちらが
   // 置いたキャッシュ」（MANUALLY_PLACED_CACHE_KEYS）の両方を、同じ形
-  // （ラベル+呼び出しパターン）に揃えてから一括で検査する（A決定・PR #178）
-  const targets: ManuallyPlacedCacheKey[] = [...targetProcedures.map(orpcCallTarget), ...MANUALLY_PLACED_CACHE_KEYS];
+  // （Target）に揃えてから一括で検査する（A決定・PR #178）
+  const targets: Target[] = [...targetProcedures.map(orpcCallTarget), ...MANUALLY_PLACED_CACHE_KEYS];
 
   // 検出ロジック自体が壊れて0件になった場合、以降のitが1件も生成されず
   // 静かにテストが「何も確認していない」状態になる。それを防ぐ
@@ -135,53 +330,101 @@ describe("ペアのデータ・利用者ごとのデータを読む問い合わ�
     expect(targets.map((t) => t.label)).toEqual(expect.arrayContaining(["onboarding.pendingInvite"]));
   });
 
-  // 呼び出し箇所ごとの近傍（前後CONTEXT_WINDOW文字）にviewerKeyがあるかを見る。
-  // 【実測して2回訂正】
-  // 1回目: 当初はファイル全体に`viewerKey`という文字列があるかだけを見て
-  // いたが、1つのファイルに複数の呼び出しがあり、そのうち1つでも
-  // viewerKeyを使っていれば（例: profile.tsxのcouple.get）、別の呼び出し
-  // （同じファイルのme.get）からviewerKeyを丸ごと外しても検知できないことを
-  // 実測で確認した（scripts/build-public.mjsのFALLBACK_LITERAL近傍チェックと
-  // 同じ理由・同じ形の誤り）。
-  // 2回目: 前後300文字の近傍チェックに直したが、これも実測すると見逃した。
-  // `const viewerKey = useViewerQueryKey();`という宣言1行が、隣り合う
-  // 2つの呼び出し（例: profile.tsxのme.get・couple.get）の両方から
-  // 300文字以内に収まってしまい、片方だけ実際のqueryKeyから外れていても
-  // 「宣言が近くにある」ことをもって素通りしていた。前後100文字まで
-  // 縮めたところ、誤検知しないこと（正しいコードで緑）と、実際に不備を
-  // 検知できること（me.getのqueryKeyだけからviewerKeyを外すと落ちる）の
-  // 両方を実測で確認した
-  const CONTEXT_WINDOW = 100;
-
   for (const target of targets) {
-    it(`${target.label} を呼ぶ箇所は、それぞれの近傍でviewerKeyを参照している`, () => {
+    it(`${target.label} を呼ぶ箇所は、それぞれ自分自身のqueryKeyでviewerKeyを参照している`, () => {
       const files = listAppSourceFiles();
+      const results = checkTarget(target, files);
 
-      let totalMatches = 0;
-      for (const file of files) {
-        const content = readFileSync(file, "utf8");
-        for (const match of content.matchAll(target.callPattern)) {
-          totalMatches += 1;
-          const start = Math.max(0, match.index - CONTEXT_WINDOW);
-          const end = Math.min(content.length, match.index + match[0].length + CONTEXT_WINDOW);
-          const context = content.slice(start, end);
-          expect(
-            context,
-            `${path.relative(repoRoot, file)} の ${target.label} 呼び出し（位置 ${match.index}）の近傍にviewerKeyが見つかりません`,
-          ).toMatch(/viewerKey/);
-        }
-      }
-
-      // 【Rレビュー指摘R-2】callPatternが一致しなくなる（呼び出し方が変わる、
-      // ラッパを噛ませる等）とtotalMatchesが0のままループが1度も回らず、
-      // テストが「確認していないのに緑」になる。呼び出し箇所が実在することを
-      // 要求することでそれを防ぐ
+      // 【Rレビュー指摘R-2】呼び出し方が変わる・ラッパを噛ませる等でASTの
+      // 判定パターンが一致しなくなると、resultsが0件のままループが1度も
+      // 回らず、テストが「確認していないのに緑」になる。呼び出し箇所が
+      // 実在することを要求することでそれを防ぐ
       expect(
-        totalMatches,
-        `${target.label} の呼び出し箇所が見つかりません（callPatternが実際の書き方と一致していない可能性）`,
+        results.length,
+        `${target.label} の呼び出し箇所が見つかりません（判定パターンが実際の書き方と一致していない可能性）`,
       ).toBeGreaterThan(0);
+
+      for (const r of results) {
+        expect(
+          r.hasViewerKey,
+          `${path.relative(repoRoot, r.file)} の ${target.label} 呼び出し（位置 ${r.position}）の` +
+            `queryKeyでviewerKeyが確認できません`,
+        ).toBe(true);
+      }
     });
   }
+
+  // 【Rレビュー指摘R-2の実証】判定ロジック自体が「効いていること」を、
+  // 実際にviewerKeyを1つ外した状態を作って確かめる。「対象に列挙されている」
+  // は「効いている」ではない、というRの指摘（summaryQueryのqueryKeyから
+  // viewerKeyを実際に外しても15件全部緑のままだった）に対するAの受け入れ
+  // 条件：「走査の対象すべてについて、viewerKeyを1つ外したら赤くなること
+  // を確かめる。対象が8つあるなら、8通り試す」（#246「測定を足したら、
+  // 両側から当てる」）。手で書き並べる代わりに、対象一覧（targets）自体を
+  // 総当たりし、各呼び出し箇所ごとにフォールトインジェクションを行う
+  // （走査自体に組み込む形。Aに作り方は一任されている）。
+  //
+  // ある1箇所のcheckRange（そのuseQueryのqueryKey配列、または手書きの
+  // 呼び出しそのもの）だけを狙って"viewerKey"という文字列を無関係な
+  // 識別子名に書き換えた一時ソースを作り、(1)その箇所自身が赤くなること
+  // (2)同じファイル内の他の対象（隣の宣言等）が巻き添えで赤くならないこと
+  // の両方を確かめる。実ファイルは一切書き換えない（filesOverrideで
+  // メモリ上のソース文字列だけを差し替える）
+  it("対象ごとに、その呼び出し1箇所からviewerKeyを外すとそこだけが赤くなり、他は巻き添えにならない", () => {
+    const files = listAppSourceFiles();
+    let injectionCount = 0;
+
+    for (const target of targets) {
+      const baseline = checkTarget(target, files);
+      expect(baseline.length, `${target.label}: 呼び出し箇所が見つかりません`).toBeGreaterThan(0);
+
+      for (const site of baseline) {
+        expect(site.hasViewerKey, `${target.label} (${site.file}:${site.position}) が変更前から赤い`).toBe(true);
+        if (!site.checkRange) {
+          throw new Error(`${target.label} (${site.file}:${site.position}): checkRangeが取得できていない`);
+        }
+        const [start, end] = site.checkRange;
+        const originalContent = readFileSync(site.file, "utf8");
+        const mutated =
+          originalContent.slice(0, start) +
+          originalContent.slice(start, end).replaceAll("viewerKey", "viewerKeyRemovedForFaultInjection") +
+          originalContent.slice(end);
+        expect(mutated, `${target.label} (${site.file}:${site.position}): 置換が実際に効いていない`).not.toBe(
+          originalContent,
+        );
+
+        const filesOverride = { [site.file]: mutated };
+
+        // (1) この箇所自身が赤くなる
+        const afterForThisTarget = checkTarget(target, [site.file], filesOverride);
+        expect(
+          afterForThisTarget.some((r) => !r.hasViewerKey),
+          `${target.label} (${site.file}:${site.position}): viewerKeyを外しても赤くならない`,
+        ).toBe(true);
+
+        // (2) 同じファイル内の他の対象は巻き添えで赤くならない
+        // （近傍の文字列ではなく構文的に別の式を見ているはず、という
+        // R-2の作り直し自体の検証）
+        for (const otherTarget of targets) {
+          if (otherTarget === target) continue;
+          const otherResults = checkTarget(otherTarget, [site.file], filesOverride);
+          for (const otherSite of otherResults) {
+            expect(
+              otherSite.hasViewerKey,
+              `${target.label} (${site.file}:${site.position}) からviewerKeyを外したら、` +
+                `無関係な ${otherTarget.label} まで巻き添えで赤くなった`,
+            ).toBe(true);
+          }
+        }
+
+        injectionCount += 1;
+      }
+    }
+
+    // 対象すべてについて、少なくとも1呼び出し箇所でフォールトインジェクション
+    // を実施したこと（0件のまま緑になっていないか）
+    expect(injectionCount).toBeGreaterThanOrEqual(targets.length);
+  });
 });
 
 // queryClient.setQueryData/getQueryDataを直接呼んでいる箇所も、リテラルの

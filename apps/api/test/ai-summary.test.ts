@@ -136,6 +136,25 @@ async function createPosts(
 const PAST_MONTH = "2026-01";
 const PAST_WEEK = "2025-W20";
 
+// 【Rレビュー指摘・R-1】apply-migrations.tsの番人をvi.stubGlobalで
+// 入れていたところ、vi.unstubAllGlobalsが「本物のfetch」を復元先として
+// 覚えてしまい、事故と同じ形（差し替え忘れが本物のAPIへ静かに到達する）を
+// 再発防止の実装自体が持っていた（Rが実測: 23件中番人が止めたのは1件だけ）。
+// apply-migrations.tsを素の代入に直した後、実際にモックを1つ外して
+// （このファイルのbeforeEachが入れたfetchMockをvi.unstubAllGlobalsで
+// 剥がして）、本物のfetchへ行かず番人の例外で落ちることを確認する
+describe("番人（fetchの差し替え忘れ対策）が生きていること", () => {
+  it("fetchの差し替えを外すと、本物のfetchではなく番人の例外に落ちる", () => {
+    vi.unstubAllGlobals();
+    // 番人は同期的にthrowする（Promiseをrejectするのではない）ため、
+    // fetch(...)の呼び出し自体が例外を投げる。.rejects ではなく
+    // 呼び出しをラップした関数に対して.toThrowで確認する
+    expect(() => fetch("https://api.openai.com/v1/chat/completions")).toThrow(
+      "fetchが差し替えられていません。テストが本物のAPIを叩こうとしています",
+    );
+  });
+});
+
 describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => {
   it("2人とも同意していれば月次を生成できる", async () => {
     const { owner } = await createCoupleOfTwo(true);
@@ -450,6 +469,48 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     expect(sentBody).not.toContain(owner.email);
     expect(sentBody).not.toContain(partner.name);
     expect(sentBody).not.toContain(partner.id);
+  });
+
+  // 【Rレビュー指摘・R-5】上のテストはownerの投稿しか作っておらず、
+  // 送信本文に"B:"が現れることを確かめるテストが1件も無かった。人間が
+  // 「AIがこの発言はどのユーザーのものか認識できたほうがいい」と指摘し、
+  // ADR-013に書き足した当のものが、実は検証されていなかった
+  it("相手（slot=2）の投稿には B の記号が付く（A と両方混在させて確認）", async () => {
+    const { owner, partner } = await createCoupleOfTwo(true);
+    await createPosts(owner, 2, "month", PAST_MONTH);
+    await createPosts(partner, 1, "month", PAST_MONTH);
+
+    await call(router.aiSummary.generate, { periodKind: "month", periodKey: PAST_MONTH }, { context: contextFor(owner) });
+
+    const [, init] = fetchMock.mock.calls.at(-1) ?? [];
+    const sentBody = String((init as RequestInit | undefined)?.body ?? "");
+    expect(sentBody).toContain("A: テスト投稿0");
+    expect(sentBody).toContain("A: テスト投稿1");
+    expect(sentBody).toContain("B: テスト投稿0");
+  });
+
+  // ai-summary.ts の labelByUserId.get(...) ?? "A"（メンバーでない
+  // author_idをAに寄せるfallback）を、実際に couple_members に居ない
+  // author_id を持つ投稿を直接SQLで作って確認する。通常の経路では
+  // post.createの時点でauthor_idはそのペアのメンバーに限られるため
+  // 起こらないはずだが、fallbackの分岐自体が生きていることを確かめる。
+  // posts.author_idはuser.idへのFKのため、実在するuserの行が要る
+  // （couple_membersには入れず、メンバーではない状態を作る）
+  it("couple_membersに居ないauthor_idの投稿はAに寄せる（fallback）", async () => {
+    const { owner, couple } = await createCoupleOfTwo(true);
+    await createPosts(owner, 2, "month", PAST_MONTH);
+    const stranger = await createUser();
+    const { fromMs } = rangeFor("month", PAST_MONTH);
+    await db
+      .prepare("INSERT INTO posts (id, couple_id, author_id, body, created_at) VALUES (?1, ?2, ?3, ?4, ?5)")
+      .bind(crypto.randomUUID(), couple.id, stranger.id, "見知らぬ投稿者の投稿", Math.floor(fromMs / 1000) + 10000)
+      .run();
+
+    await call(router.aiSummary.generate, { periodKind: "month", periodKey: PAST_MONTH }, { context: contextFor(owner) });
+
+    const [, init] = fetchMock.mock.calls.at(-1) ?? [];
+    const sentBody = String((init as RequestInit | undefined)?.body ?? "");
+    expect(sentBody).toContain("A: 見知らぬ投稿者の投稿");
   });
 });
 
