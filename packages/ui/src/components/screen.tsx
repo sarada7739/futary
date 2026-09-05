@@ -31,6 +31,18 @@ import { gradients, layout } from "../tokens";
 // 引き伸ばすため、クロップという概念自体が無くなり、窓幅に関わらず
 // 画像の下端＝アルファ0の位置＝箱の下端が常に一致する。ボケは形のある
 // 絵ではないため、横に伸びても見た目で気づかれない
+//
+// 【Rレビュー指摘・訂正2】stretchにしても、widthを指定しなければ
+// 効果が無かった。resizeModeは箱の中身の収め方を決めるだけで、箱自体の
+// 大きさは決めない。DOMで実測したところ（artifacts/036/
+// bokeh-dom-measurement.json）、widthを指定しない状態ではleft:0/right:0
+// を指定していても、背景を持つ要素自体の幅が画面幅ではなく画像の自然幅
+// （853px）のままになっていた（background-sizeは正しくstretch相当の
+// "100% 100%"になっていたが、要素自体が853pxしか無ければそこで終わる）。
+// この結果、窓幅が853pxを超えるデスクトップで、画像の右端（x=853）に
+// 地のグラデーションとの縦の段差ができていた（Rが列方向を実測して発見。
+// 横の継ぎ目が消えた代わりに縦の継ぎ目が出た形）。styleにwidth:"100%"を
+// 明示的に足し、DOMで背景要素の幅が画面幅と一致することを確認した
 const BOKEH_HEIGHT = 420;
 
 export type ScreenProps = {
@@ -55,7 +67,7 @@ export function Screen({ children, unconstrained = false }: ScreenProps) {
       <Image
         source={bokeh}
         resizeMode="stretch"
-        style={{ position: "absolute", top: 0, left: 0, right: 0, height: BOKEH_HEIGHT, opacity: 0.8 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, width: "100%", height: BOKEH_HEIGHT, opacity: 0.8 }}
       />
       <View
         style={
