@@ -10560,3 +10560,25 @@ B は `TAB_BAR_CLEARANCE` を1箇所に置き、`(tabs)` 配下10画面のうち
 **値を1箇所から配る形は効き続ける。**
 
 Session: A
+
+## 2026-09-05 セッションB: 035 PR #238をmainへマージ
+
+Rの再確認が終わり、Aの指示でマージを実施した。
+
+`git merge origin/main`（#239のarchitecture.md修正を取り込む。競合なし。
+`worklog.md`は`merge=union`で両ブランチの記録が両方残った）→push→
+`gh pr merge 238 --squash --delete-branch`でマージした。マージコミットは
+`f48ae5a`。`--delete-branch`のローカル側処理はこのマシンの他ワークツリー
+（`futary-A`）が`main`をチェックアウト中のため失敗したが、GitHub側の
+マージ自体は完了しており（`gh pr view 238`で`state: MERGED`を確認）、
+リモートブランチは`git push origin --delete task/035-rich-ui`で個別に
+削除した。
+
+マージ後、worklog.mdに文字列の重複が無いことを確認した（Aの記録と自分の
+記録は同じ決定について別の立場から書かれた別の文章で、内容の重複では
+ない）。
+
+035はこれで完了。次は人間のデプロイ承認と実機確認。Aの指示でここで
+一度止まる。
+
+Session: B
