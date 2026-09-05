@@ -86,7 +86,9 @@ export function Button({ variant = "primary", disabled, onPress, children, ...re
             ...base,
             backgroundColor: pressed ? colors.surfaceTint : colors.surface,
             borderWidth: 1,
-            borderColor: colors.border,
+            // 035: borderからprimaryへ変更（architecture.md 7節）。
+            // borderはほぼ地の色で、押せることが伝わりにくかった
+            borderColor: colors.primary,
           };
         }
         return {

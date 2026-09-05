@@ -10121,3 +10121,70 @@ Session: B
 1〜3が無いまま画像だけ足しても安い。**
 
 Session: A
+
+## 2026-09-05 セッションB: 035 視覚仕様1〜3節を実装し再度停止
+
+Aが起こした視覚仕様（`docs/tasks/035-rich-ui.md`。人間の「リッチ感がなく、
+前よりひどい」評価を受け、モックと現状を同じ物差しで実測した数値。PR #235）
+に従い、効く順1〜3（記念日カード・デモバナー・機能パネル）を実装した。
+
+### 1. 記念日カード
+
+数字72pt/lineHeight76/letterSpacing-2、アバター86pt円（80pt画像+光るリング
+3pt×2）、中心間128、「日目」18pt/weight700/brand-ink、をそれぞれ実測して
+仕様どおりであることを確認した。「会った日数」のピルは新設した`Badge`
+コンポーネントを実際に使い（唯一の使用例に合わせ、`Badge`自体の値
+〈高さ28・paddingHorizontal16・地〉も書き直した）、「94」だけprimary/
+weight700にした。装飾のスパークルは新規に`docs/sample/透過素材/
+6sj6V6ve.png`から切り出し`packages/ui/assets/sparkle.png`として保存した。
+
+カード高は実測297pxで仕様の目安「≈260」より大きいが、積み上げた個々の
+数値は全て仕様どおりであり、独断で追加の削減はしていない。実測値のまま
+Aへ報告する。
+
+### 2. デモバナー
+
+ピル型・`gradients.card`地に変更。文言をAの判断どおり19文字
+（「これはデモです。ログインで記録を残せます」）に短縮し2行折り返しを
+禁止。デスクトップでは`layout.maxWidth`(640)の列内に収まるよう外側に
+制約Viewを足した（元は全幅の濃い帯で、Aの指摘どおりデスクトップで
+最も悪く見えていた）。
+
+### 3. 機能パネル
+
+列間10・行間12・カード幅76・角丸`radius.input`(14)・アイコン28pt・
+ラベル11pt/weight600・COMING SOON8pt/letterSpacing1.2の数値を実装した。
+
+**react-native-webがcolumnGapとパーセント幅(`width:"25%"`)を併用しても
+幅を自動で詰め直さない**ことを実測で発見した（4列×25%+3個ぶんのgapが
+コンテナ幅を超え、4列目が折り返して3列グリッドになる不具合が実際に
+起きた）。033（画像スワイプ）で使ったのと同じ`onLayout`実測px方式
+（グリッド幅を測り`(幅-列間×3)/4`を`FeaturePanel`へ`width`propとして
+渡す）で解決した。実測でカード幅76.25px・高さ96pxを確認した。
+
+### その他
+
+`shadow.card`（0.04/12/y2→0.08/24/y8）・`secondary`ボタンの枠色
+（`border`→`primary`）はAが`architecture.md`7節に既に書いた値をそのまま
+反映。アイコンは線画にしていない（`packages/ui/assets/`のPNGは線幅を
+変えられないため。Aの判断どおり「やらなかった」と明記）。
+
+### テスト
+
+記念日の表示が「付き合って」「365」「日目」の3つのTextに分かれたため
+（数字を大きく見せるための`daysTogetherParts`新設。`daysTogetherLabel`は
+`stats.tsx`用にそのまま残した）、`stats-card.test.tsx`・
+`home-screen.test.tsx`の該当テストを`testID`（`stats-card-days-prefix`等）
+での確認に書き換えた。`pnpm run test`（apps/app 222件・apps/api 410件、
+全緑）・`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Playwright（`playwright-core`。システムのChrome。新規ダウンロード無し）
+でホーム画面をモバイル幅（375×812）・デスクトップ幅（1280×900）で撮影し
+`artifacts/035/step1-mobile.png`・`step1-desktop.png`として保存した。
+詳細は`artifacts/035/step1-3.md`参照。
+
+Aの指示（「1→2→3まで進んだ時点で、もう一度画像を撮って止まる」）どおり
+ここで停止する。残り12画面・サインイン個別作り込み・4節以降（ボケ画像等）
+には進んでいない。
+
+Session: B

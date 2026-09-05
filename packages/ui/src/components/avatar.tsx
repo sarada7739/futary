@@ -14,6 +14,11 @@ export type AvatarProps = {
   glow?: boolean;
 };
 
+// 035: glow時は縁（surface・3pt）を足し、さらに一回り大きい光るハロー
+// （primary-subtle地・shadow.glow）で包む（視覚仕様1節「外側86pt円・
+// 画像80pt円・borderWidth3」。86=80+3*2で導出し、数値を2箇所に持たない）
+const GLOW_RING_WIDTH = 3;
+
 export function Avatar({ name, imageUrl, size = 40, glow = false }: AvatarProps) {
   // overflow:"hidden"（丸く切り抜くために必須）はshadowも一緒に切り取ってしまう
   // ため、光らせる場合は影を持つ外側のViewと、切り抜く内側のViewを分ける
@@ -25,10 +30,14 @@ export function Avatar({ name, imageUrl, size = 40, glow = false }: AvatarProps)
     justifyContent: "center" as const,
     backgroundColor: colors.primarySubtle,
     overflow: "hidden" as const,
+    ...(glow ? { borderWidth: GLOW_RING_WIDTH, borderColor: colors.surface } : null),
   };
 
+  // borderWidth（glow時）はコンテンツ領域をその分だけ内側に狭める
+  // （RNのボックスモデル。border-boxではない）ため、画像は固定pxではなく
+  // 親の内側いっぱい（100%）に敷き、borderの有無で数値が2つに増えないようにする
   const inner = imageUrl ? (
-    <Image source={{ uri: imageUrl }} style={{ width: size, height: size }} />
+    <Image source={{ uri: imageUrl }} style={{ width: "100%", height: "100%" }} />
   ) : (
     <Text size="md" weight="bold" color="brand">
       {initialOf(name)}
@@ -39,8 +48,19 @@ export function Avatar({ name, imageUrl, size = 40, glow = false }: AvatarProps)
     return <View style={circleStyle}>{inner}</View>;
   }
 
+  const haloSize = size + GLOW_RING_WIDTH * 2;
   return (
-    <View style={{ borderRadius: size / 2, ...shadow.glow }}>
+    <View
+      style={{
+        width: haloSize,
+        height: haloSize,
+        borderRadius: haloSize / 2,
+        backgroundColor: colors.primarySubtle,
+        alignItems: "center",
+        justifyContent: "center",
+        ...shadow.glow,
+      }}
+    >
       <View style={circleStyle}>{inner}</View>
     </View>
   );

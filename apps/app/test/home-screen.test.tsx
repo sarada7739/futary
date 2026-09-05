@@ -59,15 +59,19 @@ describe("HomeScreen: 記念日カード", () => {
 
     renderScreen();
 
-    expect(await screen.findByText("付き合って 365日目")).toBeTruthy();
-    expect(screen.getByText("会った日数：12日")).toBeTruthy();
+    // 035: 「付き合って」「365」「日目」は別々のTextで描画される
+    // （daysTogetherParts。stats-card.test.tsxと同じ理由）
+    expect(await screen.findByTestId("stats-card-days-prefix")).toHaveTextContent("付き合って");
+    expect(screen.getByTestId("stats-card-days-number")).toHaveTextContent("365");
+    expect(screen.getByTestId("stats-card-days-suffix")).toHaveTextContent("日目");
+    expect(screen.getByTestId("stats-card-meetup-pill")).toHaveTextContent("会った日数：12日");
   });
 });
 
 describe("HomeScreen: 機能パネル", () => {
   it("動くパネル6枚（タイムライン・カレンダー・思い出・統計・リスト・気分の記録）が表示される", async () => {
     renderScreen();
-    await screen.findByText("会った日数：0日");
+    await screen.findByTestId("stats-card-meetup-pill");
 
     expect(screen.getByText("タイムライン")).toBeTruthy();
     expect(screen.getByText("カレンダー")).toBeTruthy();
@@ -81,7 +85,7 @@ describe("HomeScreen: 機能パネル", () => {
   // 035: 表示文言を「次フェーズ」（開発都合の言葉）から「COMING SOON」に変えた
   it("次フェーズのパネル2枚（今日どうだった？・AIまとめ）が「COMING SOON」表示で出る", async () => {
     renderScreen();
-    await screen.findByText("会った日数：0日");
+    await screen.findByTestId("stats-card-meetup-pill");
 
     for (const label of ["今日どうだった？", "AIまとめ"]) {
       expect(screen.getByText(label)).toBeTruthy();
@@ -94,7 +98,7 @@ describe("HomeScreen: 機能パネル", () => {
 
   it("「準備中です」という文言がどこにも出ない", async () => {
     renderScreen();
-    await screen.findByText("会った日数：0日");
+    await screen.findByTestId("stats-card-meetup-pill");
 
     expect(screen.queryByText(/準備中/)).toBeNull();
   });

@@ -25,3 +25,6 @@ export { default as iconPanelToday } from "../assets/panel-today.png";
 export { default as iconPanelList } from "../assets/panel-list.png";
 export { default as iconPanelMood } from "../assets/panel-mood.png";
 export { default as iconPanelAi } from "../assets/panel-ai.png";
+// 035: 記念日カード・デモバナーの装飾用スパークル。同スプライトシート
+// （6sj6V6ve.png）から、ピンクの4方向の星を切り出した
+export { default as sparkle } from "../assets/sparkle.png";

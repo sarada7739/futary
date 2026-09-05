@@ -43,6 +43,10 @@ function renderCard() {
   );
 }
 
+// 035: 記念日の数字を大きく見せるため、「付き合って」「365」「日目」は
+// 別々のTextに分けて描画している（daysTogetherParts）。1つの文字列として
+// getByTextできないため、testID（stats-card-days-prefix/-number/-suffix）で
+// 個別に確認する
 describe("StatsCard", () => {
   it("記念日が今日以前なら「付き合って○日目」を表示する", async () => {
     statsGetMock.mockResolvedValue({
@@ -58,8 +62,10 @@ describe("StatsCard", () => {
 
     renderCard();
 
-    expect(await screen.findByText("付き合って 365日目")).toBeTruthy();
-    expect(screen.getByText("会った日数：48日")).toBeTruthy();
+    expect(await screen.findByTestId("stats-card-days-prefix")).toHaveTextContent("付き合って");
+    expect(screen.getByTestId("stats-card-days-number")).toHaveTextContent("365");
+    expect(screen.getByTestId("stats-card-days-suffix")).toHaveTextContent("日目");
+    expect(screen.getByTestId("stats-card-meetup-pill")).toHaveTextContent("会った日数：48日");
     expect(screen.getByText("Haruka")).toBeTruthy();
     expect(screen.getByText("Yuki")).toBeTruthy();
     expect(screen.queryByText("招待中")).toBeNull();
@@ -76,7 +82,9 @@ describe("StatsCard", () => {
 
     renderCard();
 
-    expect(await screen.findByText("記念日まで あと5日")).toBeTruthy();
+    expect(await screen.findByTestId("stats-card-days-prefix")).toHaveTextContent("記念日まで あと");
+    expect(screen.getByTestId("stats-card-days-number")).toHaveTextContent("5");
+    expect(screen.getByTestId("stats-card-days-suffix")).toHaveTextContent("日");
     expect(screen.queryByText(/-/)).toBeNull();
   });
 
@@ -91,7 +99,7 @@ describe("StatsCard", () => {
 
     renderCard();
 
-    expect(await screen.findByText("会った日数：0日")).toBeTruthy();
+    expect(await screen.findByTestId("stats-card-meetup-pill")).toHaveTextContent("会った日数：0日");
   });
 
   it("ペアが1人だけなら、相手の枠に「招待中」が出る", async () => {
@@ -120,7 +128,9 @@ describe("StatsCard", () => {
 
     renderCard();
 
-    expect(await screen.findByText("結婚して 100日目")).toBeTruthy();
+    expect(await screen.findByTestId("stats-card-days-prefix")).toHaveTextContent("結婚して");
+    expect(screen.getByTestId("stats-card-days-number")).toHaveTextContent("100");
+    expect(screen.getByTestId("stats-card-days-suffix")).toHaveTextContent("日目");
   });
 
   it("primaryDate='married'・結婚した日が未来なら「結婚まで あと○日」を表示する", async () => {
@@ -134,7 +144,9 @@ describe("StatsCard", () => {
 
     renderCard();
 
-    expect(await screen.findByText("結婚まで あと30日")).toBeTruthy();
+    expect(await screen.findByTestId("stats-card-days-prefix")).toHaveTextContent("結婚まで あと");
+    expect(screen.getByTestId("stats-card-days-number")).toHaveTextContent("30");
+    expect(screen.getByTestId("stats-card-days-suffix")).toHaveTextContent("日");
   });
 
   it("primaryDate='none'（hidden）なら日数の表示が出ない", async () => {
@@ -150,10 +162,8 @@ describe("StatsCard", () => {
 
     // 「会った日数：3日」は出る（daysTogetherだけが隠れる）ため、
     // カードの読み込みを待つのはこちらで行う
-    await screen.findByText("会った日数：3日");
-    expect(screen.queryByText(/付き合って/)).toBeNull();
-    expect(screen.queryByText(/結婚して/)).toBeNull();
-    expect(screen.queryByText(/あと/)).toBeNull();
+    await screen.findByTestId("stats-card-meetup-pill");
+    expect(screen.queryByTestId("stats-card-days-prefix")).toBeNull();
     // hiddenは本人が隠すと決めたので、マイページへの導線は出さない（023）
     expect(screen.queryByText("付き合った日を設定する")).toBeNull();
   });
@@ -171,8 +181,7 @@ describe("StatsCard", () => {
     renderCard();
 
     const link = await screen.findByText("付き合った日を設定する");
-    expect(screen.queryByText(/付き合って/)).toBeNull();
-    expect(screen.queryByText(/結婚して/)).toBeNull();
+    expect(screen.queryByTestId("stats-card-days-prefix")).toBeNull();
 
     fireEvent.click(link);
     expect(pushMock).toHaveBeenCalledWith("/profile");

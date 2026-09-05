@@ -42,12 +42,14 @@ export const space = {
 // borderRadius と対で使う。web では影が要素の輪郭に沿って落ちるため、
 // 丸い要素に角丸を付け忘れると四角い影になる（fix/fab-shadow-square）
 export const shadow = {
+  // 035で濃くした（0.04/12/y2→0.08/24/y8）。architecture.md 7節。
+  // 元の値は画面上でほぼ見えず、カードが地に貼り付いて見えていた
   card: {
     shadowColor: "#000000",
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
   fab: {
     shadowColor: "#000000",
