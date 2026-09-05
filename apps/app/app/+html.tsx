@@ -37,9 +37,11 @@ export default function Root({ children }: { children: React.ReactNode }) {
         {/* 035書体仕様2節: 数字・欧文専用のPoppins（SIL OFL）をself-host。
             Google FontsのCDNは書かない（CSPで落ちる。font-src 'self'のまま）。
             latinサブセットのみ、1ウエイト約8KB。日本語本文には使わない
-            （fontFamily.numericを当てた要素だけがここへ辿り着く） */}
+            （fontFamily.numericを当てた要素だけがここへ辿り着く）。
+            500は「会った日数」の数字・COMING SOON、800は72ptの記念日
+            数字に使う（700 vs 800はAの指示で実測比較し、800を採用した） */}
         <link rel="preload" href={`${baseUrl}/fonts/poppins-500.woff2`} as="font" type="font/woff2" crossOrigin="" />
-        <link rel="preload" href={`${baseUrl}/fonts/poppins-700.woff2`} as="font" type="font/woff2" crossOrigin="" />
+        <link rel="preload" href={`${baseUrl}/fonts/poppins-800.woff2`} as="font" type="font/woff2" crossOrigin="" />
         {/* @font-faceはCSSとしてのみ書ける。外部URLを含まない静的な
             文字列であり、利用者の入力は一切含まない */}
         <style
@@ -52,17 +54,6 @@ export default function Root({ children }: { children: React.ReactNode }) {
                 font-display: swap;
                 src: url('${baseUrl}/fonts/poppins-500.woff2') format('woff2');
               }
-              @font-face {
-                font-family: 'Poppins';
-                font-style: normal;
-                font-weight: 700;
-                font-display: swap;
-                src: url('${baseUrl}/fonts/poppins-700.woff2') format('woff2');
-              }
-              /* FONT_WEIGHT_COMPARISON_TEST: 800は72ptの数字を700にするか
-                 800にするかの比較用（035視覚仕様4節。Aの指示で実測して
-                 比較する）。決着したら800側の@font-face・woff2ファイル・
-                 このコメントを削除する */
               @font-face {
                 font-family: 'Poppins';
                 font-style: normal;

@@ -200,8 +200,8 @@ export function StatsCard() {
             </RNText>
             <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
               <View>
-                {/* 035書体仕様2節・4節: 「数字が主役の箱」。Poppins。
-                    700か800かは実測して比較する（Aの指示。数値は暫定） */}
+                {/* 035書体仕様2節・4節: 「数字が主役の箱」。Poppins weight800
+                    （700との実測比較をAの指示で行い、800を採用した） */}
                 <RNText
                   testID="stats-card-days-number"
                   style={{
