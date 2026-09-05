@@ -9979,3 +9979,56 @@ B が部品を作る前に上げてきた。**タスク定義5節の指示どお
 明記した。**「感覚で決めた」まま残さない。**
 
 Session: A
+
+## 2026-09-05 セッションB: 035（見た目を作り込む）着手。部品ができた時点で停止
+
+`docs/tasks/035-rich-ui.md`（Aの起票）に従い着手した。モックアップ
+（`docs/sample/mockup/home.jpg`・`signin.jpg`）をコミットし、
+`expo-linear-gradient`を導入してBrowser paneでWeb動作を確認した。
+
+タスク定義5節の指示どおり、新規トークンを作る前にAへ提案した:
+`gradients`（`screen`・`card`。既存colorsの組み合わせのみ、新しい16進値は
+増やしていない）・`shadow.avatarGlow`（アバターの光るリング用）。Aが両方
+承認し、後者は`shadow.glow`に改名（アバターのリングとFABの光彩が同じ
+見た目のため、用途別に名前を分けない、という理由）。`docs/architecture.md`
+7節に反映されPR #234でマージ済み。`git pull`して取り込んだ。
+
+### 作った部品
+
+- `Screen`: `gradients.screen`でグラデーション背景（ここ1つで14画面の地が変わる）
+- `Badge`（新規）: ピル型バッジ。`tone: "subtle" | "muted"`。まだどこからも呼んでいない
+- `Avatar`: `glow`オプション追加（`shadow.glow`で光るリング。既定false）
+- `FeaturePanel`: 白いカード化（020の「枠線も背景も持たない」判断を覆した。
+  モックは薄い枠ではなく白い面＋影であるため別物、というAの理由どおり）。
+  「次フェーズ」→「COMING SOON」に文言変更
+- ボトムタブ（`(tabs)/_layout.tsx`）: 画面下端への貼り付けをやめ、左右・下に
+  余白を取ったピル型で浮かせた。中央＋ボタンに`shadow.glow`で光彩。浮かせた
+  分の下パディング定数を`apps/app/lib/tab-bar-layout.ts`に切り出し、
+  ホーム画面に適用
+
+### 実装中に踏んだこと
+
+`expo-linear-gradient`を`apps/app`にのみ追加し`packages/ui`側に追加し
+忘れ、型チェックで発覚（`packages/ui`のコンポーネントから直接importする
+ため両方に要る）。追加後も一度Metroが「モジュールを解決できない」で
+落ちた。原因はMetroのキャッシュ（`.expo`・OS一時ディレクトリの
+metro-cache）が依存追加前の状態を覚えていたことで、キャッシュを削除して
+再起動し解消した。
+
+Browser paneでの確認に必要なローカルのデモデータが無かったため
+`pnpm --filter @futary/db seed:local`でシードし、`.dev.vars`に
+`DEMO_COUPLE_ID=demo-couple`を追加した（gitignore対象。未コミット）。
+ゲスト閲覧でホーム画面を実際に開き、モバイル幅・デスクトップ幅の両方で
+グラデーション地・白い機能パネル・浮いたタブバー・光るFABの描画を確認した。
+
+### テスト
+
+`pnpm --filter @futary/app test`（222件、全緑。「COMING SOON」への文言
+変更に合わせhome-screen.test.tsxを1件更新）・`pnpm -r type-check`・
+`pnpm -w eslint .`、全て通過。
+
+タスク定義0-2節の必須の停止点（「部品ができた時点で、一度人間に見せる」）
+のため、ここで止める。14画面（ホーム・サインインの個別の作り込みを含む）
+には進んでいない。詳細は`artifacts/035/checkpoint.md`参照。
+
+Session: B

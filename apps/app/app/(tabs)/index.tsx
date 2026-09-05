@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { Image, ScrollView, View } from "react-native";
 import { FeaturePanel } from "../../components/feature-panel";
 import { StatsCard } from "../../components/stats-card";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 
 const LOGO_WIDTH = 96;
 const LOGO_HEIGHT = 34;
@@ -28,7 +29,9 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+      <ScrollView
+        contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.md }}
+      >
         <Image source={logoMark} style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }} resizeMode="contain" />
 
         <StatsCard />

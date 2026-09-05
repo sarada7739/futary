@@ -56,6 +56,26 @@ export const shadow = {
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
   },
+  // 発光（影ではない）。architecture.md 7節。shadowOffsetを0,0にして方向を
+  // 持たせない（下に落ちる影は「浮いている」、四方に広がる光は「光っている」で
+  // 別の意味）。アバターの光るリング・FABの光彩の両方に使う（用途ごとに
+  // 名前を分けない。同じ見た目に2つの名前を付けない）。数値は感覚値
+  // （035。実機で調整したらarchitecture.md 7節を値と理由つきで書き直す）
+  glow: {
+    shadowColor: colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 6,
+  },
+} as const;
+
+// expo-linear-gradientに渡す色の並び（035）。新しい色は増やしていない。
+// 呼ぶ側で配列を組み立てない（packages/uiのコンポーネントがstyleを
+// 受け取らないのと同じ理由。architecture.md 7節）
+export const gradients = {
+  screen: [colors.bg, colors.surfaceTint] as const,
+  card: [colors.surfaceTint, colors.primarySubtle] as const,
 } as const;
 
 // architecture.md 7節「レイアウト」。640の根拠は画像の保存解像度（長辺1600px。

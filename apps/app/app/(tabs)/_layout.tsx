@@ -1,8 +1,9 @@
-import { colors, iconFabPlus, iconTabCalendar, iconTabHome, iconTabProfile, iconTabTimeline, shadow, space } from "@futary/ui";
+import { colors, iconFabPlus, iconTabCalendar, iconTabHome, iconTabProfile, iconTabTimeline, radius, shadow, space } from "@futary/ui";
 import { Tabs, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Image, type ImageSourcePropType, Pressable, View } from "react-native";
 import { useGuestMode } from "../../lib/guest-mode";
+import { TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../lib/tab-bar-layout";
 
 // 002 の絵文字代用を、docs/sample/透過素材/dnUunrHG.png から切り出したアイコンに
 // 差し替え（008）。単色の線画のため tintColor でアクティブ/非アクティブを塗り分ける。
@@ -46,7 +47,9 @@ function FabTabButton({
           marginTop: -20,
           borderRadius: FAB_SIZE / 2,
           opacity: pressed ? 0.85 : 1,
-          ...shadow.fab,
+          // 035: FABの光彩。アバターの光るリングと同じ見た目（shadow.glow。
+          // architecture.md 7節「同じ見た目に2つの名前を付けない」）
+          ...shadow.glow,
         })}
       >
         <Image
@@ -70,11 +73,20 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
+        // 035: 画面下端に貼り付けず、左右と下に余白を取ったピル型にして浮かせる
+        // （タスク定義2節）。浮かせた分、各画面のスクロール下端が隠れないよう
+        // lib/tab-bar-layout.tsのTAB_BAR_CLEARANCEを足す必要がある
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          height: 64,
+          position: "absolute",
+          left: space.lg,
+          right: space.lg,
+          bottom: TAB_BAR_BOTTOM_MARGIN,
+          height: TAB_BAR_HEIGHT,
           paddingTop: space.sm,
+          backgroundColor: colors.surface,
+          borderTopWidth: 0,
+          borderRadius: radius.pill,
+          ...shadow.card,
         },
         tabBarLabelStyle: { fontSize: 11 },
         tabBarItemStyle: { flex: 1 },

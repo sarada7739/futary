@@ -77,17 +77,19 @@ describe("HomeScreen: 機能パネル", () => {
     expect(screen.getByText("気分の記録")).toBeTruthy();
   });
 
-  // 029: 「気分の記録」パネルにonPressが付き、次フェーズから動くパネルへ移った
-  it("次フェーズのパネル2枚（今日どうだった？・AIまとめ）が「次フェーズ」表示で出る", async () => {
+  // 029: 「気分の記録」パネルにonPressが付き、次フェーズから動くパネルへ移った。
+  // 035: 表示文言を「次フェーズ」（開発都合の言葉）から「COMING SOON」に変えた
+  it("次フェーズのパネル2枚（今日どうだった？・AIまとめ）が「COMING SOON」表示で出る", async () => {
     renderScreen();
     await screen.findByText("会った日数：0日");
 
     for (const label of ["今日どうだった？", "AIまとめ"]) {
       expect(screen.getByText(label)).toBeTruthy();
     }
-    // 2枚とも「次フェーズ」バッジを持つ（「準備中です」という文言は使わない）
-    expect(screen.getAllByText("次フェーズ")).toHaveLength(2);
+    // 2枚とも「COMING SOON」バッジを持つ（「準備中です」という文言は使わない）
+    expect(screen.getAllByText("COMING SOON")).toHaveLength(2);
     expect(screen.queryByText("準備中です")).toBeNull();
+    expect(screen.queryByText("次フェーズ")).toBeNull();
   });
 
   it("「準備中です」という文言がどこにも出ない", async () => {
