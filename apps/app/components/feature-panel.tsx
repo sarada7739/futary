@@ -19,7 +19,12 @@ export type FeaturePanelProps = {
 // （apps/app/app/(tabs)/index.tsx）のcolumnGap/rowGapで作るため、ここでは
 // カードの中身の寸法だけを持つ
 const ICON_SIZE = 28;
-const CARD_HEIGHT = 96;
+// 視覚仕様3節は96だが、「今日どうだった？」（ラベル2行）+COMING SOON（1行。
+// letterSpacingを1.2→0.8に落として1行に収めた）の実際の中身が実測107pxで、
+// 96だとCOMING SOONがカードの下にはみ出していた（Aの指摘・人間の実機確認で
+// 発覚）。全セル同じ高さのまま108に上げて解消した（Aの提示した2案のうち、
+// 1（letterSpacing）だけでは足りず、2（高さを取り直す）も併用した）
+const CARD_HEIGHT = 108;
 
 // 035（見た目を作り込む）: 020で「枠線も背景も持たない」と決めたが、モックが
 // 白い面＋影（枠線ではない）だったため判断を覆した（020が嫌ったのは薄い枠
@@ -89,7 +94,7 @@ export function FeaturePanel({ label, icon, onPress, width }: FeaturePanelProps)
             marginTop: 4,
             fontSize: 8,
             fontWeight: "600",
-            letterSpacing: 1.2,
+            letterSpacing: 0.8,
             color: colors.textMuted,
             textAlign: "center",
           }}
