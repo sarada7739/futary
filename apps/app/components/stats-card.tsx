@@ -269,7 +269,14 @@ export function StatsCard() {
               style={{ fontFamily: fontFamily.ja, fontSize: 12, fontWeight: "400", color: colors.text }}
             >
               会った日数：
-              <RNText style={{ fontFamily: fontFamily.numeric, color: colors.primary, fontWeight: "500" }}>
+              <RNText
+                style={{
+                  fontFamily: fontFamily.numeric,
+                  color: colors.primary,
+                  fontWeight: "500",
+                  fontVariant: ["tabular-nums"],
+                }}
+              >
                 {stats.meetupDays}
               </RNText>
               日
