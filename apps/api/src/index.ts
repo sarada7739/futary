@@ -26,6 +26,11 @@ export interface Bindings {
   R2_ACCOUNT_ID?: string;
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
+  // 037: AIまとめ。AI_PROVIDERが指す方のキーだけを読む（apps/api/src/lib/ai.ts）。
+  // 両方を同時に読まない（タスク定義3節）
+  AI_PROVIDER?: string;
+  OPENAI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
 }
 
 // wrangler.toml の [[r2_buckets]] bucket_name と一致させる
@@ -111,10 +116,21 @@ app.use("/api/*", async (c, next) => {
     secretAccessKey: c.env.R2_SECRET_ACCESS_KEY ?? "",
     bucketName: R2_BUCKET_NAME,
   };
+  // security-auditor指摘: AI_PROVIDERが指す方だけをcontextに積む
+  // （タスク定義3節「両方のキーを同時に読まない」）。実際に選ぶのは
+  // lib/ai.tsのresolveAiConfigだが、使わない方の秘密が全リクエストの
+  // contextに同居しない方が、将来contextをログ・トレースへ流したときに
+  // 一度に2本漏れる形にならない
+  const aiEnv = {
+    provider: c.env.AI_PROVIDER,
+    openaiApiKey: c.env.AI_PROVIDER === "openai" ? c.env.OPENAI_API_KEY : undefined,
+    anthropicApiKey: c.env.AI_PROVIDER === "anthropic" ? c.env.ANTHROPIC_API_KEY : undefined,
+  };
   const context: RpcContext = {
     db: c.env.DB,
     bucket: c.env.BUCKET,
     r2Sign,
+    aiEnv,
     user,
     ip,
     demoCoupleId,

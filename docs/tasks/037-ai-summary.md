@@ -248,13 +248,14 @@ aiSummary.generate  { periodKind, periodKey } -> 生成して保存し、同じ�
 - 生成に失敗したとき、**回数が減っていないか**
 
 ## 完了条件
-- [ ] ホームの「AIまとめ」パネルから入れる（COMING SOON が消える）
-- [ ] 2人とも同意したときだけ生成できる
-- [ ] `AI_PROVIDER` で OpenAI と Anthropic を切り替えられる
-- [ ] 歯止め（回数・長さ・件数）が全部効いている
-- [ ] 上記のテストが緑
-- [ ] `security-auditor` の監査で High 以上がゼロ
-- [ ] `artifacts/037/` に証跡と `manual-check.md` を保存
+- [x] ホームの「AIまとめ」パネルから入れる（COMING SOON が消える）
+- [x] 2人とも同意したときだけ生成できる
+- [x] `AI_PROVIDER` で OpenAI と Anthropic を切り替えられる
+- [x] 歯止め（回数・長さ・件数）が全部効いている
+- [x] 上記のテストが緑
+- [x] `security-auditor` の監査で High 以上がゼロ（Medium2件・Low5件は全て対応済み。
+      `artifacts/037/summary.md`参照）
+- [x] `artifacts/037/` に証跡と `manual-check.md` を保存
 
 ## 停止条件
 - 完了: 上記をすべて満たす
@@ -262,15 +263,14 @@ aiSummary.generate  { periodKind, periodKey } -> 生成して保存し、同じ�
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へ
 
 ## 進捗
-- [ ] マイグレーション（`couple_members` の ADD COLUMN を実測してから）
-- [ ] `me.delete` への追加と、032 の走査に映ることの確認
-- [ ] `lib/ai.ts`（プロバイダの窓口）
-- [ ] `aiSummary.*` と歯止め
-- [ ] 画面とマイページの同意
-- [ ] デモシード
-- [ ] `security-auditor`
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
-
+- [x] マイグレーション（`couple_members` の ADD COLUMN を実測してから）
+- [x] `me.delete` への追加と、032 の走査に映ることの確認
+- [x] `lib/ai.ts`（プロバイダの窓口）
+- [x] `aiSummary.*` と歯止め
+- [x] 画面とマイページの同意
+- [x] デモシード
+- [x] `security-auditor`（Medium2件・Low5件、全て修正済み）
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
 
 ---
 
@@ -331,7 +331,10 @@ R が `summaryQuery` から `viewerKey` を外しても**15件全部緑のまま
 | **R-5** | **送信本文に `"B:"` が現れるテストが1件も無い。**人間が足せと言い、ADR-013 に書き足した当のもの。**`labelByUserId.get(...) ?? "A"` がメンバーでない author を A に寄せる**点も含めて留める |
 
 ## 完了条件に足す
-- [ ] **`viewerKey` を対象ごとに1つずつ外して、全部が赤くなることを確かめた**
-- [ ] **番人のモックを1つ外して、本物へ行かずに例外で落ちることを確かめた**
-- [ ] **翌月・翌週のボタンが、終わった期間の範囲でしか押せない**
-- [ ] **送信本文に `"B:"` が現れるテストがある**
+- [x] **`viewerKey` を対象ごとに1つずつ外して、全部が赤くなることを確かめた**
+      （viewer-key-coverage.test.tsをAST解析に作り直し、対象全件を総当たりで
+      フォールトインジェクションする形にした）
+- [x] **番人のモックを1つ外して、本物へ行かずに例外で落ちることを確かめた**
+      （apply-migrations.tsを素の代入に直し、ai-summary.test.tsに専用テストを追加）
+- [x] **翌月・翌週のボタンが、終わった期間の範囲でしか押せない**
+- [x] **送信本文に `"B:"` が現れるテストがある**

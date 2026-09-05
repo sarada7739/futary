@@ -2,13 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   addMonths,
+  currentMonthJst,
+  currentWeekJst,
   dayOfWeek,
   diffDays,
   formatJstDate,
   formatJstDateTime,
   isLeapYear,
+  isoWeekKey,
+  isoWeeksInYear,
   isValidDate,
   jstDayRangeMs,
+  jstMonthRangeMs,
+  jstWeekRangeMs,
   monthDayOf,
   monthsBefore,
   projectMonthDay,
@@ -99,6 +105,128 @@ describe("jstDayRangeMs", () => {
     expect(todayJst(fromMs)).toBe("2026-06-15");
     expect(todayJst(toMs - 1)).toBe("2026-06-15");
     expect(todayJst(toMs)).toBe("2026-06-16");
+  });
+});
+
+describe("currentMonthJst（037 aiSummaryの「未来の月は拒む」判定に使う）", () => {
+  it("JSTで月が変わる境界（UTC 15:00）をまたぐ", () => {
+    const utcBeforeMonthEndJst = Date.UTC(2026, 0, 31, 14, 59, 59, 999); // JST 2026-01-31 23:59:59.999
+    const utcAtMonthStartJst = Date.UTC(2026, 0, 31, 15, 0, 0, 0); // JST 2026-02-01 00:00:00.000
+    expect(currentMonthJst(utcBeforeMonthEndJst)).toBe("2026-01");
+    expect(currentMonthJst(utcAtMonthStartJst)).toBe("2026-02");
+  });
+
+  it("年またぎでも正しく繰り上がる", () => {
+    const utcNewYearEveJst = Date.UTC(2026, 11, 31, 15, 0, 0); // JST 2027-01-01 00:00:00
+    expect(currentMonthJst(utcNewYearEveJst)).toBe("2027-01");
+  });
+});
+
+describe("jstMonthRangeMs（037 aiSummary.generateの月範囲検索で使う）", () => {
+  it("月初〜翌月初の範囲を、jstDayRangeMsと同じ基準で返す", () => {
+    const { fromMs, toMs } = jstMonthRangeMs("2026-02");
+    expect(fromMs).toBe(jstDayRangeMs("2026-02-01").fromMs);
+    expect(toMs).toBe(jstDayRangeMs("2026-03-01").fromMs);
+  });
+
+  it("範囲の境界値がその月のtodayJstと一致する", () => {
+    const { fromMs, toMs } = jstMonthRangeMs("2026-06");
+    expect(todayJst(fromMs)).toBe("2026-06-01");
+    expect(todayJst(toMs - 1)).toBe("2026-06-30");
+    expect(todayJst(toMs)).toBe("2026-07-01");
+  });
+
+  it("12月は年をまたいで翌年1月が上端になる", () => {
+    const { fromMs, toMs } = jstMonthRangeMs("2026-12");
+    expect(todayJst(fromMs)).toBe("2026-12-01");
+    expect(todayJst(toMs)).toBe("2027-01-01");
+  });
+});
+
+// 037: ISO 8601週（月曜始まり）。年またぎが一番ずれるため、Wikipediaの
+// ISO 8601記事に載っている検証済みの例をそのまま使う
+// （2005-01-01は2004-W53-6、2018-12-31は2019-W01-1）
+describe("isoWeekKey（ISO 8601週。037 aiSummaryの週次で使う）", () => {
+  it("通常の週（年をまたがない）", () => {
+    // 2007-01-01は月曜で、2007-W01-1（ISOの教科書的な単純ケース）
+    expect(isoWeekKey("2007-01-01")).toBe("2007-W01");
+    expect(isoWeekKey("2007-01-07")).toBe("2007-W01"); // 同じ週の日曜
+    expect(isoWeekKey("2007-01-08")).toBe("2007-W02"); // 翌週の月曜
+  });
+
+  it("12月末が翌年のISO週1になる（2018-12-31 = 2019-W01-1）", () => {
+    expect(isoWeekKey("2018-12-31")).toBe("2019-W01");
+    expect(isoWeekKey("2019-01-01")).toBe("2019-W01");
+  });
+
+  it("1月頭が前年のISO週になる（2005-01-01 = 2004-W53-6）", () => {
+    expect(isoWeekKey("2005-01-01")).toBe("2004-W53");
+  });
+
+  it("同じ週の中では曜日によらず同じキーになる", () => {
+    const monday = isoWeekKey("2026-02-02");
+    for (const date of ["2026-02-02", "2026-02-03", "2026-02-04", "2026-02-05", "2026-02-06", "2026-02-07", "2026-02-08"]) {
+      expect(isoWeekKey(date)).toBe(monday);
+    }
+    expect(isoWeekKey("2026-02-09")).not.toBe(monday);
+  });
+});
+
+describe("currentWeekJst", () => {
+  it("JSTで週が変わる境界（UTC 15:00、日曜→月曜）をまたぐ", () => {
+    // 2026-02-08は日曜、2026-02-09は月曜（JST）
+    const utcBeforeWeekEndJst = Date.UTC(2026, 1, 8, 14, 59, 59, 999); // JST 2026-02-08 23:59:59.999（日曜）
+    const utcAtWeekStartJst = Date.UTC(2026, 1, 8, 15, 0, 0, 0); // JST 2026-02-09 00:00:00（月曜）
+    expect(currentWeekJst(utcBeforeWeekEndJst)).toBe(isoWeekKey("2026-02-08"));
+    expect(currentWeekJst(utcAtWeekStartJst)).toBe(isoWeekKey("2026-02-09"));
+    expect(currentWeekJst(utcAtWeekStartJst)).not.toBe(currentWeekJst(utcBeforeWeekEndJst));
+  });
+});
+
+describe("jstWeekRangeMs（037 aiSummary.generateの週範囲検索で使う）", () => {
+  it("月曜0時〜翌月曜0時の範囲を返す", () => {
+    const { fromMs, toMs } = jstWeekRangeMs("2007-W01");
+    expect(fromMs).toBe(jstDayRangeMs("2007-01-01").fromMs);
+    expect(toMs).toBe(jstDayRangeMs("2007-01-08").fromMs);
+  });
+
+  it("範囲の境界値がisoWeekKeyと一致する（往復で確かめる）", () => {
+    const { fromMs, toMs } = jstWeekRangeMs("2026-W06");
+    expect(isoWeekKey(todayJst(fromMs))).toBe("2026-W06");
+    expect(isoWeekKey(todayJst(toMs - 1))).toBe("2026-W06");
+    expect(isoWeekKey(todayJst(toMs))).not.toBe("2026-W06");
+  });
+
+  it("年をまたぐ週も往復で一致する（2019-W01）", () => {
+    const { fromMs, toMs } = jstWeekRangeMs("2019-W01");
+    expect(todayJst(fromMs)).toBe("2018-12-31");
+    expect(isoWeekKey(todayJst(fromMs))).toBe("2019-W01");
+    expect(isoWeekKey(todayJst(toMs - 1))).toBe("2019-W01");
+  });
+});
+
+// 037・security-auditor指摘: periodKeyの妥当性検証（例: 2025-W53は
+// 存在しない）に使う。特定の年が52週か53週かを暗記して決め打ちで
+// テストするのではなく、「その年の週1月曜から翌年の週1月曜までの日数」
+// という独立した計算と付き合わせることで正しさを確かめる
+// （測ってから書く。特定年の週数を記憶だけで断定しない）
+describe("isoWeeksInYear", () => {
+  it("その年の週1月曜から翌年の週1月曜までの日数と、7×週数が一致する", () => {
+    for (const year of [2004, 2015, 2019, 2020, 2024, 2026, 2032]) {
+      const weeks = isoWeeksInYear(year);
+      expect(weeks === 52 || weeks === 53).toBe(true);
+      const thisYearWeek1Start = jstWeekRangeMs(`${year}-W01`).fromMs;
+      const nextYearWeek1Start = jstWeekRangeMs(`${year + 1}-W01`).fromMs;
+      const daysBetween = Math.round((nextYearWeek1Start - thisYearWeek1Start) / (24 * 60 * 60 * 1000));
+      expect(daysBetween).toBe(weeks * 7);
+    }
+  });
+
+  it("52週・53週の両方が実在する（全部52固定・全部53固定の実装漏れを検知する）", () => {
+    const years = Array.from({ length: 30 }, (_, i) => 2000 + i);
+    const weekCounts = new Set(years.map((y) => isoWeeksInYear(y)));
+    expect(weekCounts.has(52)).toBe(true);
+    expect(weekCounts.has(53)).toBe(true);
   });
 });
 

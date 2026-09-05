@@ -56,6 +56,7 @@ function contextFor(
     db,
     bucket,
     r2Sign,
+    aiEnv: { provider: "openai", openaiApiKey: "test-openai-key" },
     user: user ? { ...user, image: null } : null,
     ip,
     demoCoupleId,

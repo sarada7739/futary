@@ -2,7 +2,7 @@ import { implementer } from "../implementer";
 import { generateImageId } from "../lib/ulid";
 import { createPutUrl, MAX_IMAGE_BYTES, resolveUserImage, userImageKeyFor } from "../lib/r2-signed-url";
 import { isSessionFresh } from "../lib/reauth";
-import { authedProcedure } from "./base";
+import { authedProcedure, writeProcedure } from "./base";
 
 // postUploadUrlContract（apps/api/src/procedures/upload.ts）と同じ値
 const UPLOAD_CONTENT_TYPE = "image/jpeg";
@@ -96,9 +96,12 @@ async function deleteAllByPrefix(bucket: R2Bucket, prefix: string): Promise<void
 //   5. wishes（027追加。couples(id)をON DELETE no actionで参照するため、
 //      couplesを消す前に消さないとFK違反で落ちるため、他のcouple_id系DELETEと同じ理由）
 //   6. moods（029追加。wishesと同じ理由）
-//   7. invites
-//   8. couple_members ← ここまで来れば、あとはcouple_idが要らない
-//   9. couples
+//   7. ai_summaries（037追加。couples(id)をON DELETE no actionで参照する
+//      ため、wishes・moodsと同じ理由。4回目。architecture.md 4節「表を
+//      足したら、消す手順にも足す」）
+//   8. invites
+//   9. couple_members ← ここまで来れば、あとはcouple_idが要らない
+//   10. couples
 //   （相手のuser.imageをNULLに。下のコメント参照）
 // 上記は1本のdb.batch()にまとめる（【security-auditor指摘】個別のrun()
 // だと、削除の実行中に別リクエストが新しい投稿・予定・招待を作った場合、
@@ -186,6 +189,9 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       // 【029・タスク定義8節】moods.couple_id/user_idも同じ理由でcouples/user
       // を参照する。起票の時点でテスト項目に入れてある（027で一度踏んだ形）
       db.prepare("DELETE FROM moods WHERE couple_id = ?1").bind(coupleId),
+      // 【037】ai_summaries.couple_idも同じ理由でcouplesを参照する。
+      // 起票の時点でテスト項目に入れてある（027・029で一度ずつ踏んだ形）
+      db.prepare("DELETE FROM ai_summaries WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couples WHERE id = ?1").bind(coupleId),
@@ -227,8 +233,23 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
   return { ok: true as const };
 });
 
+// 037: 投稿本文を外部の生成AIへ送ることへの同意（ADR-013）。自分の分だけ
+// 変更する。user_idを引数に取らない（mood.setTodayと同じ理由。タスク定義
+// 7節「渡せないものは、間違えて渡せない」）。couple_membersに行が無いと
+// 更新対象が無いため、writeProcedureでcoupleId/userIdを解決する
+// （NEEDS_ONBOARDINGで弾く）
+const meSetAiOptIn = implementer.me.setAiOptIn.use(writeProcedure).handler(async ({ context, input }) => {
+  const { db, coupleId, userId } = context;
+  await db
+    .prepare("UPDATE couple_members SET ai_opt_in = ?1 WHERE couple_id = ?2 AND user_id = ?3")
+    .bind(input.optIn, coupleId, userId)
+    .run();
+  return { aiOptIn: input.optIn };
+});
+
 export const meProcedures = {
   update: meUpdate,
   uploadImageUrl: meUploadImageUrl,
   delete: meDelete,
+  setAiOptIn: meSetAiOptIn,
 };

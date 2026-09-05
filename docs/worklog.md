@@ -11091,6 +11091,75 @@ B が **`couple_members.slot` から機械的に決まる A / B の記号**を�
 
 Session: A
 
+## 2026-09-06 セッションB: 037（AIまとめ）実装完了
+
+### やったこと
+- `couple_members.ai_opt_in`（個人ごとの同意）を実測してから ADD COLUMN
+- `ai_summaries` テーブルを新設。当初は `month` 列のみの設計だったが、
+  実装途中で人間から「週間も欲しい」との要望を受け、A に判断を仰いだ
+  うえで `period_kind`（`month`/`week`）・`period_key` へ作り直した
+  （まだ本番に出ていなかったため、マイグレーションを追加せず既存のものを
+  直接書き換えた。ローカル D1 をリセットし最初から通ることを確認済み）
+- `packages/date` に ISO 8601 週（月曜始まり・JST）の計算を追加
+  （`isoWeekKey`・`currentWeekJst`・`jstWeekRangeMs`・`isoWeeksInYear`）。
+  年またぎの挙動は Wikipedia の ISO 8601 記事にある実例
+  （2005-01-01=2004-W53、2018-12-31=2019-W01）でテストを固定した
+- `apps/api/src/lib/ai.ts`: OpenAI/Anthropic を `AI_PROVIDER` で切り替える
+  窓口を新設。`resolveAiConfig` は実際に機能が呼ばれた瞬間だけ fail-closed
+  する設計（r2-signed-url.ts の clientFor と同じ形）
+- 投稿ごとに「A」「B」の匿名の記号を付けて LLM へ渡す仕組みを追加
+  （人間の「AI がこの発言はどのユーザーのものか認識できたほうがいい」との
+  指摘を受けたもの。`couple_members.slot` から機械的に決まり、実名・ID は
+  一切外部へ渡さない。A が確認し ADR-013 に追記済み）
+- `apps/api/src/procedures/ai-summary.ts`: `get`/`generate` を実装。
+  期間ごと3回・1ペア1暦月10回の二段の歯止め、投稿3件未満は拒否、
+  未来・進行中の期間は拒否、デモペアは明示的に拒否
+- `me.setAiOptIn`（自分の分だけ変更）・`me.get` への `aiOptIn`/
+  `partnerAiOptIn` 追加・`me.delete` への `ai_summaries` 削除文追加
+  （4回目。032 の機械的走査に自動で映ることを確認済み）
+- 画面: `(tabs)/ai-summary.tsx`（月/週切り替え・同意状態に応じた分岐）・
+  `profile.tsx`（同意チェック）・ホームの「AIまとめ」パネルの `onPress`
+- デモシードに月・週それぞれ1件ずつ、実際には生成していないまとめを追加
+  （`manual-check.md` に明記）
+
+### 事故と訂正（正直に記録する）
+テストで `vi.mock("../src/lib/ai", ...)` により `generateSummary` を
+差し替えようとしたが、`apps/api` のテストは `@cloudflare/vitest-plugin`
+（Miniflare/workerd 上でテストコード自体を実行する）を使っており、
+`vi.mock` による ESM モジュールの差し替えが効かなかった。結果として
+**実際に `https://api.openai.com` へ本物のリクエストが飛んだ**（テスト用の
+偽キーのため 401 で失敗し、生成には成功していない。費用は発生していない
+はずだが、叩いてはいけないものを実際に叩いてしまった）。
+`vi.stubGlobal("fetch", ...)` でグローバルの `fetch` 自体を差し替える形に
+直して解消した。再発防止として、`apps/api/test/apply-migrations.ts`
+（全テスト共通のセットアップ）に既定の `fetch` を「呼ばれたら例外」に
+固定する仕組みを追加した（security-auditor の Low 指摘どおり）。
+
+### security-auditor の監査結果（High 以上ゼロ。Medium2件・Low5件、全て対応）
+- Medium: 費用の歯止めが check-then-act で並行リクエストにすり抜けられる
+  → 期間ごとの歯止めを条件付き UPSERT（`RETURNING`）による「先に予約して
+  から呼ぶ」形に直した。6件の並行 `generate` を投げ成功が3件ちょうどに
+  収まることをテストで確認
+- Medium: OpenAI 側に出力トークンの上限が無かった → 両プロバイダに
+  `max_tokens` を揃えて追加
+- Low 5件: JSON パース失敗の扱い・使わない方のキーを context に載せない・
+  テストの fetch 差し替え忘れを止める仕組み・`periodKey` の実在性検証
+  （`isoWeeksInYear`）・`generate` へのデモペア明示ガード。全てにテストを
+  追加して対応した
+
+### 決定事項
+- 週次を追加する設計判断は A に判断を仰ぎ、A の指示どおりに実装した
+  （タスクの「月次のみ、まずは」という明示的な設計を B が独断で覆さない
+  ため）
+
+### 詰まった点
+- なし（上記の vi.mock の事故を除く）
+
+`pnpm -r test`（apps/api 454件・packages/date 61件・packages/db 29件・
+apps/app 241件、全て緑）・`pnpm -r type-check`・`pnpm -w eslint .`、
+全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 037 の R 指摘5件（R-1 は事故と同じ形の再発）
 
 ### R-1: 事故のあとに入れた再発防止が、事故と同じ形を残していた
@@ -11165,3 +11234,59 @@ vitest が覚える「元の値」が番人になる。**1行の書き方の違�
 **叩くまで分からない。叩くのは費用の発生する行為なので、人間の判断である。**
 
 Session: A
+
+## 2026-09-06 セッションB: 037 Rレビュー指摘5件（R-1〜R-5）に対応
+
+### やったこと
+A（futary-35）から中継されたRの指摘5件（`docs/tasks/037-ai-summary.md`末尾・
+PR #251でAが判断確定）に対応した。
+
+- **R-1**: `apps/api/test/apply-migrations.ts`のfetch番人が`vi.stubGlobal`
+  実装のため、`vi.unstubAllGlobals`が「本物のfetch」を復元先として覚えて
+  しまい、再発防止策自体が事故と同じ形の穴を持っていた（Rが実測: 23件中
+  番人が止めたのは1件だけ、残り7件は本物のfetchへ到達）。素の代入
+  （`globalThis.fetch = ...`）に直した。`ai-summary.test.ts`に、fetchの
+  差し替えを外すと番人の例外に落ちることを確認するテストを追加した
+- **R-2**: `apps/app/test/viewer-key-coverage.test.ts`の近傍100文字チェックが
+  隣接する別の呼び出し（`ai-summary.tsx`の`meQuery`宣言）を誤って根拠に
+  拾い、`summaryQuery`のqueryKeyから実際に`viewerKey`を外しても検知できな
+  かった（Aの判断: 「窓を狭めない。作りを変える」）。TypeScriptコンパイラの
+  AST解析に全面的に作り直し、各`orpc.*.queryOptions()`呼び出しが実際にどの
+  `useQuery`/`useInfiniteQuery`のqueryKeyへ渡っているかを構文木で辿って
+  特定する形にした。受け入れ条件どおり、対象全件（10個）についてviewerKeyを
+  1つ外すと当該呼び出しだけが赤くなり、他の対象は巻き添えにならないことを
+  総当たりで確認するテストを追加した
+- **R-3**: 既定が先月・先週のため、翌月・翌週ボタンを1回押すと今月・今週に
+  入りINVALID_INPUTで「読み込めませんでした」になる（再試行しても永久に
+  失敗する）詰まりがあった（Aの判断: 「エラーにしない。押せなくする」
+  020「押せないボタンを置かない」）。`ai-summary.tsx`に`nextDisabled`を
+  追加し、今月・今週へ進む翌月・翌週ボタンを無効化した。サーバ側の拒否は
+  そのまま残す。既存テストの題名が「前月・翌月ボタンで」なのに前月しか
+  押していなかった不備も直し、翌月・翌週を押すテストと無効化確認のテストを
+  追加した
+- **R-4**: `ai-summary.ts`のコメントに書いていた「暦月合計が10をわずかに
+  超えて通る窓が残る」という未実測の推測を、Rの実測（暦月合計9回使用済みの
+  状態で5本を並行に投げ、成功0件）に基づく正確な記述へ訂正した
+  （`harness.md`「実行できる主張は、実行してから書く」）
+- **R-5**: 送信本文に`"B:"`が現れるテストが1件も無かった（人間の指摘で
+  ADR-013に足したはずのもの）。相手（slot=2）の投稿を含めたテストと、
+  `couple_members`に居ないauthor_idの投稿がAへ寄る（fallback）ことを
+  確認するテストを`ai-summary.test.ts`に追加した
+
+### 決定事項
+- R-2・R-3はAの判断（「作りを変える」「押せなくする」）どおりに実装した。
+  作り方の細部（AST解析の設計・disabled判定のロジック）はAから一任された
+  範囲でBが決めた
+
+### 詰まった点
+- 新規テスト2件が最初赤くなった。(1) fetch番人は同期的にthrowするため
+  `.rejects.toThrow`ではなく`expect(() => fetch(...)).toThrow`が必要だった
+  （Promiseをrejectしているのではなく、呼び出し自体が例外を投げる）
+  (2) fallbackテストで`posts.author_id`が`user.id`へのFKのため、実在しない
+  文字列をそのまま使うとFK違反で落ちた→実際にuserを1件作成し、
+  `couple_members`には入れない形に直した
+
+`pnpm -r test`（apps/api 457件・apps/app 244件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
