@@ -22,6 +22,8 @@ export const colors = {
   eventAnniversary: "#E36387",
   eventPlan: "#D9A441",
   eventMeetup: "#4C8C8B",
+  // 取り返しのつかない操作（退会）専用。architecture.md 7節。036
+  danger: "#C9423C",
 } as const;
 
 export const radius = {

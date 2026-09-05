@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { Pressable, Text as RNText, type PressableProps } from "react-native";
 import { colors, fontFamily, radius, space } from "../tokens";
 
-export type ButtonVariant = "primary" | "secondary" | "ghost";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 export type ButtonProps = Omit<PressableProps, "style" | "children" | "onPress"> & {
   variant?: ButtonVariant;
@@ -90,6 +90,16 @@ export function Button({ variant = "primary", disabled, onPress, children, ...re
             borderColor: colors.primary,
           };
         }
+        if (variant === "danger") {
+          // 036: 塗りつぶしにしない。枠だけ。危険な操作を押しやすくしない
+          // （architecture.md 7節「danger バリアント」）
+          return {
+            ...base,
+            backgroundColor: pressed ? colors.surfaceTint : colors.surface,
+            borderWidth: 1,
+            borderColor: colors.danger,
+          };
+        }
         return {
           ...base,
           backgroundColor: pressed ? colors.surfaceTint : "transparent",
@@ -111,7 +121,9 @@ export function Button({ variant = "primary", disabled, onPress, children, ...re
             ? colors.textMuted
             : variant === "primary"
               ? colors.surface
-              : colors.brandInk,
+              : variant === "danger"
+                ? colors.danger
+                : colors.brandInk,
         }}
       >
         {children}
