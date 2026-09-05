@@ -3,11 +3,15 @@ import { Image, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { bokeh } from "../assets";
-import { gradients, layout } from "../tokens";
+import { colors, gradients, layout } from "../tokens";
 
 // 035視覚仕様4節: 画面上部だけに敷く光のボケの高さ。カード（記念日カード等、
 // 主役の要素）の背後に来る位置という想定
 const BOKEH_HEIGHT = 420;
+// ボケ画像を高さ420ptで打ち切ると、その境目に地の色との段差が見える
+// （実測: y=419→420で全x位置に一貫してrgb差3〜5。Aの指摘どおり継ぎ目が
+// 実在した）。下端をフェードさせて消す。フェードの高さは感覚値
+const BOKEH_FADE_HEIGHT = 140;
 
 export type ScreenProps = {
   children: ReactNode;
@@ -31,7 +35,21 @@ export function Screen({ children, unconstrained = false }: ScreenProps) {
       <Image
         source={bokeh}
         resizeMode="cover"
-        style={{ position: "absolute", top: 0, left: 0, right: 0, height: BOKEH_HEIGHT, opacity: 0.5 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: BOKEH_HEIGHT, opacity: 0.8 }}
+      />
+      {/* ボケ画像の下端をgradients.screenの2色目（surfaceTint）へフェードし、
+          高さで打ち切ったことによる継ぎ目を消す */}
+      <LinearGradient
+        colors={["transparent", colors.surfaceTint]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{
+          position: "absolute",
+          top: BOKEH_HEIGHT - BOKEH_FADE_HEIGHT,
+          left: 0,
+          right: 0,
+          height: BOKEH_FADE_HEIGHT,
+        }}
       />
       <View
         style={
