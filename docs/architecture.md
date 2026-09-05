@@ -157,6 +157,8 @@ couple_members
   couple_id  TEXT    NOT NULL -> couples.id
   user_id    TEXT    NOT NULL -> user.id   UNIQUE   -- 1人1ペアまで
   slot       INTEGER NOT NULL CHECK (slot IN (1, 2))  -- 1ペア2人までをDBで担保
+  ai_opt_in  INTEGER NOT NULL DEFAULT 0             -- 037。外部の生成AIへ本文を送ることへの
+                                                    -- 同意。個人ごと。2人とも1のときだけ使える
   joined_at  INTEGER NOT NULL
   PRIMARY KEY (couple_id, user_id)
   UNIQUE (couple_id, slot)
@@ -233,6 +235,18 @@ wishes                                          -- 027。行きたい場所・�
   INDEX (couple_id, created_at DESC)
                                                 -- kind を持たない。「カフェ」は場所でもあり
                                                 -- 食べ物でもある。迷わせる分類は書かれない（027）
+
+ai_summaries                                    -- 037。月ごとのAIまとめ
+  couple_id       TEXT    NOT NULL
+  month           TEXT    NOT NULL            -- YYYY-MM（JST）
+  body            TEXT    NOT NULL
+  provider        TEXT    NOT NULL            -- 'openai' | 'anthropic'
+  model           TEXT    NOT NULL            -- どのモデルが書いたかを残す
+  generated_count INTEGER NOT NULL DEFAULT 1  -- 1ペア1ヶ月3回まで
+  created_at      INTEGER NOT NULL
+  updated_at      INTEGER NOT NULL
+  PRIMARY KEY (couple_id, month)
+  CONSTRAINT ai_summaries_provider_check CHECK (provider IN ('openai','anthropic'))
 
 moods                                           -- 029。1日1回の気分
   couple_id   TEXT    NOT NULL
@@ -730,6 +744,12 @@ wish.setDone        { id, done } -> 更新後の1件
                     同じ要求が2回届いても結果が同じになる（二重発火。conventions.md 4節）
 wish.delete         { id } -> { id }。論理削除
                     他ペアの id は NOT_FOUND（FORBIDDEN にしない。存在を教えない）
+aiSummary.get       { month } -> { body, provider, model, updatedAt, generatedCount } | null
+aiSummary.generate  { month } -> 生成して保存し、同じ形を返す（037）
+                    2人とも同意していなければ FORBIDDEN
+                    投稿3件未満は INVALID_INPUT。4回目は LIMIT_REACHED
+                    入力は本文だけ。画像・利用者名・IDを入れない
+me.setAiOptIn       { optIn } -> { aiOptIn }。自分の分だけ（user_id を引数に取らない）
 mood.setToday       { level } -> { date, level }   029。自分の今日の分。upsert
                     user_id を引数に取らない（ctx.userId）。渡せないものは間違えて渡せない
 mood.clearToday     () -> { date }。自分の今日の分を消す（物理削除）
@@ -1540,6 +1560,8 @@ PUT しただけで`post.create`/`me.update`を呼ばなければ、D1に一切�
 |---|---|---|
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth | ローカル `.dev.vars` / 本番 `wrangler secret` |
 | `BETTER_AUTH_SECRET` | セッション署名 | 同上 |
+| `AI_PROVIDER` | `openai` または `anthropic`（037） | 同上 |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | **`AI_PROVIDER` が指す方だけ読む**（037） | 同上 |
 | `BETTER_AUTH_URL` | コールバックURL | ローカル `.dev.vars` / 本番 `wrangler secret` |
 | `TRUSTED_ORIGINS` | CORS の許可オリジン | 同上 |
 | `DB` | D1 バインディング | `wrangler.toml` |
