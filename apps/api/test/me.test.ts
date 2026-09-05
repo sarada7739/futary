@@ -69,6 +69,7 @@ function contextFor(
     db,
     bucket,
     r2Sign,
+    aiEnv: { provider: "openai", openaiApiKey: "test-openai-key" },
     user: user ? { ...user, image: null } : null,
     ip: "203.0.113.1",
     demoCoupleId: null,
@@ -128,6 +129,91 @@ describe("me.get", () => {
     });
 
     expect(result?.sessionIsFresh).toBe(false);
+  });
+
+  // 037: ペア未所属ならcouple_membersに行が無いため、両方false
+  it("ペア未所属ならaiOptIn/partnerAiOptInは両方false", async () => {
+    const user = await createUser();
+
+    const result = await call(router.me.get, undefined, { context: contextFor(user) });
+
+    expect(result?.aiOptIn).toBe(false);
+    expect(result?.partnerAiOptIn).toBe(false);
+  });
+
+  it("自分が同意するとaiOptInがtrueになり、相手のpartnerAiOptInにも反映される", async () => {
+    const owner = await createUser();
+    await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+
+    await call(router.me.setAiOptIn, { optIn: true }, { context: contextFor(owner) });
+
+    const ownerView = await call(router.me.get, undefined, { context: contextFor(owner) });
+    expect(ownerView?.aiOptIn).toBe(true);
+    expect(ownerView?.partnerAiOptIn).toBe(false);
+
+    const partnerView = await call(router.me.get, undefined, { context: contextFor(partner) });
+    expect(partnerView?.aiOptIn).toBe(false);
+    expect(partnerView?.partnerAiOptIn).toBe(true);
+  });
+});
+
+describe("me.setAiOptIn", () => {
+  it("自分の分だけ変更する（相手の行には影響しない）", async () => {
+    const owner = await createUser();
+    await createCouple(owner);
+    const invite = await call(router.invite.issue, undefined, { context: contextFor(owner) });
+    const partner = await createUser();
+    await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
+
+    const result = await call(router.me.setAiOptIn, { optIn: true }, { context: contextFor(owner) });
+    expect(result).toEqual({ aiOptIn: true });
+
+    const partnerView = await call(router.me.get, undefined, { context: contextFor(partner) });
+    expect(partnerView?.aiOptIn).toBe(false);
+  });
+
+  it("falseへ戻せる", async () => {
+    const owner = await createUser();
+    await createCouple(owner);
+
+    await call(router.me.setAiOptIn, { optIn: true }, { context: contextFor(owner) });
+    const result = await call(router.me.setAiOptIn, { optIn: false }, { context: contextFor(owner) });
+    expect(result).toEqual({ aiOptIn: false });
+  });
+
+  // couple_membersに行が無いと更新対象が無いため、writeProcedureが
+  // NEEDS_ONBOARDINGで弾く
+  it("ペア未所属だとNEEDS_ONBOARDING", async () => {
+    const user = await createUser();
+
+    await expect(
+      call(router.me.setAiOptIn, { optIn: true }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
+  });
+
+  it("未認証（デモ）はFORBIDDEN", async () => {
+    const owner = await createUser();
+    const couple = await createCouple(owner);
+    await db.prepare("UPDATE couples SET is_demo = 1 WHERE id = ?1").bind(couple.id).run();
+
+    const demoContext: RpcContext = {
+      db,
+      bucket,
+      r2Sign,
+      aiEnv: { provider: "openai", openaiApiKey: "test-openai-key" },
+      user: null,
+      ip: "203.0.113.1",
+      demoCoupleId: couple.id,
+      sessionCreatedAt: null,
+      authSecret: "test-secret",
+    };
+
+    await expect(
+      call(router.me.setAiOptIn, { optIn: true }, { context: demoContext }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 
@@ -325,6 +411,16 @@ describe("me.delete", () => {
     await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
     // 029: moods.couple_idも同じ理由でcouplesを参照する
     await call(router.mood.setToday, { level: 5 }, { context: contextFor(owner) });
+    // 037: ai_summaries.couple_idも同じ理由でcouplesを参照する。
+    // aiSummary.generateは本物のAPIを呼ぶため使わず、行を直接作る
+    // （タスク定義「テストで本物のAPIを叩かない」）
+    await db
+      .prepare(
+        `INSERT INTO ai_summaries (couple_id, period_kind, period_key, body, provider, model, generated_count, created_at, updated_at)
+         VALUES (?1, 'month', '2026-01', 'テストのまとめ', 'openai', 'gpt-4o-mini', 1, ?2, ?2)`,
+      )
+      .bind(couple.id, Math.floor(Date.now() / 1000))
+      .run();
 
     const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
     expect(result.ok).toBe(true);
@@ -343,6 +439,7 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT code FROM invites WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM wishes WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT 1 FROM moods WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+    expect(await db.prepare("SELECT 1 FROM ai_summaries WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
 
     // 自分のuser行は消え、相手のuser行はCandle型として残る（消えるのはペアのデータだけ）
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
@@ -470,6 +567,15 @@ describe("me.delete", () => {
     await call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(owner) });
     // 029: moodsもcouple_idを持つ表として、この機械的走査に自動的に拾われる
     await call(router.mood.setToday, { level: 3 }, { context: contextFor(owner) });
+    // 037: ai_summariesも同じ理由でこの機械的走査に自動的に拾われる。
+    // aiSummary.generateは本物のAPIを呼ぶため使わず、行を直接作る
+    await db
+      .prepare(
+        `INSERT INTO ai_summaries (couple_id, period_kind, period_key, body, provider, model, generated_count, created_at, updated_at)
+         VALUES (?1, 'month', '2026-01', 'テストのまとめ', 'openai', 'gpt-4o-mini', 1, ?2, ?2)`,
+      )
+      .bind(couple.id, Math.floor(Date.now() / 1000))
+      .run();
 
     // D1はPRAGMA文を許可しない（SQLITE_AUTH。実測で確認）ため、
     // schema-integrity.test.tsのextractNamedChecksと同じ方式で、
@@ -488,7 +594,7 @@ describe("me.delete", () => {
     // 検出ロジック自体の健全性: 既知の表が最低限含まれていることを保証する
     // （0件だと下のループが何もチェックせず成功してしまう）
     expect(coupleIdTables).toEqual(
-      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes", "moods"]),
+      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes", "moods", "ai_summaries"]),
     );
 
     // 【Rレビュー指摘R-1】削除前チェックが無いと、将来「couple_idを持つ新しい表」
@@ -552,6 +658,7 @@ describe("me.delete", () => {
         "events",
         "wishes",
         "moods",
+        "ai_summaries",
       ]),
     );
 
@@ -607,6 +714,14 @@ describe("me.delete", () => {
     );
     await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
     await call(router.mood.setToday, { level: 5 }, { context: contextFor(owner) });
+    // 037: aiSummary.generateは本物のAPIを呼ぶため使わず、行を直接作る
+    await db
+      .prepare(
+        `INSERT INTO ai_summaries (couple_id, period_kind, period_key, body, provider, model, generated_count, created_at, updated_at)
+         VALUES (?1, 'month', '2026-01', 'テストのまとめ', 'openai', 'gpt-4o-mini', 1, ?2, ?2)`,
+      )
+      .bind(couple.id, now)
+      .run();
 
     // 免除は「表」ではなく「残ってよい行の条件」で登録する（Rレビュー指摘。
     // 032タスク定義3節）。表ごと免除にすると、自分のsessionが残っていても

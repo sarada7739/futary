@@ -30,3 +30,9 @@ TRUSTED_ORIGINS=http://localhost:8081,http://127.0.0.1:8081,http://localhost:190
 R2_ACCOUNT_ID=
 R2_ACCESS_KEY_ID=
 R2_SECRET_ACCESS_KEY=
+
+# 037: AIまとめ。AI_PROVIDER（wrangler.tomlの[vars]で指定。既定はopenai）が
+# 指す方のキーだけを読む（両方は読まない）。キーは運営が持ち、
+# 利用者には入れさせない（ADR-013）
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=

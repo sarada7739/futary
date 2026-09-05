@@ -82,16 +82,17 @@ describe("HomeScreen: 機能パネル", () => {
   });
 
   // 029: 「気分の記録」パネルにonPressが付き、次フェーズから動くパネルへ移った。
+  // 037: 「AIまとめ」パネルにもonPressが付き、次フェーズから動くパネルへ移った。
   // 035: 表示文言を「次フェーズ」（開発都合の言葉）から「COMING SOON」に変えた
-  it("次フェーズのパネル2枚（今日どうだった？・AIまとめ）が「COMING SOON」表示で出る", async () => {
+  it("次フェーズのパネル1枚（今日どうだった？）が「COMING SOON」表示で出る", async () => {
     renderScreen();
     await screen.findByTestId("stats-card-meetup-pill");
 
-    for (const label of ["今日どうだった？", "AIまとめ"]) {
-      expect(screen.getByText(label)).toBeTruthy();
-    }
-    // 2枚とも「COMING SOON」バッジを持つ（「準備中です」という文言は使わない）
-    expect(screen.getAllByText("COMING SOON")).toHaveLength(2);
+    expect(screen.getByText("今日どうだった？")).toBeTruthy();
+    expect(screen.getByText("AIまとめ")).toBeTruthy();
+    // 「今日どうだった？」だけが「COMING SOON」バッジを持つ
+    // （「準備中です」という文言は使わない）
+    expect(screen.getAllByText("COMING SOON")).toHaveLength(1);
     expect(screen.queryByText("準備中です")).toBeNull();
     expect(screen.queryByText("次フェーズ")).toBeNull();
   });
@@ -143,6 +144,13 @@ describe("HomeScreen: 機能パネル", () => {
     fireEvent.click(await screen.findByText("気分の記録"));
 
     expect(pushMock).toHaveBeenCalledWith("/mood");
+  });
+
+  it("AIまとめパネルを押すと /ai-summary へ遷移する（037）", async () => {
+    renderScreen();
+    fireEvent.click(await screen.findByText("AIまとめ"));
+
+    expect(pushMock).toHaveBeenCalledWith("/ai-summary");
   });
 
   it("次フェーズのパネルを押しても何も起きない（遷移しない）", async () => {

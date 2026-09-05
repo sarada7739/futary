@@ -141,6 +141,13 @@
       "when": 1788489197992,
       "tag": "0019_post_images",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1788636216101,
+      "tag": "0020_ai_summaries",
+      "breakpoints": true
     }
   ]
 }

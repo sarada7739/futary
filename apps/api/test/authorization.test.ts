@@ -55,6 +55,7 @@ function contextFor(
     db,
     bucket,
     r2Sign,
+    aiEnv: { provider: "openai", openaiApiKey: "test-openai-key" },
     user: user ? { ...user, image: null } : null,
     ip: "203.0.113.1",
     demoCoupleId,
@@ -973,6 +974,7 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     "me.update",
     "me.uploadImageUrl",
     "me.delete",
+    "me.setAiOptIn",
     "couple.create",
     "couple.get",
     "couple.update",
@@ -997,6 +999,8 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     "mood.setToday",
     "mood.clearToday",
     "mood.list",
+    "aiSummary.get",
+    "aiSummary.generate",
   ].sort();
 
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {

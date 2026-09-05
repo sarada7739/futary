@@ -1,5 +1,11 @@
 import { healthGetContract } from "./health";
-import { meDeleteContract, meGetContract, meUpdateContract, meUploadImageUrlContract } from "./me";
+import {
+  meDeleteContract,
+  meGetContract,
+  meSetAiOptInContract,
+  meUpdateContract,
+  meUploadImageUrlContract,
+} from "./me";
 import { coupleCreateContract, coupleGetContract, coupleUpdateContract } from "./couple";
 export { PRIMARY_DATE_VALUES } from "./couple";
 export type { Couple } from "./couple";
@@ -22,6 +28,7 @@ import {
   wishUpdateContract,
 } from "./wish";
 import { moodClearTodayContract, moodListContract, moodSetTodayContract } from "./mood";
+import { aiSummaryGenerateContract, aiSummaryGetContract } from "./ai-summary";
 
 export type { Post, PostImage } from "./post";
 export { MAX_POST_IMAGES } from "./post";
@@ -34,6 +41,8 @@ export { MEMORY_LABELS } from "./memory";
 export type { Wish } from "./wish";
 export { MAX_WISH_NOTE_LENGTH, MAX_WISH_TITLE_LENGTH } from "./wish";
 export type { MoodEntry } from "./mood";
+export type { AiSummary } from "./ai-summary";
+export { AI_PROVIDERS, PERIOD_KINDS } from "./ai-summary";
 
 export const contract = {
   health: {
@@ -44,6 +53,7 @@ export const contract = {
     update: meUpdateContract,
     uploadImageUrl: meUploadImageUrlContract,
     delete: meDeleteContract,
+    setAiOptIn: meSetAiOptInContract,
   },
   couple: {
     create: coupleCreateContract,
@@ -86,6 +96,10 @@ export const contract = {
     setToday: moodSetTodayContract,
     clearToday: moodClearTodayContract,
     list: moodListContract,
+  },
+  aiSummary: {
+    get: aiSummaryGetContract,
+    generate: aiSummaryGenerateContract,
   },
 };
 

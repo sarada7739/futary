@@ -11090,3 +11090,73 @@ B が **`couple_members.slot` から機械的に決まる A / B の記号**を�
 `security-requirements.md` の T10 も同じ形に直した。
 
 Session: A
+
+## 2026-09-06 セッションB: 037（AIまとめ）実装完了
+
+### やったこと
+- `couple_members.ai_opt_in`（個人ごとの同意）を実測してから ADD COLUMN
+- `ai_summaries` テーブルを新設。当初は `month` 列のみの設計だったが、
+  実装途中で人間から「週間も欲しい」との要望を受け、A に判断を仰いだ
+  うえで `period_kind`（`month`/`week`）・`period_key` へ作り直した
+  （まだ本番に出ていなかったため、マイグレーションを追加せず既存のものを
+  直接書き換えた。ローカル D1 をリセットし最初から通ることを確認済み）
+- `packages/date` に ISO 8601 週（月曜始まり・JST）の計算を追加
+  （`isoWeekKey`・`currentWeekJst`・`jstWeekRangeMs`・`isoWeeksInYear`）。
+  年またぎの挙動は Wikipedia の ISO 8601 記事にある実例
+  （2005-01-01=2004-W53、2018-12-31=2019-W01）でテストを固定した
+- `apps/api/src/lib/ai.ts`: OpenAI/Anthropic を `AI_PROVIDER` で切り替える
+  窓口を新設。`resolveAiConfig` は実際に機能が呼ばれた瞬間だけ fail-closed
+  する設計（r2-signed-url.ts の clientFor と同じ形）
+- 投稿ごとに「A」「B」の匿名の記号を付けて LLM へ渡す仕組みを追加
+  （人間の「AI がこの発言はどのユーザーのものか認識できたほうがいい」との
+  指摘を受けたもの。`couple_members.slot` から機械的に決まり、実名・ID は
+  一切外部へ渡さない。A が確認し ADR-013 に追記済み）
+- `apps/api/src/procedures/ai-summary.ts`: `get`/`generate` を実装。
+  期間ごと3回・1ペア1暦月10回の二段の歯止め、投稿3件未満は拒否、
+  未来・進行中の期間は拒否、デモペアは明示的に拒否
+- `me.setAiOptIn`（自分の分だけ変更）・`me.get` への `aiOptIn`/
+  `partnerAiOptIn` 追加・`me.delete` への `ai_summaries` 削除文追加
+  （4回目。032 の機械的走査に自動で映ることを確認済み）
+- 画面: `(tabs)/ai-summary.tsx`（月/週切り替え・同意状態に応じた分岐）・
+  `profile.tsx`（同意チェック）・ホームの「AIまとめ」パネルの `onPress`
+- デモシードに月・週それぞれ1件ずつ、実際には生成していないまとめを追加
+  （`manual-check.md` に明記）
+
+### 事故と訂正（正直に記録する）
+テストで `vi.mock("../src/lib/ai", ...)` により `generateSummary` を
+差し替えようとしたが、`apps/api` のテストは `@cloudflare/vitest-plugin`
+（Miniflare/workerd 上でテストコード自体を実行する）を使っており、
+`vi.mock` による ESM モジュールの差し替えが効かなかった。結果として
+**実際に `https://api.openai.com` へ本物のリクエストが飛んだ**（テスト用の
+偽キーのため 401 で失敗し、生成には成功していない。費用は発生していない
+はずだが、叩いてはいけないものを実際に叩いてしまった）。
+`vi.stubGlobal("fetch", ...)` でグローバルの `fetch` 自体を差し替える形に
+直して解消した。再発防止として、`apps/api/test/apply-migrations.ts`
+（全テスト共通のセットアップ）に既定の `fetch` を「呼ばれたら例外」に
+固定する仕組みを追加した（security-auditor の Low 指摘どおり）。
+
+### security-auditor の監査結果（High 以上ゼロ。Medium2件・Low5件、全て対応）
+- Medium: 費用の歯止めが check-then-act で並行リクエストにすり抜けられる
+  → 期間ごとの歯止めを条件付き UPSERT（`RETURNING`）による「先に予約して
+  から呼ぶ」形に直した。6件の並行 `generate` を投げ成功が3件ちょうどに
+  収まることをテストで確認
+- Medium: OpenAI 側に出力トークンの上限が無かった → 両プロバイダに
+  `max_tokens` を揃えて追加
+- Low 5件: JSON パース失敗の扱い・使わない方のキーを context に載せない・
+  テストの fetch 差し替え忘れを止める仕組み・`periodKey` の実在性検証
+  （`isoWeeksInYear`）・`generate` へのデモペア明示ガード。全てにテストを
+  追加して対応した
+
+### 決定事項
+- 週次を追加する設計判断は A に判断を仰ぎ、A の指示どおりに実装した
+  （タスクの「月次のみ、まずは」という明示的な設計を B が独断で覆さない
+  ため）
+
+### 詰まった点
+- なし（上記の vi.mock の事故を除く）
+
+`pnpm -r test`（apps/api 454件・packages/date 61件・packages/db 29件・
+apps/app 241件、全て緑）・`pnpm -r type-check`・`pnpm -w eslint .`、
+全て通過。
+
+Session: B

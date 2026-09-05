@@ -91,7 +91,12 @@ export default function HomeScreen() {
             onPress={() => router.push("/mood")}
             width={panelWidth}
           />
-          <FeaturePanel label="AIまとめ" icon={iconPanelAi} width={panelWidth} />
+          <FeaturePanel
+            label="AIまとめ"
+            icon={iconPanelAi}
+            onPress={() => router.push("/ai-summary")}
+            width={panelWidth}
+          />
         </View>
       </ScrollView>
     </Screen>
