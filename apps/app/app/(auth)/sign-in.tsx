@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import { Button, colors, fontFamily, Screen, Text, space } from "@futary/ui";
-import { Platform, Text as RNText, View } from "react-native";
+import { Button, colors, fontFamily, logoMark, Screen, Text, space } from "@futary/ui";
+import { Image, Platform, Text as RNText, View } from "react-native";
 import { signIn } from "../../lib/auth-client";
 import { useGuestMode } from "../../lib/guest-mode";
 
@@ -22,6 +22,12 @@ function resolveCallbackURL(): string {
   if (Platform.OS === "web" && typeof window !== "undefined") return `${window.location.origin}/app/`;
   return "/";
 }
+
+// 035タスク定義4節「中央に大きなロゴ」。logoMarkの元画像は168x59（比率2.85）で、
+// ホーム上部の96x34より大きく出す。ラスター画像のため、これ以上大きくすると
+// 粗さが目立つ（`docs/sample/README.md`に元画像の出どころの記載あり）
+const LOGO_WIDTH = 224;
+const LOGO_HEIGHT = 79;
 
 export default function SignInScreen() {
   // react-native-web の Pressable は環境によって onPress が1クリックで2回発火する
@@ -66,9 +72,16 @@ export default function SignInScreen() {
         }}
       >
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: space.sm }}>
-          <Text size="xl" weight="bold" color="brand">
-            futary
-          </Text>
+          {/* 035タスク定義4節「中央に大きなロゴ」。ホーム上部と同じ
+              logoMark（既存のブランドの手書き風ロゴ画像）を大きく出す。
+              新しいフォント・新しい画像は増やさない */}
+          <Image
+            source={logoMark}
+            style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
+            resizeMode="contain"
+            accessibilityRole="image"
+            accessibilityLabel="futary"
+          />
           {/* 035書体仕様: タグラインはweight400・字間0.15em（16pt×0.15=2.4）・
               行送り1.9（16pt×1.9=30.4）。共有Textはletterspacing/この
               行送りを持たないため、ここだけ生Textで組む */}

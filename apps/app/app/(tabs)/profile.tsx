@@ -13,6 +13,7 @@ import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
 import { signOut } from "../../lib/auth-client";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -246,7 +247,7 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.lg }}>
           <View style={{ alignItems: "center", gap: space.md }}>
             <Pressable onPress={pickImage} accessibilityRole="button" accessibilityLabel="アイコン画像を変更">
               <Avatar name={name || "?"} imageUrl={avatarImageUrl} size={64} />

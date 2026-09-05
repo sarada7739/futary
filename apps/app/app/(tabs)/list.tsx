@@ -8,6 +8,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
 // post-card.tsxのDeleteMenuと同じ形。確認せず即削除しない
@@ -254,7 +255,7 @@ export default function ListScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.md }}>
         {isGuestMode ? (
           // 014の導線に合わせる。入力欄自体を出さず、押してからサーバに
           // 拒まれる形にしない

@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { Pressable, ScrollView, View } from "react-native";
 import { daysTogetherLabel } from "../../lib/stats";
 import { orpc } from "../../lib/orpc";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
 function StatRow({ label, value }: { label: string; value: string }) {
@@ -56,7 +57,7 @@ export default function StatsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE }}>
         <Card>
           <View style={{ gap: space.md }}>
             {label && <StatRow label="記念日" value={label} />}

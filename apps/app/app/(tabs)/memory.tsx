@@ -1,6 +1,7 @@
 import { Screen, space } from "@futary/ui";
 import { ScrollView } from "react-native";
 import { MemoryCard } from "../../components/memory-card";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 
 // 020: 013の思い出しカードをホームから独立したページへ移した。
 // ホームの機能パネル「思い出」の行き先。新しいカードは作らず、
@@ -8,7 +9,7 @@ import { MemoryCard } from "../../components/memory-card";
 export default function MemoryScreen() {
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg }}>
+      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE }}>
         <MemoryCard />
       </ScrollView>
     </Screen>

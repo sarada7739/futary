@@ -9,6 +9,7 @@ import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { POST_LIST_REFETCH_INTERVAL_MS, queryClient } from "../../lib/query";
 import { toggleReactionOptimistically } from "../../lib/reaction";
+import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
 type PostListPage = { items: Post[]; nextCursor: string | null };
@@ -114,7 +115,7 @@ export default function TimelineScreen() {
       <FlatList
       data={posts}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={{ padding: space.lg, gap: space.md, flexGrow: 1 }}
+      contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.md, flexGrow: 1 }}
       ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
       renderItem={({ item }) => {
         const isOwn = item.authorId === myId;
