@@ -82,12 +82,13 @@ queryClient["setQueryData"](...)                            // 素通り
   `apps/app/app/test/`・免除の名指し・再エクスポート3通り）**が引き続き効く**
 
 ## 完了条件
-- [ ] 列挙がライブラリから引かれ、`toEqual` で固定されている
-- [ ] 別名 import とブラケット記法が赤
-- [ ] 決めた形が `conventions.md` に書かれている（**書くのは A**）
-- [ ] R が素通りさせた13通りが全部赤
-- [ ] これまでに閉じたものが引き続き効く
-- [ ] `artifacts/038/` に証跡を保存
+- [x] 列挙がライブラリから引かれ、`toEqual` で固定されている
+- [x] 別名 import とブラケット記法が赤
+- [x] 決めた形が `conventions.md` に書かれている（Aが`63e72d7`で反映済み）
+- [x] R が素通りさせた12通りが全部赤（`setQueryDefaults`/`getQueryDefaults`は
+      理由つきで対象外に分類。ブラケット記法・別名importは別の入口検査で赤）
+- [x] これまでに閉じたものが引き続き効く
+- [x] `artifacts/038/` に証跡を保存
 
 ## 停止条件
 - 完了: 上記をすべて満たす
@@ -96,12 +97,16 @@ queryClient["setQueryData"](...)                            // 素通り
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へ
 
 ## 進捗
-- [ ] ライブラリからの列挙
-- [ ] 「キーを取るもの／取らないもの」の仕分け（理由つき）
-- [ ] 別名 import・ブラケット記法
-- [ ] 13通りを当てる
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
-
+- [x] ライブラリからの列挙（`import * as ReactQueryModule from "@tanstack/react-query"`を
+      テスト実行時に読む形。59件のexport・34件の`QueryClient`メソッドを実測）
+- [x] 「キーを取るもの／取らないもの」の仕分け（理由つき。exact19件・
+      prefix7件・excluded67件。`node_modules`内の実装を読んで判断した）
+- [x] 別名 import・ブラケット記法（`@tanstack/react-query`のimportを
+      名前付き・別名無しに限定。`queryClient`のメソッド呼び出しをドット
+      記法に限定）
+- [x] 12通りを当てる（Rの実測どおり。うち`setQueryDefaults`は対象外分類、
+      ブラケット記法・別名importは別検査）
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
 
 ---
 
@@ -154,7 +159,25 @@ queryClient["setQueryData"](...)                            // 素通り
 **`git merge origin/main` すれば揃う。**タスクの完了条件のチェックはそのとき。
 
 ## 受け入れの形
-- **`getQueriesData` の返り値を使う形が赤になる**
-- **`setQueriesData` に関数以外を渡す形が赤になる**
-- **いまの `timeline.tsx` の書き方は緑のまま**
-- **これまでに閉じたものが引き続き効く**
+- [x] **`getQueriesData` の返り値を使う形が赤になる**（変数へ代入・そのまま
+      返す・添字で読む、の3パターンで確認。式文としてだけ呼べば緑のまま）
+- [x] **`setQueriesData` に関数以外を渡す形が赤になる**（値・オブジェクト
+      リテラルの2パターンで確認。関数式・アロー関数なら緑のまま）
+- [x] **いまの `timeline.tsx` の書き方は緑のまま**（`getQueriesData`の
+      呼び出し1箇所に`viewer-key-coverage-ignore`コメントを追加した。
+      戻り値は`context`経由で`onError`の`setQueryData`へ同じキーへ
+      書き戻すためだけに使われ、画面には表示されない。`setQueriesData`
+      呼び出しはupdaterが関数式のため無条件で緑のまま）
+- [x] **これまでに閉じたものが引き続き効く**
+
+**最終フォローアップ（Rが免除・条件検査の両方を実ファイルで確認後、
+残り1件）**: `conditional`な2つが条件を満たさず赤くなったときの
+メッセージが「viewerKeyが確認できません」のままで、条件そのものが
+壊れていることが読み取れず、viewerKeyを足しても直らない誤誘導が
+あった。`describeMissingReason`で条件の話をする文言に分けて対応した。
+「`(old) => 誰かのデータ`が条件を満たしてしまう」件はAの判断で直さない
+（他人のデータを注入する入口は別途塞がっているため、いまは届かない。
+厳しすぎる側に倒すほうが緩いより良い）。
+
+`pnpm -r test`（apps/api 457件・apps/app 293件、全て緑）・型チェック・
+lint、全て通過。**これで閉じる。**

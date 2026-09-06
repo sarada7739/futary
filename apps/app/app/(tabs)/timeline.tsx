@@ -50,6 +50,7 @@ export default function TimelineScreen() {
     orpc.reaction.toggle.mutationOptions({
       onMutate: async (input) => {
         await queryClient.cancelQueries({ queryKey: orpc.post.list.key() });
+        // viewer-key-coverage-ignore -- 戻り値（各要素は[実際のkey, data]の組。keyは既にviewerKeyを含む）はcontext経由でonErrorのsetQueryDataへ、同じkeyへそのまま書き戻すためだけに使う。画面には表示しない
         const previousQueries = queryClient.getQueriesData<InfiniteData<PostListPage>>({
           queryKey: orpc.post.list.key(),
         });

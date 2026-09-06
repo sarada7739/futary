@@ -11908,6 +11908,73 @@ origin/main`・`git push`のうえ`gh pr merge 250 --squash --delete-branch`
 
 Session: B
 
+## 2026-09-06 セッションB: 038（T9の検査をライブラリから引く形にする）実装完了
+
+### やったこと
+037から切り出された038（T9の検査自体の穴。037の中身が作ったものでは
+ない。R提案・A判断）に対応した。
+
+037で「TanStack Queryのキャッシュのキーを取るAPI」という閉じた集合へ
+留め金を移したこと自体は正しかった（Rの判定）。だが実際には手で9件を
+書き写しただけで、ライブラリの実物とは突き合わせていなかった。Rが
+`@tanstack/react-query@5.102.3`の公開面を読んだところ、13通り当てて
+12通りが素通りした。「閉じた集合であることと、その集合を正しく持って
+いることは別だった」（Aの言葉）。
+
+- `import * as ReactQueryModule from "@tanstack/react-query"`をテストに
+  追加し、`Object.keys(...)`・`Object.getOwnPropertyNames(QueryClient.
+  prototype)`で実際の公開面をテスト実行時に読む形にした（手で書かない）。
+  実測: パッケージexport 59件・`QueryClient`のインスタンスメソッド34件
+  （`node -e`で直接確認した）。この2つの一覧を分類マップとの`toEqual`で
+  固定し、ライブラリを上げて公開面が増減するとテストが赤くなるようにした
+- 各項目の分類（キーを取るもの／取らないもの）は、`node_modules`内の
+  実際の実装（`@tanstack/query-core/build/modern/queryClient.js`）を
+  読んで、戻り値がキャッシュ済みデータそのものを返すかで判断した。
+  exact（厳密にviewerKey必須）19件・prefix（前方一致で不要）7件・
+  excluded（データを読み書きしない）67件に分類し、理由を1行ずつ
+  コードに書いた
+- **実装を読んだことで、タスク定義にもRの指摘にも名前が挙がっていな
+  かった`query`/`infiniteQuery`（`fetchQuery`/`fetchInfiniteQuery`の
+  後継。既存側は非推奨コメント付き）が、実際にはキャッシュ済み
+  データをそのまま返す危険な項目だと分かった。手で写す限り絶対に
+  気づけなかった項目で、「ライブラリから引く」ことの価値が実際に
+  出た**
+- 037で`lib/orpc`にやったのと同じ形を`@tanstack/react-query`にも適用
+  した: このパッケージからのimportは別名なしの名前付きimportに限り
+  （`import { useQuery as uq }`・名前空間importは違反として検知）、
+  `queryClient`のメソッド呼び出しはドット記法に限る
+  （`queryClient["setQueryData"](...)`はメソッド名の有無に関わらず
+  「ブラケット記法」として検知する）
+- useQueries/useSuspenseQueriesは`{ queries: [...] }`という配列形を
+  取り、要素ごとに個別のqueryKeyを持つため、他のフックとは別の
+  抽出ロジック（配列の全要素を辿り、1つでも解決できなければ
+  fail-closedで全体を赤にする）を実装した
+- Rの12通り（`useSuspenseQuery`・`useSuspenseInfiniteQuery`・
+  `useQueries`・`useSuspenseQueries`・`usePrefetchQuery`・
+  `ensureQueryData`・`fetchQuery`・`getQueryState`・`prefetchQuery`・
+  `setQueryDefaults`・ブラケット記法・別名import）を合成コードで
+  実際に当て、想定どおりの結果になることを確認した。
+  `setQueryDefaults`/`getQueryDefaults`は「データではなく既定
+  オプションを読み書きするだけ」という理由で対象外に分類し、分類
+  マップに載っている（見えなくなっていない）ことをテストで確認した
+- 037までに閉じたもの（使用箇所6通り・短縮記法4通り・`lib/`・
+  `apps/app/app/test/`・免除の名指し・再エクスポート3通り）が引き続き
+  効くことを既存テストの再実行で確認した
+- `artifacts/038/summary.md`に証跡を保存した
+
+### 決定事項
+- react-queryのimport制限（別名なし名前付きimportのみ）・queryClient
+  メソッド呼び出しの制限（ドット記法のみ）を決めた。**conventions.md
+  への反映はAの担当**（B判断で編集不可のドキュメントのため）。決めた
+  内容は`artifacts/038/summary.md`とA/Rへの報告に明記した
+
+### 詰まった点
+- 特になし
+
+`pnpm -r test`（apps/api 457件・apps/app 283件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 037 がマージされ、038 の決定を conventions.md に書いた
 
 **037 が main へ入った**（`070b80d`）。**AIまとめは実装として完成している。**
@@ -12007,6 +12074,61 @@ Session: A
 
 Session: A
 
+## 2026-09-06 セッションB: 038 残り2件（getQueriesData/setQueriesDataの理由の誤り）に対応
+
+### やったこと
+Rが「留め金は閉じた」と判定した後（列挙はライブラリから引かれ、別名
+import・`useSuspenseQuery`が実ファイルで赤くなることを確認済み）、
+Aが仲介したRの実装調査による指摘2件（PR #261でAが判断確定）に対応した。
+
+- Rが`node_modules`内の実装（`@tanstack/query-core`のqueryClient.js）を
+  読み、`getQueriesData`・`setQueriesData`の分類理由が誤りだと指摘した:
+  - `getQueriesData`: 「他人の枠を覗くことにはならない」という理由は誤り。
+    実装は`queryCache.findAll(filters).map(({queryKey,state}) =>
+    [queryKey, state.data])`で、前方一致に一致した**他人の`state.data`を
+    そのまま配列に入れて返す**
+  - `setQueriesData`: 「updater関数が各自の既存データを変換するだけ」も
+    誤り。実装の`functionalUpdate`はupdaterが関数でなければその値を
+    そのまま使うため、**値をそのまま渡すと全員の枠へ同じ値を注入する**
+- 「いまのコードは安全だが、安全な理由が書いてある理由と違う。理由が
+  違うと、次に`getQueriesData(...)[0][1]`を読んで画面に出す人が止まらない」
+  （Rの指摘）。Aの判断「条件を検査する。書くだけにしない」どおり、この
+  2つを`prefix`バケットから新設した`conditional`バケットへ移した
+- `getQueriesData`の条件（戻り値が消費されていないこと）を
+  `isGetQueriesDataResultUnconsumed`で検査する: 呼び出しが式文として
+  だけ存在する（`ts.isExpressionStatement(call.parent)`）ことのみを
+  安全とし、変数への代入・return・添字/プロパティアクセス等は全て
+  違反とする（fail-closed）
+- `setQueriesData`の条件（updaterが関数式であること）を
+  `isSetQueriesDataUpdaterFunction`で検査する:
+  `ts.isArrowFunction(updater) || ts.isFunctionExpression(updater)`を
+  満たさなければ違反とする
+- 条件を満たさない場合、既存の`viewer-key-coverage-ignore`の仕組みを
+  そのまま流用し、コメントが無ければ赤・あれば免除とする形にした
+  （新しいステータスは増やさず、既存のexact-missing/exact-ignoredを
+  再利用した）
+- `timeline.tsx`の実際の`getQueriesData`呼び出し（`onMutate`内、戻り値を
+  `previousQueries`という変数へ代入している）は、この検査により新たに
+  赤くなった。実際には安全（戻り値は`context`経由で`onError`の
+  `setQueryData`へ、同じキーへそのまま書き戻すためだけに使われ、画面
+  には一切表示されない）なため、既存の`setQueryData`（`onError`側）と
+  同じ形で`viewer-key-coverage-ignore`コメントを追加した。
+  `setQueriesData`の呼び出し（`onMutate`内）はupdaterが`(old) => ...`と
+  いう関数式のため、コメント無しで条件を満たし緑のまま
+- Rの「小さいもの」の注文（「今日のappで実際に使われている9種」の
+  手書き一覧が、`cancelQueries`を1件消しただけでセキュリティと無関係に
+  赤くなる件）に対応し、コメントで理由を明記した
+
+### 決定事項
+- 特になし（全てAの判断どおり実装）
+
+### 詰まった点
+- 特になし
+
+`pnpm -r test`（apps/api 457件・apps/app 291件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 038 は免除も条件も効いている。残りは2件
 
 **R が `previousQueries` を全部追った。3箇所だけで、他の経路が無い。**
@@ -12060,6 +12182,62 @@ timeline.tsx:57:9 の setQueriesData(...) にviewerKeyが確認できません
 
 Session: A
 
+## 2026-09-06 セッションB: 038 最後の1件（メッセージの誤誘導）に対応、完了
+
+### やったこと
+Rが免除・条件の検査の両方を実ファイルで確かめた（`previousQueries`を
+全部追い、3箇所だけで他の経路が無いこと〈`onSuccess`も`onSettled`も
+未定義〉・`[queryKey, state.data]`の組でkeyとdataが構造的に対応して
+いることまで確認済み。免除コメントを外すと落ち、条件を崩すと落ちる
+ことも実ファイルで確かめられ、「飾りになっていない」との評価を得た）。
+Aが仲介したRの指摘（PR #262でAが判断確定）に対応した。
+
+- `getQueriesData`/`setQueriesData`が条件を満たさず赤くなったとき、
+  他の呼び出しと同じ「viewerKeyが確認できません」というメッセージを
+  出していた。だがこの2つが壊れているのはviewerKeyの有無ではなく
+  条件そのもの（戻り値を消費していない／updaterが関数式である）で
+  あり、読んだ人がviewerKeyを足しても直らない（037の短縮記法の
+  ときと同じ「一番悪い壊れ方」＝メッセージが嘘をつく、とRが指摘）
+- `describeMissingReason(methodName)`を新設し、`getQueriesData`は
+  「戻り値を消費しています。このAPIは他人のデータを返すため...」、
+  `setQueriesData`は「updaterが関数式ではありません...」という、
+  何が壊れているかが分かる文言を返すようにした。他の呼び出しは
+  従来どおり「viewerKeyが確認できません」のまま
+  （メッセージが「viewerKeyを足せ」と誘導しないこと・壊れている
+  条件そのものを言うことをテストで固定した）
+- もう1件（`(old) => 誰かのデータ`のように、関数の形をした注入が条件を
+  満たしてしまう件）は**Aの判断で直さない**こととした。他人のデータを
+  注入するには先に他人のデータを手に入れる必要があり、その入口
+  （`getQueriesData`や単一キーの読み）は別途塞いでいるため、いまは
+  届かない。「関数を変数に出して渡す」形も赤になるほど厳しいが、
+  緩いより良いと判断した。この限界（検査できるのは「関数式である
+  こと」までで、中身が既存データを使っているかは見ていない）は
+  Aが`conventions.md`に明記済みで、分類マップの`reason`にも同じ内容を
+  書いた（「検証の範囲から外したものは、結果に書く」）
+
+### 決定事項
+- 特になし（全てAの判断どおり実装）
+
+### 詰まった点
+- 特になし。当初「viewerKeyという単語を含まない」ことをテストで
+  厳密に要求したところ、正しく書いたメッセージ自体が「viewerKeyの
+  話ではなく」という対比表現で"viewerKey"を含んでいたため自分の
+  テストが落ちた。テストの意図（「viewerKeyを足せと誘導しない」こと）
+  に沿ってアサーションを直した
+
+### Rの自己言及とAからの評価
+Rが自分から「`getQueriesData`を条件つきにしたらtimelineが赤くなる、
+という当たり前の帰結を計算していなかった」と書いていた。Aが「私が
+『緑のまま』と書いたのと、同じ形」と評した。B（自分）が実際にテストを
+走らせて`timeline.tsx`の`getQueriesData`呼び出しが新たに赤くなることを
+発見し、ignoreコメントを追加して対応した一連の流れが、Aから「実際に
+走らせて見つけて報告したのが、今回いちばん正しい仕事だった」と評価
+された。
+
+`pnpm -r test`（apps/api 457件・apps/app 293件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 038 を閉じた（検査を7回作り直した）
 
 **R が受け入れた。**文言も**実際に落として読んだうえで**通している。
