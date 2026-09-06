@@ -291,7 +291,8 @@ const QUERY_CLIENT_METHOD_CLASSIFICATION: Record<string, Classification> = {
   setQueriesData: {
     bucket: "conditional",
     reason:
-      "実装のfunctionalUpdateは、updaterが関数ならそれを呼ぶが、関数でなければ値をそのまま使う。値をそのまま渡すと、前方一致で選ばれた全員の枠へ同じ値を注入する。条件: 第2引数が関数式であること",
+      "実装のfunctionalUpdateは、updaterが関数ならそれを呼ぶが、関数でなければ値をそのまま使う。値をそのまま渡すと、前方一致で選ばれた全員の枠へ同じ値を注入する。条件: updaterが、既存データを変換する関数であること。" +
+      "【範囲外・Aの指摘】検査できるのは「関数式であること」までで、中身が既存データを使っているか（引数を無視して別のデータを返していないか）は見ていない。`(old) => 誰かのデータ`は関数の形をした注入であり、この条件を満たしてしまう（Rが実測）。ただし他人のデータを注入するには先に他人のデータを手に入れる必要があり、その入口（getQueriesDataや単一キーの読み）は別途塞いでいるため、いまは届かない。厳しすぎる側（関数を変数に出して渡す形も赤になる）に倒すほうが、緩いより良いと判断し、直さない",
   },
   getQueriesData: {
     bucket: "conditional",
@@ -363,6 +364,23 @@ const CONDITIONAL_METHOD_CHECKS: Record<string, (call: ts.CallExpression) => boo
   getQueriesData: isGetQueriesDataResultUnconsumed,
   setQueriesData: isSetQueriesDataUpdaterFunction,
 };
+
+// 【Rレビュー指摘・訂正】conditionalな2つが条件を満たさず赤くなった
+// とき、他の呼び出しと同じ「viewerKeyが確認できません」という文言を
+// 出していた。だがこの2つが崩れているのはviewerKeyの有無ではなく
+// 条件そのもの（戻り値を消費していない／updaterが関数式である）で
+// あり、この文言を読んだ人がviewerKeyを足しても直らない
+// （短縮記法のときと同じ「一番悪い壊れ方」。メッセージが嘘をつく）。
+// 対象のAPIごとに、何が壊れているかを言う文言に分ける
+function describeMissingReason(methodName: string): string {
+  if (methodName === "getQueriesData") {
+    return "戻り値を消費しています。このAPIは他人のデータを返すため、戻り値を使うならviewerKeyの話ではなく別の設計が要ります（consumeしない形にするか、viewer-key-coverage-ignoreで理由を明記してください）";
+  }
+  if (methodName === "setQueriesData") {
+    return "updaterが関数式ではありません（第2引数が関数式であることが条件です。値やオブジェクトリテラルを直接渡す形は、前方一致で選ばれた全員の枠へ同じ値を書き込みます）";
+  }
+  return "viewerKeyが確認できません";
+}
 
 // useQueries/useSuspenseQueriesは`{ queries: [...] }`という配列形を取り、
 // 要素ごとに個別のqueryKeyを持つ（他のフックとは引数の形が違う）
@@ -643,7 +661,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
       missing
         .map(
           (s) =>
-            `${path.relative(repoRoot, s.file)}:${s.location} の ${s.methodName}(...) にviewerKeyが確認できません`,
+            `${path.relative(repoRoot, s.file)}:${s.location} の ${s.methodName}(...): ${describeMissingReason(s.methodName)}`,
         )
         .join("\n"),
     ).toEqual([]);
@@ -1056,6 +1074,17 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
       expect(sites.some((s) => s.methodName === "getQueriesData" && s.status === "exact-missing")).toBe(true);
     });
 
+    // 【Rレビュー指摘・訂正】メッセージが「viewerKeyが確認できません」だと
+    // 読んだ人がviewerKeyを足してしまう（条件が崩れているだけなので、
+    // 足しても直らない。「一番悪い壊れ方」）。壊れている条件そのものを
+    // 言う文言になっていることを確かめる
+    it("getQueriesDataが赤いときのメッセージは、viewerKeyを足せと誘導せず、戻り値を消費していることを言う", () => {
+      const message = describeMissingReason("getQueriesData");
+      expect(message).not.toBe(describeMissingReason("useQuery")); // 汎用文言のままではない
+      expect(message).toMatch(/戻り値/);
+      expect(message).not.toMatch(/viewerKeyを(足|追加|含め)/); // 「足せば直る」という誘導をしない
+    });
+
     it("getQueriesDataの戻り値を消費していても、ignoreコメントがあれば免除される", () => {
       const code =
         "// viewer-key-coverage-ignore -- 戻り値はcontext経由でonErrorのsetQueryDataへ同じキーで書き戻すためだけに使う\n" +
@@ -1080,6 +1109,11 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
       const sourceFile = parseSource("conditional.tsx", code);
       const sites = scanCacheKeySites("conditional.tsx", code, sourceFile);
       expect(sites.some((s) => s.methodName === "setQueriesData" && s.status === "exact-missing")).toBe(true);
+    });
+
+    it("setQueriesDataが赤いときのメッセージは、viewerKeyではなくupdaterが関数式でないことを言う", () => {
+      expect(describeMissingReason("setQueriesData")).not.toMatch(/viewerKey/);
+      expect(describeMissingReason("setQueriesData")).toMatch(/updater/);
     });
   });
 
