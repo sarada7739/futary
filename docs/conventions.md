@@ -279,11 +279,45 @@ R がライブラリの公開面を読んで数えたところ、**13通り当�
 | 区分 | 何 |
 |---|---|
 | **要求する** | **単一のキーでデータを返すもの。**`useQuery` / `useSuspenseQuery` / `useQueries` / `getQueryData` / `ensureQueryData` / `fetchQuery` / **`query`** など |
-| **要求しない** | **前方一致のフィルタとして効くもの。**`invalidateQueries` / `cancelQueries` / `removeQueries` / `setQueriesData` など |
+| **要求しない** | **前方一致のフィルタとして効き、値を返さないもの。**`invalidateQueries` / `cancelQueries` / `removeQueries` / `refetchQueries` / `resetQueries` |
+| **条件つきで要求しない** | **`getQueriesData` と `setQueriesData` の2つだけ。**下記 |
 | **対象外** | **データそのものを読み書きしないもの。**`isFetching`（件数）/ `setQueryDefaults`（既定オプション）/ `useMutation` 系（`mutationKey` が対象）など |
 
 **対象外にした理由を、項目ごとに1行ずつ書く。**
 **「対象外」とだけ書かれた一覧は、次に読む人が正しいか判断できない。**
+
+##### 条件つきの2つ（038。R が実装を読んで見つけた）
+
+**この2つは「前方一致だから安全」ではない。「使い方に条件がついた安全」である。**
+
+**`getQueriesData` は、他人のデータを返す。**
+
+```js
+getQueriesData(filters) {
+  return queryCache.findAll(filters).map(({ queryKey, state }) => [queryKey, state.data]);
+}
+```
+
+**返ってきた配列の中に、他人の `state.data` が入っている。**
+**呼び出し側がそれを表示すれば、それが T9 そのものである。**
+
+**条件: 返り値を消費しないこと。**
+
+**`setQueriesData` は、関数以外を渡すと同じ値を全員の枠へ書く。**
+
+```js
+// setQueryData の中: functionalUpdate は、関数なら呼ぶ。関数でなければ、その値をそのまま使う
+```
+
+**`setQueriesData(filters, 誰かのデータ)` は、そのまま全員の枠へ注入する。**
+
+**条件: updater が関数であること。**
+
+**条件は検査する。書くだけにしない。**
+**前提が崩れたら区分が変わるものを、前提を見ずに区分だけ書くのは、
+「対象があっても動かない基準」と同じ形である。**
+
+**「持ち主のもの」であることは、受け取った側が読めないことを意味しない。**
 
 
 ### 測定を足したら、両側から当てる
