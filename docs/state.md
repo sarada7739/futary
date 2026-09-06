@@ -3,6 +3,240 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
+**最終更新**: 2026-09-06 / セッションB。**037（AIまとめ）viewer-key-coverageの
+留め金の位置変更、受け入れの形5つを全て満たして完了。**Aから状況確認の
+問い合わせを受け、PR #255の受け入れ条件で名指しされた3つの逃げ道
+（再エクスポート・`export *`・拡張子つきimport）を直接テストに追加し、
+全て通ったことを確認した。PR #250へpush済み。テスト（apps/api 457件・
+apps/app 256件）・型チェック・lint全て通過。Aへ完了報告済み、Rへの
+再レビュー依頼を待っている。まだmainへはマージされていない。
+
+## 037: viewer-key-coverage、留め金をTanStack QueryのAPI名へ移す（2026-09-06）
+
+Aが仲介したRの指摘（PR #255でAが判断確定。「もう一度パッチを当てても
+閉じない。留め金の位置を変える」）に対応した。
+
+これまでの5回の作り直し（手で並べた一覧→readProcedure走査→近傍N文字→
+AST2段→`orpc`識別子起点→import文の形）は、毎回「`orpc`へどうやって
+辿り着いたか」を留め金にしていた。Rの言葉どおり「`orpc`を配っている
+モジュールを字面で名指しする限り、名指しの外側はいくらでも作れる
+（開いた集合）」。実際、名前空間import・再エクスポート・オプショナル
+チェイン・型アサーション等、6通り以上の逃げ道が見つかり続けた。
+
+一方、Rが実測したもう一方の端は閉じていた: `apps/app`配下の
+`useQuery`/`useInfiniteQuery`は15件、そのうち呼び出し式の中に
+`viewerKey`があるものは15件・無いものは0件。「キャッシュ枠を作る側は
+必ず`useQuery`を通る。optionsをどう手に入れたかは関係ない」。
+
+Aの判断で、留め金を「TanStack Queryのキャッシュのキーを取るAPI」
+（`useQuery`/`useInfiniteQuery`/`setQueryData`/`getQueryData`/
+`invalidateQueries`/`cancelQueries`/`removeQueries`/`setQueriesData`/
+`getQueriesData`。ライブラリの関数名という閉じた集合）へ移した。
+`orpc`をどう取得したか・どんな記法で辿ったかに関係なく、呼び出しの
+「名前」だけで機械的に見つかる。queryKeyの中身を構文的に辿る精密な
+判定（変数へのspread・短縮記法1段辿り）は残し、メッセージがqueryKeyの
+中身まで具体的に示せるようにした。
+
+APIを2種に分類した: `useQuery`/`useInfiniteQuery`/`setQueryData`/
+`getQueryData`は「1つの値を読む・書く」操作のため厳密にviewerKeyを
+要求する。`invalidateQueries`/`cancelQueries`/`removeQueries`/
+`setQueriesData`/`getQueriesData`は既定で前方一致のフィルタとして
+効くため、短いキーで複数のviewerKey付き枠をまとめて対象にすることが
+設計上正しく、viewerKeyを要求しない（理由をコードに明記）。旧来の
+`MANUALLY_PLACED_CACHE_KEYS`と`viewer-key-coverage-ignore`コメントは
+後者（in-sourceコメント）に統合した。
+
+旧仕組み（`orpc`識別子起点の参照追跡・import文の形の検査・
+`findReadScopedProcedures`によるtarget列挙）は全て退役させた。
+
+`EXCLUDED_DIRS`（Rの指摘。ディレクトリ名だけの一致だと
+`apps/app/app/test/`のような同名のネストしたディレクトリまで除外して
+しまう）を、`apps/app`直下の絶対パス1つだけに限定する形に直した。
+実際に`apps/app/app/test/`へ一時ファイルを置いて走査対象に入ることを
+確認するテストも追加した（作業後は削除する）。
+
+`pnpm -r test`（apps/api 457件・apps/app 250件、全て緑）・型チェック・
+lint、全て通過。
+
+以下、2026-09-06（この対応より前）の記録。
+
+## 037: viewer-key-coverage残り3件（import行・短縮記法・走査対象。2026-09-06）
+
+Aが仲介したRの実測3件（PR #254でAが判断確定。「これで閉じる」との
+こと）に対応した。前回までの`orpc`識別子起点の網は、Rが6通り当てて
+（ブラケット・別名・namespace段の別名・再エクスポート・オプショナル
+チェイン・型アサーション）全部赤になることを確認済みだった。
+
+1. **名前空間import・既定importでファイルが丸ごと素通りする**:
+   `import * as orpcModule from "../../lib/orpc"`だと`findOrpcLocalBindingName`
+   が`ts.isNamedImports`しか見ないためファイルごと検出対象から外れ、
+   根の識別子も`orpc`でなくなるため2枚とも外れていた。Aの判断
+   （TypeCheckerは使わず、入口の形を1つに固定する）どおり、
+   「`lib/orpc`のimportは名前付きimportでなければならない」を別の
+   検査として追加した（別名`import { orpc as x }`は許可）
+2. **`queryKey`の短縮記法が誤検知される**: `const queryKey = [...]; useQuery({ ...options, queryKey })`
+   という普通のリファクタが、`queryKeyInitializer`がShorthandPropertyAssignment
+   を見ておらず常に赤くなっていた。しかもメッセージが「viewerKeyが
+   確認できません」と嘘をつく（実際は2行上にある）。Aの判断（長い式を
+   変数に出すのは普通のリファクタ。禁じない）どおり、同じスコープの
+   変数宣言を1段だけ辿って解決する形にした（辿れなければfail-closedで
+   赤のまま）
+3. **`apps/app/lib/`が走査対象から漏れていた**: `app/`・`components/`
+   だけを列挙する形だったため、共通のクエリフックの置き場である`lib/`が
+   視界の外だった（実害は無かった。Rが実測）。「対象を列挙する」形を
+   やめ、`apps/app`配下全体を走査して除外を明示する形（EXCLUDED_DIRS。
+   理由を1行ずつ記載）に作り直した
+4. 守る範囲のコメントに、走査しているディレクトリの範囲
+   （`apps/app`配下全体からEXCLUDED_DIRSを除いたもの）も明記した
+
+受け入れの形（名前空間・既定importが赤／短縮記法の正当な書き方が緑／
+lib/に置いたクエリ呼び出しが走査対象に入る／これまでの6通りが引き続き
+赤）を全てテストで固定した。
+
+`pnpm -r test`（apps/api 457件・apps/app 263件、全て緑）・型チェック・
+lint、全て通過。
+
+以下、2026-09-06（この対応より前）の記録。
+
+## 037: viewer-key-coverageの最終形（`orpc`識別子起点。2026-09-06）
+
+Aが仲介したRの実測3件（PR #253でAが判断確定）に対応した。
+
+`orpc.<namespace>.<method>`という**決まった2段の形**を探す走査自体が、
+書き方を変えるだけで外れることをRが実証した:
+
+| 書き方 | 外れる理由 |
+|---|---|
+| `orpc["couple"]["get"].queryOptions()` | ブラケット記法はPropertyAccessExpressionに一致しない |
+| `const o = orpc; o.couple.get.queryOptions()` | 根の識別子がorpcではなくoになる |
+| `const ns = orpc.couple; ns.get.queryOptions()` | 1段のPropertyAccess（走査は2段ちょうどしか見ない） |
+
+3つ目は実際にviewerKeyを外した状態で、テスト・lint・type-checkの4つとも
+黙って通った（full実測）。近傍N文字→AST2段→今回、と作りは変わったが、
+「決まった1つの書き方を探す」という形そのものから離れられていなかった。
+
+Aの判断（TypeCheckerは使わない。遅く、いま直す理由が型の追跡ではない
+ため）どおり、`orpc`という**識別子への参照そのもの**を起点にする形に
+作り直した。各参照について、連続したドット記法のメンバーアクセスだけを
+辿り、`.queryOptions`/`.infiniteOptions`/`.mutationOptions`/`.key`の
+いずれかが直接呼び出される終端に達するかを見る。ブラケット記法・
+変数への代入・引数渡し等、連続したドット記法から外れた時点で
+「認識できない」として赤くする。識別子の名前は`import`文から取得し
+（`orpc`という名前を決め打ちしない。別名importにも対応）、
+Rが開けた3つの逃げ道が全て検知されること・既存の正当な使われ方
+（`import`文自身・`.key()`・`mutationOptions`・queryOptions結果を
+変数に受ける形）が誤検知されないことをテストで固定した。
+
+**守る範囲を明記した**（Aの指示。`conventions.md`6節）: この網が守るのは
+「`orpc`をimportしたファイルの中」だけ。`orpc`を別ファイルへ渡してそちらで
+組み立てる形は範囲外（いまはそのような書き方が無いため対応しない）。
+
+失敗メッセージの文字位置も`ts.getLineAndCharacterOfPosition`で行:桁に
+直した（Rの指摘。次に踏む人が速い）。
+
+`pnpm -r test`（apps/api 457件・apps/app 253件、全て緑）・型チェック・
+lint、全て通過。
+
+以下、2026-09-06（この対応より前）の記録。
+
+## 037: R-2残り2件への対応（2026-09-06）
+
+Aが仲介したRの実測2件（「認識の側」ではなく「列挙の側」の穴。PR #252で
+Aが判断確定）に対応した。
+
+- **(1) 一度変数へ代入すると走査から消える**（`const g = orpc.couple.get;`）:
+  `viewer-key-coverage.test.ts`のcheckTargetは`orpc.<ns>.<method>.
+  queryOptions(...)`という決まった形しか見ておらず、Rが実際にこの形で
+  viewerKeyを外したところテスト・lint・type-checkの4つとも黙って通った。
+  A判断の「3」（本体）どおり、app全体の`orpc.<namespace>.<method>`参照を
+  全て列挙し、`.queryOptions`/`.infiniteOptions`（走査対象）・
+  `.mutationOptions`/`.key`（viewerKey不要な正当な形）のどちらでもない
+  参照が0件であることを固定するテストを追加した。落ちたときはファイル・
+  位置・該当テキストを出す
+- **(2) 同じoptionsを2つ目のuseQueryに渡すと見られない**（探索が最初の
+  1件で打ち切っていた）: 変数を経由するケース（(c)）で、最初に見つかった
+  useQuery/useInfiniteQuery呼び出しで探索を止めず、その変数をspreadする
+  呼び出しを全て集めて全部にviewerKeyがあることを要求する形に直した
+
+CIの`.dev.vars`ダミー（`ci.yml`・`deploy.yml`双方）に`OPENAI_API_KEY`/
+`ANTHROPIC_API_KEY`が無く、HTTP経路のテストを将来足した瞬間CIだけ
+fail-closedで落ちる、というRの指摘（Aが仲介）にも対応し、両ファイルへ
+ダミー値を追加した（016 R-2「片方だけ直さない」）。
+
+`pnpm -r test`（apps/api 457件・apps/app 246件、全て緑）・型チェック・
+lint、全て通過。
+
+以下、2026-09-06（R-2残り2件対応より前）の記録。
+
+## 037: Rレビュー指摘5件への対応（2026-09-06）
+
+Aが仲介したRの指摘5件（PR #251で判断確定）に、指示どおり対応した。
+
+- **R-1（Bで対応。事故の再発防止が事故と同じ形だった）**: `apply-migrations.ts`の
+  fetch番人を`vi.stubGlobal`で入れていたため、テスト側の`vi.unstubAllGlobals`が
+  「本物のfetch」を復元先として覚えてしまい、Rの実測では23件中1件しか
+  番人が止められていなかった（残り7件は本物のfetchへ到達）。素の代入
+  （`globalThis.fetch = ...`）に直し、fetchの差し替えを外すと番人の例外に
+  落ちることを確認するテストを追加した
+- **R-2（Aの判断：作りを変える）**: `viewer-key-coverage.test.ts`の
+  近傍N文字チェックが、隣の呼び出し（`meQuery`宣言）を誤って拾い、
+  `summaryQuery`からviewerKeyを外しても検知できなかった（3回目の同型の
+  破れ）。TypeScriptコンパイラのASTでuseQuery/useInfiniteQueryのqueryKey
+  そのものを構文的に辿る形に作り直し、対象全件（10個）についてviewerKeyを
+  1つ外すと当該呼び出しだけが赤くなり他は巻き添えにならないことを
+  総当たりで確認するテストを追加した
+- **R-3（Aの判断：押せないボタンを置かない）**: 既定が先月・先週のため、
+  翌月・翌週ボタンを1回押すと今月・今週に入りINVALID_INPUTでエラー表示に
+  なる（再試行しても永久に失敗する）詰まりがあった。エラーにする代わりに
+  今月・今週へは進めないよう翌月・翌週ボタン自体を無効化した。サーバ側の
+  拒否は残す。既存テストが前月・前週しか押していなかった不備も直し、
+  翌月・翌週を押すテストと、無効化されていることを確認するテストを追加した
+- **R-4（コメントの主張が実測と逆）**: 「暦月合計が10をわずかに超えて
+  通る窓が残る」という未実測の推測を、Rの実測結果（9回使用済み+5並行で
+  成功0）に基づく正確な記述に訂正した
+- **R-5（送信本文に"B:"が現れるテストが無かった）**: 相手（slot=2）の投稿を
+  含めたテストと、couple_membersに居ないauthor_idがAへ寄る（fallback）
+  ことを確認するテストを追加した
+
+`pnpm -r test`（apps/api 457件・apps/app 244件・packages/date/db 変更無し、
+全て緑）・型チェック・lint、全て通過。
+
+以下、2026-09-06（Rレビュー対応より前）の記録。
+
+## 037: AIまとめ（実装完了。Rレビュー待ち）
+
+投稿を LLM（OpenAI/Anthropic）へ要約させる機能。2人ともの`ai_opt_in`が
+無いと使えない（ADR-013）。
+
+**実装途中、人間から2件の直接の指摘があった**:
+1. 「AIがこの発言はどのユーザーのものか認識できたほうがいい」
+   → `AskUserQuestion`で確認のうえ、`couple_members.slot`から機械的に
+   決まる匿名の「A」「B」の記号を投稿ごとに付けて渡す形にした
+   （実名・IDは外部へ渡さない。Aに確認しADR-013へ追記済み）
+2. 「週間も欲しい」→ タスク定義の「まず月次のみ、週次は後で判断」という
+   明示的な設計と矛盾するため、Bが独断で決めずAへ相談した。Aから
+   `period_kind`/`period_key`への設計変更・ISO 8601週（月曜始まり・JST）・
+   二段の歯止め（期間ごと3回+1暦月10回）の指示を受け、そのとおり実装した
+
+**事故と訂正**: テストで`vi.mock`によるESM差し替えを試みたが、
+`@cloudflare/vitest-plugin`環境では効かず、**実際に本物の`api.openai.com`
+へリクエストが飛んだ**（偽キーのため401で失敗。生成は成功していない）。
+`vi.stubGlobal("fetch", ...)`に直して解消し、再発防止のグローバルな
+安全策も追加した。詳細は`artifacts/037/summary.md`「事故と訂正」節。
+
+**security-auditorの監査**: High以上ゼロ。Medium2件（費用歯止めの
+check-then-actレース→原子的な予約UPSERTに修正、OpenAIのmax_tokens欠落
+→追加）・Low5件、全て修正しテストを追加した。詳細は
+`artifacts/037/summary.md`「security-auditorの監査結果と対応」節。
+
+`pnpm -r test`（apps/api 454件・packages/date 61件・packages/db 29件・
+apps/app 241件、全て緑）・型チェック・lint、全て通過。
+
+**次にやること**: `task/037-ai-summary`をpushしPRを作成し、A（futary-35）へ
+完了報告してRへのレビュー依頼を求める。
+
+以下、2026-09-05（037より前）の記録。
+
 **最終更新**: 2026-09-05 / セッションB。**036完了。PR #243をRが受け入れ、
 mainへsquashマージした**（マージコミット`5031b92`）。`task/036-seam-and-danger`
 ブランチはリモート・ローカルとも役目を終えた（リモートは削除済み）。

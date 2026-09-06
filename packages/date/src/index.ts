@@ -158,6 +158,76 @@ export function yearsBetween(from: string, to: string): number[] {
   return years;
 }
 
+// 「今月（JST）」を YYYY-MM で返す（037 aiSummary.generate/getの
+// 「未来の月は拒む」判定に使う）
+export function currentMonthJst(nowMs: number = Date.now()): string {
+  const { year, month } = parseDate(todayJst(nowMs));
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}`;
+}
+
+// 指定したJSTの暦月（YYYY-MM）が覆うUnixミリ秒の範囲 [fromMs, toMs) を
+// UTC基準で返す。jstDayRangeMsの月版（037 aiSummary.generateが、その月の
+// 投稿本文をposts.created_atで絞り込むSQLの範囲条件に使う）
+export function jstMonthRangeMs(month: string): { fromMs: number; toMs: number } {
+  const [yearStr, monthStr] = month.split("-");
+  const year = Number(yearStr);
+  const mo = Number(monthStr);
+  const fromMs = jstDayRangeMs(formatDate({ year, month: mo, day: 1 })).fromMs;
+  const next = addMonths(year, mo, 1);
+  const toMs = jstDayRangeMs(formatDate({ year: next.year, month: next.month, day: 1 })).fromMs;
+  return { fromMs, toMs };
+}
+
+// 037: ISO 8601の週（月曜始まり）。手続きの中で週を計算しない
+// （architecture.md 5節「日付計算はpackages/dateに置く」）。
+//
+// ISO週の規則: 月曜始まり。その週の木曜日が属する年が「ISO週年」になる
+// （1月4日は必ずISO週1に属する、という定義から導出する）。これにより
+// 「12月31日が翌年の第1週になる」「1月1日が前年の最終週になる」という
+// 年またぎが起きる（2018-12-31は2019-W01、2005-01-01は2004-W53）
+function isoWeekMonday(date: string): string {
+  const dow = dayOfWeek(date); // 0=日〜6=土
+  const isoDow = dow === 0 ? 7 : dow; // ISO: 1=月〜7=日
+  return addDays(date, -(isoDow - 1));
+}
+
+// date（YYYY-MM-DD）が属するISO週を「YYYY-Www」で返す
+export function isoWeekKey(date: string): string {
+  const monday = isoWeekMonday(date);
+  const thursday = addDays(monday, 3);
+  const isoYear = parseDate(thursday).year;
+  const week1Monday = isoWeekMonday(formatDate({ year: isoYear, month: 1, day: 4 }));
+  const weekNumber = diffDays(week1Monday, monday) / 7 + 1;
+  return `${String(isoYear).padStart(4, "0")}-W${String(weekNumber).padStart(2, "0")}`;
+}
+
+// 「今週（JST・ISO週）」を YYYY-Www で返す
+export function currentWeekJst(nowMs: number = Date.now()): string {
+  return isoWeekKey(todayJst(nowMs));
+}
+
+// 037・security-auditor指摘: そのISO週年が52週なのか53週なのかを返す。
+// periodKeyの妥当性検証（例: 2025-W53は存在しない）に使う。
+// 12月28日は必ずその暦年のISO週年の最終週に属する、というISO 8601の性質
+// （1月4日が必ず週1に属するのと対になる事実）を利用して求める
+export function isoWeeksInYear(isoYear: number): number {
+  const key = isoWeekKey(formatDate({ year: isoYear, month: 12, day: 28 }));
+  return Number(key.slice(-2));
+}
+
+// 指定したISO週（YYYY-Www）が覆うUnixミリ秒の範囲 [fromMs, toMs) を
+// UTC基準で返す。jstMonthRangeMsの週版
+export function jstWeekRangeMs(periodKey: string): { fromMs: number; toMs: number } {
+  const match = /^(\d{4})-W(\d{2})$/.exec(periodKey);
+  if (!match || !match[1] || !match[2]) throw new Error(`不正なISO週キーです: ${periodKey}`);
+  const isoYear = Number(match[1]);
+  const week = Number(match[2]);
+  const week1Monday = isoWeekMonday(formatDate({ year: isoYear, month: 1, day: 4 }));
+  const monday = addDays(week1Monday, (week - 1) * 7);
+  const nextMonday = addDays(monday, 7);
+  return { fromMs: jstDayRangeMs(monday).fromMs, toMs: jstDayRangeMs(nextMonday).fromMs };
+}
+
 // Unix秒をJST固定の日時文字列に整形する（招待コードの有効期限表示等）。
 // `timeZone` を指定しない `toLocaleString` は端末のタイムゾーンで解釈される
 // （ロケールが ja-JP でもタイムゾーンは別）ため、ここで明示する（L64）

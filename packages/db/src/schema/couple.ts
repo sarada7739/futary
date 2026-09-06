@@ -89,6 +89,9 @@ export const coupleMembers = sqliteTable(
       .references(() => user.id),
     slot: integer("slot").notNull(),
     joinedAt: integer("joined_at", { mode: "timestamp" }).notNull(),
+    // 037: 投稿本文を外部の生成AIへ送ることへの、個人ごとの同意
+    // （ADR-013）。2人ともtrueのときだけaiSummary.generateが通る
+    aiOptIn: integer("ai_opt_in", { mode: "boolean" }).notNull().default(false),
   },
   (table) => [
     primaryKey({ columns: [table.coupleId, table.userId] }),

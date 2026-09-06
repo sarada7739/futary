@@ -209,6 +209,25 @@ describe("buildDemoSeed", () => {
       expect(r.userId).not.toBe(post?.authorId);
     }
   });
+
+  // 037: デモではまとめを生成しない（タスク定義10節）。シードに先月・先週
+  // ぶんを1件ずつ、人が書いた文章として入れる（実際に生成したものではない）
+  it("aiSummariesが月・週それぞれ1件ずつ入っており、provider/modelを持つ", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    expect(seed.aiSummaries).toHaveLength(2);
+
+    const monthSummary = seed.aiSummaries.find((s) => s.periodKind === "month");
+    expect(monthSummary?.periodKey).toMatch(/^\d{4}-\d{2}$/);
+    expect(monthSummary?.provider).toBe("openai");
+    expect(monthSummary?.model.length).toBeGreaterThan(0);
+    expect(monthSummary?.body.length).toBeGreaterThan(0);
+
+    const weekSummary = seed.aiSummaries.find((s) => s.periodKind === "week");
+    expect(weekSummary?.periodKey).toMatch(/^\d{4}-W\d{2}$/);
+    expect(weekSummary?.provider).toBe("openai");
+    expect(weekSummary?.model.length).toBeGreaterThan(0);
+    expect(weekSummary?.body.length).toBeGreaterThan(0);
+  });
 });
 
 describe("buildDemoSeedSql", () => {
@@ -220,7 +239,7 @@ describe("buildDemoSeedSql", () => {
     expect(firstInsertIndex).toBeGreaterThan(lastDeleteIndex);
   });
 
-  it("外部キーの順で消す: reactions -> post_images -> posts -> events -> wishes -> moods -> invites -> couple_members -> couples -> user", () => {
+  it("外部キーの順で消す: reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> invites -> couple_members -> couples -> user", () => {
     const sql = buildDemoSeedSql(Date.UTC(2026, 7, 31));
     const order = [
       "reactions",
@@ -229,6 +248,7 @@ describe("buildDemoSeedSql", () => {
       "events",
       "wishes",
       "moods",
+      "ai_summaries",
       "invites",
       "couple_members",
       "couples",
@@ -239,6 +259,14 @@ describe("buildDemoSeedSql", () => {
     for (let i = 1; i < positions.length; i++) {
       expect(positions[i]).toBeGreaterThan(positions[i - 1] ?? -1);
     }
+  });
+
+  // 037: buildInsertSqlにai_summariesのINSERT文が実際に含まれることを確認する
+  // （DemoSeed.aiSummariesに値を積んだだけでSQL化を忘れる穴を防ぐ）
+  it("ai_summariesのINSERT文が2件（月・週）含まれる", () => {
+    const sql = buildDemoSeedSql(Date.UTC(2026, 7, 31));
+    const matches = sql.match(/INSERT INTO ai_summaries/g) ?? [];
+    expect(matches).toHaveLength(2);
   });
 
   // security-auditor指摘: is_demoを落としてもテストが緑のままになる穴があった

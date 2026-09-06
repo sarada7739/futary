@@ -1,4 +1,5 @@
 import type { R2SignConfig } from "./lib/r2-signed-url";
+import type { AiEnv } from "./lib/ai";
 
 export interface RpcContext {
   db: D1Database;
@@ -6,6 +7,10 @@ export interface RpcContext {
   // 署名付きURLを発行するためだけに使う（apps/api/src/lib/r2-signed-url.ts）
   bucket: R2Bucket;
   r2Sign: R2SignConfig;
+  // 037: AIまとめが使うプロバイダ・APIキー。手続き（procedures/ai-summary.ts）は
+  // これをそのままlib/ai.tsのgenerateSummaryへ渡すだけで、中身を見ない
+  // （タスク定義3節「手続きからプロバイダが見えない形にする」）
+  aiEnv: AiEnv;
   user: { id: string; name: string; email: string; image: string | null } | null;
   // me.delete の再認証チェック（024・Aの決定）に使う、実際にサインインした
   // 時刻。Better Auth の session.createdAt は createSession() 時に一度だけ

@@ -1,4 +1,4 @@
-import { addDays, monthsBefore, todayJst, yearsBefore, jstDayRangeMs } from "@futary/date";
+import { addDays, isoWeekKey, monthsBefore, todayJst, yearsBefore, jstDayRangeMs } from "@futary/date";
 
 // デモペアのシード（docs/tasks/014-guest-demo.md）。
 //
@@ -124,6 +124,14 @@ interface MoodRow {
   level: number;
 }
 
+interface AiSummaryRow {
+  periodKind: "month" | "week";
+  periodKey: string;
+  body: string;
+  provider: "openai" | "anthropic";
+  model: string;
+}
+
 export interface DemoSeed {
   coupleId: string;
   users: Array<{ id: string; name: string; email: string; imageKey: string }>;
@@ -134,6 +142,7 @@ export interface DemoSeed {
   images: Array<{ key: string; assetFile: string }>;
   wishes: WishRow[];
   moods: MoodRow[];
+  aiSummaries: AiSummaryRow[];
 }
 
 // 014タスク定義の件数方針:
@@ -367,6 +376,39 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     }
   }
 
+  // --- aiSummaries: 037。先月・先週ぶんを1件ずつ、生成済みとしてシードに
+  // 入れる（デモでは実際には生成しない。タスク定義10節）。月・週の両方に
+  // 入れるのは、画面の切り替えでどちらを見ても空にならないようにするため
+  // （タスク定義自体は「1件」とだけ書いているが、037で月・週の両方を
+  // 作ったため両方に置く方が自然と判断した）。
+  // 【重要】これは本物のAPIで生成した文章ではない。人が書いた説明文である
+  // （artifacts/037/manual-check.md・seed/README.mdに明記）
+  const lastMonthDate = monthsBefore(today, 1);
+  const lastMonth = lastMonthDate.slice(0, 7);
+  const lastWeekDate = addDays(today, -7);
+  const lastWeek = isoWeekKey(lastWeekDate);
+  const aiSummaries: AiSummaryRow[] = [
+    {
+      periodKind: "month",
+      periodKey: lastMonth,
+      body:
+        "先月もふたりでたくさんの時間を過ごしました。おいしいごはんを一緒に食べたり、" +
+        "近くを散歩したり、何気ない日常の記録が積み重なっています。これからも、" +
+        "ふたりだけの思い出を大切にしていってください。",
+      provider: "openai",
+      model: "gpt-4o-mini",
+    },
+    {
+      periodKind: "week",
+      periodKey: lastWeek,
+      body:
+        "先週はおだやかな1週間でした。何気ない会話や、ちょっとした出来事の記録が" +
+        "残っています。今週もふたりらしい時間を過ごしてください。",
+      provider: "openai",
+      model: "gpt-4o-mini",
+    },
+  ];
+
   return {
     coupleId: DEMO_COUPLE_ID,
     users: [
@@ -390,12 +432,13 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     images,
     wishes,
     moods,
+    aiSummaries,
   };
 }
 
 // 投入の前にデモペアの既存行を消す（014タスク定義）。外部キーの順:
-// reactions -> post_images -> posts -> events -> wishes -> moods -> invites -> couple_members -> couples -> user。
-// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_imagesを追加）
+// reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> invites -> couple_members -> couples -> user。
+// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_images・037でai_summariesを追加）
 function buildDeleteSql(seed: DemoSeed): string[] {
   const userIds = seed.users.map((u) => sqlString(u.id)).join(", ");
   return [
@@ -405,6 +448,7 @@ function buildDeleteSql(seed: DemoSeed): string[] {
     `DELETE FROM events WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM wishes WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM moods WHERE couple_id = ${sqlString(seed.coupleId)};`,
+    `DELETE FROM ai_summaries WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM invites WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couple_members WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couples WHERE id = ${sqlString(seed.coupleId)};`,
@@ -477,6 +521,13 @@ function buildInsertSql(seed: DemoSeed, nowMs: number): string[] {
     statements.push(
       `INSERT INTO moods (couple_id, user_id, date, level, created_at, updated_at) VALUES ` +
         `(${sqlString(seed.coupleId)}, ${sqlString(m.userId)}, ${sqlString(m.date)}, ${m.level}, ${createdAt}, ${createdAt});`,
+    );
+  }
+
+  for (const s of seed.aiSummaries) {
+    statements.push(
+      `INSERT INTO ai_summaries (couple_id, period_kind, period_key, body, provider, model, generated_count, created_at, updated_at) VALUES ` +
+        `(${sqlString(seed.coupleId)}, ${sqlString(s.periodKind)}, ${sqlString(s.periodKey)}, ${sqlString(s.body)}, ${sqlString(s.provider)}, ${sqlString(s.model)}, 1, ${nowSeconds}, ${nowSeconds});`,
     );
   }
 

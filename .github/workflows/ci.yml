@@ -86,6 +86,8 @@ jobs:
           R2_ACCOUNT_ID=ci-test-account-id
           R2_ACCESS_KEY_ID=ci-test-access-key-id
           R2_SECRET_ACCESS_KEY=ci-test-secret-access-key
+          OPENAI_API_KEY=ci-test-openai-key
+          ANTHROPIC_API_KEY=ci-test-anthropic-key
           EOF
 
       - run: pnpm run test

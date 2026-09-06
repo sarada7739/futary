@@ -9,6 +9,7 @@ const {
   meGetMock,
   meUpdateMock,
   meUploadImageUrlMock,
+  meSetAiOptInMock,
   coupleGetMock,
   coupleUpdateMock,
   statsGetMock,
@@ -19,6 +20,7 @@ const {
   meGetMock: vi.fn(),
   meUpdateMock: vi.fn(),
   meUploadImageUrlMock: vi.fn(),
+  meSetAiOptInMock: vi.fn(),
   coupleGetMock: vi.fn(),
   coupleUpdateMock: vi.fn(),
   statsGetMock: vi.fn(),
@@ -60,6 +62,7 @@ vi.mock("../lib/orpc", async () => {
       get: meGetMock,
       update: meUpdateMock,
       uploadImageUrl: meUploadImageUrlMock,
+      setAiOptIn: meSetAiOptInMock,
     },
     couple: {
       get: coupleGetMock,
@@ -80,7 +83,15 @@ const { queryClient } = await import("../lib/query");
 const { GuestModeContext } = await import("../lib/guest-mode");
 
 function makeMe(overrides: Partial<Record<string, unknown>> = {}) {
-  return { id: "me", name: "自分", email: "me@example.com", image: null, ...overrides };
+  return {
+    id: "me",
+    name: "自分",
+    email: "me@example.com",
+    image: null,
+    aiOptIn: false,
+    partnerAiOptIn: false,
+    ...overrides,
+  };
 }
 
 function makeCouple(overrides: Partial<Record<string, unknown>> = {}) {
@@ -111,6 +122,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   queryClient.clear();
   meGetMock.mockResolvedValue(makeMe());
+  meSetAiOptInMock.mockResolvedValue({ aiOptIn: true });
   coupleGetMock.mockResolvedValue(makeCouple());
   statsGetMock.mockResolvedValue(makeStats());
 });
