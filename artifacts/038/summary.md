@@ -94,17 +94,62 @@ A/Rへの報告に明記した。
   `apps/app/app/test/`・免除の名指し・再エクスポート3通り）が引き続き
   効くことを、既存のテストの再実行で確認した
 
-## テスト
+## テスト（初回実装時点）
 
 `pnpm -r test`: apps/api 457件・apps/app 283件（旧256件+27件）、全て緑。
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+## 追記: Rが実装を読んで見つけた理由の誤り2件（同日フォローアップ）
+
+Rが「留め金は閉じた」と判定した後、`getQueriesData`・`setQueriesData`に
+つけていた分類理由が誤りだと指摘された。
+
+| | 書いてあった理由 | 実際（`node_modules`内の実装で確認） |
+|---|---|---|
+| `getQueriesData` | 「各要素は元々そのキーの持ち主のデータのまま（他人の枠を覗くことにはならない）」 | `queryCache.findAll(filters).map(({queryKey,state}) => [queryKey, state.data])`で、前方一致に一致した**他人の`state.data`をそのまま配列に入れて返す** |
+| `setQueriesData` | 「updater関数が各自の既存データを変換するだけで、他人のデータを注入しない」 | 実装の`functionalUpdate`はupdaterが関数でなければその値をそのまま使う。**値をそのまま渡すと全員の枠へ同じ値を注入する** |
+
+「いまのコードは安全（`timeline.tsx`は返り値を消費せず、updaterに関数を
+渡している）。ただし、安全な理由が書いてある理由と違う」（Aの言葉）。
+「理由が違うと、次に`getQueriesData(...)[0][1]`を読んで画面に出す人が
+止まらない」（Rの指摘）。
+
+**対応**: 2つを`prefix`から新設した`conditional`バケットへ移し、条件を
+機械的に検査する形にした。
+
+- `getQueriesData`: 戻り値が消費されていない（式文としてだけ呼ばれて
+  いる）ことを検査する。変数への代入・return・添字/プロパティアクセス
+  等はいずれも違反とする（fail-closed）
+- `setQueriesData`: 第2引数（updater）がアロー関数・関数式であることを
+  検査する。値やオブジェクトリテラルを渡す形は違反とする
+
+条件を満たさない場合は、`viewer-key-coverage-ignore`コメントが無い限り
+赤にする（既存のexact-missing/exact-ignoredの仕組みをそのまま流用）。
+
+**`timeline.tsx`の実際の`getQueriesData`呼び出し**（`onMutate`内、戻り値を
+`previousQueries`という変数へ代入している）は、この検査により新たに
+赤くなった。実際には安全（戻り値は`context`経由で`onError`の
+`setQueryData`へ、同じキーへそのまま書き戻すためだけに使われ、画面には
+一切表示されない）なため、既存の`setQueryData`（`onError`側）と同じ形で
+`viewer-key-coverage-ignore`コメントを追加した。`setQueriesData`の呼び出し
+（`onMutate`内）はupdaterが`(old) => ...`という関数式のため、コメント無しで
+条件を満たし緑のまま。
+
+R指摘の「小さいもの」（「今日のappで実際に使われている9種」の手書き一覧が
+理由不明のまま赤くなりうる件）にも対応し、コメントで理由を明記した。
+
+## テスト（フォローアップ後）
+
+`pnpm -r test`: apps/api 457件・apps/app 291件、全て緑。
 `pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
 
 ## 完了条件との対応
 - [x] 列挙がライブラリから引かれ、`toEqual`で固定されている
 - [x] 別名importとブラケット記法が赤
-- [ ] 決めた形が`conventions.md`に書かれている（**Aの担当**。この
-      artifactsとA/Rへの報告で内容は明記済み）
+- [x] 決めた形が`conventions.md`に書かれている（Aが`63e72d7`で反映）
 - [x] Rが素通りさせた12通りが全部赤（`setQueryDefaults`は理由つきで
       対象外と分類。ブラケット記法・別名importは別の検査で赤）
+- [x] `getQueriesData`/`setQueriesData`の条件を機械的に検査する
+      （フォローアップで対応）
 - [x] これまでに閉じたものが引き続き効く
 - [x] `artifacts/038/`に証跡を保存（本ファイル）

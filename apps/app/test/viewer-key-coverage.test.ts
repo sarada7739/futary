@@ -190,8 +190,11 @@ const RAW_QUERY_CLIENT_METHODS = Object.getOwnPropertyNames(ReactQueryModule.Que
 interface Classification {
   // "exact": 1件の値を読む・書くため、viewerKeyを厳密に要求する
   // "prefix": 既定で前方一致のフィルタとして効くため、viewerKeyを要求しない
+  // "conditional": 「前方一致だから安全」ではなく「使い方に条件がついた
+  //   安全」（038。Rが実装を読んで発見）。条件が崩れたらexactと同じ
+  //   扱いにする。CONDITIONAL_METHOD_CHECKSに対応する条件関数を持つ
   // "excluded": データそのものを読み書きしない（件数・設定・ライフサイクル等）ため対象外
-  bucket: "exact" | "prefix" | "excluded";
+  bucket: "exact" | "prefix" | "conditional" | "excluded";
   reason: string;
 }
 
@@ -280,8 +283,21 @@ const QUERY_CLIENT_METHOD_CLASSIFICATION: Record<string, Classification> = {
   removeQueries: { bucket: "prefix", reason: "前方一致のフィルタでキャッシュから削除するだけ。値を返さない" },
   refetchQueries: { bucket: "prefix", reason: "前方一致のフィルタで再取得を発火するだけ。呼び出し側へ値を返さない" },
   resetQueries: { bucket: "prefix", reason: "前方一致のフィルタで初期状態へ戻すだけ。値を返さない" },
-  setQueriesData: { bucket: "prefix", reason: "前方一致のフィルタで一括更新。updater関数が各自の既存データを変換するだけで、他人のデータを注入しない" },
-  getQueriesData: { bucket: "prefix", reason: "前方一致のフィルタで複数件を返すが、各要素は元々そのキーの持ち主のデータのまま（他人の枠を覗くことにはならない）" },
+  // 【Rレビュー指摘・訂正】以前は「前方一致だから安全」（prefix）と
+  // 書いていたが、実装（下記コメント参照）を読んだRの指摘により誤りと
+  // 判明した。「前方一致だから安全」ではなく「使い方に条件がついた
+  // 安全」であり、条件が崩れると別人の枠を覗く・別人の枠へ書く事故に
+  // なりうる（T9）。条件はCONDITIONAL_METHOD_CHECKSで機械的に検査する
+  setQueriesData: {
+    bucket: "conditional",
+    reason:
+      "実装のfunctionalUpdateは、updaterが関数ならそれを呼ぶが、関数でなければ値をそのまま使う。値をそのまま渡すと、前方一致で選ばれた全員の枠へ同じ値を注入する。条件: 第2引数が関数式であること",
+  },
+  getQueriesData: {
+    bucket: "conditional",
+    reason:
+      "実装はqueryCache.findAll(filters).map(({queryKey,state}) => [queryKey, state.data])で、前方一致に一致した全員のstate.dataをそのまま配列に入れて返す。呼び出し側がそれを変数へ入れる・返す・添字で読む等すれば、別人のデータを読むことになる。条件: 返り値を消費しないこと",
+  },
   isFetching: { bucket: "excluded", reason: "実装を読んで確認: 件数（.length）を返すだけ" },
   isMutating: { bucket: "excluded", reason: "実装を読んで確認: 件数（.length）を返すだけ" },
   clear: { bucket: "excluded", reason: "引数を取らず、キャッシュ全体を消すだけ" },
@@ -314,7 +330,39 @@ const PREFIX_MATCH_METHODS = new Set([
   ...bucketedNames(REACT_QUERY_EXPORT_CLASSIFICATION, "prefix"),
   ...bucketedNames(QUERY_CLIENT_METHOD_CLASSIFICATION, "prefix"),
 ]);
-const ALL_CACHE_KEY_METHODS = new Set([...EXACT_KEY_REQUIRED_METHODS, ...PREFIX_MATCH_METHODS]);
+const CONDITIONAL_METHODS = new Set([
+  ...bucketedNames(REACT_QUERY_EXPORT_CLASSIFICATION, "conditional"),
+  ...bucketedNames(QUERY_CLIENT_METHOD_CLASSIFICATION, "conditional"),
+]);
+const ALL_CACHE_KEY_METHODS = new Set([...EXACT_KEY_REQUIRED_METHODS, ...PREFIX_MATCH_METHODS, ...CONDITIONAL_METHODS]);
+
+// 【038: Rレビュー指摘】getQueriesData/setQueriesDataは「前方一致だから
+// 安全」ではなく「使い方に条件がついた安全」だった。条件が崩れたら、
+// queryKeyにviewerKeyがあるかとは別の理由で別人のデータを覗く・
+// 別人のデータへ書く事故になりうる（T9）。条件を機械的に検査する
+// （conventions.md「条件は検査する。書くだけにしない」）
+
+// getQueriesDataの戻り値が「消費されていない」か（呼び出しが式文として
+// だけ存在し、結果をどこにも渡していないか）を見る。変数へ代入・
+// return・添字/プロパティアクセス・他の呼び出しへの引数渡し等、
+// 消費する形は全て「消費されている」とみなす（fail-closed。この呼び出し
+// 自体が式文として使われている、というただ1つの形だけを安全とする）
+function isGetQueriesDataResultUnconsumed(call: ts.CallExpression): boolean {
+  return ts.isExpressionStatement(call.parent);
+}
+
+// setQueriesDataの第2引数（updater）が関数式・アロー関数であるかを見る。
+// 値をそのまま渡す形は、前方一致で選ばれた全員の枠へ同じ値を書き込む
+// ことになるため安全ではない
+function isSetQueriesDataUpdaterFunction(call: ts.CallExpression): boolean {
+  const updater = call.arguments[1];
+  return !!updater && (ts.isArrowFunction(updater) || ts.isFunctionExpression(updater));
+}
+
+const CONDITIONAL_METHOD_CHECKS: Record<string, (call: ts.CallExpression) => boolean> = {
+  getQueriesData: isGetQueriesDataResultUnconsumed,
+  setQueriesData: isSetQueriesDataUpdaterFunction,
+};
 
 // useQueries/useSuspenseQueriesは`{ queries: [...] }`という配列形を取り、
 // 要素ごとに個別のqueryKeyを持つ（他のフックとは引数の形が違う）
@@ -472,6 +520,34 @@ function scanCacheKeySites(file: string, content: string, sourceFile: ts.SourceF
         const location = formatLocation(sourceFile, node.getStart(sourceFile));
         if (PREFIX_MATCH_METHODS.has(methodName)) {
           sites.push({ file, location, methodName, status: "prefix-exempt", checkRange: null });
+        } else if (CONDITIONAL_METHODS.has(methodName)) {
+          // 【038: Rレビュー指摘】条件（getQueriesDataなら戻り値を消費
+          // しないこと、setQueriesDataならupdaterが関数式であること）を
+          // 満たしていれば前方一致と同じ扱い（安全）。満たしていなければ、
+          // ignoreコメントが無い限り赤にする（queryKeyのviewerKeyの
+          // 有無ではなく、条件そのものが崩れていることが問題のため、
+          // checkRangeは呼び出し全体を指す）
+          const check = CONDITIONAL_METHOD_CHECKS[methodName];
+          const conditionMet = check ? check(node) : false;
+          if (conditionMet) {
+            sites.push({ file, location, methodName, status: "prefix-exempt", checkRange: null });
+          } else if (hasIgnoreComment(content, node.getStart(sourceFile))) {
+            sites.push({
+              file,
+              location,
+              methodName,
+              status: "exact-ignored",
+              checkRange: [node.getStart(sourceFile), node.getEnd()],
+            });
+          } else {
+            sites.push({
+              file,
+              location,
+              methodName,
+              status: "exact-missing",
+              checkRange: [node.getStart(sourceFile), node.getEnd()],
+            });
+          }
         } else {
           const keyNodes = resolveExactKeyNodes(methodName, node);
           const first = keyNodes[0];
@@ -531,7 +607,13 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
   // 同じ考え方）。残り17種（useSuspenseQuery・ensureQueryData等。038で
   // ライブラリから新たに引いたもの）は今日のappでは未使用のため、ここでは
   // 求めない。それらの判定ロジックが機能することは後段の合成スニペットの
-  // テスト（Rが挙げた13通り等）で別途確認する
+  // テスト（Rが挙げた12通り等）で別途確認する。
+  // 【Rの注文】この一覧は手書きであり、セキュリティの検査ではなく
+  // 「今日実際に使われているものが消えていないか」の確認である。
+  // 例えばリファクタで`cancelQueries`の呼び出しを1件削除すると、
+  // T9とは無関係にこのテストが赤くなる——それは意図どおりであり、
+  // 一覧をその時点の実際の使用状況に合わせて更新すればよい
+  // （「なぜ赤いのか」を探させないためにここに書く）
   it("今日のappで実際に使われている9種のAPIは、呼び出しが最低1件は見つかる（検出ロジック自体の健全性）", () => {
     const KNOWN_USED_METHODS = [
       "useQuery",
@@ -570,10 +652,13 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
   // 【受け入れの形】免除は理由つきで一覧に載り、載っていない免除は赤。
   // 免除箇所そのものを名指しで固定する（合計数だけを見ると、免除が
   // 増えても対象が同じだけ減れば埋め合わされて気づけないため）
-  it("viewer-key-coverage-ignoreで免除されているのは想定どおり1箇所だけである", () => {
+  it("viewer-key-coverage-ignoreで免除されているのは想定どおり2箇所だけである", () => {
     const ignored = scanRealFiles().filter((s) => s.status === "exact-ignored");
-    expect(ignored.map((s) => `${path.relative(repoRoot, s.file).replace(/\\/g, "/")}:${s.location}`)).toEqual([
-      "apps/app/app/(tabs)/timeline.tsx:74:59",
+    expect(
+      ignored.map((s) => `${path.relative(repoRoot, s.file).replace(/\\/g, "/")}:${s.location} (${s.methodName})`),
+    ).toEqual([
+      "apps/app/app/(tabs)/timeline.tsx:54:33 (getQueriesData)",
+      "apps/app/app/(tabs)/timeline.tsx:75:59 (setQueryData)",
     ]);
   });
 
@@ -926,20 +1011,76 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(sites.some((s) => s.methodName === "setQueryData" && s.status === "exact-missing")).toBe(true);
   });
 
-  // invalidateQueries等（PREFIX_MATCH_METHODS）は、viewerKeyが無くても
-  // 構造的に免除される（前方一致で複数のviewerKey付き枠をまとめて
-  // 対象にすることが設計上正しいため）ことを確かめる
-  it("invalidateQueries/cancelQueries/removeQueries/setQueriesData/getQueriesDataはviewerKeyが無くても免除される", () => {
+  // invalidateQueries/cancelQueries/removeQueriesは、viewerKeyが無くても
+  // 無条件に免除される（前方一致で複数のviewerKey付き枠をまとめて
+  // 対象にすることが設計上正しいため）ことを確かめる。setQueriesData/
+  // getQueriesDataは条件つきのため、このテストからは外し、下の専用の
+  // describeで確かめる
+  it("invalidateQueries/cancelQueries/removeQueriesはviewerKeyが無くても無条件に免除される", () => {
     const code =
       "queryClient.invalidateQueries({ queryKey: orpc.me.get.key() });\n" +
       "queryClient.cancelQueries({ queryKey: orpc.post.list.key() });\n" +
-      "queryClient.removeQueries({ queryKey: orpc.me.get.key() });\n" +
-      "queryClient.setQueriesData({ queryKey: orpc.post.list.key() }, updater);\n" +
-      "queryClient.getQueriesData({ queryKey: orpc.post.list.key() });\n";
+      "queryClient.removeQueries({ queryKey: orpc.me.get.key() });\n";
     const sourceFile = parseSource("prefix.tsx", code);
     const sites = scanCacheKeySites("prefix.tsx", code, sourceFile);
-    expect(sites.length).toBe(5);
+    expect(sites.length).toBe(3);
     expect(sites.every((s) => s.status === "prefix-exempt")).toBe(true);
+  });
+
+  // 【038: Rレビュー指摘・訂正】getQueriesData/setQueriesDataは「前方一致
+  // だから安全」ではなく「使い方に条件がついた安全」だった
+  // （conventions.md「条件つきの2つ」）。以前は無条件でprefix-exempt
+  // としていたが、実装を読んだRの指摘で誤りと判明した:
+  //   getQueriesData: 前方一致に一致した全員のstate.dataをそのまま
+  //     配列に入れて返す。呼び出し側が消費すれば別人のデータを読む
+  //   setQueriesData: updaterが関数でなければ、その値をそのまま全員の
+  //     枠へ書き込む（functionalUpdateの実装）
+  // 「理由が違うと、次にgetQueriesData(...)[0][1]を読んで画面に出す人が
+  // 止まらない」（Rの指摘）。条件そのものを機械的に検査する
+  describe("getQueriesData/setQueriesDataは「条件つきで安全」（038。Rが実装を読んで発見）", () => {
+    it("getQueriesDataは戻り値を消費しなければ免除される（式文としてだけ呼ぶ）", () => {
+      const code = 'queryClient.getQueriesData({ queryKey: orpc.post.list.key() });\n';
+      const sourceFile = parseSource("conditional.tsx", code);
+      const sites = scanCacheKeySites("conditional.tsx", code, sourceFile);
+      expect(sites.length).toBe(1);
+      expect(sites[0]?.status).toBe("prefix-exempt");
+    });
+
+    it.each([
+      ["変数へ代入", 'const result = queryClient.getQueriesData({ queryKey: orpc.post.list.key() });\n'],
+      ["そのまま返す（関数本体）", 'function f() { return queryClient.getQueriesData({ queryKey: orpc.post.list.key() }); }\n'],
+      ["添字で読む", 'const first = queryClient.getQueriesData({ queryKey: orpc.post.list.key() })[0];\n'],
+    ])("getQueriesDataの戻り値を消費する形（%s）は、免除コメントが無ければ赤になる", (_label, code) => {
+      const sourceFile = parseSource("conditional.tsx", code);
+      const sites = scanCacheKeySites("conditional.tsx", code, sourceFile);
+      expect(sites.some((s) => s.methodName === "getQueriesData" && s.status === "exact-missing")).toBe(true);
+    });
+
+    it("getQueriesDataの戻り値を消費していても、ignoreコメントがあれば免除される", () => {
+      const code =
+        "// viewer-key-coverage-ignore -- 戻り値はcontext経由でonErrorのsetQueryDataへ同じキーで書き戻すためだけに使う\n" +
+        "const result = queryClient.getQueriesData({ queryKey: orpc.post.list.key() });\n";
+      const sourceFile = parseSource("conditional.tsx", code);
+      const sites = scanCacheKeySites("conditional.tsx", code, sourceFile);
+      expect(sites.some((s) => s.methodName === "getQueriesData" && s.status === "exact-ignored")).toBe(true);
+    });
+
+    it("setQueriesDataはupdaterが関数式であれば免除される", () => {
+      const code = 'queryClient.setQueriesData({ queryKey: orpc.post.list.key() }, (old) => old);\n';
+      const sourceFile = parseSource("conditional.tsx", code);
+      const sites = scanCacheKeySites("conditional.tsx", code, sourceFile);
+      expect(sites.length).toBe(1);
+      expect(sites[0]?.status).toBe("prefix-exempt");
+    });
+
+    it.each([
+      ["値をそのまま渡す", 'queryClient.setQueriesData({ queryKey: orpc.post.list.key() }, someData);\n'],
+      ["オブジェクトリテラルを渡す", 'queryClient.setQueriesData({ queryKey: orpc.post.list.key() }, { items: [] });\n'],
+    ])("setQueriesDataのupdaterが関数式でない形（%s）は、免除コメントが無ければ赤になる", (_label, code) => {
+      const sourceFile = parseSource("conditional.tsx", code);
+      const sites = scanCacheKeySites("conditional.tsx", code, sourceFile);
+      expect(sites.some((s) => s.methodName === "setQueriesData" && s.status === "exact-missing")).toBe(true);
+    });
   });
 
   // 【Rレビュー指摘R-2の実証】判定ロジック自体が「効いていること」を、

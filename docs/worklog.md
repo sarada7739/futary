@@ -11975,3 +11975,157 @@ Session: B
 `pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
 
 Session: B
+## 2026-09-06 セッションA: 037 がマージされ、038 の決定を conventions.md に書いた
+
+**037 が main へ入った**（`070b80d`）。**AIまとめは実装として完成している。**
+
+### 「出どころから引く」が、その日のうちに効いた
+
+**B がライブラリの実装を読んで、`query` / `infiniteQuery` を見つけた。**
+`fetchQuery` / `fetchInfiniteQuery` の後継（新 API。既存は非推奨コメント付き）で、
+**どちらもキャッシュ済みデータをそのまま返す。**
+
+**私の一覧にも、R が数えた12通りにも、名前が無かった。**
+**手で写す限り、絶対に気づけなかった項目である。**
+
+**規約を書いた翌日ではなく、書いた直後に効いた。**
+
+### B が決めた形を `conventions.md` に書いた（B は編集できない）
+
+- **`@tanstack/react-query` からの import は、別名なしの名前付きに限る**
+- **`queryClient` のメソッド呼び出しはドット記法に限る**
+- **`viewerKey` を要求するもの／前方一致のフィルタとして効くもの／対象外**の3区分。
+  **対象外にした理由を項目ごとに1行ずつ書かせた**
+  （**「対象外」とだけ書かれた一覧は、次に読む人が正しいか判断できない**）
+
+**B が「決めた形は conventions.md に書く必要がある（A の担当。B 判断で編集不可）」と
+自分から書いて、artifact に明記していた。**役の線が正しく効いている。
+
+### gitleaks の運用を書いた（B が踏んだ）
+
+**テスト用の偽キーが `generic-api-key` のエントロピー閾値に当たった。**
+
+**新しいコミットで直しても赤は消えない。**gitleaks は**コミット履歴の差分全体**を見るため、
+**入ってしまった時点の差分にまだ残っている。**
+
+B は**未マージで自分だけが触っているブランチ**のコミットを1つに整理し直し、
+**人間に確認してから force-push した。**手順として正しい。
+
+**そもそも偽キーを本物らしい形で書かない**ことも書いた。
+`sk-` で始まる長いランダム文字列にせず、**明らかに偽物と分かる形にする。**
+
+Session: A
+
+## 2026-09-06 セッションA: 038 は留め金が閉じた。残りは「理由の誤り」2件
+
+**R が判定した。留め金は閉じている。**
+列挙はライブラリから引かれ、増減は `toEqual` で赤くなり、名前の書き換えは入口で止まり、
+**R が前回素通りさせた別名 import と `useSuspenseQuery` が、実ファイルで赤くなった。**
+
+### R が自分の見落としを申告した
+
+**`query` / `infiniteQuery` は、R が読んだ `Object.getOwnPropertyNames` の出力に出ていた。**
+
+> **私はそれを見て、名前だけで「内部用か」と見送りました。実装を開いていません。**
+> B は開いて `return queryData` を見つけました。**それが正しい仕事です。**
+> **私が「出どころから引け」と言いながら、自分は名前を読んだだけで判断していました。**
+
+**出どころから引いても、引いたものを読まなければ同じである。**
+**一覧を機械で取ることと、その一覧の中身を確かめることは別の作業である。**
+
+### 残り2件は穴ではなく、理由の誤り
+
+**R が実装を読んだ。**
+
+| | 書いてあった理由 | 実際 |
+|---|---|---|
+| **`getQueriesData`** | 「他人の枠を覗くことにはならない」 | **他人の `state.data` が配列に入って返る** |
+| **`setQueriesData`** | 「updater 関数が各自の既存データを変換するだけ」 | **updater が関数のときだけ。値を渡すと全員の枠へ注入される** |
+
+**いまのコードは安全である**（`timeline.tsx` は返り値を消費せず、updater に関数を渡している）。
+**安全な理由が、書いてある理由と違う。**
+
+**R の指摘が核心である。**
+
+> **理由が違うと、次に `getQueriesData(...)[0][1]` を読んで画面に出す人が、止まりません。**
+> **「持ち主のもの」であることは、受け取った側が読めないことを意味しません。**
+
+### 判断: 条件を検査する。書くだけにしない
+
+| | 検査すること |
+|---|---|
+| `getQueriesData` | **返り値を消費していないこと** |
+| `setQueriesData` | **第2引数が関数式であること** |
+
+**前提が崩れたら区分が変わるものを、前提を見ずに区分だけ書くのは、
+#245「対象があっても動かない基準」と同じ形である。**
+
+`conventions.md` の「要求しない」の表も直した。
+**`getQueriesData` と `setQueriesData` を「条件つきで要求しない」として、
+他の5件（値を返さないもの）と区別して置いた。**
+
+### R が確かめて問題の無かったもの
+
+**`useMutation` の `onSuccess` の中の `setQueryData` は拾われる**
+（走査が全ての `CallExpression` を歩くため。**実物の免除箇所 `timeline.tsx:74:59` が
+`onError` の中の `setQueryData` であることが証明になっている**）。
+
+**`toEqual` の固定が両方向で効く**（マップから1件落として実測。赤くなった）。
+
+Session: A
+
+## 2026-09-06 セッションB: 038 残り2件（getQueriesData/setQueriesDataの理由の誤り）に対応
+
+### やったこと
+Rが「留め金は閉じた」と判定した後（列挙はライブラリから引かれ、別名
+import・`useSuspenseQuery`が実ファイルで赤くなることを確認済み）、
+Aが仲介したRの実装調査による指摘2件（PR #261でAが判断確定）に対応した。
+
+- Rが`node_modules`内の実装（`@tanstack/query-core`のqueryClient.js）を
+  読み、`getQueriesData`・`setQueriesData`の分類理由が誤りだと指摘した:
+  - `getQueriesData`: 「他人の枠を覗くことにはならない」という理由は誤り。
+    実装は`queryCache.findAll(filters).map(({queryKey,state}) =>
+    [queryKey, state.data])`で、前方一致に一致した**他人の`state.data`を
+    そのまま配列に入れて返す**
+  - `setQueriesData`: 「updater関数が各自の既存データを変換するだけ」も
+    誤り。実装の`functionalUpdate`はupdaterが関数でなければその値を
+    そのまま使うため、**値をそのまま渡すと全員の枠へ同じ値を注入する**
+- 「いまのコードは安全だが、安全な理由が書いてある理由と違う。理由が
+  違うと、次に`getQueriesData(...)[0][1]`を読んで画面に出す人が止まらない」
+  （Rの指摘）。Aの判断「条件を検査する。書くだけにしない」どおり、この
+  2つを`prefix`バケットから新設した`conditional`バケットへ移した
+- `getQueriesData`の条件（戻り値が消費されていないこと）を
+  `isGetQueriesDataResultUnconsumed`で検査する: 呼び出しが式文として
+  だけ存在する（`ts.isExpressionStatement(call.parent)`）ことのみを
+  安全とし、変数への代入・return・添字/プロパティアクセス等は全て
+  違反とする（fail-closed）
+- `setQueriesData`の条件（updaterが関数式であること）を
+  `isSetQueriesDataUpdaterFunction`で検査する:
+  `ts.isArrowFunction(updater) || ts.isFunctionExpression(updater)`を
+  満たさなければ違反とする
+- 条件を満たさない場合、既存の`viewer-key-coverage-ignore`の仕組みを
+  そのまま流用し、コメントが無ければ赤・あれば免除とする形にした
+  （新しいステータスは増やさず、既存のexact-missing/exact-ignoredを
+  再利用した）
+- `timeline.tsx`の実際の`getQueriesData`呼び出し（`onMutate`内、戻り値を
+  `previousQueries`という変数へ代入している）は、この検査により新たに
+  赤くなった。実際には安全（戻り値は`context`経由で`onError`の
+  `setQueryData`へ、同じキーへそのまま書き戻すためだけに使われ、画面
+  には一切表示されない）なため、既存の`setQueryData`（`onError`側）と
+  同じ形で`viewer-key-coverage-ignore`コメントを追加した。
+  `setQueriesData`の呼び出し（`onMutate`内）はupdaterが`(old) => ...`と
+  いう関数式のため、コメント無しで条件を満たし緑のまま
+- Rの「小さいもの」の注文（「今日のappで実際に使われている9種」の
+  手書き一覧が、`cancelQueries`を1件消しただけでセキュリティと無関係に
+  赤くなる件）に対応し、コメントで理由を明記した
+
+### 決定事項
+- 特になし（全てAの判断どおり実装）
+
+### 詰まった点
+- 特になし
+
+`pnpm -r test`（apps/api 457件・apps/app 291件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
