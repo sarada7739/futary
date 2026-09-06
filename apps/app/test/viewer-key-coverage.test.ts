@@ -167,35 +167,162 @@ function queryKeyInitializer(objectLiteral: ts.ObjectLiteralExpression): ts.Node
   return findVariableInitializerInScope(shorthand, "queryKey");
 }
 
-// 【Aの判断・R実測】TanStack Queryの「キャッシュのキーを取るAPI」を
-// 列挙する。ライブラリの関数・メソッド名という閉じた集合（増えるとしたら
-// ライブラリのバージョンアップ時で、そのときは差分に出る）。
+// 【038: Aの判断「閉じた集合を、手で写さない。出どころから引く」】
+// 037で「TanStack Queryのキャッシュのキーを取るAPI」という閉じた集合へ
+// 留め金を移したこと自体は正しかった（Rの判定）。だが実際には手で9件を
+// 書き写しただけで、ライブラリの実物とは突き合わせていなかった。Rが
+// `@tanstack/react-query@5.102.3`の公開面を読んだところ、13通り当てて
+// 12通りが素通りした（useSuspenseQuery・useQueries・ensureQueryData・
+// fetchQuery・getQueryState等）。「閉じた集合であることと、その集合を
+// 正しく持っていることは別だった」（Aの言葉）。
 //
-// このうちuseQuery/useInfiniteQuery/setQueryData/getQueryDataは
-// 「1つの値を読む・書く」操作のため、queryKeyがviewerKeyを含まないと
-// 別人のキャッシュを読む・別人のキャッシュへ書く事故になりうる（T9）。
-// 厳密にviewerKeyを要求する
-const EXACT_KEY_REQUIRED_METHODS = new Set(["useQuery", "useInfiniteQuery", "setQueryData", "getQueryData"]);
+// テスト実行時に実際のモジュールを読み、そこから列挙する
+// （`ts.createProgram`は使わない。読むのはモジュールの値そのもの）
+import * as ReactQueryModule from "@tanstack/react-query";
 
-// invalidateQueries/cancelQueries/removeQueries/setQueriesData/
-// getQueriesDataは、既定（exact指定なし）では前方一致のフィルタとして
-// 効く。短いキー（例: `orpc.me.get.key()`）で複数のviewerKey付き
-// キャッシュ枠をまとめて対象にすることは設計上正しい——無効化・
-// キャンセル・削除・複数件の一括更新（updater関数で各自の既存データを
-// 変換するだけ）は「値を返す」操作ではないため、対象が複数のviewerKeyに
-// またがっても別人のデータを覗き見ることにはならない（timeline.tsxの
-// コメント参照）。このためviewerKeyを要求しない。
-// 【範囲外】`exact: true`を明示して呼ぶケースは今のコードベースに無く
-// 扱わない（発生したら見直す。conventions.md 6節）
-const PREFIX_MATCH_METHODS = new Set([
-  "invalidateQueries",
-  "cancelQueries",
-  "removeQueries",
-  "setQueriesData",
-  "getQueriesData",
+// ライブラリの公開面をそのまま列挙する（手で書かない）。バージョンを
+// 上げてこの一覧が変わったら、下のtoEqualが赤くなり気づける
+const RAW_REACT_QUERY_EXPORTS = Object.keys(ReactQueryModule).sort();
+const RAW_QUERY_CLIENT_METHODS = Object.getOwnPropertyNames(ReactQueryModule.QueryClient.prototype)
+  .filter((name) => name !== "constructor")
+  .sort();
+
+interface Classification {
+  // "exact": 1件の値を読む・書くため、viewerKeyを厳密に要求する
+  // "prefix": 既定で前方一致のフィルタとして効くため、viewerKeyを要求しない
+  // "excluded": データそのものを読み書きしない（件数・設定・ライフサイクル等）ため対象外
+  bucket: "exact" | "prefix" | "excluded";
+  reason: string;
+}
+
+// react-queryパッケージの公開exportの分類。フック以外（クラス・
+// コンポーネント・内部ユーティリティ）は、実装を読んで「呼び出し側で
+// queryKeyを直接渡すか」で判断した
+const REACT_QUERY_EXPORT_CLASSIFICATION: Record<string, Classification> = {
+  useQuery: { bucket: "exact", reason: "1件のクエリを読むフックそのもの" },
+  useInfiniteQuery: { bucket: "exact", reason: "1件の無限クエリを読むフックそのもの" },
+  useSuspenseQuery: { bucket: "exact", reason: "useQueryのSuspense版。差し替え先で意味は同じ" },
+  useSuspenseInfiniteQuery: { bucket: "exact", reason: "useInfiniteQueryのSuspense版" },
+  useQueries: { bucket: "exact", reason: "複数クエリをまとめて読む。各要素が個別のqueryKeyを持つ" },
+  useSuspenseQueries: { bucket: "exact", reason: "useQueriesのSuspense版" },
+  usePrefetchQuery: { bucket: "exact", reason: "先読みしてキャッシュへ書く。viewerKey無しで書くと別人の枠に置かれる" },
+  usePrefetchInfiniteQuery: { bucket: "exact", reason: "usePrefetchQueryの無限版" },
+  useMutation: { bucket: "excluded", reason: "mutationKeyはこの規約の対象外（既存のmutationOptions扱いと同じ）" },
+  useMutationState: { bucket: "excluded", reason: "mutationKeyを対象にする。ミューテーションはこの規約の対象外" },
+  mutationOptions: { bucket: "excluded", reason: "ミューテーション用のヘルパー。queryKeyを扱わない" },
+  useIsFetching: { bucket: "excluded", reason: "件数（number）を返すだけ。データそのものは返さない" },
+  useIsMutating: { bucket: "excluded", reason: "件数（number）を返すだけ。データそのものは返さない" },
+  useIsRestoring: { bucket: "excluded", reason: "永続化からの復元中かを示す真偽値。キーを取らない" },
+  useQueryClient: { bucket: "excluded", reason: "QueryClientインスタンス自体を返すだけ。そこから呼ぶ各メソッドは別途このテストの対象" },
+  useQueryErrorResetBoundary: { bucket: "excluded", reason: "エラー境界のリセット関数を返すだけ。キーを取らない" },
+  QueryClient: { bucket: "excluded", reason: "クラス自体（コンストラクタ）。newで作るだけで、appでは1箇所のみ（lib/query.ts）" },
+  QueryClientProvider: { bucket: "excluded", reason: "Reactコンポーネント。propsにqueryKeyを取らない" },
+  QueryClientContext: { bucket: "excluded", reason: "Reactコンテキストオブジェクト" },
+  QueryErrorResetBoundary: { bucket: "excluded", reason: "Reactコンポーネント" },
+  IsRestoringProvider: { bucket: "excluded", reason: "Reactコンテキストプロバイダ" },
+  HydrationBoundary: { bucket: "excluded", reason: "SSR用のReactコンポーネント。このアプリ（Expo/RN）はSSRを使わない" },
+  dehydrate: { bucket: "excluded", reason: "SSR用のシリアライズ関数。このアプリはSSRを使わない（実測: 未使用）" },
+  dehydrateQuery: { bucket: "excluded", reason: "同上（1件版）" },
+  hydrate: { bucket: "excluded", reason: "SSR用の復元関数。このアプリはSSRを使わない（実測: 未使用）" },
+  defaultShouldDehydrateQuery: { bucket: "excluded", reason: "SSRのdehydrate対象を選ぶ既定関数。未使用" },
+  defaultShouldDehydrateMutation: { bucket: "excluded", reason: "同上（ミューテーション版）" },
+  Query: { bucket: "excluded", reason: "内部クラス。フック経由でのみ使う（実測: appから直接newしていない）" },
+  QueryCache: { bucket: "excluded", reason: "内部クラス。appから直接newしていない（実測）" },
+  QueryObserver: { bucket: "excluded", reason: "内部クラス（useQueryの内部実装）。appから直接newしていない（実測）" },
+  QueriesObserver: { bucket: "excluded", reason: "内部クラス（useQueriesの内部実装）。appから直接newしていない（実測）" },
+  InfiniteQueryObserver: { bucket: "excluded", reason: "内部クラス（useInfiniteQueryの内部実装）。appから直接newしていない（実測）" },
+  Mutation: { bucket: "excluded", reason: "内部クラス。appから直接newしていない（実測）" },
+  MutationCache: { bucket: "excluded", reason: "内部クラス。appから直接newしていない（実測）" },
+  MutationObserver: { bucket: "excluded", reason: "内部クラス（useMutationの内部実装）。appから直接newしていない（実測）" },
+  CancelledError: { bucket: "excluded", reason: "エラークラス。キーを持たない" },
+  isCancelledError: { bucket: "excluded", reason: "型ガード関数。データを読み書きしない" },
+  isServer: { bucket: "excluded", reason: "真偽値の定数" },
+  skipToken: { bucket: "excluded", reason: "クエリを一時的に無効化する目印の値。データを読み書きしない" },
+  keepPreviousData: { bucket: "excluded", reason: "placeholderDataの既定戦略。データを読み書きしない" },
+  noop: { bucket: "excluded", reason: "内部の空関数" },
+  hashKey: { bucket: "excluded", reason: "queryKeyを文字列へハッシュ化するだけ。データそのものは返さない" },
+  partialMatchKey: { bucket: "excluded", reason: "内部の前方一致判定ヘルパー。データを返さない" },
+  matchQuery: { bucket: "excluded", reason: "内部のフィルタ判定ヘルパー。データを返さない" },
+  matchMutation: { bucket: "excluded", reason: "同上（ミューテーション版）" },
+  replaceEqualDeep: { bucket: "excluded", reason: "内部の構造共有ユーティリティ" },
+  shouldThrowError: { bucket: "excluded", reason: "内部のエラー判定ヘルパー" },
+  focusManager: { bucket: "excluded", reason: "ウィンドウフォーカス監視の内部シングルトン" },
+  onlineManager: { bucket: "excluded", reason: "オンライン状態監視の内部シングルトン" },
+  notifyManager: { bucket: "excluded", reason: "内部の通知バッチ処理シングルトン" },
+  environmentManager: { bucket: "excluded", reason: "内部のSSR/CSR環境判定シングルトン" },
+  timeoutManager: { bucket: "excluded", reason: "内部のタイマー管理シングルトン" },
+  defaultScheduler: { bucket: "excluded", reason: "内部のスケジューラ関数" },
+  dataTagSymbol: { bucket: "excluded", reason: "型付け用のシンボル定数" },
+  dataTagErrorSymbol: { bucket: "excluded", reason: "同上（エラー型用）" },
+  unsetMarker: { bucket: "excluded", reason: "内部の未設定を示すシンボル定数" },
+  queryOptions: { bucket: "excluded", reason: "queryOptionsオブジェクトを組み立てるだけのヘルパー。appはoRPC側のqueryOptions()を使い、これを直接呼んでいない（実測）。戻り値がuseQuery等へ渡ればそちら側で検査される" },
+  infiniteQueryOptions: { bucket: "excluded", reason: "同上（無限版）。未使用（実測）" },
+  experimental_streamedQuery: { bucket: "excluded", reason: "streamingのqueryFnを組み立てるヘルパー。未使用（実測）" },
+};
+
+// QueryClientインスタンスメソッドの分類。実装（node_modules内の
+// queryClient.js）を実際に読み、戻り値がキャッシュ済みデータそのものを
+// 返すかどうかで判断した
+const QUERY_CLIENT_METHOD_CLASSIFICATION: Record<string, Classification> = {
+  setQueryData: { bucket: "exact", reason: "指定したqueryKeyへ値を書く。viewerKey無しだと別人の枠へ書く事故になる" },
+  getQueryData: { bucket: "exact", reason: "指定したqueryKeyの値をそのまま返す" },
+  getQueryState: { bucket: "exact", reason: "実装を読んで確認: .state（dataを含む）をそのまま返す" },
+  ensureQueryData: { bucket: "exact", reason: "実装を読んで確認: キャッシュ済みデータ、無ければ取得して返す" },
+  ensureInfiniteQueryData: { bucket: "exact", reason: "ensureQueryDataの無限版" },
+  fetchQuery: { bucket: "exact", reason: "実装を読んで確認: 取得したデータをそのまま返す（非推奨だが現行版に存在）" },
+  fetchInfiniteQuery: { bucket: "exact", reason: "fetchQueryの無限版" },
+  prefetchQuery: { bucket: "exact", reason: "fetchQueryを呼びキャッシュへ書く。viewerKey無しで書くと別人の枠に置かれる" },
+  prefetchInfiniteQuery: { bucket: "exact", reason: "prefetchQueryの無限版" },
+  query: { bucket: "exact", reason: "実装を読んで確認: fetchQuery/prefetchQueryの後継（新API）。取得したデータをそのまま返す" },
+  infiniteQuery: { bucket: "exact", reason: "queryの無限版（fetchInfiniteQueryの後継）" },
+  invalidateQueries: { bucket: "prefix", reason: "前方一致のフィルタで無効化するだけ。値を返さない" },
+  cancelQueries: { bucket: "prefix", reason: "前方一致のフィルタで進行中の取得を止めるだけ。値を返さない" },
+  removeQueries: { bucket: "prefix", reason: "前方一致のフィルタでキャッシュから削除するだけ。値を返さない" },
+  refetchQueries: { bucket: "prefix", reason: "前方一致のフィルタで再取得を発火するだけ。呼び出し側へ値を返さない" },
+  resetQueries: { bucket: "prefix", reason: "前方一致のフィルタで初期状態へ戻すだけ。値を返さない" },
+  setQueriesData: { bucket: "prefix", reason: "前方一致のフィルタで一括更新。updater関数が各自の既存データを変換するだけで、他人のデータを注入しない" },
+  getQueriesData: { bucket: "prefix", reason: "前方一致のフィルタで複数件を返すが、各要素は元々そのキーの持ち主のデータのまま（他人の枠を覗くことにはならない）" },
+  isFetching: { bucket: "excluded", reason: "実装を読んで確認: 件数（.length）を返すだけ" },
+  isMutating: { bucket: "excluded", reason: "実装を読んで確認: 件数（.length）を返すだけ" },
+  clear: { bucket: "excluded", reason: "引数を取らず、キャッシュ全体を消すだけ" },
+  mount: { bucket: "excluded", reason: "ライフサイクル。引数を取らない" },
+  unmount: { bucket: "excluded", reason: "同上" },
+  resumePausedMutations: { bucket: "excluded", reason: "引数を取らない" },
+  getDefaultOptions: { bucket: "excluded", reason: "全体既定のオプションを返すだけ。クエリ固有のデータではない" },
+  setDefaultOptions: { bucket: "excluded", reason: "全体既定のオプションを設定するだけ" },
+  getQueryDefaults: { bucket: "excluded", reason: "実装を読んで確認: queryKeyに紐づく既定オプションを返すだけで、実際のデータではない" },
+  setQueryDefaults: { bucket: "excluded", reason: "同上（設定側）" },
+  getMutationDefaults: { bucket: "excluded", reason: "mutationKeyに紐づく既定オプション。ミューテーションはこの規約の対象外" },
+  setMutationDefaults: { bucket: "excluded", reason: "同上（設定側）" },
+  defaultQueryOptions: { bucket: "excluded", reason: "内部用のオプション合成ヘルパー。appから直接呼んでいない（実測）" },
+  defaultMutationOptions: { bucket: "excluded", reason: "同上（ミューテーション版）" },
+  getQueryCache: { bucket: "excluded", reason: "QueryCacheオブジェクト自体を返すだけ。中のfind/findAllは別クラスのAPIで、appでは使っていない（実測）。使われたら要見直し（範囲外）" },
+  getMutationCache: { bucket: "excluded", reason: "MutationCacheオブジェクト自体を返すだけ。appでは使っていない（実測）" },
+};
+
+function bucketedNames(classification: Record<string, Classification>, bucket: Classification["bucket"]): string[] {
+  return Object.entries(classification)
+    .filter(([, c]) => c.bucket === bucket)
+    .map(([name]) => name);
+}
+
+const EXACT_KEY_REQUIRED_METHODS = new Set([
+  ...bucketedNames(REACT_QUERY_EXPORT_CLASSIFICATION, "exact"),
+  ...bucketedNames(QUERY_CLIENT_METHOD_CLASSIFICATION, "exact"),
 ]);
-
+const PREFIX_MATCH_METHODS = new Set([
+  ...bucketedNames(REACT_QUERY_EXPORT_CLASSIFICATION, "prefix"),
+  ...bucketedNames(QUERY_CLIENT_METHOD_CLASSIFICATION, "prefix"),
+]);
 const ALL_CACHE_KEY_METHODS = new Set([...EXACT_KEY_REQUIRED_METHODS, ...PREFIX_MATCH_METHODS]);
+
+// useQueries/useSuspenseQueriesは`{ queries: [...] }`という配列形を取り、
+// 要素ごとに個別のqueryKeyを持つ（他のフックとは引数の形が違う）
+const QUERIES_ARRAY_SHAPE_METHODS = new Set(["useQueries", "useSuspenseQueries"]);
+// setQueryData/getQueryData/getQueryStateは第1引数がqueryKeyそのもの
+const DIRECT_KEY_SHAPE_METHODS = new Set(["setQueryData", "getQueryData", "getQueryState"]);
+// それ以外のEXACT_KEY_REQUIRED_METHODSは、第1引数が`{ queryKey, ... }`と
+// いうオプションオブジェクト（useQueryと同じ形）
 
 // 呼び出しの callee がキャッシュキーAPIの名前と一致するか見る。
 // `useQuery(...)`のような裸の関数呼び出しと、`queryClient.setQueryData(...)`
@@ -213,9 +340,25 @@ function cacheKeyMethodNameOf(call: ts.CallExpression): string | null {
   return null;
 }
 
-// useQuery/useInfiniteQueryの第1引数（オプションオブジェクト）を取り出す。
-// オブジェクトリテラルを直接渡す形と、変数に受けてから渡す形
-// （1段だけ辿る）の両方に対応する
+// 【038: Rの指摘】ブラケット記法（`queryClient["setQueryData"](...)`）は
+// 上のcacheKeyMethodNameOfに一致しない（PropertyAccessExpressionではなく
+// ElementAccessExpressionのため）。ドット記法に限る、という入口の形を
+// 決めた結果、これは「使い方が違反している」呼び出しとして別途検知する
+// （lib/orpcを名前付きimportに限ったのと同じ考え方）
+function bracketCacheKeyMethodNameOf(call: ts.CallExpression): string | null {
+  const callee = call.expression;
+  if (
+    ts.isElementAccessExpression(callee) &&
+    ts.isStringLiteralLike(callee.argumentExpression) &&
+    ALL_CACHE_KEY_METHODS.has(callee.argumentExpression.text)
+  ) {
+    return callee.argumentExpression.text;
+  }
+  return null;
+}
+
+// オプションオブジェクト形の第1引数を取り出す。オブジェクトリテラルを
+// 直接渡す形と、変数に受けてから渡す形（1段だけ辿る）の両方に対応する
 function resolveOptionsObjectArgument(call: ts.CallExpression): ts.ObjectLiteralExpression | null {
   const arg = call.arguments[0];
   if (!arg) return null;
@@ -227,9 +370,9 @@ function resolveOptionsObjectArgument(call: ts.CallExpression): ts.ObjectLiteral
   return null;
 }
 
-// setQueryData/getQueryDataの第1引数（queryKeyそのもの）を取り出す。
-// 識別子1つだけの場合は1段だけ変数を辿る（それ以上は追わない。
-// 分割代入等で辿れない場合はnull＝fail-closed）
+// 直接キー形（setQueryData/getQueryData/getQueryState）の第1引数
+// （queryKeyそのもの）を取り出す。識別子1つだけの場合は1段だけ変数を
+// 辿る（それ以上は追わない。分割代入等で辿れない場合はnull＝fail-closed）
 function resolveDirectKeyArgument(call: ts.CallExpression): ts.Node | null {
   const arg = call.arguments[0];
   if (!arg) return null;
@@ -237,17 +380,33 @@ function resolveDirectKeyArgument(call: ts.CallExpression): ts.Node | null {
   return arg;
 }
 
-// 呼び出し1件について、精密な判定にかけるべき「queryKeyを表すノード」を
-// 返す。PREFIX_MATCH_METHODSはそもそも呼ばれない（呼び出し側で分岐する）
-function resolveExactKeyNode(methodName: string, call: ts.CallExpression): ts.Node | null {
-  if (methodName === "useQuery" || methodName === "useInfiniteQuery") {
+// 呼び出し1件について、精密な判定にかけるべきqueryKeyノードを全て
+// 集める（useQueries/useSuspenseQueriesは要素ごとに複数持つ）。
+// PREFIX_MATCH_METHODSはそもそも呼ばれない（呼び出し側で分岐する）
+function resolveExactKeyNodes(methodName: string, call: ts.CallExpression): ts.Node[] {
+  if (QUERIES_ARRAY_SHAPE_METHODS.has(methodName)) {
     const objectLiteral = resolveOptionsObjectArgument(call);
-    return objectLiteral ? queryKeyInitializer(objectLiteral) : null;
+    const queriesProp = objectLiteral?.properties.find(
+      (p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && ts.isIdentifier(p.name) && p.name.text === "queries",
+    );
+    const queriesArray = queriesProp && ts.isArrayLiteralExpression(queriesProp.initializer) ? queriesProp.initializer : null;
+    if (!queriesArray) return [];
+    const nodes: ts.Node[] = [];
+    for (const element of queriesArray.elements) {
+      if (!ts.isObjectLiteralExpression(element)) return []; // 1件でも解決できなければ全体をfail-closedにする
+      const init = queryKeyInitializer(element);
+      if (!init) return [];
+      nodes.push(init);
+    }
+    return nodes;
   }
-  if (methodName === "setQueryData" || methodName === "getQueryData") {
-    return resolveDirectKeyArgument(call);
+  if (DIRECT_KEY_SHAPE_METHODS.has(methodName)) {
+    const node = resolveDirectKeyArgument(call);
+    return node ? [node] : [];
   }
-  return null;
+  const objectLiteral = resolveOptionsObjectArgument(call);
+  const init = objectLiteral ? queryKeyInitializer(objectLiteral) : null;
+  return init ? [init] : [];
 }
 
 // 「-- 理由」まで要求する（規約として書くなら、規約が守られていることも
@@ -275,7 +434,7 @@ function hasIgnoreComment(content: string, index: number): boolean {
   return IGNORE_COMMENT_PATTERN.test(precedingCommentBlock(content, index));
 }
 
-type CacheKeySiteStatus = "exact-ok" | "exact-ignored" | "exact-missing" | "prefix-exempt";
+type CacheKeySiteStatus = "exact-ok" | "exact-ignored" | "exact-missing" | "prefix-exempt" | "bracket-notation";
 
 interface CacheKeySite {
   file: string;
@@ -290,22 +449,34 @@ interface CacheKeySite {
 // ファイル1つから、キャッシュのキーを取る呼び出しを全て見つけ、それぞれを
 // 分類する。PREFIX_MATCH_METHODSは構造的に免除（viewerKey不要）、
 // EXACT_KEY_REQUIRED_METHODSはqueryKeyの中身を精密に判定し、
-// viewerKeyが無ければ直前のignoreコメントの有無で赤/免除を分ける
+// viewerKeyが無ければ直前のignoreコメントの有無で赤/免除を分ける。
+// ブラケット記法（`queryClient["setQueryData"](...)`）はドット記法に
+// 限るという入口の形に反するため、viewerKeyの有無に関わらず赤にする
+// （038: Aの判断「入口の形を1つに決める」）
 function scanCacheKeySites(file: string, content: string, sourceFile: ts.SourceFile): CacheKeySite[] {
   const sites: CacheKeySite[] = [];
   function visit(node: ts.Node): void {
     if (ts.isCallExpression(node)) {
+      const bracketMethodName = bracketCacheKeyMethodNameOf(node);
+      if (bracketMethodName) {
+        sites.push({
+          file,
+          location: formatLocation(sourceFile, node.getStart(sourceFile)),
+          methodName: bracketMethodName,
+          status: "bracket-notation",
+          checkRange: null,
+        });
+      }
       const methodName = cacheKeyMethodNameOf(node);
       if (methodName) {
         const location = formatLocation(sourceFile, node.getStart(sourceFile));
         if (PREFIX_MATCH_METHODS.has(methodName)) {
           sites.push({ file, location, methodName, status: "prefix-exempt", checkRange: null });
         } else {
-          const keyNode = resolveExactKeyNode(methodName, node);
-          const checkRange: [number, number] | null = keyNode
-            ? [keyNode.getStart(sourceFile), keyNode.getEnd()]
-            : null;
-          if (keyNode && containsIdentifierNamed(keyNode, "viewerKey")) {
+          const keyNodes = resolveExactKeyNodes(methodName, node);
+          const first = keyNodes[0];
+          const checkRange: [number, number] | null = first ? [first.getStart(sourceFile), first.getEnd()] : null;
+          if (keyNodes.length > 0 && keyNodes.every((n) => containsIdentifierNamed(n, "viewerKey"))) {
             sites.push({ file, location, methodName, status: "exact-ok", checkRange });
           } else if (hasIgnoreComment(content, node.getStart(sourceFile))) {
             sites.push({ file, location, methodName, status: "exact-ignored", checkRange });
@@ -322,22 +493,25 @@ function scanCacheKeySites(file: string, content: string, sourceFile: ts.SourceF
 }
 
 describe("TanStack Queryのキャッシュのキーを取る呼び出しは、viewerKeyを含むか明示的に免除されている（T9）", () => {
-  // 検出ロジック自体の健全性: 列挙そのものが空にならないことを固定する
-  // （ライブラリのAPI名という閉じた集合。増減があれば診断で気づける）
-  it("キャッシュのキーを取るAPIの一覧が想定どおりである（検出ロジック自体の健全性）", () => {
-    expect([...ALL_CACHE_KEY_METHODS].sort()).toEqual(
-      [
-        "useQuery",
-        "useInfiniteQuery",
-        "setQueryData",
-        "getQueryData",
-        "invalidateQueries",
-        "cancelQueries",
-        "removeQueries",
-        "setQueriesData",
-        "getQueriesData",
-      ].sort(),
-    );
+  // 【038: 受け入れの形「ライブラリから引いた一覧がtoEqualで固定されている」】
+  // ライブラリの公開面（RAW_REACT_QUERY_EXPORTS・RAW_QUERY_CLIENT_METHODS）
+  // が、分類マップ（REACT_QUERY_EXPORT_CLASSIFICATION・
+  // QUERY_CLIENT_METHOD_CLASSIFICATION）にちょうど一致することを固定する。
+  // ライブラリを上げて公開面が増減すると、この2つが必ず赤くなる
+  // （増えたものは分類マップに無いので欠け、減ったものは分類マップに
+  // 余分に残るため、どちらの方向でも診断で気づける）
+  it("react-queryパッケージの公開exportが、分類マップと過不足なく一致する（バージョンを上げると赤くなる）", () => {
+    expect(RAW_REACT_QUERY_EXPORTS).toEqual(Object.keys(REACT_QUERY_EXPORT_CLASSIFICATION).sort());
+  });
+
+  it("QueryClientのインスタンスメソッドが、分類マップと過不足なく一致する（バージョンを上げると赤くなる）", () => {
+    expect(RAW_QUERY_CLIENT_METHODS).toEqual(Object.keys(QUERY_CLIENT_METHOD_CLASSIFICATION).sort());
+  });
+
+  // 検出ロジック自体の健全性: 分類から導いた集合が空にならないことを固定する
+  it("分類から導いたexact/prefixの集合が空でない（検出ロジック自体の健全性）", () => {
+    expect(EXACT_KEY_REQUIRED_METHODS.size).toBeGreaterThan(0);
+    expect(PREFIX_MATCH_METHODS.size).toBeGreaterThan(0);
   });
 
   function scanRealFiles(): CacheKeySite[] {
@@ -351,13 +525,28 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     return sites;
   }
 
-  // 検出ロジック自体の健全性: メソッドごとに実際の呼び出しが最低1件は
-  // 見つかることを固定する。0件のまま「対象が無いので緑」というテストの
-  // 見せかけの安全を防ぐ（#245「逃げ道の側を数える」と同じ考え方）
-  it("9種のAPI全てについて、実際の呼び出しが最低1件は見つかる（検出ロジック自体の健全性）", () => {
+  // 検出ロジック自体の健全性: 実際に今日のapp内で使われている9種については
+  // 呼び出しが最低1件は見つかることを固定する。0件のまま「対象が無いので
+  // 緑」というテストの見せかけの安全を防ぐ（#245「逃げ道の側を数える」と
+  // 同じ考え方）。残り17種（useSuspenseQuery・ensureQueryData等。038で
+  // ライブラリから新たに引いたもの）は今日のappでは未使用のため、ここでは
+  // 求めない。それらの判定ロジックが機能することは後段の合成スニペットの
+  // テスト（Rが挙げた13通り等）で別途確認する
+  it("今日のappで実際に使われている9種のAPIは、呼び出しが最低1件は見つかる（検出ロジック自体の健全性）", () => {
+    const KNOWN_USED_METHODS = [
+      "useQuery",
+      "useInfiniteQuery",
+      "setQueryData",
+      "getQueryData",
+      "invalidateQueries",
+      "cancelQueries",
+      "removeQueries",
+      "setQueriesData",
+      "getQueriesData",
+    ];
     const sites = scanRealFiles();
     const foundMethods = new Set(sites.map((s) => s.methodName));
-    for (const method of ALL_CACHE_KEY_METHODS) {
+    for (const method of KNOWN_USED_METHODS) {
       expect(foundMethods.has(method), `${method}の呼び出しが1件も見つかりません`).toBe(true);
     }
   });
@@ -398,6 +587,201 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     const sourceFile = parseSource("no-reason.tsx", content);
     const sites = scanCacheKeySites("no-reason.tsx", content, sourceFile);
     expect(sites.some((s) => s.status === "exact-missing")).toBe(true);
+  });
+
+  // 【受け入れの形「別名import・ブラケット記法が赤」】ブラケット記法は
+  // 今日のappでは使われていないことを固定する
+  it("ブラケット記法での呼び出しは今日のappに存在しない", () => {
+    const bracketSites = scanRealFiles().filter((s) => s.status === "bracket-notation");
+    expect(bracketSites).toEqual([]);
+  });
+
+  // 対になる確認: ブラケット記法を実際に検出できることを合成コード
+  // （Rの逃げ道例）で確かめる
+  it("ブラケット記法（queryClient[\"setQueryData\"](...)）は検出され、viewerKeyの有無に関わらず赤になる", () => {
+    const withViewerKey =
+      'queryClient["setQueryData"](["couple", "get", viewerKey], data);\n';
+    const withoutViewerKey = 'queryClient["setQueryData"](["couple", "get"], data);\n';
+    for (const content of [withViewerKey, withoutViewerKey]) {
+      const sourceFile = parseSource("bracket.tsx", content);
+      const sites = scanCacheKeySites("bracket.tsx", content, sourceFile);
+      expect(sites.some((s) => s.status === "bracket-notation" && s.methodName === "setQueryData")).toBe(true);
+    }
+  });
+
+  // 【038: Aの判断「入口の形を1つに決める」。037でlib/orpcに対して
+  // やったのと同じ形をreact-query自体のimportにも適用する】
+  // `import { useQuery as uq } from "@tanstack/react-query"`のように
+  // 別名でimportされると、cacheKeyMethodNameOfは識別子の名前（"uq"）
+  // でしか判定できないため、以降の呼び出しが一切検出できなくなる
+  // （Rが実測: profile.tsxで穴を開けた状態で、テスト・app・lint・
+  // type-checkの4つとも黙って通った）。名前空間importも同様に、
+  // メンバー名が識別子として現れないため検出できない。
+  // 「@tanstack/react-queryからのimportは、別名なしの名前付きimportに
+  // 限る」という入口の形を決め、違反そのものを検出する
+  function findReactQueryImportStatements(sourceFile: ts.SourceFile): ts.ImportDeclaration[] {
+    return sourceFile.statements.filter(
+      (stmt): stmt is ts.ImportDeclaration =>
+        ts.isImportDeclaration(stmt) &&
+        ts.isStringLiteral(stmt.moduleSpecifier) &&
+        stmt.moduleSpecifier.text === "@tanstack/react-query",
+    );
+  }
+
+  interface ReactQueryImportViolation {
+    kind: "namespace-or-default-import" | "aliased-named-import";
+    text: string;
+  }
+
+  function reactQueryImportViolations(stmt: ts.ImportDeclaration): ReactQueryImportViolation[] {
+    const clause = stmt.importClause;
+    if (!clause || clause.name || !clause.namedBindings || !ts.isNamedImports(clause.namedBindings)) {
+      return [{ kind: "namespace-or-default-import", text: stmt.getText(stmt.getSourceFile()) }];
+    }
+    return clause.namedBindings.elements
+      .filter((spec) => spec.propertyName !== undefined)
+      .map((spec) => ({ kind: "aliased-named-import", text: spec.getText(spec.getSourceFile()) }));
+  }
+
+  it("@tanstack/react-queryのimportは、今日のappでは全て別名なしの名前付きimportである", () => {
+    const violations: { file: string; location: string; violation: ReactQueryImportViolation }[] = [];
+    for (const file of listAppSourceFiles()) {
+      const sourceFile = parseSource(file);
+      for (const stmt of findReactQueryImportStatements(sourceFile)) {
+        for (const violation of reactQueryImportViolations(stmt)) {
+          violations.push({ file, location: formatLocation(sourceFile, stmt.getStart(sourceFile)), violation });
+        }
+      }
+    }
+    expect(
+      violations,
+      violations
+        .map((v) => `${path.relative(repoRoot, v.file)}:${v.location} の ${v.violation.text} が違反しています`)
+        .join("\n"),
+    ).toEqual([]);
+  });
+
+  // 【Rの受け入れ条件】別名import・名前空間importが違反として検知される
+  it.each([
+    ["別名import（import { useQuery as uq }）", 'import { useQuery as uq } from "@tanstack/react-query";\n'],
+    ["名前空間import（import * as RQ）", 'import * as RQ from "@tanstack/react-query";\n'],
+  ])("%s は違反として検知される", (_label, code) => {
+    const sourceFile = parseSource("rq-import.tsx", code);
+    const stmts = findReactQueryImportStatements(sourceFile);
+    expect(stmts.length).toBeGreaterThan(0);
+    const violations = stmts.flatMap((stmt) => reactQueryImportViolations(stmt));
+    expect(violations.length).toBeGreaterThan(0);
+  });
+
+  it("別名の無い名前付きimportは違反として検知されない", () => {
+    const sourceFile = parseSource(
+      "rq-import.tsx",
+      'import { useQuery, useInfiniteQuery } from "@tanstack/react-query";\n',
+    );
+    const stmts = findReactQueryImportStatements(sourceFile);
+    expect(stmts.length).toBeGreaterThan(0);
+    const violations = stmts.flatMap((stmt) => reactQueryImportViolations(stmt));
+    expect(violations).toEqual([]);
+  });
+
+  // 【038: 受け入れの形「Rが素通りさせた12通りが全部赤」】
+  // Rが`@tanstack/react-query@5.102.3`の公開面を読んで実測した12通り
+  // （useSuspenseQuery・useSuspenseInfiniteQuery・useQueries・
+  // useSuspenseQueries・usePrefetchQuery・ensureQueryData・fetchQuery・
+  // getQueryState・prefetchQuery・setQueryDefaults・ブラケット記法・
+  // 別名import）を1つずつ当てる。ブラケット記法・別名importは既に
+  // 上のテストで確認済みのため、ここでは残り10通り（データを返す
+  // フック・メソッド）を確かめる。038のtoEqual完全性テストにより、
+  // これらは全て分類マップに載っている（見えなくなることはない）。
+  // うちsetQueryDefaultsは「データではなく既定オプションを設定する
+  // だけ」という理由で対象外に分類しており、赤にはならない——それも
+  // 含めて、全て理由つきで説明できることを示す
+  describe("Rが素通りさせた12通りのうち、データを返すもの（オプションオブジェクト形）", () => {
+    const cases: Array<[string, string]> = [
+      ["useSuspenseQuery", "useSuspenseQuery"],
+      ["useSuspenseInfiniteQuery", "useSuspenseInfiniteQuery"],
+      ["usePrefetchQuery", "usePrefetchQuery"],
+      ["ensureQueryData（queryClient経由）", "queryClient.ensureQueryData"],
+      ["fetchQuery（queryClient経由）", "queryClient.fetchQuery"],
+      ["prefetchQuery（queryClient経由）", "queryClient.prefetchQuery"],
+    ];
+
+    it.each(cases)("%s は、queryKeyにviewerKeyが無ければ赤になる", (_label, callExpr) => {
+      const code = `const result = ${callExpr}({ queryKey: ["couple", "get"], queryFn: async () => 1 });\n`;
+      const sourceFile = parseSource("suspense.tsx", code);
+      const sites = scanCacheKeySites("suspense.tsx", code, sourceFile);
+      expect(sites.length).toBeGreaterThan(0);
+      expect(sites.every((s) => s.status === "exact-missing")).toBe(true);
+    });
+
+    it.each(cases)("%s は、queryKeyにviewerKeyがあれば緑になる", (_label, callExpr) => {
+      const code = `const result = ${callExpr}({ queryKey: ["couple", "get", viewerKey], queryFn: async () => 1 });\n`;
+      const sourceFile = parseSource("suspense.tsx", code);
+      const sites = scanCacheKeySites("suspense.tsx", code, sourceFile);
+      expect(sites.length).toBeGreaterThan(0);
+      expect(sites.every((s) => s.status === "exact-ok")).toBe(true);
+    });
+  });
+
+  // getQueryStateは第1引数がqueryKeyそのもの（setQueryData/getQueryDataと
+  // 同じ直接キー形）
+  describe("Rが素通りさせた12通りのうち、getQueryState（直接キー形）", () => {
+    it("viewerKeyの無いqueryKeyを渡すと赤になる", () => {
+      const code = 'const state = queryClient.getQueryState(["couple", "get"]);\n';
+      const sourceFile = parseSource("get-state.tsx", code);
+      const sites = scanCacheKeySites("get-state.tsx", code, sourceFile);
+      expect(sites.length).toBeGreaterThan(0);
+      expect(sites.every((s) => s.status === "exact-missing")).toBe(true);
+    });
+
+    it("viewerKeyを含むqueryKeyを渡すと緑になる", () => {
+      const code = 'const state = queryClient.getQueryState(["couple", "get", viewerKey]);\n';
+      const sourceFile = parseSource("get-state.tsx", code);
+      const sites = scanCacheKeySites("get-state.tsx", code, sourceFile);
+      expect(sites.length).toBeGreaterThan(0);
+      expect(sites.every((s) => s.status === "exact-ok")).toBe(true);
+    });
+  });
+
+  // useQueries/useSuspenseQueriesは`{ queries: [...] }`という配列形
+  describe("Rが素通りさせた12通りのうち、useQueries/useSuspenseQueries（配列形）", () => {
+    it.each(["useQueries", "useSuspenseQueries"])("%sは、要素のどれか1つでもviewerKeyが無ければ赤になる", (hookName) => {
+      const code =
+        `const results = ${hookName}({ queries: [\n` +
+        '  { queryKey: ["couple", "get", viewerKey], queryFn: async () => 1 },\n' +
+        '  { queryKey: ["stats", "get"], queryFn: async () => 2 },\n' + // こちらはviewerKeyが無い
+        "] });\n";
+      const sourceFile = parseSource("queries.tsx", code);
+      const sites = scanCacheKeySites("queries.tsx", code, sourceFile);
+      expect(sites.length).toBeGreaterThan(0);
+      expect(sites.every((s) => s.status === "exact-missing")).toBe(true);
+    });
+
+    it.each(["useQueries", "useSuspenseQueries"])("%sは、要素全てにviewerKeyがあれば緑になる", (hookName) => {
+      const code =
+        `const results = ${hookName}({ queries: [\n` +
+        '  { queryKey: ["couple", "get", viewerKey], queryFn: async () => 1 },\n' +
+        '  { queryKey: ["stats", "get", viewerKey], queryFn: async () => 2 },\n' +
+        "] });\n";
+      const sourceFile = parseSource("queries.tsx", code);
+      const sites = scanCacheKeySites("queries.tsx", code, sourceFile);
+      expect(sites.length).toBeGreaterThan(0);
+      expect(sites.every((s) => s.status === "exact-ok")).toBe(true);
+    });
+  });
+
+  // setQueryDefaults/getQueryDefaultsは「データではなく既定オプションを
+  // 読み書きするだけ」という理由で対象外（excluded）に分類した。
+  // 分類マップに載っている（見えなくなっていない）ことと、その理由を
+  // 明示的に確認する
+  it("setQueryDefaults/getQueryDefaultsは、理由つきで対象外に分類されている（見えなくなってはいない）", () => {
+    expect(QUERY_CLIENT_METHOD_CLASSIFICATION.setQueryDefaults?.bucket).toBe("excluded");
+    expect(QUERY_CLIENT_METHOD_CLASSIFICATION.setQueryDefaults?.reason.length).toBeGreaterThan(0);
+    expect(QUERY_CLIENT_METHOD_CLASSIFICATION.getQueryDefaults?.bucket).toBe("excluded");
+    expect(QUERY_CLIENT_METHOD_CLASSIFICATION.getQueryDefaults?.reason.length).toBeGreaterThan(0);
+    // 対象外のためALL_CACHE_KEY_METHODSには含まれない（走査自体の対象にしない）
+    expect(ALL_CACHE_KEY_METHODS.has("setQueryDefaults")).toBe(false);
+    expect(ALL_CACHE_KEY_METHODS.has("getQueryDefaults")).toBe(false);
   });
 
   // 【受け入れの形】Rが開けた逃げ道（名前空間import・orpc自身のエイリアス・

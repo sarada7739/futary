@@ -11907,3 +11907,71 @@ origin/main`・`git push`のうえ`gh pr merge 250 --squash --delete-branch`
 いることを確認済み。次は`task/038-viewer-key-scan`へ進む。
 
 Session: B
+
+## 2026-09-06 セッションB: 038（T9の検査をライブラリから引く形にする）実装完了
+
+### やったこと
+037から切り出された038（T9の検査自体の穴。037の中身が作ったものでは
+ない。R提案・A判断）に対応した。
+
+037で「TanStack Queryのキャッシュのキーを取るAPI」という閉じた集合へ
+留め金を移したこと自体は正しかった（Rの判定）。だが実際には手で9件を
+書き写しただけで、ライブラリの実物とは突き合わせていなかった。Rが
+`@tanstack/react-query@5.102.3`の公開面を読んだところ、13通り当てて
+12通りが素通りした。「閉じた集合であることと、その集合を正しく持って
+いることは別だった」（Aの言葉）。
+
+- `import * as ReactQueryModule from "@tanstack/react-query"`をテストに
+  追加し、`Object.keys(...)`・`Object.getOwnPropertyNames(QueryClient.
+  prototype)`で実際の公開面をテスト実行時に読む形にした（手で書かない）。
+  実測: パッケージexport 59件・`QueryClient`のインスタンスメソッド34件
+  （`node -e`で直接確認した）。この2つの一覧を分類マップとの`toEqual`で
+  固定し、ライブラリを上げて公開面が増減するとテストが赤くなるようにした
+- 各項目の分類（キーを取るもの／取らないもの）は、`node_modules`内の
+  実際の実装（`@tanstack/query-core/build/modern/queryClient.js`）を
+  読んで、戻り値がキャッシュ済みデータそのものを返すかで判断した。
+  exact（厳密にviewerKey必須）19件・prefix（前方一致で不要）7件・
+  excluded（データを読み書きしない）67件に分類し、理由を1行ずつ
+  コードに書いた
+- **実装を読んだことで、タスク定義にもRの指摘にも名前が挙がっていな
+  かった`query`/`infiniteQuery`（`fetchQuery`/`fetchInfiniteQuery`の
+  後継。既存側は非推奨コメント付き）が、実際にはキャッシュ済み
+  データをそのまま返す危険な項目だと分かった。手で写す限り絶対に
+  気づけなかった項目で、「ライブラリから引く」ことの価値が実際に
+  出た**
+- 037で`lib/orpc`にやったのと同じ形を`@tanstack/react-query`にも適用
+  した: このパッケージからのimportは別名なしの名前付きimportに限り
+  （`import { useQuery as uq }`・名前空間importは違反として検知）、
+  `queryClient`のメソッド呼び出しはドット記法に限る
+  （`queryClient["setQueryData"](...)`はメソッド名の有無に関わらず
+  「ブラケット記法」として検知する）
+- useQueries/useSuspenseQueriesは`{ queries: [...] }`という配列形を
+  取り、要素ごとに個別のqueryKeyを持つため、他のフックとは別の
+  抽出ロジック（配列の全要素を辿り、1つでも解決できなければ
+  fail-closedで全体を赤にする）を実装した
+- Rの12通り（`useSuspenseQuery`・`useSuspenseInfiniteQuery`・
+  `useQueries`・`useSuspenseQueries`・`usePrefetchQuery`・
+  `ensureQueryData`・`fetchQuery`・`getQueryState`・`prefetchQuery`・
+  `setQueryDefaults`・ブラケット記法・別名import）を合成コードで
+  実際に当て、想定どおりの結果になることを確認した。
+  `setQueryDefaults`/`getQueryDefaults`は「データではなく既定
+  オプションを読み書きするだけ」という理由で対象外に分類し、分類
+  マップに載っている（見えなくなっていない）ことをテストで確認した
+- 037までに閉じたもの（使用箇所6通り・短縮記法4通り・`lib/`・
+  `apps/app/app/test/`・免除の名指し・再エクスポート3通り）が引き続き
+  効くことを既存テストの再実行で確認した
+- `artifacts/038/summary.md`に証跡を保存した
+
+### 決定事項
+- react-queryのimport制限（別名なし名前付きimportのみ）・queryClient
+  メソッド呼び出しの制限（ドット記法のみ）を決めた。**conventions.md
+  への反映はAの担当**（B判断で編集不可のドキュメントのため）。決めた
+  内容は`artifacts/038/summary.md`とA/Rへの報告に明記した
+
+### 詰まった点
+- 特になし
+
+`pnpm -r test`（apps/api 457件・apps/app 283件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B

@@ -82,12 +82,14 @@ queryClient["setQueryData"](...)                            // 素通り
   `apps/app/app/test/`・免除の名指し・再エクスポート3通り）**が引き続き効く**
 
 ## 完了条件
-- [ ] 列挙がライブラリから引かれ、`toEqual` で固定されている
-- [ ] 別名 import とブラケット記法が赤
-- [ ] 決めた形が `conventions.md` に書かれている（**書くのは A**）
-- [ ] R が素通りさせた13通りが全部赤
-- [ ] これまでに閉じたものが引き続き効く
-- [ ] `artifacts/038/` に証跡を保存
+- [x] 列挙がライブラリから引かれ、`toEqual` で固定されている
+- [x] 別名 import とブラケット記法が赤
+- [ ] 決めた形が `conventions.md` に書かれている（**書くのは A**。決めた内容は
+      `artifacts/038/summary.md`とA/Rへの報告に明記済み）
+- [x] R が素通りさせた12通りが全部赤（`setQueryDefaults`/`getQueryDefaults`は
+      理由つきで対象外に分類。ブラケット記法・別名importは別の入口検査で赤）
+- [x] これまでに閉じたものが引き続き効く
+- [x] `artifacts/038/` に証跡を保存
 
 ## 停止条件
 - 完了: 上記をすべて満たす
@@ -96,8 +98,13 @@ queryClient["setQueryData"](...)                            // 素通り
 - 中断: レビュー往復が3回を超えた場合、`docs/state.md` に論点を記載して A へ
 
 ## 進捗
-- [ ] ライブラリからの列挙
-- [ ] 「キーを取るもの／取らないもの」の仕分け（理由つき）
-- [ ] 別名 import・ブラケット記法
-- [ ] 13通りを当てる
-- [ ] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
+- [x] ライブラリからの列挙（`import * as ReactQueryModule from "@tanstack/react-query"`を
+      テスト実行時に読む形。59件のexport・34件の`QueryClient`メソッドを実測）
+- [x] 「キーを取るもの／取らないもの」の仕分け（理由つき。exact19件・
+      prefix7件・excluded67件。`node_modules`内の実装を読んで判断した）
+- [x] 別名 import・ブラケット記法（`@tanstack/react-query`のimportを
+      名前付き・別名無しに限定。`queryClient`のメソッド呼び出しをドット
+      記法に限定）
+- [x] 12通りを当てる（Rの実測どおり。うち`setQueryDefaults`は対象外分類、
+      ブラケット記法・別名importは別検査）
+- [x] 証跡保存 → `state.md` 更新 → `worklog.md` 追記
