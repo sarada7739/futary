@@ -90,6 +90,11 @@ export default function ProfileScreen() {
   const updateMe = useMutation(orpc.me.update.mutationOptions());
   const updateCouple = useMutation(orpc.couple.update.mutationOptions());
   const issueInvite = useMutation(orpc.invite.issue.mutationOptions());
+  const setAiOptIn = useMutation(
+    orpc.me.setAiOptIn.mutationOptions({
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.me.get.key() }),
+    }),
+  );
   const isSubmitting = requestUploadUrl.isPending || updateMe.isPending || updateCouple.isPending;
 
   // 相手が参加済み（2人揃っている）かどうか。statsQuery.dataが届くまでは
@@ -402,6 +407,28 @@ export default function ProfileScreen() {
           <Button onPress={handleSave} disabled={!canSave} testID="profile-save">
             {isSubmitting ? "保存中…" : "保存する"}
           </Button>
+
+          {/* 037: 同意は設定であって、機能の一部ではない。ai-summary.tsxの
+              画面の中に埋めず、ここに置く（タスク定義9節） */}
+          <Card>
+            <View style={{ gap: space.sm }}>
+              <Text weight="bold">AIまとめ</Text>
+              <Text size="xs" color="muted">
+                投稿の本文が外部の生成AI（OpenAIまたはAnthropic）に送られます。
+                2人とも同意したときだけ使えます
+              </Text>
+              <Button
+                variant={meQuery.data?.aiOptIn ? "secondary" : "primary"}
+                onPress={() => setAiOptIn.mutate({ optIn: !meQuery.data?.aiOptIn })}
+                disabled={setAiOptIn.isPending}
+              >
+                {meQuery.data?.aiOptIn ? "同意を取り消す" : "同意する"}
+              </Button>
+              <Text size="xs" color="muted">
+                相手: {meQuery.data?.partnerAiOptIn ? "同意済み" : "未同意"}
+              </Text>
+            </View>
+          </Card>
 
           <Button
             variant="secondary"

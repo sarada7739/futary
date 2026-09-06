@@ -39,6 +39,7 @@ function contextFor(user: { id: string; name: string; email: string } | null): R
     db,
     bucket,
     r2Sign,
+    aiEnv: { provider: "openai", openaiApiKey: "test-openai-key" },
     user: user ? { ...user, image: null } : null,
     ip: "203.0.113.1",
     demoCoupleId: null,

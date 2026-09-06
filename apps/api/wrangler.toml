@@ -37,3 +37,8 @@ run_worker_first = ["/api/*"]
 # （014）。本番も同じ値をそのまま使う。シードの投入自体は016の人間パート
 [vars]
 DEMO_COUPLE_ID = "demo-couple"
+# 037: AI_PROVIDER自体はopenai/anthropicの2値しか取らず機密情報ではない
+# （DEMO_COUPLE_IDと同じ理由で[vars]に置く）。対応するAPIキー
+# （OPENAI_API_KEY/ANTHROPIC_API_KEY）は機密情報のため.dev.vars/
+# `wrangler secret put`で別途設定する
+AI_PROVIDER = "openai"

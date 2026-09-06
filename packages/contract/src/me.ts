@@ -22,9 +22,26 @@ export const meGetContract = oc.output(
       // （摩擦は確認の前に置く）。それでも確認をやり切る間に5分を跨いだ
       // 場合はme.delete側のREAUTH_REQUIREDが最終防御になる（T5）
       sessionIsFresh: z.boolean(),
+      // 037: 投稿本文を外部の生成AIへ送ることへの同意（ADR-013）。
+      // ペア未所属なら両方false（couple_membersの行自体が無いため）。
+      // マイページの同意チェックと、AIまとめ画面の「相手の同意を待っています」
+      // 表示の両方で使う
+      aiOptIn: z.boolean(),
+      partnerAiOptIn: z.boolean(),
     })
     .nullable(),
 );
+
+// me.setAiOptIn: 自分の分だけ変更する（user_idを引数に取らない。
+// mood.setTodayと同じ理由。タスク定義7節）。couple_membersに行が無いと
+// 更新対象が無いため、writeProcedure（NEEDS_ONBOARDINGで弾く）を使う
+export const meSetAiOptInContract = oc
+  .input(z.object({ optIn: z.boolean() }))
+  .output(z.object({ aiOptIn: z.boolean() }))
+  .errors({
+    FORBIDDEN: {},
+    NEEDS_ONBOARDING: { status: 409 },
+  });
 
 // me.update: 名前とアイコン画像を変更する（019）。認証済みなら誰でも呼べる
 // （ペア未所属でも自分のプロフィールは設定できるため authedProcedure の上に

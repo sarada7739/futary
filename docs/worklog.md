@@ -11091,6 +11091,75 @@ B が **`couple_members.slot` から機械的に決まる A / B の記号**を�
 
 Session: A
 
+## 2026-09-06 セッションB: 037（AIまとめ）実装完了
+
+### やったこと
+- `couple_members.ai_opt_in`（個人ごとの同意）を実測してから ADD COLUMN
+- `ai_summaries` テーブルを新設。当初は `month` 列のみの設計だったが、
+  実装途中で人間から「週間も欲しい」との要望を受け、A に判断を仰いだ
+  うえで `period_kind`（`month`/`week`）・`period_key` へ作り直した
+  （まだ本番に出ていなかったため、マイグレーションを追加せず既存のものを
+  直接書き換えた。ローカル D1 をリセットし最初から通ることを確認済み）
+- `packages/date` に ISO 8601 週（月曜始まり・JST）の計算を追加
+  （`isoWeekKey`・`currentWeekJst`・`jstWeekRangeMs`・`isoWeeksInYear`）。
+  年またぎの挙動は Wikipedia の ISO 8601 記事にある実例
+  （2005-01-01=2004-W53、2018-12-31=2019-W01）でテストを固定した
+- `apps/api/src/lib/ai.ts`: OpenAI/Anthropic を `AI_PROVIDER` で切り替える
+  窓口を新設。`resolveAiConfig` は実際に機能が呼ばれた瞬間だけ fail-closed
+  する設計（r2-signed-url.ts の clientFor と同じ形）
+- 投稿ごとに「A」「B」の匿名の記号を付けて LLM へ渡す仕組みを追加
+  （人間の「AI がこの発言はどのユーザーのものか認識できたほうがいい」との
+  指摘を受けたもの。`couple_members.slot` から機械的に決まり、実名・ID は
+  一切外部へ渡さない。A が確認し ADR-013 に追記済み）
+- `apps/api/src/procedures/ai-summary.ts`: `get`/`generate` を実装。
+  期間ごと3回・1ペア1暦月10回の二段の歯止め、投稿3件未満は拒否、
+  未来・進行中の期間は拒否、デモペアは明示的に拒否
+- `me.setAiOptIn`（自分の分だけ変更）・`me.get` への `aiOptIn`/
+  `partnerAiOptIn` 追加・`me.delete` への `ai_summaries` 削除文追加
+  （4回目。032 の機械的走査に自動で映ることを確認済み）
+- 画面: `(tabs)/ai-summary.tsx`（月/週切り替え・同意状態に応じた分岐）・
+  `profile.tsx`（同意チェック）・ホームの「AIまとめ」パネルの `onPress`
+- デモシードに月・週それぞれ1件ずつ、実際には生成していないまとめを追加
+  （`manual-check.md` に明記）
+
+### 事故と訂正（正直に記録する）
+テストで `vi.mock("../src/lib/ai", ...)` により `generateSummary` を
+差し替えようとしたが、`apps/api` のテストは `@cloudflare/vitest-plugin`
+（Miniflare/workerd 上でテストコード自体を実行する）を使っており、
+`vi.mock` による ESM モジュールの差し替えが効かなかった。結果として
+**実際に `https://api.openai.com` へ本物のリクエストが飛んだ**（テスト用の
+偽キーのため 401 で失敗し、生成には成功していない。費用は発生していない
+はずだが、叩いてはいけないものを実際に叩いてしまった）。
+`vi.stubGlobal("fetch", ...)` でグローバルの `fetch` 自体を差し替える形に
+直して解消した。再発防止として、`apps/api/test/apply-migrations.ts`
+（全テスト共通のセットアップ）に既定の `fetch` を「呼ばれたら例外」に
+固定する仕組みを追加した（security-auditor の Low 指摘どおり）。
+
+### security-auditor の監査結果（High 以上ゼロ。Medium2件・Low5件、全て対応）
+- Medium: 費用の歯止めが check-then-act で並行リクエストにすり抜けられる
+  → 期間ごとの歯止めを条件付き UPSERT（`RETURNING`）による「先に予約して
+  から呼ぶ」形に直した。6件の並行 `generate` を投げ成功が3件ちょうどに
+  収まることをテストで確認
+- Medium: OpenAI 側に出力トークンの上限が無かった → 両プロバイダに
+  `max_tokens` を揃えて追加
+- Low 5件: JSON パース失敗の扱い・使わない方のキーを context に載せない・
+  テストの fetch 差し替え忘れを止める仕組み・`periodKey` の実在性検証
+  （`isoWeeksInYear`）・`generate` へのデモペア明示ガード。全てにテストを
+  追加して対応した
+
+### 決定事項
+- 週次を追加する設計判断は A に判断を仰ぎ、A の指示どおりに実装した
+  （タスクの「月次のみ、まずは」という明示的な設計を B が独断で覆さない
+  ため）
+
+### 詰まった点
+- なし（上記の vi.mock の事故を除く）
+
+`pnpm -r test`（apps/api 454件・packages/date 61件・packages/db 29件・
+apps/app 241件、全て緑）・`pnpm -r type-check`・`pnpm -w eslint .`、
+全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 037 の R 指摘5件（R-1 は事故と同じ形の再発）
 
 ### R-1: 事故のあとに入れた再発防止が、事故と同じ形を残していた
@@ -11166,6 +11235,61 @@ vitest が覚える「元の値」が番人になる。**1行の書き方の違�
 
 Session: A
 
+## 2026-09-06 セッションB: 037 Rレビュー指摘5件（R-1〜R-5）に対応
+
+### やったこと
+A（futary-35）から中継されたRの指摘5件（`docs/tasks/037-ai-summary.md`末尾・
+PR #251でAが判断確定）に対応した。
+
+- **R-1**: `apps/api/test/apply-migrations.ts`のfetch番人が`vi.stubGlobal`
+  実装のため、`vi.unstubAllGlobals`が「本物のfetch」を復元先として覚えて
+  しまい、再発防止策自体が事故と同じ形の穴を持っていた（Rが実測: 23件中
+  番人が止めたのは1件だけ、残り7件は本物のfetchへ到達）。素の代入
+  （`globalThis.fetch = ...`）に直した。`ai-summary.test.ts`に、fetchの
+  差し替えを外すと番人の例外に落ちることを確認するテストを追加した
+- **R-2**: `apps/app/test/viewer-key-coverage.test.ts`の近傍100文字チェックが
+  隣接する別の呼び出し（`ai-summary.tsx`の`meQuery`宣言）を誤って根拠に
+  拾い、`summaryQuery`のqueryKeyから実際に`viewerKey`を外しても検知できな
+  かった（Aの判断: 「窓を狭めない。作りを変える」）。TypeScriptコンパイラの
+  AST解析に全面的に作り直し、各`orpc.*.queryOptions()`呼び出しが実際にどの
+  `useQuery`/`useInfiniteQuery`のqueryKeyへ渡っているかを構文木で辿って
+  特定する形にした。受け入れ条件どおり、対象全件（10個）についてviewerKeyを
+  1つ外すと当該呼び出しだけが赤くなり、他の対象は巻き添えにならないことを
+  総当たりで確認するテストを追加した
+- **R-3**: 既定が先月・先週のため、翌月・翌週ボタンを1回押すと今月・今週に
+  入りINVALID_INPUTで「読み込めませんでした」になる（再試行しても永久に
+  失敗する）詰まりがあった（Aの判断: 「エラーにしない。押せなくする」
+  020「押せないボタンを置かない」）。`ai-summary.tsx`に`nextDisabled`を
+  追加し、今月・今週へ進む翌月・翌週ボタンを無効化した。サーバ側の拒否は
+  そのまま残す。既存テストの題名が「前月・翌月ボタンで」なのに前月しか
+  押していなかった不備も直し、翌月・翌週を押すテストと無効化確認のテストを
+  追加した
+- **R-4**: `ai-summary.ts`のコメントに書いていた「暦月合計が10をわずかに
+  超えて通る窓が残る」という未実測の推測を、Rの実測（暦月合計9回使用済みの
+  状態で5本を並行に投げ、成功0件）に基づく正確な記述へ訂正した
+  （`harness.md`「実行できる主張は、実行してから書く」）
+- **R-5**: 送信本文に`"B:"`が現れるテストが1件も無かった（人間の指摘で
+  ADR-013に足したはずのもの）。相手（slot=2）の投稿を含めたテストと、
+  `couple_members`に居ないauthor_idの投稿がAへ寄る（fallback）ことを
+  確認するテストを`ai-summary.test.ts`に追加した
+
+### 決定事項
+- R-2・R-3はAの判断（「作りを変える」「押せなくする」）どおりに実装した。
+  作り方の細部（AST解析の設計・disabled判定のロジック）はAから一任された
+  範囲でBが決めた
+
+### 詰まった点
+- 新規テスト2件が最初赤くなった。(1) fetch番人は同期的にthrowするため
+  `.rejects.toThrow`ではなく`expect(() => fetch(...)).toThrow`が必要だった
+  （Promiseをrejectしているのではなく、呼び出し自体が例外を投げる）
+  (2) fallbackテストで`posts.author_id`が`user.id`へのFKのため、実在しない
+  文字列をそのまま使うとFK違反で落ちた→実際にuserを1件作成し、
+  `couple_members`には入れない形に直した
+
+`pnpm -r test`（apps/api 457件・apps/app 244件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: R-2 の残り2件に判断を出した（列挙の側の穴）
 
 **R が R-1・R-3・R-4・R-5 を閉じた。R-2 の作りの向き（AST）は正しい。**
@@ -11218,6 +11342,56 @@ Session: A
 
 Session: A
 
+## 2026-09-06 セッションB: 037 R-2残り2件（列挙の側の穴）に対応
+
+### やったこと
+Aが仲介したRの実測2件（PR #252でAが判断確定。R-1・R-3・R-4・R-5はRが
+既に閉じている）に対応した。
+
+- Rが「作りの向き（AST）は正しい。穴は認識の側ではなく列挙の側にあった」
+  として2件を実測: (1) `const coupleGet = orpc.couple.get;`のように
+  一度変数へ代入すると、`viewer-key-coverage.test.ts`のcheckTargetが
+  一切検出できない。`results.length > 0`は「少なくとも1箇所」しか
+  要求していないため、この隠れた4箇所目からviewerKeyを外してもテスト・
+  lint・type-checkの4つとも黙って通った。(2) 同じoptions変数が2つ目の
+  `useQuery`にも渡されている場合、探索が最初の1件で打ち切られ検査され
+  ない
+- Aの判断で3つに分けて対応: 1)「少なくとも1箇所」をやめ対象の全出現を
+  検査する（既に`for (const r of results)`でeveryを見ていたため実質
+  影響は(2)のみ）、2) 変数を経由する探索（case c）を最初の1件で
+  打ち切らず、その変数をspreadする全てのuseQuery/useInfiniteQuery呼び
+  出しを集めてeveryでチェックする形に直した、3)（Aいわく「本体」）
+  app全体の`orpc.<namespace>.<method>`参照を全て列挙し、
+  `.queryOptions`/`.infiniteOptions`（対象として検査済み）・
+  `.mutationOptions`/`.key`（viewerKey不要な正当な形。`.key()`は
+  前方一致で効くためviewerKeyを含めなくても壊れないとtimeline.tsxの
+  コメントに理由がある）のどちらでもない参照が0件であることを固定する
+  テストを新設した。この「解決できない参照」の検知ロジック自体が
+  実際に機能することを、変数代入の書き方を使い捨てのASTで確認する
+  テストも合わせて追加した
+- CIのダミー`.dev.vars`（`ci.yml`・`deploy.yml`の両方）に
+  `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`が無く、将来HTTP経路のテストを
+  足した瞬間CIだけがfail-closedで落ちる、というRの指摘（Aが仲介）にも
+  対応し、両ファイルへ追加した（016 R-2「片方だけ直さない」を踏まえ、
+  ci.yml・deploy.ymlの両方を直した）
+
+### 決定事項
+- Aが指定した「注入数を厳密に固定する案は採らない」方針どおり、新設した
+  参照走査テストは固定の個数を持たない（1と3が入れば数を別に固定する
+  必要が無いというAの判断）
+
+### 詰まった点
+- 特になし（既存のcheckTargetの構造〈checkRangeの単一range前提〉を
+  複数checkNodesに対応させる際、フォールトインジェクション用の
+  `checkRange`は先頭の1件だけを使う形に単純化した。全出現の網羅性は
+  `hasViewerKey`側のevery判定で別途保証しているため、フォールト
+  インジェクションの目的〈判定ロジックが機能することの実証〉には
+  十分と判断した）
+
+`pnpm -r test`（apps/api 457件・apps/app 246件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 最後の網に逃げ道が3つあった（4回目の同じ形）
 
 **R が前回の(1)(2) に同じ手を当てて、赤くなることを確かめた。閉じた。**
@@ -11272,6 +11446,57 @@ R へ回すとき、こう書いた。
 
 Session: A
 
+## 2026-09-06 セッションB: 037 viewer-key-coverageを`orpc`識別子起点の作りへ最終的に作り直す
+
+### やったこと
+Aが仲介したRの実測3件（PR #253でAが判断確定）に対応した。
+
+- 前回までの走査は`orpc.<namespace>.<method>`という**決まった2段の
+  PropertyAccessExpression**を探す形だった。Rが3つの逃げ道を実測:
+  (1) `orpc["couple"]["get"].queryOptions()`（ブラケット記法）
+  (2) `const o = orpc; o.couple.get.queryOptions()`（orpc自身をエイリアス）
+  (3) `const ns = orpc.couple; ns.get.queryOptions()`（namespace段階で
+  エイリアス。1段のPropertyAccessになるため2段固定の走査から外れる）。
+  3つ目は実際にviewerKeyを外した状態で、テスト・lint・type-checkの
+  4つとも黙って通った（full実測）。近傍N文字→AST2段→今回、と作りを
+  変えても「決まった1つの書き方を探す」形からは離れられていなかった
+- Aの判断（`ts.createProgram`+TypeCheckerは使わない。遅い上、いま
+  直す理由が型の追跡ではないため）どおり、`orpc`という**識別子への
+  参照そのもの**を起点にする形に全面的に作り直した。各参照について、
+  連続したドット記法のメンバーアクセスだけを辿り、`.queryOptions`/
+  `.infiniteOptions`/`.mutationOptions`/`.key`のいずれかが直接呼び
+  出される終端に達するかを見る。ブラケット記法・変数への代入・
+  関数への引数渡し等、連続したドット記法から外れた時点で「認識できない」
+  として赤くする（`isRecognizedOrpcUsage`）
+- 識別子の名前は`import`文から動的に取得する（`findOrpcLocalBindingName`。
+  `orpc`という名前を決め打ちせず、`import { orpc as x }`のような別名にも
+  対応する）
+- Rが開けた3つの逃げ道が全て「解決できない参照」として検知されること
+  （it.eachで3パターン）・既存の正当な使われ方（`import`文自身、
+  `.key()`、`mutationOptions()`、queryOptions()の戻り値を変数へ受けて
+  から離れた場所のuseQueryへ渡す実際のパターン〈ai-summary.tsx等〉）が
+  誤検知されないことの両方をテストで固定した（#246「両側から当てる」）
+- 守る範囲を明記した（Aの指示。`conventions.md`6節「検証の範囲から
+  外したものは、結果に書く」）: この網が守るのは「`orpc`をimportした
+  ファイルの中」だけで、`orpc`を別ファイルへ渡してそちらで組み立てる
+  形は範囲外であることをコメントに明記した
+- 失敗メッセージの文字位置（例: `1940`）が行番号ではなく文字位置だった
+  というRの指摘に対応し、`ts.getLineAndCharacterOfPosition`で行:桁に
+  変換する`formatLocation`を追加した
+
+### 決定事項
+- Aの判断どおり、`ts.createProgram`+TypeCheckerによるスコープ正確な
+  変数解決は採用しなかった。識別子ベースの構文的な追跡（連続した
+  ドット記法だけを辿り、それ以外は全て「認識できない」とする）で
+  Rの3つの逃げ道は全て検知できることを確認した
+
+### 詰まった点
+- 特になし
+
+`pnpm -r test`（apps/api 457件・apps/app 253件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 037 の残り3件に判断を出した（性質が変わった）
 
 **使用箇所の側は閉じた。**R が6通り当てて全部赤（ブラケット・`orpc` の別名・
@@ -11321,6 +11546,122 @@ namespace 段の別名・再エクスポート・オプショナルチェイン�
 
 Session: A
 
+## 2026-09-06 セッションB: 037 viewer-key-coverage残り3件（import行・短縮記法・走査対象）に対応
+
+### やったこと
+Aが仲介したRの実測3件（PR #254でAが判断確定。「これで閉じる」との
+こと。使用箇所の側〈`orpc`識別子起点の網〉は既にRが6通り当てて全部
+赤と確認済み）に対応した。
+
+- 名前空間import（`import * as orpcModule from "../../lib/orpc"`）・
+  既定import（`import orpc from "../../lib/orpc"`）だと`findOrpcLocalBindingName`
+  が名前付きimportしか見ないためファイルごと素通りし、根の識別子も
+  `orpc`でなくなるため使用箇所側の網にも一致しない（穴が使用箇所から
+  import箇所へ移っただけだった）。Aの判断（`ts.isNamespaceImport`を
+  追わず、入口の形を1つに固定する。TypeCheckerは使わない）どおり、
+  `findOrpcImportStatements`/`isNamedOrpcImport`を新設し、`lib/orpc`の
+  importが名前付きimportであることを別の検査として固定した（別名
+  importは許可）
+- `const queryKey = [...]; useQuery({ ...options, queryKey })`という
+  普通のリファクタ（オブジェクト省略記法）が、`queryKeyInitializer`が
+  `ShorthandPropertyAssignment`を見ておらず常に赤くなっていた。しかも
+  失敗メッセージが「viewerKeyが確認できません」と嘘をつく（実際には
+  2行上にある。Rいわく「一番悪い壊れ方」）。Aの判断（長い式を変数に
+  出すのは普通のリファクタであり禁じない。ただし1段だけ辿る）どおり、
+  `findVariableInitializerInScope`を新設し、短縮記法のときは同じ
+  スコープ（直近の関数、無ければファイル全体）の変数宣言を1段だけ
+  辿って解決する形にした。辿れなければfail-closedのまま赤にする
+- `listAppSourceFiles`が`app/`・`components/`だけを対象に列挙していて
+  `apps/app/lib/`（共通のクエリフックの置き場）が視界の外だった
+  （今日は0件で実害無し。Rが実測）。「対象を列挙する」形をやめ、
+  `apps/app`配下全体を走査して除外を明示する形（`EXCLUDED_DIRS`:
+  node_modules・.expo・.claude・dist・web-build・test・public・assets。
+  理由を1行ずつ記載）に作り直した（#245「逃げ道の側を数える」と同じ
+  考え方）
+- 守る範囲のコメントに、走査しているディレクトリの範囲も明記した
+  （Aの指示。範囲を書かないと次の人は「全部守っている」と読む）
+
+受け入れの形（名前空間・既定importが赤くなる／短縮記法の正当な書き方
+〈Rが出したstats.tsxの形そのもの〉が緑になる／lib/に置いたクエリ呼び
+出しが走査対象に入る／これまでの6通りが引き続き赤）を全てテストで
+固定した。
+
+### 決定事項
+- 特になし（全てAの判断どおり実装）
+
+### 詰まった点
+- 特になし
+
+`pnpm -r test`（apps/api 457件・apps/app 263件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
+
+## 2026-09-06 セッションB: 037 viewer-key-coverageの留め金をTanStack QueryのAPI名へ移す（全面作り直し）
+
+### やったこと
+Aが仲介したRの指摘（PR #255でAが判断確定）に対応した。「短縮記法」
+「走査対象」はRが4通り＋lib/への配置で実測して閉じたが、「入口の検査」
+（import文の形）は3通りで抜けた。うち1つはAが名指しした
+`export { orpc } from ...`（再エクスポート）そのものだった。
+
+これで5回連続、`viewer-key-coverage.test.ts`の作り直しが同じ側
+（「`orpc`へどうやって辿り着いたか」）で穴を残し続けた: 手で並べた一覧→
+readProcedureの走査→近傍N文字→AST2段→`orpc`識別子起点→import文の形。
+Rの言葉「`orpc`を配っているモジュールを字面で名指しする限り、名指しの
+外側はいくらでも作れる（開いた集合）」が的確だった。
+
+Aの判断で、留め金の位置そのものを変えた:
+- Rが実測したもう一方の端（`apps/app`配下の`useQuery`/`useInfiniteQuery`
+  15件、呼び出し式の中に`viewerKey`があるもの15件・無いもの0件）は
+  既に閉じていた。「キャッシュ枠を作る側は必ず`useQuery`を通る。
+  optionsをどう手に入れたかは関係ない」
+- 留め金を「TanStack Queryのキャッシュのキーを取るAPI」（`useQuery`/
+  `useInfiniteQuery`/`setQueryData`/`getQueryData`/`invalidateQueries`/
+  `cancelQueries`/`removeQueries`/`setQueriesData`/`getQueriesData`。
+  ライブラリの関数名という閉じた集合。増えるとしたらライブラリの
+  バージョンアップ時で、そのときは差分に出る）へ移した
+- queryKeyの中身を構文的に辿る精密な判定（`queryKeyInitializer`。
+  変数へのspread・短縮記法1段辿り）は残し、メッセージがqueryKeyの
+  中身まで具体的に示せるようにした（Aの指示「捨てない」）
+- APIを2種に分類した: `useQuery`/`useInfiniteQuery`/`setQueryData`/
+  `getQueryData`（1つの値を読む・書く操作）は厳密にviewerKeyを要求。
+  `invalidateQueries`/`cancelQueries`/`removeQueries`/`setQueriesData`/
+  `getQueriesData`（既定で前方一致のフィルタとして効く操作）は設計上
+  viewerKeyを要求しない（理由をコードに明記。timeline.tsxで既に
+  確立していた`.key()`の使い方と同じ考え方を、API名の分類として一般化）
+- 旧来の`MANUALLY_PLACED_CACHE_KEYS`（`pendingInviteQueryKey`を手で
+  登録する仕組み）と`viewer-key-coverage-ignore`コメントは、後者
+  （in-sourceコメント。#179のPENDING_INVITE_QUERY_KEYのような
+  orpcを経由しないキーも、setQueryData/getQueryDataとして自動的に
+  見つかるようになったため、手で登録する仕組みは不要になった）に統合した
+- `EXCLUDED_DIRS`（Rの指摘。ディレクトリ名だけの一致だと
+  `apps/app/app/test/`のような同名のネストしたディレクトリまで除外
+  してしまう。今日の実害は無い）を、`apps/app`直下の絶対パス1つだけに
+  限定する形に直した。実際に`apps/app/app/test/`へ一時ファイルを置いて
+  走査対象に入ることを確認するテストを追加した（作業後は削除する）
+- 旧仕組み（`orpc`識別子起点の参照追跡・import文の形の検査・
+  `findReadScopedProcedures`によるtarget列挙）は全て退役させ、ファイルを
+  大幅に整理した
+
+受け入れの形（キャッシュのキーを取る呼び出しのうち精密な判定の対象に
+なっていないものが0件／免除は理由つきで一覧に載り載っていない免除は
+赤／Rが破った3通りでもuseQuery側の数えは外れない／`apps/app/app/test/`
+に置いた画面が走査対象に入る／これまでに閉じたもの〈短縮記法・lib/〉が
+引き続き効く）を全てテストで固定した。
+
+### 決定事項
+- 特になし（全てAの判断どおり実装）
+
+### 詰まった点
+- 特になし（免除箇所の固定テストで、行番号は合っていたが桁位置を
+  最初63と決め打ちしたところ実測は59だった。実行して確かめてから
+  修正した）
+
+`pnpm -r test`（apps/api 457件・apps/app 250件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 5回同じ形で破れた理由が分かった（留め金の位置）
 
 **R が入口の検査を3通りで破った。**うち1つは**私が名指しした `export { orpc } from ...`
@@ -11386,6 +11727,40 @@ apps/app 配下の useQuery / useInfiniteQuery:  15件
 
 Session: A
 
+## 2026-09-06 セッションB: 037 Aからの状況確認に応え、PR #255の受け入れ条件を明示的に固定
+
+### やったこと
+Aから「`d793d16`は見えているが、終わっているか・詰まっているか教えて
+ほしい（人間からはBの作業が止まっているように見えている）」という
+状況確認を受けた。作業自体は前セッションで完了・push・報告済み
+だったが、Aが名指しした受け入れ条件のうち1つ（「Rが破った3通り
+〈再エクスポート・export *・拡張子つき〉でもuseQuery側の数えは
+外れない」）を、それらの正確な形で直接テストしていなかった（新設計が
+orpcの取得経路を見ない構造であるため通ることは分かっていたが、
+名指しされた3パターンそのものでは未確認だった）。
+
+- `viewer-key-coverage.test.ts`の「orpcの取得経路をどう書いても、
+  useQuery呼び出し自体は検出される」テーブルに、PR #255でRが実測した
+  3パターン〈`export { orpc } from "./orpc"`を別ファイルに置きそこから
+  `import * as m`／`export * from "./orpc"`経由／`import * as m from
+  "../../lib/orpc.js"`（拡張子つき）〉をそのまま追加し、viewerKeyが
+  無ければ検出されること・あれば緑になることの両方を確認した
+- `docs/tasks/037-ai-summary.md`の「受け入れの形」5項目全てにチェックを
+  入れ、それぞれの根拠となるテストを明記した
+
+### 決定事項
+- 特になし
+
+### 詰まった点
+- 特になし（作業自体は完了していたが、Aへの報告と実際のテスト網羅の
+  間に、名指しされた具体例をそのまま試していないという細かな抜けが
+  あった。今後、受け入れ条件に具体例が挙がったときはその具体例そのもの
+  をテストに残す）
+
+`pnpm -r test`（apps/api 457件・apps/app 256件、全て緑）・
+`pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
+
+Session: B
 ## 2026-09-06 セッションA: 4時間26分、私が止めていた
 
 **B は 06:55 に `d793d16` を push していた。私が #255 で出した判断のぶんである。**
