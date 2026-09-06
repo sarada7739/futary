@@ -166,7 +166,7 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
       { context: contextFor(owner) },
     );
     expect(result.provider).toBe("openai");
-    expect(result.model).toBe("gpt-4o-mini");
+    expect(result.model).toBe("gpt-5.6-terra");
     expect(result.generatedCount).toBe(1);
     expect(result.body).toBe("テストのAIまとめ本文");
     // 実際にfetchが呼ばれたこと自体は確認する（差し替えが効いていることの検査。

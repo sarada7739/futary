@@ -396,7 +396,7 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
         "近くを散歩したり、何気ない日常の記録が積み重なっています。これからも、" +
         "ふたりだけの思い出を大切にしていってください。",
       provider: "openai",
-      model: "gpt-4o-mini",
+      model: "gpt-5.6-terra",
     },
     {
       periodKind: "week",
@@ -405,7 +405,7 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
         "先週はおだやかな1週間でした。何気ない会話や、ちょっとした出来事の記録が" +
         "残っています。今週もふたりらしい時間を過ごしてください。",
       provider: "openai",
-      model: "gpt-4o-mini",
+      model: "gpt-5.6-terra",
     },
   ];
 
