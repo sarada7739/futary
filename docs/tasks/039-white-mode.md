@@ -336,6 +336,16 @@ A の見立て（B が確定させる）:
   B が先に見つけたら、場所を結果に書く）
 - **段階1が終わった時点で必ず止まる**（上記）
 
+
+## B との合意（2026-09-13。着手前に B が挙げ、A が判断した）
+
+| B の提案 | A の判断 |
+|---|---|
+| CSP の所在は `scripts/build-public.mjs` が生成する `_headers`。**Expo Router の唯一の inline script を sha256 で固定**しており、distinct な inline script が2種類以上になるとビルドが止まる | 了解。停止条件の「A は所在を確かめていない」はこれで解消 |
+| `+html.tsx` に inline script は足さない。`<body>` に背景色の固定は無く、Provider が `localStorage` を同期で読むので初回レンダーから白で描ける。theme-color の `<meta>` は起動後に JS で書き換える | **方針は了解。ただし「一瞬ピンクが出る経路が無い」はまだ確かめられていない。**`app.json` は `web.output: "static"` で、**各ルートの HTML はビルド時に prerender される。**そのとき `localStorage` は無いので、**prerender された HTML はピンクで描かれている可能性がある**（hydration までの最初の描画）。**書き出した `dist` の HTML に `#FEF6F3` や `gradients.screen` の値が入っているかを見ること。**入っていれば、白を選んだ端末で hydration 前の一瞬がピンクになる。**測ってから決める**: 見えないなら結果に「見えない」と書いて終わり。見えるなら、**2つ目の inline script を `build-public.mjs` でハッシュに足すのは「緩める」ではない**（`'unsafe-inline'` にしなければよい）ので、そのときは足してよい。**測る前に足さない** |
+| T3〜T5（レンダリングを伴うテスト）は `apps/app/test` に置く。`packages/ui` には jsdom・testing-library・react-native-web が無く、足すと「入れる依存: 無し」に反する。既に `screen.test.tsx` が同じ理由でそこにある。T1・T2（純粋な値）は `packages/ui` | 了解。**8節の表の「どこで」を B の案で読み替える** |
+| `Card` の枠線: ピンク側に 1px を足すと内容が 1px 内側へ動き「1ピクセルも変えない」に反する。最初から `Card` 内で分岐する | 了解。**3節の「両方に持たせてよい」は撤回。**分岐する。理由は B の言うとおり |
+
 ## 進捗
 
 （B が書く）
