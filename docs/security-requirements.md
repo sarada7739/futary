@@ -231,8 +231,23 @@ T4（デモ経路からの本番データ漏洩）そのものであり、
 | CORS（Worker） | 自ドメインのみ許可。`*` を設定しない |
 | CORS（**R2 バケット**） | **別の設定である。**署名付きURLへのブラウザ直PUTに必要。許可は `PUT`/`GET` と実際のオリジンだけ。`*` を設定しない（`architecture.md` 6節） |
 | CSRF | `SameSite=Lax` + oRPC の POST 経由。状態変更を GET で行わない |
-| CSP | ランディングページと Web アプリに設定する |
+| CSP | ランディングページと Web アプリに設定する。**Web アプリの `script-src` は `'self'` + inline script の sha256 ハッシュ。`'unsafe-inline'` にしない**（下記） |
 | HTTPS | Cloudflare により常時。HTTP へのフォールバックを作らない |
+
+### inline script は本数を固定し、ハッシュで許可する（039）
+
+`scripts/build-public.mjs` が書き出した HTML から inline script を全部集め、**それぞれの sha256 を
+`script-src` に並べる。**本数は `EXPECTED_INLINE_SCRIPT_COUNT` で固定し、**増えるとビルドが止まる**
+（意図しない inline script が静かに許可されない）。
+
+| # | 何 | 誰が入れる |
+|---|---|---|
+| 1 | Expo Router の hydrate 用（`__EXPO_ROUTER_HYDRATE__`） | Expo（ビルド時） |
+| 2 | 外観（039）: `localStorage` の `futary.appearance` を読んで `<html data-appearance>` を付ける | `+html.tsx`（静的な文字列。利用者の入力・外部 URL を含まないことをテストで固定） |
+
+**足す前に、測る。**2本目は「hydration までピンクが見える」ことを本番相当で実測してから足した
+（`architecture.md` 7節「起動時の一瞬」）。**3本目が要るときも同じ**: 理由を測って書き、
+`EXPECTED_INLINE_SCRIPT_COUNT` を上げる PR で説明する。**`'unsafe-inline'` に逃げない。**
 
 ## 8. ログとエラー
 
