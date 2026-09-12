@@ -128,8 +128,11 @@ export function AppearanceProvider({ children, initialAppearance }: AppearancePr
   // ブラウザの外枠の色（<meta name="theme-color">。apps/app/app/+html.tsx が
   // ピンクのリテラルで書き出している）を、選んだ外観の primary に合わせる。
   // 起動後に JS から書き換える（theme-color は外枠の色で、一瞬ピンクでも実害は
-  // 無い。タスク定義1節）。inline script を足さないのは、CSP（apps/api/public/
-  // _headers）が Expo Router の唯一の inline script を sha256 で固定しているため
+  // 無い。タスク定義1節「起動後でよい」）。+html.tsx の inline script（起動時に
+  // #root を隠す方）にこれを足さないのは、あちらは「ピンクが見える」実測に基づく
+  // 最小限の1本であり、実害の無いものまで hydrate 前に動かす理由が無いため
+  // （R レビュー指摘で理由を書き直した。以前は「CSP が inline script を1本しか
+  // 固定していないから」としていたが、build-public.mjs は今は2本を固定している）
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
     const meta = document.querySelector('meta[name="theme-color"]');
