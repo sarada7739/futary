@@ -12443,3 +12443,30 @@ Session: B
 `pnpm -r type-check`・`pnpm -w eslint .`、全て通過。
 
 Session: B
+
+## 2026-09-13 セッションA: 039（ホワイトモード）を起票
+
+### やったこと
+- 人間がモック3枚（ホーム・タイムライン・統計）を `docs/sample/simpleMode/` に置いた。
+  「マイページで切り替えられる、Apple のような白い UI を B に作らせたい」。A のツリーに置かれたので A がコミットした
+- 現状を読んだ: `colors` は `packages/ui/src/tokens.ts` の `as const` 定数で、`apps/app` の
+  21 ファイル・約 90 箇所から直接 import されている。`shadow.glow` は `colors.primary` を、
+  `gradients` は `colors` を参照している。**定数のままでは切り替えられない**
+- `docs/tasks/039-white-mode.md` を書いた。骨は「静的 export を消して `useTheme()` に寄せる
+  （消すことが留め金）」「保存先は端末」「段階1で止まる」「ピンクは凍結」
+- 人間から「詳細な数値の決定は Fable（B）に任せてよい」と指示があり、パレット・影・大きさの
+  数値を A の参考値に格下げし、決定権を B に置いた
+- `docs/decisions.md` に ADR-014（見た目の設定は端末に置く）
+- `docs/architecture.md` 7節に「外観」の節（仕組みのみ。値は B の報告後に写す）
+
+### 決定事項
+- 保存先は `localStorage`。サーバに置かない・相手に反映しない・ゲストでも使える
+- `Appearance` は 2 値。OS ダークモードに連動しない
+- 段階1（基盤 + パレット + 切り替え）で必ず止まり、両モード × 4 画面を人間に見せる
+- 画面ファイルで `appearance` を読んでよいのは a（ホームのロゴ）と f（統計のヒーロー）だけ
+
+### 確かめていないこと
+- CSP / セキュリティヘッダの所在。`+html.tsx` の inline script が通るかは B が先に当たる可能性がある。
+  タスク定義の停止条件に「A はまだ確かめていない」と書いた
+
+Session: A
