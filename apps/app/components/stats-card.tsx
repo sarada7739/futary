@@ -15,6 +15,9 @@ const AVATAR_CENTER_DISTANCE = 128;
 const HEART_SIZE = 40;
 const HEART_ICON_SIZE = 22;
 const SPARKLE_SIZE = 16;
+// 039 段階2-b（ホワイト）: ハートもリングも無いので、アバターの外径は 80 のまま。
+// 中心間 128（視覚仕様1節）を保つと隙間は 128-80=48
+const WHITE_AVATAR_GAP = AVATAR_CENTER_DISTANCE - AVATAR_SIZE;
 
 type Member = Stats["members"][number];
 
@@ -47,13 +50,14 @@ function InvitingAvatar() {
 
 // 035視覚仕様1節: 名前は12pt/weight500/text（mutedは薄すぎる）、アバター下8
 function MemberAvatar({ member }: { member?: Member }) {
-  const { colors } = useTheme();
+  const { appearance, colors } = useTheme();
   if (!member) return <InvitingAvatar />;
 
   const name = member.name ?? "（名前未設定）";
+  // 039 段階2-b: ホワイトはリング無し・素の円（glow はピンクの語彙）
   return (
     <View style={{ alignItems: "center" }}>
-      <Avatar name={name} imageUrl={member.image ?? undefined} size={AVATAR_SIZE} glow />
+      <Avatar name={name} imageUrl={member.image ?? undefined} size={AVATAR_SIZE} glow={appearance === "pink"} />
       {/* 035書体仕様3節: 「ゆい／れん」はweight400（Poppinsを混植しない
           日本語要素）*/}
       <RNText style={{ fontFamily: fontFamily.ja, fontSize: 12, fontWeight: "400", color: colors.text, marginTop: space.sm }}>
@@ -67,16 +71,25 @@ function MemberAvatar({ member }: { member?: Member }) {
 // 使わず、同じトークン（radius.card・shadow.card）に035の値（半透明・上端の縁）
 // を足して直接組み立てる
 function CardShell({ children }: { children: ReactNode }) {
-  const { shadow } = useTheme();
+  const { appearance, colors, shadow } = useTheme();
+  // 039 段階2-b: ホワイトは半透明の地・上端の縁・影を使わず、Card と同じ
+  // 「surface の地 + border 1px」（影は値で 0）
+  const surface =
+    appearance === "white"
+      ? { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }
+      : {
+          backgroundColor: "rgba(255, 255, 255, 0.6)", // surface(#FFFFFF) opacity 0.6
+          borderTopWidth: 1,
+          borderTopColor: "rgba(255, 255, 255, 0.8)", // surface opacity 0.8
+        };
   return (
     <View
+      testID={appearance === "white" ? "stats-card-shell-white" : undefined}
       style={{
         borderRadius: radius.card,
         paddingVertical: 20,
         paddingHorizontal: 16,
-        backgroundColor: "rgba(255, 255, 255, 0.6)", // surface(#FFFFFF) opacity 0.6
-        borderTopWidth: 1,
-        borderTopColor: "rgba(255, 255, 255, 0.8)", // surface opacity 0.8
+        ...surface,
         overflow: "hidden",
         ...shadow.card,
       }}
@@ -87,7 +100,8 @@ function CardShell({ children }: { children: ReactNode }) {
 }
 
 export function StatsCard() {
-  const { colors, shadow } = useTheme();
+  const { appearance, colors, shadow } = useTheme();
+  const isWhite = appearance === "white";
   const router = useRouter();
   // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
   const viewerKey = useViewerQueryKey();
@@ -131,9 +145,11 @@ export function StatsCard() {
                 backgroundColor: colors.surfaceTint,
               }}
             />
-            <Text size="lg" color="muted">
-              ♥
-            </Text>
+            {!isWhite && (
+              <Text size="lg" color="muted">
+                ♥
+              </Text>
+            )}
             <View
               style={{
                 width: AVATAR_SIZE,
@@ -163,12 +179,19 @@ export function StatsCard() {
             alignItems: "flex-start",
             justifyContent: "center",
             // 中心間128（視覚仕様1節）。アバター外径86（80+glowの縁3*2）なので
-            // 隙間は128-86=42。ハート40を挟んだ残りをavatar-heart間で等分する
-            columnGap: (AVATAR_CENTER_DISTANCE - (AVATAR_SIZE + AVATAR_GLOW_RING * 2) - HEART_SIZE) / 2,
+            // 隙間は128-86=42。ハート40を挟んだ残りをavatar-heart間で等分する。
+            // 039 段階2-b: ホワイトはハートもリングも無いので 128-80=48 を1つの隙間に
+            columnGap: isWhite
+              ? WHITE_AVATAR_GAP
+              : (AVATAR_CENTER_DISTANCE - (AVATAR_SIZE + AVATAR_GLOW_RING * 2) - HEART_SIZE) / 2,
           }}
         >
           <MemberAvatar member={stats.members[0]} />
+          {/* 039 段階2-b: 2人の間のハートはピンクだけ。ホワイトは余白だけ
+              （モックの「・/」の記号はやらない。タスク定義6節） */}
+          {!isWhite && (
           <View
+            testID="stats-card-heart"
             style={{
               width: HEART_SIZE,
               height: HEART_SIZE,
@@ -183,12 +206,17 @@ export function StatsCard() {
           >
             <RNText style={{ fontSize: HEART_ICON_SIZE, color: colors.primary }}>♥</RNText>
           </View>
+          )}
           <MemberAvatar member={stats.members[1]} />
         </View>
 
         {parts && (
           <>
-            {/* 035書体仕様3節: 「付き合って」はweight400（日本語。Poppins混植しない） */}
+            {/* 035書体仕様3節: 「付き合って」はweight400（日本語。Poppins混植しない）。
+                039 段階2-b: ホワイトでは「付き合って」「結婚して」の小見出しを出さない
+                （モック）。「記念日まで あと」「結婚まで あと」は数字の意味そのもの
+                （未来の日付）なので、ホワイトでも残す */}
+            {(!isWhite || (stats.daysTogether.status !== "dating" && stats.daysTogether.status !== "married")) && (
             <RNText
               testID="stats-card-days-prefix"
               style={{
@@ -202,7 +230,8 @@ export function StatsCard() {
             >
               {parts.prefix}
             </RNText>
-            <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
+            )}
+            <View style={{ flexDirection: "row", alignItems: "flex-end", marginTop: isWhite ? space.md : 0 }}>
               <View>
                 {/* 035書体仕様2節・4節: 「数字が主役の箱」。Poppins weight800
                     （700との実測比較をAの指示で行い、800を採用した） */}
@@ -221,18 +250,21 @@ export function StatsCard() {
                 >
                   {parts.days}
                 </RNText>
-                <Image
-                  source={sparkle}
-                  style={{
-                    position: "absolute",
-                    top: -2,
-                    right: -SPARKLE_SIZE / 2,
-                    width: SPARKLE_SIZE,
-                    height: SPARKLE_SIZE,
-                    opacity: 0.9,
-                  }}
-                  resizeMode="contain"
-                />
+                {/* 039 段階2-b: スパークルはピンクの装飾。ホワイトには無い */}
+                {!isWhite && (
+                  <Image
+                    source={sparkle}
+                    style={{
+                      position: "absolute",
+                      top: -2,
+                      right: -SPARKLE_SIZE / 2,
+                      width: SPARKLE_SIZE,
+                      height: SPARKLE_SIZE,
+                      opacity: 0.9,
+                    }}
+                    resizeMode="contain"
+                  />
+                )}
               </View>
               <RNText
                 testID="stats-card-days-suffix"
@@ -263,7 +295,16 @@ export function StatsCard() {
         )}
 
         {/* 035視覚仕様1節: 会った日数はピル。「94」だけprimary/weight700。
-            Badgeはstyleを受け取らないため、間隔は外側のViewで付ける */}
+            Badgeはstyleを受け取らないため、間隔は外側のViewで付ける。
+            039 段階2-b: ホワイトはピルではなく素の muted 文字（モック） */}
+        {isWhite ? (
+          <RNText
+            testID="stats-card-meetup-plain"
+            style={{ fontFamily: fontFamily.ja, fontSize: 13, fontWeight: "400", color: colors.textMuted, marginTop: space.sm }}
+          >
+            会った日数：{stats.meetupDays}日
+          </RNText>
+        ) : (
         <View style={{ marginTop: space.sm }}>
           <Badge>
             {/* 035書体仕様: 「会った日数」「日」はweight400（日本語）、
@@ -287,6 +328,7 @@ export function StatsCard() {
             </RNText>
           </Badge>
         </View>
+        )}
       </View>
     </CardShell>
   );

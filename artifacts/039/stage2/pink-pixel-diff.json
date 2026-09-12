@@ -1,0 +1,47 @@
+{
+  "baselineDir": "artifacts/039/baseline-main",
+  "candidateDir": "artifacts/039/stage2",
+  "results": [
+    {
+      "name": "pink-home",
+      "baseline": "780x1688",
+      "candidate": "780x1688",
+      "differentPixels": 0,
+      "maxChannelDiff": 0,
+      "total": 1316640,
+      "diffBox": null
+    },
+    {
+      "name": "pink-timeline",
+      "baseline": "780x1688",
+      "candidate": "780x1688",
+      "differentPixels": 0,
+      "maxChannelDiff": 0,
+      "total": 1316640,
+      "diffBox": null
+    },
+    {
+      "name": "pink-stats",
+      "baseline": "780x1688",
+      "candidate": "780x1688",
+      "differentPixels": 0,
+      "maxChannelDiff": 0,
+      "total": 1316640,
+      "diffBox": null
+    },
+    {
+      "name": "pink-profile",
+      "baseline": "780x1688",
+      "candidate": "780x1688",
+      "differentPixels": 335536,
+      "maxChannelDiff": 192,
+      "total": 1316640,
+      "diffBox": {
+        "minX": 0,
+        "minY": 106,
+        "maxX": 779,
+        "maxY": 1105
+      }
+    }
+  ]
+}

@@ -64,6 +64,10 @@ export default function Root({ children }: { children: React.ReactNode }) {
             （fontFamily.numericを当てた要素だけがここへ辿り着く）。
             500は「会った日数」の数字・COMING SOON、800は72ptの記念日
             数字に使う（700 vs 800はAの指示で実測比較し、800を採用した） */}
+        {/* 039 段階2: 300 はホワイトのホームのロゴ文字「futary」（細いジオメトリック欧文）
+            専用。Google Fonts の latin サブセット（fonts.gstatic.com/s/poppins/v24/
+            pxiByp8kv8JHgFVrLDz8Z1xlFQ.woff2）を 035 と同じ置き方で self-host。約 8KB */}
+        <link rel="preload" href={`${baseUrl}/fonts/poppins-300.woff2`} as="font" type="font/woff2" crossOrigin="" />
         <link rel="preload" href={`${baseUrl}/fonts/poppins-500.woff2`} as="font" type="font/woff2" crossOrigin="" />
         <link rel="preload" href={`${baseUrl}/fonts/poppins-800.woff2`} as="font" type="font/woff2" crossOrigin="" />
         {/* @font-faceはCSSとしてのみ書ける。外部URLを含まない静的な
@@ -71,6 +75,13 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <style
           dangerouslySetInnerHTML={{
             __html: `
+              @font-face {
+                font-family: 'Poppins';
+                font-style: normal;
+                font-weight: 300;
+                font-display: swap;
+                src: url('${baseUrl}/fonts/poppins-300.woff2') format('woff2');
+              }
               @font-face {
                 font-family: 'Poppins';
                 font-style: normal;

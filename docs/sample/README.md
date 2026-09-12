@@ -36,6 +36,16 @@
 | `風景/dCm9y8so.jpg` | 湖と桟橋、朝もや。**人物なし** | AI生成 |
 | `風景/eHaCqEMx.jpg` | 夜景を見る男女。**架空の看板「FUTARU」が写り込んでいる**（下記） | **AI生成。実在の人物ではない** |
 | `風景/nzcsgTL1.jpg` | 紅葉のベンチに座る男女。両方の顔が写る | **AI生成。実在の人物ではない** |
+| `simpleMode/Ba5GAfl4.jpg` `TmkqTtP6.jpg` `uIoExtjZ.jpg` | ホワイトモードのモック3枚（ホーム・タイムライン・統計。039） | AI生成 |
+| `simpleMode/A_single_isolated_*.png`（8枚。1254×1254） | ホワイトの機能パネル用の写真タイル。**ファイル名は生成元の都合で中身とずれている**（`statistics_panel…7086` は浜辺のふたり、`list_panel…1853` はマグカップ等）。中身での対応は `docs/tasks/039-white-mode.md`「アセット到着」節 | **AI生成。浜辺のふたりは後ろ姿・顔なし。実在の人物ではない** |
+| `simpleMode/新機能/A_single_isolated_Wishlist_*.png` | 「Wishlist」「NEW FEATURE」の文字入りカードの絵。**039 では使わない**（人間の言: 「新機能フォルダは後で使う予定」） | AI生成 |
+
+### 039 で切り出したもの（`packages/ui/assets/`）
+
+| ファイル | 元 | 加工 |
+|---|---|---|
+| `panel-white-{timeline,calendar,memory,stats,today,list,mood,ai}.jpg` | `simpleMode/A_single_isolated_*.png`（上の対応表） | 600×600 に縮小し JPEG（品質 82）に。**役割の名前で保存**（元のファイル名を持ち込まない） |
+| `stats-hero-placeholder.jpg` | `風景/RcmUGlPg.jpg` | **仮。**中央で 4:3（1280×960）に切り出し。人間からヒーロー画像が来たら差し替える（`packages/ui/src/assets.ts`） |
 
 **`風景/` というフォルダ名だが、6枚中4枚は男女2人が写っている。**
 名前を実態に合わせて変えるより、この記録で足りると判断した（原本は加工しない方針のため）。

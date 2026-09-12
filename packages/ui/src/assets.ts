@@ -32,3 +32,20 @@ export { default as sparkle } from "../assets/sparkle.png";
 // docs/sample/mockup/signin.jpgのy260〜560px（人物も文字も無い純粋な
 // 背景の帯）を切り出した。出自はdocs/sample/README.md参照
 export { default as bokeh } from "../assets/bokeh.png";
+// 039 段階2: ホワイトの機能パネルの写真タイル8枚。人間が docs/sample/simpleMode/ に
+// 置いた 1254×1254 の生成画像（ファイル名は生成元の都合で中身とずれている。
+// A が中身で対応づけた表はタスク定義「アセット到着」節）を、役割の名前で 600×600 の
+// JPEG に切り出した（写真なので PNG より 1/10 の容量。出自は docs/sample/README.md）。
+// 写真を差し替えるときはここだけを変える（差し替え口はこの1箇所。タスク定義 5-2 c）
+export { default as panelPhotoTimeline } from "../assets/panel-white-timeline.jpg";
+export { default as panelPhotoCalendar } from "../assets/panel-white-calendar.jpg";
+export { default as panelPhotoMemory } from "../assets/panel-white-memory.jpg";
+export { default as panelPhotoStats } from "../assets/panel-white-stats.jpg";
+export { default as panelPhotoToday } from "../assets/panel-white-today.jpg";
+export { default as panelPhotoList } from "../assets/panel-white-list.jpg";
+export { default as panelPhotoMood } from "../assets/panel-white-mood.jpg";
+export { default as panelPhotoAi } from "../assets/panel-white-ai.jpg";
+// 039 段階2: ホワイトの統計画面のヒーロー写真（仮）。人間からのヒーロー画像はまだ
+// 無いため、docs/sample/風景/RcmUGlPg.jpg（夕暮れの海辺に立つ男女。後ろ姿。AI 生成）を
+// 中央で 4:3（1280×960）に切り出して仮に置いている。本物が来たらここを差し替える
+export { default as statsHeroPlaceholder } from "../assets/stats-hero-placeholder.jpg";
