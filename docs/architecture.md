@@ -1586,18 +1586,57 @@ PUT しただけで`post.create`/`me.update`を呼ばなければ、D1に一切�
 `localStorage` の `futary.appearance`。**サーバに置かない。相手に反映しない**（ADR-014）。
 未知の値・未設定は `pink`。ネイティブはメモリ保持のみ（配布時に足す）。
 
-#### ホワイトの値
+#### ホワイトの値（B が決めた。`artifacts/039/stage1.md` 3節から写した）
 
-**役割ごとの方向だけ設計で決め、数値は B が画面で決める**（人間の指示。039）。
-**B が決めた値と理由をここへ写す。**それまでは 039 タスク定義 3節の参考値を見ること。
+**役割ごとの方向だけ設計で決め、数値は B が画面で決めた**（人間の指示。039）。
+**変える場合は `packages/ui/src/theme.ts` の1箇所。**変えたらここも書き直す。
 
-| 方向 | |
-|---|---|
-| 地 | 平ら。グラデーション無し。光のボケ無し |
-| カード | 影無し。`border` 1px の枠線で輪郭を出す。**枠線は地の上で見える濃さ** |
-| 主色 | 黒。FAB・アクティブなタブ・`primary` ボタン |
-| 発光（`shadow.glow`） | 無し。**発光はピンクの語彙** |
-| `overlay` `event-*` `danger` | ピンクと同じ。機能色は変えない |
+| トークン | ホワイト | 理由 |
+|---|---|---|
+| `bg` `surface` | `#FFFFFF` | 真っ白。地とカードが同色で、**カードは影ではなく枠線で浮く** |
+| `surface-tint` `primary-subtle` | `#F5F5F7` | apple.com の背景セクション・iOS 設定のグループ地。**同値だが役割が違う**（ピンクでは値が違う） |
+| `primary` `brand-ink` `text` | `#1D1D1F` | Apple の文字色。純黒 `#000000` は白地で硬すぎる。ホワイトに「ブランドの茶色」に相当する色は無い |
+| `primary-pressed` | `#3A3A3C` | 黒を少し持ち上げる |
+| `text-muted` | `#86868B` | Apple の副次テキスト色。白地でコントラスト比 3.5:1 |
+| **`border`** | **`#D2D2D7`** | **A の参考値 `#E5E5EA` より濃い。**ホワイトでは枠線が唯一の輪郭で、035 で `border` が薄すぎた教訓がある。apple.com のヘアラインの値。1px でも確実に見える |
+| `overlay` `event-*` `danger` | ピンクと同じ | 機能色は変えない。テストで固定 |
+
+| トークン | ホワイト | 理由 |
+|---|---|---|
+| `shadow.card` | 不透明度 0 | 無し。代わりに `Card` がホワイトのときだけ `border` 1px（**ピンクには足さない。**足すと中身が 1px 内側へ動く） |
+| `shadow.fab` | 0.18 / 10 / y4 | ピンク（0.15 / 6 / y3）より広く薄い。黒い円は輪郭が強く、狭い影だと「貼ったシール」に見える |
+| `shadow.glow` | 不透明度 0 | **発光はピンクの語彙** |
+| `gradients.screen` `gradients.card` | `#FFFFFF` → `#FFFFFF` | 平ら。両端を同色にして `LinearGradient` を「ただの塗り」にする。**部品側で分岐しない** |
+| 光のボケ | 敷かない | 画像の有無なので `appearance` で分岐。**`Screen` の中だけ** |
+
+**「無し」は不透明度 0 で表す。**値で表せるものは値で表し、分岐を増やさない。
+
+#### FAB はトークンではなく画像だった
+
+`fab-plus.png` はピンクの円に**白い塗りの＋**（透過ではない）。`tintColor` で黒くすると＋まで消える。
+`FabIcon`（`packages/ui`）が描き分ける: **ピンクは従来の画像をそのまま返し**（画素 0 差）、
+ホワイトは `primary` の円 + `surface` の＋を `View` で描く。分岐は部品の中。タブバーは `appearance` を読まない。
+
+**ホワイトのボトムタブには `border` 1px を付ける**（人間の指摘「境目が見づらい」で段階1に前倒し）。
+白いピルが白い地に溶けるため。影ではなく枠線にしたのはモックが枠線だから。
+
+#### 起動時の一瞬（prerender はピンクで描かれている）
+
+`web.output: "static"` で各ルートの HTML はビルド時に prerender され、そのとき `localStorage` は読めない。
+**prerender の HTML はピンクである。**ホワイトを選んだ端末では、hydration までピンクが見える
+（B が本番相当で実測: localhost 約 110ms・4G 相当 約 1 秒・低速 3G 相当 約 8 秒。`artifacts/039/prerender/`）。
+
+**測ってから、`+html.tsx` に静的な inline script を1本足した**: `localStorage` の `futary.appearance` が
+`"white"` なら `<html data-appearance="white">` を付け、静的な `<style>` が `#root` を `visibility:hidden` にする。
+`AppearanceProvider` がホワイトで描き終えた後（`useLayoutEffect`。paint 前）に属性を外す。
+**ホワイトの利用者は、ピンクの代わりに白の空白を見る。**ピンクの利用者には何も変わらない（属性が付かない）。
+
+**hydrate の不一致**: prerender は pink・最初のクライアント描画が white だと、React は本番で style の差を直さない。
+**Provider の最初の描画は必ず pink（サーバと同じ）**にし、`useLayoutEffect` で保存値へ切り替える。
+本物の `renderToString` の出力を hydrate するテストで固定している。
+
+CSP との関係は `security-requirements.md` 7節。
+
 
 ## 8. 環境と秘密情報
 
