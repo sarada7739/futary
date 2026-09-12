@@ -1,6 +1,6 @@
 import { Card, radius, Screen, space, statsHeroPlaceholder, Text, useTheme } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
-import { useRouter } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Image, Pressable, ScrollView, View } from "react-native";
 import { daysTogetherLabel } from "../../lib/stats";
 import { orpc } from "../../lib/orpc";
@@ -102,6 +102,11 @@ export default function StatsScreen() {
   if (appearance === "white") {
     return (
       <Screen>
+        {/* A の指摘: ホワイトではスタックのヘッダ「統計」+ 二段見出しの「統計」で
+            「統計」が3回並ぶ。モックにヘッダは無い。ホワイトのときだけヘッダの題を
+            空にし、下線（影）を消す。ヘッダ自体は残す（(tabs)/_layout.tsx の
+            headerShown: true のまま）。ピンクは変えない */}
+        <Tabs.Screen options={{ headerTitle: "", headerShadowVisible: false }} />
         <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.lg }}>
           {/* 4:3 の箱は View で作る（react-native-web の Image に直接 aspectRatio を
               当てると効かず、縦長に伸びた。B が実機で確認。機能パネルのタイルと同じ形） */}

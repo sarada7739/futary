@@ -12,9 +12,19 @@ const { statsGetMock, pushMock } = vi.hoisted(() => ({
   pushMock: vi.fn(),
 }));
 
-vi.mock("expo-router", () => ({
-  useRouter: () => ({ push: pushMock }),
-}));
+vi.mock("expo-router", async () => {
+  const { View } = await import("react-native");
+  return {
+    useRouter: () => ({ push: pushMock }),
+    // 画面の中から <Tabs.Screen options> でヘッダを上書きする経路（f）。渡された
+    // options を testID 付きの要素に写して、テストから読めるようにする
+    Tabs: {
+      Screen: ({ options }: { options: Record<string, unknown> }) => (
+        <View testID="tabs-screen-options" accessibilityLabel={JSON.stringify(options)} />
+      ),
+    },
+  };
+});
 
 vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
@@ -141,6 +151,19 @@ describe("f: 統計のヒーロー", () => {
     expect(screen.getByTestId("stats-white-rows")).toBeInTheDocument();
     expect(screen.getByText("付き合って 569日目")).toBeInTheDocument();
     expect(screen.getByText("94日")).toBeInTheDocument();
+  });
+
+  it("white ではヘッダの題を空にし下線を消す（「統計」が3回並ばない。A の指摘）", async () => {
+    renderIn("white", <StatsScreen />);
+    await screen.findByTestId("stats-hero");
+    const options = JSON.parse(screen.getByTestId("tabs-screen-options").getAttribute("aria-label") ?? "{}");
+    expect(options).toEqual({ headerTitle: "", headerShadowVisible: false });
+  });
+
+  it("pink ではヘッダを上書きしない（(tabs)/_layout.tsx の題「統計」のまま）", async () => {
+    renderIn("pink", <StatsScreen />);
+    await screen.findByText("付き合って 569日目");
+    expect(screen.queryByTestId("tabs-screen-options")).toBeNull();
   });
 
   it("pink ではヒーローも二段見出しも無い", async () => {
