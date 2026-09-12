@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Image, Text as RNText, Pressable, View } from "react-native";
 import type { Stats } from "@futary/contract";
-import { Avatar, Badge, Button, Card, colors, fontFamily, radius, shadow, space, sparkle, Text } from "@futary/ui";
+import { Avatar, Badge, Button, Card, fontFamily, radius, space, sparkle, Text, useTheme } from "@futary/ui";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { daysTogetherParts } from "../lib/stats";
@@ -21,6 +21,7 @@ type Member = Stats["members"][number];
 // 相手が未参加（招待中）のときは点線の枠だけを出す。実在するアバターと
 // 混同しないよう、Avatarコンポーネントは使わずここだけ別の見た目にする
 function InvitingAvatar() {
+  const { colors } = useTheme();
   return (
     <View style={{ alignItems: "center" }}>
       <View
@@ -46,6 +47,7 @@ function InvitingAvatar() {
 
 // 035視覚仕様1節: 名前は12pt/weight500/text（mutedは薄すぎる）、アバター下8
 function MemberAvatar({ member }: { member?: Member }) {
+  const { colors } = useTheme();
   if (!member) return <InvitingAvatar />;
 
   const name = member.name ?? "（名前未設定）";
@@ -65,6 +67,7 @@ function MemberAvatar({ member }: { member?: Member }) {
 // 使わず、同じトークン（radius.card・shadow.card）に035の値（半透明・上端の縁）
 // を足して直接組み立てる
 function CardShell({ children }: { children: ReactNode }) {
+  const { shadow } = useTheme();
   return (
     <View
       style={{
@@ -84,6 +87,7 @@ function CardShell({ children }: { children: ReactNode }) {
 }
 
 export function StatsCard() {
+  const { colors, shadow } = useTheme();
   const router = useRouter();
   // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
   const viewerKey = useViewerQueryKey();

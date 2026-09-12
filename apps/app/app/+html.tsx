@@ -34,6 +34,30 @@ export default function Root({ children }: { children: React.ReactNode }) {
             react-nativeが入ってしまう。apps/landing/style.cssが同じ理由で
             パレットを丸写ししているのと同じ事情 */}
         <meta name="theme-color" content="#F5868D" />
+        {/* 039: 外観（ピンク/ホワイト）。静的書き出し（web.output: "static"）の HTML は
+            ピンクで prerender されているため、ホワイトを選んだ端末では JS が届いて
+            hydrate するまでピンクが見える（B が本番相当ビルドで実測: localhost でも
+            約110ms、4G相当で約1秒、低速3G相当で約8秒。artifacts/039/prerender/）。
+            この inline script は localStorage の保存値（packages/ui/src/appearance.tsx の
+            APPEARANCE_STORAGE_KEY と同じ "futary.appearance"）を同期で読み、ホワイト
+            なら <html data-appearance="white"> を付ける。下の <style> がその間 #root を
+            隠す（body の地は白なので、ピンクではなく白の空白が見える）。
+            AppearanceProvider がホワイトで描き終えた後に属性を外す。
+            利用者の入力を一切含まない静的な文字列で、CSP は scripts/build-public.mjs が
+            この script の sha256 を script-src に足す（'unsafe-inline' にはしない）。
+            @futary/ui を import しない理由は theme-color と同じ（上のコメント）。
+            値の対応は apps/app/test/appearance.test.tsx がこのファイルの文面で検査する */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(localStorage.getItem("futary.appearance")==="white"){document.documentElement.setAttribute("data-appearance","white")}}catch(e){}',
+          }}
+        />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: 'html[data-appearance="white"] #root{visibility:hidden}',
+          }}
+        />
         {/* 035書体仕様2節: 数字・欧文専用のPoppins（SIL OFL）をself-host。
             Google FontsのCDNは書かない（CSPで落ちる。font-src 'self'のまま）。
             latinサブセットのみ、1ウエイト約8KB。日本語本文には使わない

@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { colors, radius, space, Text } from "@futary/ui";
+import { radius, space, Text, useTheme } from "@futary/ui";
 import { buildMonthGrid, WEEKDAY_LABELS } from "../lib/calendar";
 import { MOOD_LABELS } from "../lib/mood-labels";
 
@@ -15,11 +15,11 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
 }
 
-const PRIMARY_RGB = hexToRgb(colors.primary);
-
-function backgroundFor(level: number | undefined): string {
+// 039: primary は外観で変わるため、RGB への分解は描画時に行う（モジュール直下の
+// 定数にしない）
+function backgroundFor(level: number | undefined, primary: { r: number; g: number; b: number }): string {
   if (level === undefined) return "transparent";
-  return `rgba(${PRIMARY_RGB.r}, ${PRIMARY_RGB.g}, ${PRIMARY_RGB.b}, ${LEVEL_ALPHAS[level]})`;
+  return `rgba(${primary.r}, ${primary.g}, ${primary.b}, ${LEVEL_ALPHAS[level]})`;
 }
 
 export type MoodMonthGridProps = {
@@ -30,6 +30,8 @@ export type MoodMonthGridProps = {
 };
 
 export function MoodMonthGrid({ year, month, levelsByDate, todayDate }: MoodMonthGridProps) {
+  const { colors } = useTheme();
+  const primaryRgb = hexToRgb(colors.primary);
   const days = buildMonthGrid(year, month);
 
   return (
@@ -64,7 +66,7 @@ export function MoodMonthGrid({ year, month, levelsByDate, todayDate }: MoodMont
                 alignItems: "center",
                 justifyContent: "center",
                 borderRadius: radius.input,
-                backgroundColor: backgroundFor(level),
+                backgroundColor: backgroundFor(level, primaryRgb),
                 borderWidth: isRecorded ? 0 : 1,
                 borderColor: colors.border,
                 opacity: day.inMonth ? 1 : 0.35,

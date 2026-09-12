@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Text as RNText, type TextProps as RNTextProps } from "react-native";
-import { colors, fontFamily } from "../tokens";
+import { useTheme } from "../appearance";
+import { fontFamily } from "../tokens";
+import type { Colors } from "../theme";
 
 const sizes = {
   xs: 12,
@@ -25,12 +27,15 @@ export const lineHeights = {
 export type TextSize = keyof typeof sizes;
 export type TextColor = "default" | "muted" | "brand" | "inverse";
 
-const textColors: Record<TextColor, string> = {
-  default: colors.text,
-  muted: colors.textMuted,
-  brand: colors.brandInk,
-  inverse: colors.surface,
-};
+// 039: 色は外観で変わるため、モジュール直下の定数ではなく描画時に引く
+function textColorsOf(colors: Colors): Record<TextColor, string> {
+  return {
+    default: colors.text,
+    muted: colors.textMuted,
+    brand: colors.brandInk,
+    inverse: colors.surface,
+  };
+}
 
 export type TextAlign = "left" | "center" | "right";
 
@@ -59,6 +64,7 @@ export function Text({
   children,
   ...rest
 }: TextProps) {
+  const { colors } = useTheme();
   return (
     <RNText
       {...rest}
@@ -66,7 +72,7 @@ export function Text({
         fontFamily: fontFamily.ja,
         fontSize: sizes[size],
         lineHeight: lineHeights[size],
-        color: textColors[color],
+        color: textColorsOf(colors)[color],
         fontWeight: fontWeights[weight],
         textAlign: align,
       }}

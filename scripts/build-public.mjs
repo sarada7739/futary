@@ -49,43 +49,75 @@ function readR2AccountId() {
   );
 }
 
-// apps/app の実際にビルドされた全ページのHTMLから、Expo Routerが埋め込む
-// インラインscript（globalThis.__EXPO_ROUTER_HYDRATE__=true;）を抜き出し、
-// そのSHA256ハッシュをCSPのscript-srcに使う。'unsafe-inline'で一律許可する
-// より狭い（このスクリプト以外のインラインscriptは相変わらず拒否される）。
-// 1ページだけでなく全ページを走査し、内容が一致することまで確認する
-// （security-auditor指摘: 1ファイルだけの実測では、将来Expoがページごとに
+// apps/app の実際にビルドされた全ページのHTMLから、インラインscript（src属性の
+// 無い<script>）を全部抜き出し、それぞれのSHA256ハッシュをCSPのscript-srcに使う。
+// 'unsafe-inline'で一律許可するより狭い（ここに挙がったscript以外のインライン
+// scriptは相変わらず拒否される）。
+//
+// 今日のインラインscriptは2つ（039で1つ増えた）:
+// - Expo Routerが埋め込む `globalThis.__EXPO_ROUTER_HYDRATE__=true;`
+// - apps/app/app/+html.tsx が置く外観の先読み（localStorageの保存値がホワイトなら
+//   hydrate前に<html data-appearance="white">を付ける。039）
+// 「増える」のは意図した変更のときだけのはずなので、想定した本数と違えば止める
+// （ハッシュが自動で増えると、意図しないインラインscriptが静かに許可される）。
+//
+// 1ページだけでなく全ページを走査し、script の集合がページ間で一致することまで
+// 確認する（security-auditor指摘: 1ファイルだけの実測では、将来Expoがページごとに
 // 異なるインラインscriptを吐くようになったとき、そのページだけ静かに
 // JSがブロックされる形の壊れ方をする）。正規表現は`[\s\S]*?`にして
 // script本文に`<`が含まれても安全に`</script>`まで読む
 // （`[^<]*`だと`<`の時点で静かに切り詰められる）
+const EXPECTED_INLINE_SCRIPT_COUNT = 2;
+
 function extractInlineScriptHash(appPublicDir) {
   const htmlFiles = listFilesRecursive(appPublicDir).filter((f) => f.endsWith(".html"));
   if (htmlFiles.length === 0) {
     throw new Error(`${appPublicDir} にHTMLファイルが見つかりません`);
   }
 
-  const scriptsByFile = new Map();
+  // src属性を持つ<script>（外部ファイル）は対象外。属性の並びに依存しないよう、
+  // 開始タグ全体を取ってからsrcの有無で弾く
+  const scriptPattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/g;
+  const scriptSetsByFile = new Map();
   for (const file of htmlFiles) {
     const html = readFileSync(file, "utf8");
-    const match = html.match(/<script type="module">([\s\S]*?)<\/script>/);
-    if (!match) {
+    const inline = [];
+    for (const match of html.matchAll(scriptPattern)) {
+      if (/\bsrc\s*=/.test(match[1])) continue;
+      inline.push(match[2]);
+    }
+    if (inline.length === 0) {
       throw new Error(`${file} にインラインscriptが見つかりません。CSPのハッシュを計算できません`);
     }
-    scriptsByFile.set(file, match[1]);
+    scriptSetsByFile.set(file, inline);
   }
 
-  const distinctScripts = new Set(scriptsByFile.values());
-  if (distinctScripts.size > 1) {
-    const sample = [...scriptsByFile.entries()].slice(0, 3);
+  // ページ間で集合が一致すること（順序は問わない）
+  const keyOf = (scripts) => JSON.stringify([...scripts].sort());
+  const distinctSets = new Map();
+  for (const [file, scripts] of scriptSetsByFile) {
+    const key = keyOf(scripts);
+    if (!distinctSets.has(key)) distinctSets.set(key, []);
+    distinctSets.get(key).push(file);
+  }
+  if (distinctSets.size > 1) {
+    const sample = [...distinctSets.values()].map((files) => files[0]);
     throw new Error(
-      `インラインscriptの内容がページによって異なります（${distinctScripts.size}種類）。` +
-        `CSPのハッシュを1つに決め打てません: ${sample.map(([f]) => f).join(", ")}`,
+      `インラインscriptの集合がページによって異なります（${distinctSets.size}種類）。` +
+        `CSPのハッシュを決め打てません: ${sample.join(", ")}`,
     );
   }
 
-  const hash = createHash("sha256").update([...distinctScripts][0], "utf8").digest("base64");
-  return `'sha256-${hash}'`;
+  const scripts = [...new Set(scriptSetsByFile.values().next().value)];
+  if (scripts.length !== EXPECTED_INLINE_SCRIPT_COUNT) {
+    throw new Error(
+      `インラインscriptが${scripts.length}本あります（想定は${EXPECTED_INLINE_SCRIPT_COUNT}本）。` +
+        `意図した変更ならEXPECTED_INLINE_SCRIPT_COUNTを更新すること: ` +
+        scripts.map((s) => JSON.stringify(s.slice(0, 60))).join(", "),
+    );
+  }
+
+  return scripts.map((s) => `'sha256-${createHash("sha256").update(s, "utf8").digest("base64")}'`).join(" ");
 }
 
 function listFilesRecursive(dir) {

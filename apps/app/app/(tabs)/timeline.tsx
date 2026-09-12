@@ -1,4 +1,4 @@
-import { Button, colors, Screen, space, Text } from "@futary/ui";
+import { Button, Screen, space, Text, useTheme } from "@futary/ui";
 import { useInfiniteQuery, useMutation, type InfiniteData } from "@tanstack/react-query";
 import type { Post } from "@futary/contract";
 import { useRouter } from "expo-router";
@@ -17,6 +17,7 @@ type PostListPage = { items: Post[]; nextCursor: string | null };
 // 020: 投稿一覧はホームから独立したタブになった。008の実装をそのまま移し、
 // ロゴ・統計カード・思い出しカード（ホームの記念日カード・パネルへ移動）だけ外した
 export default function TimelineScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { data: session } = useSession();
   const myId = session?.user.id;

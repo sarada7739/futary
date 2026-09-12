@@ -3,7 +3,8 @@ import { Image, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { bokeh } from "../assets";
-import { gradients, layout } from "../tokens";
+import { useTheme } from "../appearance";
+import { layout } from "../tokens";
 
 // 035視覚仕様4節: 画面上部だけに敷く光のボケの高さ。カード（記念日カード等、
 // 主役の要素）の背後に来る位置という想定。
@@ -54,8 +55,12 @@ export type ScreenProps = {
 };
 
 // 035（見た目を作り込む）: 淡いグラデーションの地。ここ1つで14画面の地が
-// 変わる（タスク定義5節）
+// 変わる（タスク定義5節）。
+// 039: ホワイトでは地は平ら（gradients.screen の両端が同じ色）で、光のボケを
+// 敷かない。ボケは画像の有無なので値では表せず、ここだけ appearance で分岐する
+// （タスク定義3節「Screen のボケだけは appearance で分岐する」）
 export function Screen({ children, unconstrained = false }: ScreenProps) {
+  const { appearance, gradients } = useTheme();
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top", "bottom"]}>
       <LinearGradient
@@ -64,11 +69,14 @@ export function Screen({ children, unconstrained = false }: ScreenProps) {
         end={{ x: 1, y: 1 }}
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
       />
-      <Image
-        source={bokeh}
-        resizeMode="stretch"
-        style={{ position: "absolute", top: 0, left: 0, right: 0, width: "100%", height: BOKEH_HEIGHT, opacity: 0.8 }}
-      />
+      {appearance === "pink" && (
+        <Image
+          testID="screen-bokeh"
+          source={bokeh}
+          resizeMode="stretch"
+          style={{ position: "absolute", top: 0, left: 0, right: 0, width: "100%", height: BOKEH_HEIGHT, opacity: 0.8 }}
+        />
+      )}
       <View
         style={
           unconstrained

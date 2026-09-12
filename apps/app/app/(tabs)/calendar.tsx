@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { Pressable, Text as RNText, ScrollView, View } from "react-native";
 import type { Event } from "@futary/contract";
 import { addMonths, todayJst } from "@futary/date";
-import { Button, Card, Screen, space, Text } from "@futary/ui";
+import { Button, Card, Screen, space, Text, useTheme } from "@futary/ui";
 import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { EventForm, type EventFormValues } from "../../components/event-form";
 import { MonthGrid } from "../../components/month-grid";
 import { monthGridRange, monthLabel } from "../../lib/calendar";
-import { EVENT_KIND_COLORS, EVENT_KIND_GLYPHS, EVENT_KIND_LABELS, EVENT_KIND_ORDER } from "../../lib/event-kind";
+import { eventKindColorsOf, EVENT_KIND_GLYPHS, EVENT_KIND_LABELS, EVENT_KIND_ORDER } from "../../lib/event-kind";
 import { formatEventTimeRange } from "../../lib/event-time";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
@@ -42,9 +42,11 @@ function meetupByDateOf(events: Event[]): Record<string, Event> {
 // 相手の予定が編集できないことが画面から分かるよう、構造的に押せない形にする。
 // 017の「次フェーズ」パネルと同じ考え方）
 function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
+  const { colors } = useTheme();
+  const eventKindColors = eventKindColorsOf(colors);
   const content = (
     <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: space.xs }}>
-      <RNText style={{ color: EVENT_KIND_COLORS[event.kind], fontSize: 14 }}>
+      <RNText style={{ color: eventKindColors[event.kind], fontSize: 14 }}>
         {EVENT_KIND_GLYPHS[event.kind]}
       </RNText>
       <View style={{ flex: 1 }}>
@@ -78,6 +80,8 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
 }
 
 export default function CalendarScreen() {
+  const { colors } = useTheme();
+  const eventKindColors = eventKindColorsOf(colors);
   const { isGuestMode, exitGuestMode } = useGuestMode();
   const todayDate = useMemo(() => todayJst(), []);
   const [year, setYear] = useState(() => Number(todayDate.slice(0, 4)));
@@ -188,7 +192,7 @@ export default function CalendarScreen() {
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.md }}>
           {EVENT_KIND_ORDER.map((kind) => (
             <View key={kind} style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
-              <RNText style={{ color: EVENT_KIND_COLORS[kind], fontSize: 12 }}>{EVENT_KIND_GLYPHS[kind]}</RNText>
+              <RNText style={{ color: eventKindColors[kind], fontSize: 12 }}>{EVENT_KIND_GLYPHS[kind]}</RNText>
               <Text size="xs" color="muted">
                 {EVENT_KIND_LABELS[kind]}
               </Text>

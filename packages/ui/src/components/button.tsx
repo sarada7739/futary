@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { Pressable, Text as RNText, type PressableProps } from "react-native";
-import { colors, fontFamily, radius, space } from "../tokens";
+import { useTheme } from "../appearance";
+import { fontFamily, radius, space } from "../tokens";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -14,6 +15,7 @@ export type ButtonProps = Omit<PressableProps, "style" | "children" | "onPress">
 };
 
 export function Button({ variant = "primary", disabled, onPress, children, ...rest }: ButtonProps) {
+  const { colors } = useTheme();
   // react-native-web の Pressable は環境によって1クリックで onPress が2回発火する
   // （pointer系イベントと click イベントの両方が反応する既知の挙動。PR #22 で
   // 実際に OAuth の state 競合を引き起こした）。呼び出し側に個別実装させると

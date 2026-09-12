@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, View } from "react-native";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
-import { colors, space, Text } from "@futary/ui";
+import { space, Text, useTheme } from "@futary/ui";
 
 export type ImageViewerImage = {
   url: string;
@@ -55,6 +55,7 @@ export type ImageViewerProps = {
 // ブラウザ実測して発見した。クリックの挙動自体は壊れないが、意味のある
 // 構造にするため役割を外す
 export function ImageViewer({ visible, images, initialIndex = 0, onClose }: ImageViewerProps) {
+  const { colors } = useTheme();
   const [loadedIndexes, setLoadedIndexes] = useState<Set<number>>(new Set());
   const [failedIndexes, setFailedIndexes] = useState<Set<number>>(new Set());
   const [index, setIndex] = useState(initialIndex);

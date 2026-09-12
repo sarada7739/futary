@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 import { Platform, Pressable, ScrollView, View } from "react-native";
-import { colors, Text } from "@futary/ui";
+import { Text, useTheme } from "@futary/ui";
 
 const ITEM_HEIGHT = 40;
 // 奇数。中央の1行が選択行、上下に2行ずつ薄く見せる（人間が絵で指定した形）
@@ -18,6 +18,7 @@ export type WheelColumnProps = {
 // 時・分どちらの列にも使う汎用コンポーネント。5分刻みに乗らない値を含む
 // 任意のoptions配列を渡せる（呼び出し側がbuildMinuteOptionsで差し込む）
 export function WheelColumn({ options, value, onChange, testID }: WheelColumnProps) {
+  const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
   const selectedIndex = Math.max(0, options.indexOf(value));
   // 直前にcommit()で自分から通知したvalueを覚えておく。位置合わせの

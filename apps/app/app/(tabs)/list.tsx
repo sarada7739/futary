@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ScrollView, TextInput, View } from "react-native";
 import type { Wish } from "@futary/contract";
 import { MAX_WISH_NOTE_LENGTH, MAX_WISH_TITLE_LENGTH } from "@futary/contract";
-import { Button, colors, radius, Screen, space, Text } from "@futary/ui";
+import { Button, type Colors, radius, Screen, space, Text, useTheme } from "@futary/ui";
 import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useGuestMode } from "../../lib/guest-mode";
@@ -35,14 +35,17 @@ function WishDeleteControl({ onDelete }: { onDelete: () => void | Promise<void> 
   );
 }
 
-const inputStyle = {
-  borderWidth: 1,
-  borderColor: colors.border,
-  borderRadius: radius.input,
-  padding: space.md,
-  fontSize: 16,
-  color: colors.text,
-} as const;
+// 039: 色は外観で変わるため、モジュール直下の定数ではなく描画時に組み立てる
+function inputStyleOf(colors: Colors) {
+  return {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.input,
+    padding: space.md,
+    fontSize: 16,
+    color: colors.text,
+  } as const;
+}
 
 // 028: タイトル・メモを編集するインラインフォーム。モーダルにしない
 // （027の「入力はモーダルにしない」と同じ考え方を編集にも引き継ぐ）
@@ -55,6 +58,8 @@ function WishEditForm({
   onSave: (values: { title: string; note: string }) => Promise<void>;
   onCancel: () => void;
 }) {
+  const { colors } = useTheme();
+  const inputStyle = inputStyleOf(colors);
   const [title, setTitle] = useState(wish.title);
   const [note, setNote] = useState(wish.note);
   const [isSaving, setIsSaving] = useState(false);
@@ -194,6 +199,8 @@ function WishRow({
 // 020のホーム機能パネル「リスト」の行き先。ボトムタブには出さない
 // （(tabs)の中に置き、memory.tsx・stats.tsxと同じ扱い。architecture.md 3節）
 export default function ListScreen() {
+  const { colors } = useTheme();
+  const inputStyle = inputStyleOf(colors);
   const { isGuestMode, exitGuestMode } = useGuestMode();
   const [title, setTitle] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

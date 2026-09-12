@@ -1,8 +1,8 @@
 import { Pressable, Text as RNText, View } from "react-native";
 import type { Event } from "@futary/contract";
-import { colors, radius, space, Text } from "@futary/ui";
+import { radius, space, Text, useTheme } from "@futary/ui";
 import { buildMonthGrid, WEEKDAY_LABELS } from "../lib/calendar";
-import { EVENT_KIND_COLORS, EVENT_KIND_GLYPHS, type EventKind } from "../lib/event-kind";
+import { eventKindColorsOf, EVENT_KIND_GLYPHS, type EventKind } from "../lib/event-kind";
 
 const CELL_WIDTH = `${100 / 7}%`;
 
@@ -25,6 +25,8 @@ function kindsOf(events: Event[] | undefined): EventKind[] {
 }
 
 export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDate, todayDate }: MonthGridProps) {
+  const { colors } = useTheme();
+  const eventKindColors = eventKindColorsOf(colors);
   const days = buildMonthGrid(year, month);
 
   return (
@@ -71,7 +73,7 @@ export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDat
               </Text>
               <View style={{ flexDirection: "row", gap: 2, minHeight: 10 }}>
                 {kinds.map((kind) => (
-                  <RNText key={kind} style={{ color: EVENT_KIND_COLORS[kind], fontSize: 8 }}>
+                  <RNText key={kind} style={{ color: eventKindColors[kind], fontSize: 8 }}>
                     {EVENT_KIND_GLYPHS[kind]}
                   </RNText>
                 ))}

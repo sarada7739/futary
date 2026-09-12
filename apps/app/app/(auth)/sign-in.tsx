@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Button, colors, fontFamily, logoMark, Screen, Text, space } from "@futary/ui";
+import { Button, fontFamily, logoMark, Screen, space, Text, useTheme } from "@futary/ui";
 import { Image, Platform, Text as RNText, View } from "react-native";
 import { signIn } from "../../lib/auth-client";
 import { useGuestMode } from "../../lib/guest-mode";
@@ -30,6 +30,7 @@ const LOGO_WIDTH = 224;
 const LOGO_HEIGHT = 79;
 
 export default function SignInScreen() {
+  const { colors } = useTheme();
   // react-native-web の Pressable は環境によって onPress が1クリックで2回発火する
   // （pointer系イベントと click イベントの両方が反応する既知の挙動）。
   // signIn.social は Better Auth 側に OAuth の state を新規発行させるため、

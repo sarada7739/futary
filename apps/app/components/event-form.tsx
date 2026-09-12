@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import type { Event } from "@futary/contract";
-import { Button, Card, colors, radius, space, Text } from "@futary/ui";
+import { Button, Card, radius, space, Text, useTheme } from "@futary/ui";
 import { DateInput8 } from "./date-input8";
 import { TimeWheelPicker } from "./time-wheel-picker";
 import { EVENT_KIND_LABELS, EVENT_KIND_ORDER, type EventKind } from "../lib/event-kind";
@@ -65,6 +65,7 @@ export function EventForm({
   onDelete,
   onCancel,
 }: EventFormProps) {
+  const { colors } = useTheme();
   const [date, setDate] = useState(defaultDate);
   const [title, setTitle] = useState(defaultTitle ?? "");
   const [kind, setKind] = useState<EventKind>(defaultKind ?? "plan");

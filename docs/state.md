@@ -3,7 +3,29 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-13 / セッションB。**CI の `pnpm audit` 赤を
+**最終更新**: 2026-09-13 / セッションB。**039 段階1（基盤 + パレット + 切り替え）が
+完了。PR を出し、人間の OK 待ちで止まっている。**段階2には進まない。
+報告は `artifacts/039/stage1.md`、人間の確認項目は `artifacts/039/manual-check.md`。
+
+## 039 段階1: 完了・停止中（2026-09-13）
+
+- `packages/ui` から `colors` `shadow` `gradients` の静的 export を消し、`useTheme()` に寄せた
+  （型チェックが挙げた直し忘れは 21 ファイル + テスト1本。停止条件には当たらない）
+- ホワイトの値は B が決めた（`border` は A の参考値より濃い `#D2D2D7`。理由は報告 3節）
+- **起動時の一瞬を本番相当で測った**: prerender のピンクが localhost で約110ms、4G 相当で約1秒、
+  低速 3G 相当で約8秒見える → A の判断どおり `+html.tsx` に inline script を足し、
+  `build-public.mjs` が sha256 を2本並べる形にした（`'unsafe-inline'` にしない）。足した後は 0 フレーム
+- **FAB は色トークンではなく PNG だった**（A の想定と違う）。`FabIcon` で描き分けた
+- ピンクはホーム・タイムライン・統計で main と画素 0 差。マイページはカード追加ぶんの位置ずれだけ
+- **人間の手番**: 報告とスクリーンショットを見て段階2の OK を出す。写真アセット（8枚 + 1枚。
+  報告 6節）を上げる。iPhone 実機でホワイトの起動を見る（Safari は B が測っていない）
+- **A の手番**: 報告 3節の値を `architecture.md` 7節へ写す。`security-requirements.md` 7節の CSP の
+  記述（inline script が2本になった）
+- **見ていない4画面**: compose・join・delete-account・モーダル2種（ログインが要る）
+
+---
+
+**最終更新（旧）**: 2026-09-13 / セッションB。**CI の `pnpm audit` 赤を
 `fix/audit-sharp-js-yaml` で直した**（sharp 0.35.4・js-yaml 4.3.2 を
 `pnpm-workspace.yaml` の `overrides` で上げた。無視リストは使っていない）。
 マージ後に 039 の段階1へ入る。

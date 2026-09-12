@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, View } from "react-native";
-import { Button, Card, colors, radius, Screen, space, Text } from "@futary/ui";
+import { Button, Card, radius, Screen, space, Text, useTheme } from "@futary/ui";
 import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
@@ -29,6 +29,7 @@ function resolveReauthCallbackURL(): string {
 // 既定で押せる状態にしない（020「押しても何も起きない、にしない」の逆で、
 // ここは押しにくくする）。チェックを入れないと最終ボタンが押せない形にした
 export default function DeleteAccountScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const [stage, setStage] = useState<1 | 2>(1);
   const [acknowledged, setAcknowledged] = useState(false);

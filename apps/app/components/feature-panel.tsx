@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { ImageSourcePropType } from "react-native";
 import { Image, Pressable, Text as RNText, View } from "react-native";
-import { colors, fontFamily, radius, shadow } from "@futary/ui";
+import { fontFamily, radius, useTheme } from "@futary/ui";
 
 export type FeaturePanelProps = {
   label: string;
@@ -35,6 +35,7 @@ const CARD_HEIGHT = 113;
 // 使わず、同じ考え方のトークンを直接当てる。角丸は`radius.card`(20)だと
 // 76幅のカードには重いため`radius.input`(14)を使う（視覚仕様3節）
 function PanelSurface({ children, isNextPhase }: { children: ReactNode; isNextPhase: boolean }) {
+  const { colors, shadow } = useTheme();
   return (
     <View
       style={{
@@ -64,6 +65,7 @@ function PanelSurface({ children, isNextPhase }: { children: ReactNode; isNextPh
 // 次に長いラベルが出たときにまた1枚だけ変えることになる、という理由で
 // そのままにしてある（`numberOfLines`を指定しないため自然に折り返す）
 export function FeaturePanel({ label, icon, onPress, width }: FeaturePanelProps) {
+  const { colors } = useTheme();
   const isNextPhase = !onPress;
   const iconColor = isNextPhase ? colors.textMuted : colors.brandInk;
   const labelTextColor = isNextPhase ? colors.textMuted : colors.text;
