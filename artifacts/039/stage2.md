@@ -72,7 +72,7 @@
 
 段階1のテストはそのまま緑（`home-screen.test.tsx` の「COMING SOON」は pink 側の検査）。
 
-`pnpm -r test`（apps/app 350件・packages/ui 16件）・`pnpm -r type-check`・`pnpm -w lint`、全て緑。
+`pnpm -r test`（apps/app 352件・packages/ui 16件）・`pnpm -r type-check`・`pnpm -w lint`、全て緑。
 
 ## 6. 入れた依存
 
