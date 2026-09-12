@@ -12580,3 +12580,14 @@ Session: B
 - 人間が `manual-check.md` の5項目 + 5-2 g の判断 + 写真アセット
 
 Session: A
+
+## 2026-09-13 セッションB: 039 段階1 の R レビュー対応（PR #271 に追加）
+
+- R の判定: 受け入れ + 必須修正1件（`artifacts/039/review-stage1.md` に原文を保存）
+- T7 の穴を塞いだ（テスト側。A の判断どおり `package.json` の `exports` は足さない）:
+  - `@futary/ui/` 始まりのサブパス import / re-export は中身を問わず違反（R が `@futary/ui/src/theme` で `themes` が取れることを実測）
+  - 反対側は `index.ts` の `export *` の先を全部開いて再帰的に export 名を集め、`colors` `shadow` `gradients` `themes` が無いことを見る（`tokens.ts` 決め打ちをやめた）。`export * from "./theme"` を足すと赤になることをテスト内で再現
+- R の記録1件: `appearance.tsx` の theme-color のコメントの理由（「CSP が inline script を1本しか固定しないから」は古い）を書き直した
+- `apps/app` テスト 339件・型チェック・lint 緑
+
+Session: B
