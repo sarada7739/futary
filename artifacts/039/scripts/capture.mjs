@@ -71,7 +71,7 @@ async function shot(page, name) {
 async function enterGuest(page) {
   await page.goto(baseURL + "/");
   await page.getByText("ゲストではじめる").click();
-  await page.getByTestId("stats-card-meetup-pill").waitFor({ timeout: 30000 });
+  await page.getByTestId("stats-card-days-number").waitFor({ timeout: 30000 });
 }
 
 async function tab(page, label) {
@@ -95,7 +95,7 @@ async function screensForMode(page, mode) {
   scans.timeline = await scanPink(page);
 
   await tab(page, "ホーム");
-  await page.getByTestId("stats-card-meetup-pill").waitFor();
+  await page.getByTestId("stats-card-days-number").waitFor();
   await panel(page, "統計");
   await page.getByText("投稿数").waitFor({ timeout: 30000 });
   await shot(page, `${mode}-stats`);
@@ -111,7 +111,7 @@ async function screensForMode(page, mode) {
 async function otherScreensForScan(page) {
   const scans = {};
   await tab(page, "ホーム");
-  await page.getByTestId("stats-card-meetup-pill").waitFor();
+  await page.getByTestId("stats-card-days-number").waitFor();
   for (const [key, label, marker] of [
     ["calendar", "カレンダー", "予定"],
     ["memory", "思い出", null],
@@ -125,7 +125,7 @@ async function otherScreensForScan(page) {
     await page.screenshot({ path: path.join(outDir, `white-scan-${key}.png`) });
     scans[key] = await scanPink(page);
     await tab(page, "ホーム");
-    await page.getByTestId("stats-card-meetup-pill").waitFor();
+    await page.getByTestId("stats-card-days-number").waitFor();
   }
   return scans;
 }
@@ -162,7 +162,7 @@ if (!pinkOnly) {
   await shot(page, "white-sign-in-after-reload");
   result.scans.whiteSignIn = await scanPink(page);
   await page.getByText("ゲストではじめる").click();
-  await page.getByTestId("stats-card-meetup-pill").waitFor({ timeout: 30000 });
+  await page.getByTestId("stats-card-days-number").waitFor({ timeout: 30000 });
   result.scans.white = await screensForMode(page, "white");
   result.scans.whiteOthers = await otherScreensForScan(page);
 

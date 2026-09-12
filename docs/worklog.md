@@ -12606,3 +12606,25 @@ Session: B
   A が起票時に気づけた。T7 の指示を「import 文を走査」と手段で書いたのが原因。次からは守りたいものを書く
 
 Session: A
+
+## 2026-09-13 セッションB: 039 段階2（モック固有の形。ホワイトのときだけ）
+
+### やったこと
+- a: ホームのロゴをホワイトでは文字「futary」に（Poppins 300 を self-host。40pt / 字間 0.5。`index.tsx` で appearance を読む）
+- b: 記念日カードのホワイト（リング・ハート・「付き合って」・スパークル・ピル無し。地は surface + border 1px。未来の日付の「記念日まで あと」は残す）
+- c: 機能パネルのホワイト（カード + 正方形の写真タイル + ラベル + 「近日公開」。写真8枚は A の対応表を目視で確認し、役割名で 600×600 JPEG に切り出し。差し替え口は packages/ui/src/assets.ts）
+- e: 変更無し（写真の角丸・名前 bold・日付 muted は元からモックの形だった）
+- f: 統計のホワイト（ヒーロー写真〈仮。風景/RcmUGlPg.jpg を 4:3 に〉+ 二段見出し + 区切り線の行。`stats.tsx` で appearance を読む）
+- g は足さない・h は「近日公開」を feature-panel の中だけに。d は段階1で済み
+- テスト `white-stage2.test.tsx`（a/b/c/f × pink/white）。apps/app 350件・packages/ui 16件・型チェック・lint 緑
+- 証跡 `artifacts/039/stage2/`。ピンクはホーム・タイムライン・統計で main と画素 0 差。報告は `artifacts/039/stage2.md`
+
+### 詰まった点
+- react-native-web の Image に直接 aspectRatio を当てると効かず縦長に伸びた。View で箱を作って中に敷く形に
+- 写真タイルを PNG で切り出すと8枚で 3.8MB。JPEG（品質 82）にして 239KB。`*.jpg` の型宣言を apps/app と packages/ui の両方に足した
+- #271 が A の docs（#272・#273）と競合して CONFLICTING になった。段階2ブランチで解決済みの履歴を #271 のブランチへ push して解消し、R の確定後に squash merge した
+
+### 次
+- 人間: 段階2の確認（`artifacts/039/stage2.md` 11節）とヒーロー用の本物の写真
+
+Session: B
