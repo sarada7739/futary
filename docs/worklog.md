@@ -12507,3 +12507,14 @@ Session: A
   `pnpm -w lint` 通過
 
 Session: B
+
+## 2026-09-13 セッションA: 039 着手前の B の4点に判断を返した
+
+- B が send_message で4点を挙げた（CSP の所在・inline script を足さない・T3〜T5 の置き場・Card の分岐）。
+  3点は了解、1点（起動時のピンクの一瞬）は**未検証と指摘**: `web.output: "static"` で prerender される HTML は
+  `localStorage` を読めないので、hydration 前の最初の描画がピンクになりうる。**書き出した HTML を見て、
+  見えるなら測ってから** inline script を足す（`build-public.mjs` でハッシュに足すのは緩める行為ではない）
+- 合意をタスク定義の「B との合意」節に書いた。`Card` の「両方に 1px」は撤回して分岐に
+- CI の `pnpm audit` 赤は B が PR #269 で直した（`pnpm-workspace.yaml` の overrides。main `0e4a87e`）
+
+Session: A
