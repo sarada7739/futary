@@ -54,9 +54,10 @@
 **要る形**: 横長 4:3、長辺 1280px（`layout.maxWidth` 640 × 2倍）。
 
 **ヘッダ（A の指摘）**: ホワイトではスタックのヘッダ「統計」+ 二段見出しで「統計」が3回並んでいた。モックにヘッダは無い。
-ホワイトのときだけ `<Tabs.Screen options={{ headerTitle: "", headerShadowVisible: false }} />` で題を空にし下線を消した
-（ヘッダ自体は残す。ピンクは変えない。`stats.tsx` は既に `appearance` を読む画面なので3箇所目にはならない）。
-テスト: white では options が渡り、pink では渡らない。
+この画面は Tabs の中（`href: null`）でヘッダには題しか無く戻るボタンも無いので、ホワイトのときだけ
+`<Tabs.Screen options={{ headerShown: false }} />` でヘッダごと消した（最初は題を空にしただけで、空の帯が約 65pt
+残った。A の訂正）。ピンクは変えない。`stats.tsx` は既に `appearance` を読む画面なので3箇所目にはならない。
+テスト: white では `headerShown: false` が渡り、pink では渡らない。
 
 `react-native-web` の `Image` に直接 `aspectRatio` を当てると効かず、縦長に伸びた（B が実機で確認。`View` で 4:3 の箱を作り、
 中に `Image` を敷く形にした。機能パネルのタイルと同じ）。

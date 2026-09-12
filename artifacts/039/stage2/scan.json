@@ -148,7 +148,7 @@
         ]
       },
       "timeline": {
-        "elements": 611,
+        "elements": 607,
         "hits": [
           {
             "hex": "#F5868D",
@@ -300,7 +300,7 @@
         ]
       },
       "stats": {
-        "elements": 646,
+        "elements": 642,
         "hits": [
           {
             "hex": "#F5868D",
@@ -438,7 +438,7 @@
         ]
       },
       "profile": {
-        "elements": 671,
+        "elements": 667,
         "hits": [
           {
             "hex": "#F5868D",
@@ -673,7 +673,7 @@
     },
     "white": {
       "home": {
-        "elements": 261,
+        "elements": 257,
         "hits": []
       },
       "timeline": {
@@ -681,33 +681,33 @@
         "hits": []
       },
       "stats": {
-        "elements": 610,
+        "elements": 596,
         "hits": []
       },
       "profile": {
-        "elements": 632,
+        "elements": 622,
         "hits": []
       }
     },
     "whiteOthers": {
       "calendar": {
-        "elements": 791,
+        "elements": 781,
         "hits": []
       },
       "memory": {
-        "elements": 816,
+        "elements": 806,
         "hits": []
       },
       "list": {
-        "elements": 885,
+        "elements": 875,
         "hits": []
       },
       "mood": {
-        "elements": 1095,
+        "elements": 1085,
         "hits": []
       },
       "ai-summary": {
-        "elements": 1133,
+        "elements": 1123,
         "hits": []
       }
     },

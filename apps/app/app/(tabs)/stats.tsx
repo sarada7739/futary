@@ -102,11 +102,11 @@ export default function StatsScreen() {
   if (appearance === "white") {
     return (
       <Screen>
-        {/* A の指摘: ホワイトではスタックのヘッダ「統計」+ 二段見出しの「統計」で
-            「統計」が3回並ぶ。モックにヘッダは無い。ホワイトのときだけヘッダの題を
-            空にし、下線（影）を消す。ヘッダ自体は残す（(tabs)/_layout.tsx の
-            headerShown: true のまま）。ピンクは変えない */}
-        <Tabs.Screen options={{ headerTitle: "", headerShadowVisible: false }} />
+        {/* A の指摘: ホワイトでは Tabs のヘッダ「統計」+ 二段見出しの「統計」で
+            「統計」が3回並ぶ。モックにヘッダは無い。この画面は Tabs の中（href: null）で
+            ヘッダには題しか無く戻るボタンも無いので、ホワイトのときだけヘッダごと消す
+            （題を空にするだけだと空の帯が約 65pt 残った。A の訂正）。ピンクは変えない */}
+        <Tabs.Screen options={{ headerShown: false }} />
         <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.lg }}>
           {/* 4:3 の箱は View で作る（react-native-web の Image に直接 aspectRatio を
               当てると効かず、縦長に伸びた。B が実機で確認。機能パネルのタイルと同じ形） */}

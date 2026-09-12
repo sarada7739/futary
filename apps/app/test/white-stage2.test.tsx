@@ -153,11 +153,11 @@ describe("f: 統計のヒーロー", () => {
     expect(screen.getByText("94日")).toBeInTheDocument();
   });
 
-  it("white ではヘッダの題を空にし下線を消す（「統計」が3回並ばない。A の指摘）", async () => {
+  it("white ではヘッダごと消す（「統計」が3回並ばない。Tabs のヘッダは題しか無い。A の指摘）", async () => {
     renderIn("white", <StatsScreen />);
     await screen.findByTestId("stats-hero");
     const options = JSON.parse(screen.getByTestId("tabs-screen-options").getAttribute("aria-label") ?? "{}");
-    expect(options).toEqual({ headerTitle: "", headerShadowVisible: false });
+    expect(options).toEqual({ headerShown: false });
   });
 
   it("pink ではヘッダを上書きしない（(tabs)/_layout.tsx の題「統計」のまま）", async () => {
