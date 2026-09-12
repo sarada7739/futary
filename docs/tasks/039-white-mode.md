@@ -348,7 +348,16 @@ A の見立て（B が確定させる）:
 
 ## 進捗
 
-（B が書く）
+### 段階1: 完了。人間の OK 待ちで止まっている（2026-09-13、B）
+
+- 基盤（`AppearanceProvider` / `useTheme()` / `useAppearance()`。静的 export を削除）・ホワイトのパレット・
+  `Screen` のボケ分岐・マイページの切り替え・`+html.tsx`（inline script。**測ってから足した**）・
+  `FabIcon`（FAB は PNG だったので部品で描き分け）まで。T1〜T7 + 追加の検査、全て緑
+- **報告は `artifacts/039/stage1.md`。**B が決めた値と理由（3節）・写真アセットの一覧（6節）・起動時の
+  一瞬の計測（5節）・ピンクの画素比較（7節）・ホワイトのピンク走査（8節）
+- 人間の確認項目は `artifacts/039/manual-check.md`
+- スクリーンショット: `artifacts/039/dev/`（両モード）・`artifacts/039/baseline-main/`（main のピンク）
+- 段階2には進んでいない
 
 ## アセット到着（2026-09-13。人間が `docs/sample/simpleMode/` に置いた。A がコミット）
 

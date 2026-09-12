@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { isDefinedError } from "@orpc/client";
-import { Button, colors, Screen, Text, space } from "@futary/ui";
+import { AppearanceProvider, Button, Screen, space, Text, useTheme } from "@futary/ui";
 import { View } from "react-native";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Stack } from "expo-router";
@@ -13,6 +13,7 @@ import { resolveRootRoute } from "../lib/root-route";
 import { useViewerQueryKeyFrom } from "../lib/viewer-key";
 
 function RootNavigator() {
+  const { colors } = useTheme();
   const { data: session, isPending: isSessionPending } = useSession();
   const isAuthenticated = !!session;
   // 014: サインイン画面の「ゲストではじめる」で入る、未認証のデモ閲覧モード。
@@ -225,8 +226,12 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <RootNavigator />
-    </QueryClientProvider>
+    // 039: 外観（ピンク/ホワイト）の Provider はルートに1つ。保存値（localStorage）を
+    // 同期で読むため、最初のレンダーから選んだ外観で描ける
+    <AppearanceProvider>
+      <QueryClientProvider client={queryClient}>
+        <RootNavigator />
+      </QueryClientProvider>
+    </AppearanceProvider>
   );
 }

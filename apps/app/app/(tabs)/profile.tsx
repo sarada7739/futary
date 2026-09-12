@@ -4,7 +4,19 @@ import * as ImagePicker from "expo-image-picker";
 import { ORPCError } from "@orpc/client";
 import { formatJstDateTime } from "@futary/date";
 import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
-import { Avatar, Button, Card, colors, radius, Screen, space, Text } from "@futary/ui";
+import {
+  APPEARANCE_VALUES,
+  Avatar,
+  Button,
+  Card,
+  radius,
+  Screen,
+  space,
+  Text,
+  useAppearance,
+  useTheme,
+  type Appearance,
+} from "@futary/ui";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { DateInput8 } from "../../components/date-input8";
@@ -29,8 +41,46 @@ const PRIMARY_DATE_LABELS: Record<PrimaryDate, string> = {
   none: "非表示",
 };
 
+// 039: 見た目（ピンク/ホワイト）。ラベルはこの画面だけで使う
+const APPEARANCE_LABELS: Record<Appearance, string> = {
+  pink: "ピンク",
+  white: "ホワイト",
+};
+
+// 039: 見た目の切り替え。端末の設定なので保存ボタンは無く、押した瞬間に全画面が
+// 変わる（記念日の「保存」と同じ列に置かない）。選択肢は「ホーム上部の表示」と
+// 同じ部品・同じ見た目（選ばれている方が primary、他方が secondary。flexWrap）。
+// ゲストにも出す（ログイン不要の設定。ADR-014）
+function AppearanceCard() {
+  const { appearance, setAppearance } = useAppearance();
+  return (
+    <Card>
+      <View style={{ gap: space.md }}>
+        <Text weight="bold">見た目</Text>
+        {/* 相手には反映されないことを、聞かれる前に言う（タスク定義4節） */}
+        <Text size="xs" color="muted">
+          この端末だけの設定です。相手には反映されません
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+          {APPEARANCE_VALUES.map((value) => (
+            <Button
+              key={value}
+              variant={appearance === value ? "primary" : "secondary"}
+              onPress={() => setAppearance(value)}
+              testID={`profile-appearance-${value}`}
+            >
+              {APPEARANCE_LABELS[value]}
+            </Button>
+          ))}
+        </View>
+      </View>
+    </Card>
+  );
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { isGuestMode, exitGuestMode } = useGuestMode();
   // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）。
   // この画面はguestMode中もフックだけは実行される（早期returnより後で
@@ -205,15 +255,25 @@ export default function ProfileScreen() {
 
   // 014: デモ閲覧中は「自分」が存在しない（未認証。me.getはnullを返す）ため、
   // プロフィール編集フォームを出さずログインを促す
+  // 039: 「見た目」だけはログイン不要の設定なので、ゲストにもその上に出す。
+  // ログイン案内のブロック自体は 014 のまま（余白・中央寄せ・折り返し幅を変えない。
+  // カードのぶんだけ下へ寄る）。ScrollView にしない: 014 と同じ View のままの方が
+  // 構造の差が小さい（合成レイヤーが増えるとタブバーの影のにじみ方が数階調変わる。
+  // B が画素比較で確認）。カード + 案内は 568pt の画面にも収まる
   if (isGuestMode) {
     return (
       <Screen>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.xl }}>
-          <Text weight="bold">マイページはログインすると使えます</Text>
-          <Text size="sm" color="muted" align="center">
-            名前やアイコン、記念日を設定するには、Googleアカウントでログインしてください
-          </Text>
-          <Button onPress={exitGuestMode}>ログイン</Button>
+        <View style={{ flex: 1, paddingBottom: TAB_BAR_CLEARANCE }}>
+          <View style={{ padding: space.lg }}>
+            <AppearanceCard />
+          </View>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.xl }}>
+            <Text weight="bold">マイページはログインすると使えます</Text>
+            <Text size="sm" color="muted" align="center">
+              名前やアイコン、記念日を設定するには、Googleアカウントでログインしてください
+            </Text>
+            <Button onPress={exitGuestMode}>ログイン</Button>
+          </View>
         </View>
       </Screen>
     );
@@ -293,6 +353,9 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </Card>
+
+          {/* 039: 記念日カードの上、プロフィールカードの下（タスク定義4節） */}
+          <AppearanceCard />
 
           <Card>
             <View style={{ gap: space.md }}>

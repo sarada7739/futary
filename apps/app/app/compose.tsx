@@ -3,7 +3,7 @@ import { Image, Pressable, ScrollView, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useMutation } from "@tanstack/react-query";
-import { Button, colors, radius, Screen, space, Text } from "@futary/ui";
+import { Button, radius, Screen, space, Text, useTheme } from "@futary/ui";
 import { MAX_POST_IMAGES } from "@futary/contract";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../lib/image";
 import { useGuestMode } from "../lib/guest-mode";
@@ -14,6 +14,7 @@ const MAX_BODY_LENGTH = 2000;
 const THUMBNAIL_SIZE = 80;
 
 export default function ComposeScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const { isGuestMode, exitGuestMode } = useGuestMode();
   const [body, setBody] = useState("");

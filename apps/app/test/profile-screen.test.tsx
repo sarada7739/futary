@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ORPCError } from "@orpc/client";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { APPEARANCE_STORAGE_KEY, AppearanceProvider, useAppearance } from "@futary/ui";
+import { Text as RNText } from "react-native";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // 019: プロフィール画面（記念日設定・名前とアイコン変更）の画面結合テスト。
@@ -504,5 +506,76 @@ describe("014: デモ閲覧中はプロフィール編集フォームの代わ�
 
     fireEvent.click(screen.getByText("ログイン"));
     expect(exitGuestMode).toHaveBeenCalledTimes(1);
+  });
+});
+
+// 039 T6: マイページの「見た目」カード。押すと useAppearance().appearance が変わり、
+// ゲストでもカードが出る。Provider 配下の別の部品（プローブ）で観測する
+function AppearanceProbe() {
+  const { appearance } = useAppearance();
+  return <RNText testID="appearance-probe">{appearance}</RNText>;
+}
+
+function renderWithAppearance(guest: boolean) {
+  const inner = guest ? (
+    <GuestModeContext.Provider
+      value={{ isGuestMode: true, enterGuestMode: () => {}, exitGuestMode: () => {}, demoUnavailable: false }}
+    >
+      <ProfileScreen />
+    </GuestModeContext.Provider>
+  ) : (
+    <ProfileScreen />
+  );
+  return render(
+    <AppearanceProvider>
+      <QueryClientProvider client={queryClient}>
+        <AppearanceProbe />
+        {inner}
+      </QueryClientProvider>
+    </AppearanceProvider>,
+  );
+}
+
+describe("039: 見た目（ピンク/ホワイト）の切り替え（T6）", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("ログイン済み: 「ホワイト」を押すと appearance が white になり、localStorage に保存される", async () => {
+    renderWithAppearance(false);
+    await waitForLoaded();
+    expect(screen.getByTestId("appearance-probe").textContent).toBe("pink");
+    expect(screen.getByText("この端末だけの設定です。相手には反映されません")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("profile-appearance-white"));
+    expect(screen.getByTestId("appearance-probe").textContent).toBe("white");
+    expect(window.localStorage.getItem(APPEARANCE_STORAGE_KEY)).toBe("white");
+
+    fireEvent.click(screen.getByTestId("profile-appearance-pink"));
+    expect(screen.getByTestId("appearance-probe").textContent).toBe("pink");
+    expect(window.localStorage.getItem(APPEARANCE_STORAGE_KEY)).toBe("pink");
+  });
+
+  it("ゲストでもカードが出て、切り替えられる（ログイン不要の設定）", async () => {
+    meGetMock.mockResolvedValue(null);
+    renderWithAppearance(true);
+
+    expect(await screen.findByText("マイページはログインすると使えます")).toBeTruthy();
+    expect(screen.getByText("見た目")).toBeTruthy();
+    expect(screen.queryByTestId("profile-name")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("profile-appearance-white"));
+    expect(screen.getByTestId("appearance-probe").textContent).toBe("white");
+  });
+
+  it("見た目カードは記念日カードより上、プロフィールカードより下に出る", async () => {
+    renderWithAppearance(false);
+    await waitForLoaded();
+    const profile = screen.getByText("プロフィール");
+    const appearance = screen.getByText("見た目");
+    const anniversary = screen.getByText("記念日");
+    // DOM の前後関係で並び順を見る（compareDocumentPosition: 4 = 後続）
+    expect(profile.compareDocumentPosition(appearance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(appearance.compareDocumentPosition(anniversary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

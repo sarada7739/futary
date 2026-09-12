@@ -1,5 +1,5 @@
 import { isDefinedError } from "@orpc/client";
-import { Button, Screen, Text, colors, radius, space } from "@futary/ui";
+import { Button, radius, Screen, space, Text, useTheme } from "@futary/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -13,6 +13,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export default function JoinCoupleScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [code, setCode] = useState("");

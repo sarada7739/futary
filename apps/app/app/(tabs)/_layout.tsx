@@ -1,4 +1,4 @@
-import { colors, iconFabPlus, iconTabCalendar, iconTabHome, iconTabProfile, iconTabTimeline, radius, shadow, space } from "@futary/ui";
+import { FabIcon, iconTabCalendar, iconTabHome, iconTabProfile, iconTabTimeline, radius, space, useTheme } from "@futary/ui";
 import { Tabs, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Image, type ImageSourcePropType, Pressable, View } from "react-native";
@@ -18,6 +18,7 @@ const tabIcons: Record<string, ImageSourcePropType> = {
 };
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
+  const { colors } = useTheme();
   return (
     <Image
       source={tabIcons[name]}
@@ -39,6 +40,7 @@ function FabTabButton({
   children?: ReactNode;
   onPress?: () => void;
 }) {
+  const { shadow } = useTheme();
   return (
     <View style={{ flex: 1, alignItems: "center" }}>
       <Pressable
@@ -52,11 +54,9 @@ function FabTabButton({
           ...shadow.glow,
         })}
       >
-        <Image
-          source={iconFabPlus}
-          style={{ width: FAB_SIZE, height: FAB_SIZE }}
-          resizeMode="contain"
-        />
+        {/* 039: 絵は FabIcon（packages/ui）が外観で描き分ける。ピンクは従来の
+            画像そのまま、ホワイトは黒い円 */}
+        <FabIcon size={FAB_SIZE} />
       </Pressable>
       {children}
     </View>
@@ -64,6 +64,7 @@ function FabTabButton({
 }
 
 export default function TabsLayout() {
+  const { appearance, colors, shadow } = useTheme();
   const router = useRouter();
   const { isGuestMode, exitGuestMode } = useGuestMode();
 
@@ -87,6 +88,10 @@ export default function TabsLayout() {
           borderTopWidth: 0,
           borderRadius: radius.pill,
           ...shadow.card,
+          // 039: ホワイトでは影が無く（shadow.card の不透明度 0）、白いピルが白い地に
+          // 溶けて境目が見えない（人間の指摘）。モック・タスク定義 5-2 d のとおり
+          // border 1px の枠線で輪郭を出す。ピンクには足さない（1ピクセルも変えない）
+          ...(appearance === "white" ? { borderWidth: 1, borderColor: colors.border } : null),
         },
         tabBarLabelStyle: { fontSize: 11 },
         tabBarItemStyle: { flex: 1 },

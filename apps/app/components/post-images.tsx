@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Image, Pressable, ScrollView, View } from "react-native";
-import { colors, radius, space, Text } from "@futary/ui";
+import { radius, space, Text, useTheme } from "@futary/ui";
 import type { PostImage } from "@futary/contract";
 import { ImageViewer } from "./image-viewer";
 
@@ -25,6 +25,7 @@ export const ROW_ITEM_WIDTH_RATIO = 0.88;
 //   指で送る。ドットのインジケータは置かない（最大4枚。端が見えていれば
 //   続きがあることは分かる。タスク定義2節）
 export function PostImages({ images, accessibilityLabel = "画像を全画面表示" }: PostImagesProps) {
+  const { colors } = useTheme();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   // 【033・security-auditor指摘】以前はposition（添字）をキーにしていたため、

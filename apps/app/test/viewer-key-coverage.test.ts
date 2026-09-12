@@ -680,8 +680,8 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(
       ignored.map((s) => `${path.relative(repoRoot, s.file).replace(/\\/g, "/")}:${s.location} (${s.methodName})`),
     ).toEqual([
-      "apps/app/app/(tabs)/timeline.tsx:54:33 (getQueriesData)",
-      "apps/app/app/(tabs)/timeline.tsx:75:59 (setQueryData)",
+      "apps/app/app/(tabs)/timeline.tsx:55:33 (getQueriesData)",
+      "apps/app/app/(tabs)/timeline.tsx:76:59 (setQueryData)",
     ]);
   });
 

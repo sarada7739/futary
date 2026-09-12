@@ -15,6 +15,9 @@ export default tseslint.config(
       // apps/landing + apps/app の web export を合成したビルド成果物
       // （scripts/build-public.mjs が生成する。ソースではない）
       "apps/api/public/**",
+      // 動作証跡（スクリーンショット・計測結果と、それを再現するための使い捨ての
+      // Playwright スクリプト）。アプリのソースではなく、CI からも実行しない（039）
+      "artifacts/**",
     ],
   },
   js.configs.recommended,

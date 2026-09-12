@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { colors, radius, space } from "../src/tokens";
+import { radius, space } from "../src/tokens";
 
+// 色の検査は theme.test.ts（039 で色は外観ごとの値になった）
 describe("tokens", () => {
-  it("色トークンが生の16進カラーとして定義されている", () => {
-    expect(colors.bg).toBe("#FEF6F3");
-    expect(colors.primary).toBe("#F5868D");
-    expect(colors.primaryPressed).toBe("#E4707A");
-  });
-
   it("角丸トークンがarchitecture.mdの値と一致する", () => {
     expect(radius.card).toBe(20);
     expect(radius.input).toBe(14);

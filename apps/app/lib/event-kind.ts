@@ -1,4 +1,4 @@
-import { colors } from "@futary/ui";
+import type { Colors } from "@futary/ui";
 import { EVENT_KINDS, type Event } from "@futary/contract";
 
 export type EventKind = Event["kind"];
@@ -18,8 +18,12 @@ export const EVENT_KIND_GLYPHS: Record<EventKind, string> = {
   meetup: "▲",
 };
 
-export const EVENT_KIND_COLORS: Record<EventKind, string> = {
-  anniversary: colors.eventAnniversary,
-  plan: colors.eventPlan,
-  meetup: colors.eventMeetup,
-};
+// 039: 静的な colors の export が無くなったため、描画側が useTheme() の colors を
+// 渡す関数にした（event-* の3色自体は両モードで同じ値。タスク定義3節）
+export function eventKindColorsOf(colors: Colors): Record<EventKind, string> {
+  return {
+    anniversary: colors.eventAnniversary,
+    plan: colors.eventPlan,
+    meetup: colors.eventMeetup,
+  };
+}

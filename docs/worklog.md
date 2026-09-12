@@ -12519,6 +12519,49 @@ Session: B
 
 Session: A
 
+## 2026-09-13 セッションB: 039 段階1（ホワイトモードの基盤 + パレット + 切り替え）
+
+### やったこと
+- `packages/ui/src/theme.ts`（両モードの値）・`appearance.tsx`（Provider / `useTheme` / `useAppearance`。
+  `window.localStorage` の `futary.appearance`）を新設。`tokens.ts` から `colors` `shadow` `gradients` を削除
+  （留め金）。`themes` は export しない
+- `packages/ui` の部品5つと `apps/app` の 21 ファイルを `useTheme()` に。モジュール直下の定数3箇所は関数に
+- マイページに「見た目」カード（ゲストにも。ログイン案内のブロックは 014 のまま位置だけ下がる）
+- `FabIcon`（`packages/ui`）: FAB は PNG（ピンクの円 + 白の塗りの＋）で色トークンでは変わらず、tint も
+  使えない（画素を実測）。ピンクは従来の画像、ホワイトは黒い円を View で描く
+- **起動時の一瞬**: A の指示「測ってから決める」に従い、本番相当ビルドで Playwright + rAF で測った。
+  prerender のピンクが見える（localhost 約110ms・4G 約1秒・低速3G 約8秒）ので `+html.tsx` に
+  inline script を足し、`build-public.mjs` を「inline script 全部の sha256 を並べる（本数固定 2）」に
+- **hydrate の不一致**を見つけて対処: 最初の描画は必ず pink（サーバと同じ）、`useLayoutEffect` で
+  保存値へ（paint 前）。本物の `renderToString` 出力を hydrate するテストで固定
+- テスト T1〜T7 + 追加（FabIcon・`+html.tsx` の文面対応）。`apps/app` 332件・`packages/ui` 16件・
+  `apps/api` 457件、型チェック・lint、全て緑
+- 証跡 `artifacts/039/`: 両モードのスクリーンショット、main との画素比較（ホーム・タイムライン・統計 0 差）、
+  ホワイトの全要素走査（10画面で 0）、起動時の計測 json、再現用スクリプト
+
+- 人間から途中で「ホワイトのボトムタブの境目が見づらい」と指摘があり、5-2 d の枠線（ホワイトのみ
+  `border` 1px）を段階1に前倒しした。ピンクは 0 差のまま
+- ゲストのマイページは ScrollView ではなく 014 と同じ View 構造にした（ScrollView だと合成レイヤーが
+  増え、タブバーの影のにじみ方が最大 55/255 変わった。View に戻すとタブバー領域は 0 差）
+
+### 詰まった点・見つけたこと
+- Node 25 の global `localStorage` はメソッドが無く、vitest の jsdom でも Node のものが勝つ。
+  `window.localStorage` と明示 + `test/setup.ts` で補う
+- 最初に書いた hydrate テストは jsdom の `innerHTML` が style を正規化するせいで偽の不一致を出した。
+  本物の `renderToString` に変えて解消（型定義は `test/react-dom-server.d.ts` で1関数だけ宣言。依存は増やさない）
+- 基準（main）の起動は別 worktree（scratchpad）で行い、R・A のツリーには触っていない。
+  API の `TRUSTED_ORIGINS` にあるポート（8081 / 19006）でしか統計が取れない
+- 開発サーバでは Poppins が 404（main でも同じ。本番ビルドでは出ない）
+
+### 決定事項（B の裁量分。A が architecture.md 7節へ写す）
+- ホワイトの値: 報告 `artifacts/039/stage1.md` 3節（`border` `#D2D2D7`、`shadow.fab` 0.18/10/y4 等）
+- `Card` の枠線はホワイトのときだけ（ピンクに 1px を足さない）
+
+### 次
+- 人間の OK → 段階2。写真アセット 8 + 1（報告 6節）
+- A: `architecture.md` 7節への転記、`security-requirements.md` 7節の CSP の記述（inline script 2本）
+
+Session: B
 ## 2026-09-13 セッションA: 039 段階1の報告を受けて、値と CSP を設計文書へ写した
 
 ### やったこと
@@ -12538,6 +12581,16 @@ Session: A
 
 Session: A
 
+## 2026-09-13 セッションB: 039 段階1 の R レビュー対応（PR #271 に追加）
+
+- R の判定: 受け入れ + 必須修正1件（`artifacts/039/review-stage1.md` に原文を保存）
+- T7 の穴を塞いだ（テスト側。A の判断どおり `package.json` の `exports` は足さない）:
+  - `@futary/ui/` 始まりのサブパス import / re-export は中身を問わず違反（R が `@futary/ui/src/theme` で `themes` が取れることを実測）
+  - 反対側は `index.ts` の `export *` の先を全部開いて再帰的に export 名を集め、`colors` `shadow` `gradients` `themes` が無いことを見る（`tokens.ts` 決め打ちをやめた）。`export * from "./theme"` を足すと赤になることをテスト内で再現
+- R の記録1件: `appearance.tsx` の theme-color のコメントの理由（「CSP が inline script を1本しか固定しないから」は古い）を書き直した
+- `apps/app` テスト 339件・型チェック・lint 緑
+
+Session: B
 ## 2026-09-13 セッションA: 039 段階1、R の判定を受けて教訓を規約へ
 
 ### やったこと

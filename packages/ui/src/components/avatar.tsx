@@ -1,5 +1,5 @@
 import { Image, View } from "react-native";
-import { colors, shadow } from "../tokens";
+import { useTheme } from "../appearance";
 import { Text } from "./text";
 import { initialOf } from "./avatar-logic";
 
@@ -20,6 +20,7 @@ export type AvatarProps = {
 const GLOW_RING_WIDTH = 3;
 
 export function Avatar({ name, imageUrl, size = 40, glow = false }: AvatarProps) {
+  const { colors, shadow } = useTheme();
   // overflow:"hidden"（丸く切り抜くために必須）はshadowも一緒に切り取ってしまう
   // ため、光らせる場合は影を持つ外側のViewと、切り抜く内側のViewを分ける
   const circleStyle = {

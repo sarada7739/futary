@@ -1,0 +1,815 @@
+{
+  "baseURL": "http://localhost:8081",
+  "scans": {
+    "pink": {
+      "home": {
+        "elements": 297,
+        "hits": [
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(153.897deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "color",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "outlineColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "textDecorationColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          }
+        ]
+      },
+      "timeline": {
+        "elements": 610,
+        "hits": [
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(153.897deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "color",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "outlineColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "textDecorationColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(153.897deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          }
+        ]
+      },
+      "stats": {
+        "elements": 645,
+        "hits": [
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(153.897deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "color",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "outlineColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "textDecorationColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(153.897deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(151.952deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          }
+        ]
+      },
+      "profile": {
+        "elements": 670,
+        "hits": [
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(153.897deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "color",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "outlineColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "textDecorationColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": "stats-card-days-suffix"
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "SPAN",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(153.897deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(153.897deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "backgroundColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": "profile-appearance-pink"
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "borderTopColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": "profile-appearance-white"
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "borderRightColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": "profile-appearance-white"
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "borderBottomColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": "profile-appearance-white"
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "borderLeftColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": "profile-appearance-white"
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "color",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "outlineColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#7B4A3C",
+            "prop": "textDecorationColor",
+            "value": "rgb(123, 74, 60)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "backgroundColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#FEF6F3",
+            "prop": "backgroundImage",
+            "value": "linear-gradient(151.952deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "boxShadow",
+            "value": "rgba(245, 134, 141, 0.25) 0px 0px 10px 0px",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "color",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "outlineColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          },
+          {
+            "hex": "#F5868D",
+            "prop": "textDecorationColor",
+            "value": "rgb(245, 134, 141)",
+            "tag": "DIV",
+            "testid": null
+          }
+        ]
+      }
+    },
+    "whiteSignIn": {
+      "elements": 57,
+      "hits": []
+    },
+    "white": {
+      "home": {
+        "elements": 298,
+        "hits": []
+      },
+      "timeline": {
+        "elements": 604,
+        "hits": []
+      },
+      "stats": {
+        "elements": 636,
+        "hits": []
+      },
+      "profile": {
+        "elements": 658,
+        "hits": []
+      }
+    },
+    "whiteOthers": {
+      "calendar": {
+        "elements": 817,
+        "hits": []
+      },
+      "memory": {
+        "elements": 842,
+        "hits": []
+      },
+      "list": {
+        "elements": 911,
+        "hits": []
+      },
+      "mood": {
+        "elements": 1121,
+        "hits": []
+      },
+      "ai-summary": {
+        "elements": 1159,
+        "hits": []
+      }
+    },
+    "pinkSignInAfterClear": {
+      "elements": 60,
+      "hits": [
+        {
+          "hex": "#FEF6F3",
+          "prop": "backgroundImage",
+          "value": "linear-gradient(155.199deg, rgb(254, 246, 243), rgb(252, 238, 236))",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#F5868D",
+          "prop": "backgroundColor",
+          "value": "rgb(245, 134, 141)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#F5868D",
+          "prop": "borderTopColor",
+          "value": "rgb(245, 134, 141)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#F5868D",
+          "prop": "borderRightColor",
+          "value": "rgb(245, 134, 141)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#F5868D",
+          "prop": "borderBottomColor",
+          "value": "rgb(245, 134, 141)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#F5868D",
+          "prop": "borderLeftColor",
+          "value": "rgb(245, 134, 141)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#7B4A3C",
+          "prop": "color",
+          "value": "rgb(123, 74, 60)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#7B4A3C",
+          "prop": "outlineColor",
+          "value": "rgb(123, 74, 60)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#7B4A3C",
+          "prop": "textDecorationColor",
+          "value": "rgb(123, 74, 60)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#7B4A3C",
+          "prop": "color",
+          "value": "rgb(123, 74, 60)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#7B4A3C",
+          "prop": "outlineColor",
+          "value": "rgb(123, 74, 60)",
+          "tag": "DIV",
+          "testid": null
+        },
+        {
+          "hex": "#7B4A3C",
+          "prop": "textDecorationColor",
+          "value": "rgb(123, 74, 60)",
+          "tag": "DIV",
+          "testid": null
+        }
+      ]
+    }
+  },
+  "storedBefore": null,
+  "storedAfterSwitch": "white",
+  "themeColorAfterSwitch": "#1D1D1F",
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

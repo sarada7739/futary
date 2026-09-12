@@ -1,5 +1,5 @@
 import { Image, Pressable, Text as RNText, View } from "react-native";
-import { colors, fontFamily, gradients, layout, space, sparkle } from "@futary/ui";
+import { fontFamily, layout, space, sparkle, useTheme } from "@futary/ui";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useGuestMode } from "../lib/guest-mode";
@@ -13,6 +13,7 @@ const ICON_SIZE = 14;
 // 唯一の濃色ブロックとなり、視線が主役（記念日カード）より先にここへ
 // 吸われていた（診断1）ため、淡い地に変える
 export function DemoBanner() {
+  const { colors, gradients } = useTheme();
   const { exitGuestMode } = useGuestMode();
 
   return (
