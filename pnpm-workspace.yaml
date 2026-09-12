@@ -33,3 +33,21 @@ auditConfig:
     # image-size（同上の経路）。JXL/HEIFパーサのDoS。修正版なし。到達可能性・
     # 削除条件は上と同じ
     - GHSA-5p2g-fcmc-qvqq
+# 推移的依存の既知脆弱性への追随（security-requirements.md 9節 T7）。
+# 修正版がある勧告は無視リストに入れず、ここで上げる。
+overrides:
+  # sharp GHSA-g89c-p67h-r497 / GHSA-2jg2-4ch7-h545（libheif）。経路:
+  # wrangler / @cloudflare/vitest-plugin -> miniflare -> sharp。miniflare が
+  # sharp@0.35.2 を固定で宣言しているため、通常の更新では上がらない。
+  # 開発時（ローカル実行・テスト）のみで、デプロイ後の Worker には含まれない。
+  # miniflare が sharp>=0.35.4 を宣言する版へ上がったら（5.20260911.0-alpha 以降）
+  # この override を消すこと
+  "sharp@<0.35.4": "0.35.4"
+  # js-yaml GHSA-2883-xcg3-v3hh（merge key の CPU 消費）。経路:
+  # @better-auth/expo -> expo -> @expo/cli -> @expo/xcpretty -> js-yaml。
+  # 宣言範囲 ^4.1.0 は 4.3.2 を含むが、pnpm update は推移的依存を動かさない
+  # ため override で固定する（実測: `pnpm update -r --depth=Infinity js-yaml`
+  # で lockfile が変わらなかった）。Xcode ログ整形（iOS ビルド時）のみで、
+  # デプロイ後の Worker と配信アセットには含まれない。
+  # @expo/xcpretty が js-yaml>=4.3.2 を解決するようになったら消すこと
+  "js-yaml@<4.3.2": "4.3.2"

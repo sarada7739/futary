@@ -12470,3 +12470,40 @@ Session: B
   タスク定義の停止条件に「A はまだ確かめていない」と書いた
 
 Session: A
+
+## 2026-09-13 セッションB: CI の `pnpm audit` 赤を直した（`fix/audit-sharp-js-yaml`）
+
+### やったこと
+- A から 039 の起票と同時に「CI が `pnpm audit --audit-level=high` で赤。039 の PR も
+  同じ理由で赤になるので、先に `fix/` で緑にしてほしい」と依頼があった
+- 実測: high が2件。`sharp@0.35.2`（GHSA-g89c-p67h-r497 / GHSA-2jg2-4ch7-h545。libheif）と
+  `js-yaml@4.3.1`（GHSA-2883-xcg3-v3hh。merge key の CPU 消費）。**どちらも修正版がある**
+  （sharp 0.35.4・js-yaml 4.3.2、ともに 2026-08-26 公開）
+- `security-requirements.md` 9節に従い、**無視リストは使わない**（無視リストは修正版が無い
+  ものだけ・登録は A だけ）。修正版があるので**上げる**
+- `sharp`: `miniflare@5.20260825.0-alpha` が `0.35.2` を固定で宣言しているため通常の更新では
+  動かない。`pnpm-workspace.yaml` の `overrides` に `sharp@<0.35.4: 0.35.4` を置いた
+- `js-yaml`: 宣言範囲 `^4.1.0` は 4.3.2 を含むが、`pnpm update -r --depth=Infinity js-yaml`
+  では lockfile が変わらなかった（apps/api 起点・`--latest` でも同じ。実測3回）。
+  同じ形で `js-yaml@<4.3.2: 4.3.2` を `overrides` に置いた
+- `overrides` は `package.json` ではなく `pnpm-workspace.yaml` に置いた。無視リストと同じ理由
+  （YAML コメントで GHSA・経路・到達可能性・削除条件を項目ごとに残せる）
+- 到達可能性: sharp は miniflare（ローカル実行・テスト）のみ、js-yaml は `@expo/xcpretty`
+  （iOS ビルドの Xcode ログ整形）のみ。どちらもデプロイ後の Worker と配信アセットには含まれない
+
+### 決定事項
+- 更新を選び、無視リストにも Cloudflare ツールチェーン全体の更新にも進まなかった。
+  最新 `miniflare@5.20260911.0-alpha` は sharp 0.35.4 を宣言しているので、
+  wrangler / vitest-plugin を上げれば sharp の override は不要になる。ただしそれは
+  `minimumReleaseAgeExclude` の版固定の書き換えとテスト基盤の更新を伴い、
+  「CI を緑にする」の範囲を超える。L7（alpha の除外リスト整理）のときに override ごと消す
+
+### 確かめたこと
+- `node scripts/pnpm-audit.mjs --audit-level=high` exit 0（残る high は無視リストの image-size 2件のみ）
+- `node scripts/check-audit-ignore-staleness.mjs` exit 0（陳腐化なし）
+- lockfile で版が動いたのは sharp・`@img/sharp-*`・js-yaml のみ。miniflare・wrangler は
+  sharp 0.35.4 が peer に `@types/node` を持つため lockfile の鍵が変わっただけで版は同じ
+- `apps/api` テスト 457件緑（miniflare 経由で sharp を実際に使う側）・`pnpm -r type-check`・
+  `pnpm -w lint` 通過
+
+Session: B
