@@ -3,32 +3,33 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-13 / セッションB。**039 段階1（基盤 + パレット + 切り替え）が
-完了。PR を出し、人間の OK 待ちで止まっている。**段階2には進まない。
-報告は `artifacts/039/stage1.md`、人間の確認項目は `artifacts/039/manual-check.md`。
+**最終更新**: 2026-09-13 / セッションA。**039 段階1が上がった（PR #271、B）。停止条件どおり B は止まっている。**
+**手番は R（PR #271 のレビュー）と人間（`artifacts/039/manual-check.md` の5項目 + 段階2前の1判断 + 写真アセット）。**
+A は B の値を `architecture.md` 7節へ、CSP の inline script 2本を `security-requirements.md` 7節へ写した。
 
-## 039 段階1: 完了・停止中（2026-09-13）
+## 039 段階1: 上がった（2026-09-13）
 
-- `packages/ui` から `colors` `shadow` `gradients` の静的 export を消し、`useTheme()` に寄せた
-  （型チェックが挙げた直し忘れは 21 ファイル + テスト1本。停止条件には当たらない）
-- ホワイトの値は B が決めた（`border` は A の参考値より濃い `#D2D2D7`。理由は報告 3節）
-- **起動時の一瞬を本番相当で測った**: prerender のピンクが localhost で約110ms、4G 相当で約1秒、
-  低速 3G 相当で約8秒見える → A の判断どおり `+html.tsx` に inline script を足し、
-  `build-public.mjs` が sha256 を2本並べる形にした（`'unsafe-inline'` にしない）。足した後は 0 フレーム
-- **FAB は色トークンではなく PNG だった**（A の想定と違う）。`FabIcon` で描き分けた
-- ピンクはホーム・タイムライン・統計で main と画素 0 差。マイページはカード追加ぶんの位置ずれだけ
-- **人間の手番**: 報告とスクリーンショットを見て段階2の OK を出す。写真アセット（8枚 + 1枚。
-  報告 6節）を上げる。iPhone 実機でホワイトの起動を見る（Safari は B が測っていない）
-- **A の手番**: 報告 3節の値を `architecture.md` 7節へ写す。`security-requirements.md` 7節の CSP の
-  記述（inline script が2本になった）
-- **見ていない4画面**: compose・join・delete-account・モーダル2種（ログインが要る）
+B の報告は `artifacts/039/stage1.md`（PR #271 のブランチ `task/039-white-mode`）。要点:
+- 静的 `colors`/`shadow`/`gradients` を消し `useTheme()` へ。型チェックが挙げたのは 21 ファイル + テスト1本（見立てどおり）
+- ピンクはホーム・タイムライン・統計で main と**画素 0 差**（別 worktree の main と比較）。マイページはカード追加ぶんの位置ずれだけ
+- ホワイトで 10 画面にピンクの computed style が 0。**未確認 4 画面**（compose・join・delete-account・モーダル2種。ログインが要る）→ 人間の実機で
+- **起動時のピンクは測ったら見えた**（4G 相当で約1秒）ので `+html.tsx` に inline script を1本足し、`build-public.mjs` は inline script 全部を sha256 で並べる形（本数 2 固定、`'unsafe-inline'` 無し）
+- **hydrate の不一致**を B が見つけ、Provider の最初の描画を pink に固定して `useLayoutEffect` で切り替える形にした
+- FAB は PNG だった。`FabIcon` で描き分け（ピンクは画像そのまま）
+- 人間の途中指摘「ホワイトのタブの境目が見づらい」で、タブバーの `border` 1px（ホワイトのみ）を段階1に前倒し
+- B が決めた値: `border` は `#D2D2D7`（A の参考値より濃い）。他は概ね参考値どおり。`shadow.fab` は 0.18/10/y4
+
+**人間に決めてほしいこと**（`artifacts/039/manual-check.md`）: 方向・`border` の濃さ・iPhone 実機でリロード時にピンクが出ないか（Safari 未測）・写真アセット・段階2前に「二段見出しを他画面にも足すか」（5-2 g）。
+
+**A の所感（設計として）**: ホワイトの利用者は起動時にピンクの代わりに**白の空白**（低速回線で最大8秒）を見る。
+ピンクの「読み込み中…」も隠れる。**白い空白は Apple の語彙の内側なので受け入れる。**
+人間が気になると言ったら、`#root` ではなく色を持つ要素だけ隠す等を段階2で考える。
 
 ---
 
-**最終更新（旧）**: 2026-09-13 / セッションB。**CI の `pnpm audit` 赤を
-`fix/audit-sharp-js-yaml` で直した**（sharp 0.35.4・js-yaml 4.3.2 を
-`pnpm-workspace.yaml` の `overrides` で上げた。無視リストは使っていない）。
-マージ後に 039 の段階1へ入る。
+**最終更新（旧）**: 2026-09-13 / セッションB。CI の `pnpm audit` 赤を
+`fix/audit-sharp-js-yaml` で直した（sharp 0.35.4・js-yaml 4.3.2 を
+`pnpm-workspace.yaml` の `overrides` で上げた。無視リストは使っていない）。**PR #269 でマージ済み。**
 
 ## CI の pnpm audit 赤の修正（2026-09-13）
 

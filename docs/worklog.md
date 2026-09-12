@@ -12562,3 +12562,21 @@ Session: A
 - A: `architecture.md` 7節への転記、`security-requirements.md` 7節の CSP の記述（inline script 2本）
 
 Session: B
+## 2026-09-13 セッションA: 039 段階1の報告を受けて、値と CSP を設計文書へ写した
+
+### やったこと
+- B から段階1完了の連絡（PR #271。`artifacts/039/stage1.md`・`manual-check.md`）。差分は読んでいない。報告と証跡だけ読んだ
+- `architecture.md` 7節「外観」に B が決めた値（`border: #D2D2D7`、`shadow.fab` 0.18/10/y4 等）・FAB が画像だったこと・
+  起動時の一瞬（prerender がピンク→実測→inline script）・hydrate の不一致への対処を写した
+- `security-requirements.md` 7節に「inline script は本数を固定し、ハッシュで許可する」を足した（2本の内訳と、3本目を足すときの手順）
+- `state.md` を段階1完了の状態に。人間に決めてほしいことを列挙
+
+### 決定事項
+- A の参考値より濃い `border: #D2D2D7` を採用（B の判断。1px でも確実に見える方）。人間が薄い/濃いと言えば `theme.ts` の1箇所
+- 起動時、ホワイトの利用者はピンクの代わりに白の空白を見る。Apple の語彙の内側なので受け入れる
+
+### 次
+- R が PR #271 をレビューする
+- 人間が `manual-check.md` の5項目 + 5-2 g の判断 + 写真アセット
+
+Session: A
