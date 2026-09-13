@@ -12640,3 +12640,20 @@ Session: B
 - 題を空にしただけだと空の帯（約65pt）が残った。統計は Tabs の中で戻るボタンも元から無いので、ホワイトのときだけ `headerShown: false` に（A の訂正）。ピンクは変えない。テスト差し替え。352件・型チェック・lint 緑。ピンク画素0差
 
 Session: B
+
+## 2026-09-13 セッションB: fix/ai-summary-max-completion-tokens（本番の AI まとめが失敗）
+
+### やったこと
+- A の依頼「推測のまま直さない」に従い、本番 `wrangler tail` を張って人間に押してもらった: `aiSummary/generate` が `openai 400`（401/404 ではない）
+- ローカルの .dev.vars のキーで同じ body を OpenAI に投げて本文を取った: `Unsupported parameter: max_tokens is not supported with this model. Use max_completion_tokens instead.`（param: max_tokens）。修正案 `max_completion_tokens: 1024` は 200 で、本文 125 トークン・reasoning 0
+- `apps/api/src/lib/ai.ts`: OpenAI 側を `max_completion_tokens` に。`!response.ok` のときエラー本文の先頭 200 文字（改行を潰す）を Error の message に入れ、withErrorId のログに残す（クライアントには出ない。キーは含まれない）
+- テスト: buildProviderRequest の形（OpenAI は max_completion_tokens のみ・Anthropic は max_tokens のみ）、fetch を差し替えた generateSummary の失敗経路3本。apps/api 全件・型チェック・lint 緑
+
+### 決定事項
+- 出力上限 1024 はそのまま。reasoning_effort は送らない（実測で不要）
+- ADR-013・security-requirements 9節は変えない
+
+### 次
+- マージ・デプロイ後、人間が AI まとめを押して通ることを確認
+
+Session: B

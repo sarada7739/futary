@@ -80,8 +80,23 @@ const SYSTEM_PROMPT =
 // security-auditor指摘: 出力の長さに歯止めが無いと、投稿本文に埋め込んだ
 // 指示（プロンプトインジェクション）で出力トークンを膨らませられる
 // （出力課金・ai_summaries.bodyへの大きな書き込みにつながる）。
-// Anthropicは元からmax_tokensを指定していたが、OpenAI側に無かったため揃えた
+// Anthropicは元からmax_tokensを指定していたが、OpenAI側に無かったため揃えた。
+//
+// fix/ai-summary-max-completion-tokens: OpenAI 側のパラメータ名は
+// `max_completion_tokens`。gpt-5 系（gpt-5.6-terra）は `max_tokens` を受け付けず
+// 400（"Unsupported parameter: 'max_tokens' is not supported with this model.
+// Use 'max_completion_tokens' instead."）を返す。gpt-4o-mini 向けに書いたまま
+// モデル名だけ変えたため、本番で AI まとめが全件失敗していた（人間の報告。
+// B が同じ body で再現）。gpt-5 系はこの上限を reasoning にも使うが、
+// 300字程度の要約（約 125 トークン）に対して reasoning は 0 だった（B が実測）ので
+// 1024 のままにする
 const MAX_OUTPUT_TOKENS = 1024;
+
+// プロバイダのエラー本文をサーバログに残す長さ。status だけでは原因を当てられ
+// なかった（今回 400 の理由はパラメータ名だった）。本文は OpenAI/Anthropic の
+// エラーメッセージで、API キーは含まれない。クライアントには出さない
+// （withErrorId が ID だけを返す）
+const PROVIDER_ERROR_BODY_HEAD = 200;
 
 export interface ProviderRequest {
   url: string;
@@ -103,7 +118,7 @@ export function buildProviderRequest(config: AiConfig, prompt: string): Provider
       },
       body: {
         model: config.model,
-        max_tokens: MAX_OUTPUT_TOKENS,
+        max_completion_tokens: MAX_OUTPUT_TOKENS,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: prompt },
@@ -125,6 +140,17 @@ export function buildProviderRequest(config: AiConfig, prompt: string): Provider
       messages: [{ role: "user", content: prompt }],
     },
   };
+}
+
+// エラー本文の先頭だけを1行にして返す（改行を潰し、長さを切る）。本文が読めなくても
+// 落とさない（status は既に分かっている）
+async function providerErrorHead(response: Response): Promise<string> {
+  try {
+    const text = await response.text();
+    return text.replace(/\s+/g, " ").trim().slice(0, PROVIDER_ERROR_BODY_HEAD);
+  } catch {
+    return "(本文を読めませんでした)";
+  }
 }
 
 function extractText(provider: AiProvider, json: unknown): string {
@@ -182,7 +208,9 @@ export async function generateSummary(
     body: JSON.stringify(request.body),
   });
   if (!response.ok) {
-    throw new Error(`AI要約の生成に失敗しました（${config.provider} ${response.status}）`);
+    throw new Error(
+      `AI要約の生成に失敗しました（${config.provider} ${response.status}: ${await providerErrorHead(response)}）`,
+    );
   }
   // security-auditor指摘: response.json()が投げるSyntaxErrorは、
   // apps/api/src/lib/error-id.tsのwithErrorIdがクライアントの不正入力用に
