@@ -30,6 +30,10 @@ function userImageKey(userId: string, imageId: string): string {
 function wantImageKey(imageId: string): string {
   return `couples/${DEMO_COUPLE_ID}/wants/${imageId}.jpg`;
 }
+// 041: アルバムの写真（albumImageKeyFor と同じ形。albums/ の接頭辞。id = imageId）
+function albumImageKey(imageId: string): string {
+  return `couples/${DEMO_COUPLE_ID}/albums/${imageId}.jpg`;
+}
 
 // packages/db/seed/assets/ に置いた圧縮済み画像（docs/sample/README.mdが出自の記録。
 // 長辺1600px/JPEG品質0.8。architecture.md 6節と同じ規則で一度だけ圧縮済み）。
@@ -127,6 +131,29 @@ interface WantRow {
   obtainedAt: number | null;
 }
 
+// 041: アルバム 1 件（題名・期間つき）と、その写真 3 枚（albums/ のキー。post_images と同じ
+// オブジェクトは指さない）
+interface AlbumRow {
+  id: string;
+  title: string;
+  note: string;
+  startDate: string | null;
+  endDate: string | null;
+  coverPhotoId: string | null;
+  createdBy: string;
+  createdAt: number;
+}
+
+interface AlbumPhotoRow {
+  id: string;
+  albumId: string;
+  key: string;
+  width: number;
+  height: number;
+  caption: string;
+  takenAt: number;
+}
+
 interface WishRow {
   id: string;
   title: string;
@@ -160,6 +187,8 @@ export interface DemoSeed {
   images: Array<{ key: string; assetFile: string }>;
   wishes: WishRow[];
   wants: WantRow[];
+  albums: AlbumRow[];
+  albumPhotos: AlbumPhotoRow[];
   moods: MoodRow[];
   aiSummaries: AiSummaryRow[];
 }
@@ -431,6 +460,45 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     obtainedAt: w.obtainedDaysAgo !== undefined ? nowSecondsValue - w.obtainedDaysAgo * DAY_SECONDS : null,
   }));
 
+  // --- albums: 041。アルバム 1 件（題名・期間つき。3 日間の旅行）と写真 3 枚。写真は既存の
+  // デモ用の写真（MEETUP_PHOTOS）を albums/ のキーで別のオブジェクトとして置く（post_images の
+  // キーと同じオブジェクトを指さない。タスク定義5節）。実在の地名は入れない（014 と同じ理由）。
+  // taken_at は旅行の 1・2・3 日目の正午（古い順に並ぶことがデモで見える）
+  const albumStart = addDays(today, -45);
+  const albumEnd = addDays(albumStart, 2);
+  const albumId = "demo-album-0";
+  const albumPhotoDefs = [
+    { imageId: "demo-album-photo-1", photo: MEETUP_PHOTOS[1], date: albumStart, caption: "1 日目。海辺まで歩いた" },
+    { imageId: "demo-album-photo-2", photo: MEETUP_PHOTOS[2], date: addDays(albumStart, 1), caption: "" },
+    { imageId: "demo-album-photo-3", photo: MEETUP_PHOTOS[3], date: albumEnd, caption: "最終日の夕方" },
+  ];
+  const albumPhotos: AlbumPhotoRow[] = albumPhotoDefs.map((def) => {
+    if (!def.photo) throw new Error("MEETUP_PHOTOSが足りません");
+    const key = albumImageKey(def.imageId);
+    images.push({ key, assetFile: def.photo.file });
+    return {
+      id: def.imageId,
+      albumId,
+      key,
+      width: def.photo.width,
+      height: def.photo.height,
+      caption: def.caption,
+      takenAt: noonJstSeconds(def.date),
+    };
+  });
+  const albums: AlbumRow[] = [
+    {
+      id: albumId,
+      title: "ふたりの小さな旅",
+      note: "初めて泊まりで出かけた 3 日間",
+      startDate: albumStart,
+      endDate: albumEnd,
+      coverPhotoId: "demo-album-photo-1",
+      createdBy: DEMO_USER_WOMAN_ID,
+      createdAt: noonJstSeconds(albumEnd) + 6 * 60 * 60,
+    },
+  ];
+
   // --- moods: 029。2人分・3ヶ月ぶん（90日）を決定的に組み立てる。乱数は
   // 使わない（固定パターンをaddDaysだけで日付にする。014「日付に乱数を
   // 使わない」と同じ方針）。空の日を混ぜる（毎日埋まっていると未記録の
@@ -512,14 +580,16 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     images,
     wishes,
     wants,
+    albums,
+    albumPhotos,
     moods,
     aiSummaries,
   };
 }
 
 // 投入の前にデモペアの既存行を消す（014タスク定義）。外部キーの順:
-// reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> wants -> invites -> couple_members -> couples -> user。
-// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_images・037でai_summaries・040でwantsを追加）
+// reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> wants -> album_photos -> albums -> invites -> couple_members -> couples -> user。
+// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_images・037でai_summaries・040でwants・041でalbums/album_photosを追加）
 function buildDeleteSql(seed: DemoSeed): string[] {
   const userIds = seed.users.map((u) => sqlString(u.id)).join(", ");
   return [
@@ -531,6 +601,8 @@ function buildDeleteSql(seed: DemoSeed): string[] {
     `DELETE FROM moods WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM ai_summaries WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM wants WHERE couple_id = ${sqlString(seed.coupleId)};`,
+    `DELETE FROM album_photos WHERE album_id IN (SELECT id FROM albums WHERE couple_id = ${sqlString(seed.coupleId)});`,
+    `DELETE FROM albums WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM invites WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couple_members WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couples WHERE id = ${sqlString(seed.coupleId)};`,
@@ -602,6 +674,19 @@ function buildInsertSql(seed: DemoSeed, nowMs: number): string[] {
     statements.push(
       `INSERT INTO wants (id, couple_id, owner_id, title, url, note, image_key, created_at, obtained_at) VALUES ` +
         `(${sqlString(w.id)}, ${sqlString(seed.coupleId)}, ${sqlString(w.ownerId)}, ${sqlString(w.title)}, ${sqlString(w.url)}, ${sqlString(w.note)}, ${sqlString(w.imageKey)}, ${w.createdAt}, ${w.obtainedAt ?? "NULL"});`,
+    );
+  }
+
+  for (const a of seed.albums) {
+    statements.push(
+      `INSERT INTO albums (id, couple_id, title, note, start_date, end_date, cover_photo_id, created_by, created_at, updated_at) VALUES ` +
+        `(${sqlString(a.id)}, ${sqlString(seed.coupleId)}, ${sqlString(a.title)}, ${sqlString(a.note)}, ${sqlString(a.startDate)}, ${sqlString(a.endDate)}, ${sqlString(a.coverPhotoId)}, ${sqlString(a.createdBy)}, ${a.createdAt}, ${a.createdAt});`,
+    );
+  }
+  for (const p of seed.albumPhotos) {
+    statements.push(
+      `INSERT INTO album_photos (id, album_id, key, width, height, caption, taken_at, created_at) VALUES ` +
+        `(${sqlString(p.id)}, ${sqlString(p.albumId)}, ${sqlString(p.key)}, ${p.width}, ${p.height}, ${sqlString(p.caption)}, ${p.takenAt}, ${p.takenAt});`,
     );
   }
 

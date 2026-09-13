@@ -1,12 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, View } from "react-native";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
-import { space, Text, useTheme } from "@futary/ui";
+import type { PhotoRef } from "@futary/contract";
+import { radius, space, Text, useTheme } from "@futary/ui";
+import { downloadPhoto } from "../lib/photo-download";
+
+// 041: 画像ごとの説明文（アルバムのビューア。モックの左下）。title = アルバム名、date = 撮影日、
+// body = 写真の説明文（タイムラインなら投稿本文）。無ければ何も出さない
+export type ImageViewerCaption = {
+  title: string;
+  date: string;
+  body: string;
+};
 
 export type ImageViewerImage = {
   url: string;
   width: number;
   height: number;
+  // 041: 画像ごと。あれば下に重ねて出す。無ければ何も出さない（投稿カードからの表示は今のまま）
+  caption?: ImageViewerCaption;
+  // 041: 画像ごと。あれば右下に保存ボタン。押すと photo.downloadUrl → 保存。無ければボタンを出さない
+  download?: PhotoRef;
 };
 
 export type ImageViewerProps = {
@@ -15,7 +29,13 @@ export type ImageViewerProps = {
   // 開いたときにどの枚数を表示するか。省略時は0枚目
   initialIndex?: number;
   onClose: () => void;
+  // 041: アルバムの写真だけ。説明文を押すと呼ばれる（呼び出し側が入力を出して album.updatePhoto）。
+  // ゲスト・タイムラインでは渡さない
+  onEditCaption?: (index: number) => void;
 };
+
+// 説明文の本文は 3 行で省略（タスク定義3節）
+const CAPTION_BODY_LINES = 3;
 
 // 017: 投稿画像の全画面表示。031で複数枚（左右ボタン）に対応し、
 // 033でスワイプにも対応した。expo-routerのモーダルルートにはしない
@@ -54,8 +74,11 @@ export type ImageViewerProps = {
 // 「buttonがbuttonを含められない」というDOM構造エラーが出ることを031で
 // ブラウザ実測して発見した。クリックの挙動自体は壊れないが、意味のある
 // 構造にするため役割を外す
-export function ImageViewer({ visible, images, initialIndex = 0, onClose }: ImageViewerProps) {
+export function ImageViewer({ visible, images, initialIndex = 0, onClose, onEditCaption }: ImageViewerProps) {
   const { colors } = useTheme();
+  // 041: 保存ボタンの状態（押している画像の index。失敗したら 1 行出す）
+  const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
+  const [downloadFailed, setDownloadFailed] = useState(false);
   const [loadedIndexes, setLoadedIndexes] = useState<Set<number>>(new Set());
   const [failedIndexes, setFailedIndexes] = useState<Set<number>>(new Set());
   const [index, setIndex] = useState(initialIndex);
@@ -72,6 +95,8 @@ export function ImageViewer({ visible, images, initialIndex = 0, onClose }: Imag
     if (visible) {
       setLoadedIndexes(new Set());
       setFailedIndexes(new Set());
+      setDownloadingIndex(null);
+      setDownloadFailed(false);
       setIndex(initialIndex);
       // レイアウト確定後にinitialIndexの位置へ飛ぶ（アニメーションなし）。
       // containerWidthが0（未測定。jsdom等）のときはx:0のまま何もしない
@@ -145,6 +170,27 @@ export function ImageViewer({ visible, images, initialIndex = 0, onClose }: Imag
   // 誤発火しうる。press開始からclickまでの間にonScrollが1度でも起きていれば
   // 送り操作とみなし、閉じない
   const scrolledSincePressInRef = useRef(false);
+
+  // 041: 保存。photo.downloadUrl（5 分の署名付き URL）を取って <a download> を押す。
+  // 副作用のある操作なので押している間は無効にする（Button の二重発火防止と同じ考え方。
+  // Button を使わないのは、ビューアのボタンが Pressable の入れ子で backdrop と同じ書き方に
+  // 揃えているため）
+  async function handleDownload(i: number) {
+    const ref = images[i]?.download;
+    if (!ref || downloadingIndex !== null) return;
+    setDownloadFailed(false);
+    setDownloadingIndex(i);
+    try {
+      await downloadPhoto(ref);
+    } catch {
+      setDownloadFailed(true);
+    } finally {
+      setDownloadingIndex(null);
+    }
+  }
+
+  const current = images[safeIndex];
+
   function handleBackdropPressIn() {
     scrolledSincePressInRef.current = false;
   }
@@ -254,6 +300,83 @@ export function ImageViewer({ visible, images, initialIndex = 0, onClose }: Imag
               </Text>
             </View>
           </>
+        )}
+
+        {/* 041: 表示中の画像の説明文（左下）と保存ボタン（右下）。どちらも backdrop の入れ子の
+            Pressable なので押しても閉じない（上の左右ボタンと同じ）。画像ごとに有無が違うため、
+            表示中（safeIndex）の 1 枚の分だけを描く */}
+        {(current?.caption || current?.download) && (
+          <View
+            pointerEvents="box-none"
+            style={{
+              position: "absolute",
+              left: space.lg,
+              right: space.lg,
+              bottom: space.xxl,
+              flexDirection: "row",
+              alignItems: "flex-end",
+              gap: space.md,
+            }}
+          >
+            <View style={{ flex: 1 }} pointerEvents="box-none">
+              {current?.caption && (
+                <Pressable
+                  onPress={onEditCaption ? () => onEditCaption(safeIndex) : undefined}
+                  disabled={!onEditCaption}
+                  accessibilityLabel={onEditCaption ? "説明を編集" : undefined}
+                  testID="image-viewer-caption"
+                  style={{ gap: space.xs }}
+                >
+                  <Text color="inverse" weight="bold">
+                    {current.caption.title}
+                  </Text>
+                  <Text color="inverse" size="sm">
+                    {current.caption.date}
+                  </Text>
+                  {current.caption.body.length > 0 ? (
+                    <Text color="inverse" numberOfLines={CAPTION_BODY_LINES}>
+                      {current.caption.body}
+                    </Text>
+                  ) : onEditCaption ? (
+                    // 説明文が空なら「説明を追加」を薄く出す（アルバムだけ。押すと入力）
+                    <View style={{ opacity: 0.6 }}>
+                      <Text color="inverse" size="sm">
+                        説明を追加
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              )}
+            </View>
+            {current?.download && (
+              <View style={{ alignItems: "flex-end", gap: space.xs }}>
+                {downloadFailed && (
+                  <Text color="inverse" size="xs">
+                    保存できませんでした
+                  </Text>
+                )}
+                <Pressable
+                  onPress={() => handleDownload(safeIndex)}
+                  disabled={downloadingIndex !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel="保存"
+                  hitSlop={space.sm}
+                  testID="image-viewer-download"
+                  style={{
+                    paddingVertical: space.sm,
+                    paddingHorizontal: space.lg,
+                    borderRadius: radius.pill,
+                    backgroundColor: colors.surface,
+                    opacity: downloadingIndex !== null ? 0.6 : 1,
+                  }}
+                >
+                  <Text weight="bold" size="sm">
+                    {downloadingIndex === safeIndex ? "保存中…" : "保存"}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
         )}
 
         <Pressable

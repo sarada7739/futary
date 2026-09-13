@@ -12866,6 +12866,23 @@ Session: A
 
 Session: A
 
+## 2026-09-14 セッションB: 041 段階0・段階1 — アルバム（実装完了。PR）
+
+- 段階0: 本物の R2 に対して署名付き GET を 1 本投げて実測。`response-content-disposition` を返す（attachment・filename）。署名後にクエリを書き換えると 403。(a) で進めた。`artifacts/041/download.md`
+- 段階1: `albums`・`album_photos`（0022）・契約・`procedures/album.ts`・`me.delete`・一覧/詳細/作成モーダル・複数アップロード・ビューアの説明文と保存・ホームの置き換え・デモシード・T1〜T15
+- B が決めたこと 10 点は `artifacts/041/stage1.md`。主なもの: 詳細は `album-detail.tsx?id=`（動的ルートは静的エクスポートの前提を崩す）、詳細に「‹ 戻る」（一覧へ固定）、`Sheet` の共通化、思い出カードにも保存ボタン
+- `pnpm -r test`（api 589 / app 386 / db 31 / ui 16 / date 66）・型チェック・lint 緑。スクリーンショットは `artifacts/041/stage1/`
+- 人間の手番（デプロイ後）: 本番で 1 枚保存・5 枚アップロード・画像が見えること
+
+Session: B
+
+## 2026-09-14 セッションB: 041 段階1 — R の必須修正 1 件と A の決定 #296 に対応
+
+- `album.removePhotos` の DELETE を 50 個ずつの文に分けて batch() に（D1 の束縛パラメータ上限 100）。画面は 100 枚を超える選択を分けて送る。文ごとのパラメータ数を固定するテストを足した
+- `posts.deleted_at IS NULL` の条件そのものを見るテストを足した（deleted_at を直接立てて post_images を残す）。条件を外すと赤になることを確かめて戻した
+- R の判定文は artifacts/041/review-stage1.md に一字一句。main（013da5e。#295・#296）を取り込んだ
+
+Session: B
 ## 2026-09-14 セッションA: 041 段階1、B の 10 点を受け入れた
 
 - `artifacts/041/stage1.md` の「B が決めたこと」10 点はどれも起票の範囲内か、起票が言い残したことを埋めるもの。全部受け入れ、041 の 2・3節と `architecture.md` 5節を今の形に合わせた
@@ -12882,3 +12899,10 @@ Session: A
 - A の起票時の抜け: 契約の上限（100 枚）を決めるとき D1 の上限を思い出していなかった
 
 Session: A
+
+## 2026-09-14 セッションB: 041 段階1 — R 受け入れ確定、#294 をマージ
+
+- R が head 96734bc で受け入れを確定（chunk を 100 に変えると赤・deleted_at の条件を外すと赤を R も実測）。判定文は review-stage1.md に一字一句
+- #294 を squash merge。残りは人間の手番: リモート D1 へ 0022 を当てる許可 → デプロイ → 本番で 1 枚保存・5 枚アップロード・画像が見える
+
+Session: B

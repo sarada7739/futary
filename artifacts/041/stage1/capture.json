@@ -1,0 +1,34 @@
+{
+  "baseURL": "http://localhost:8081",
+  "downloadUrlResponses": [
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  ],
+  "afterDownloadClickUrl": "https://<accountId>.r2.cloudflarestorage.com/futary-images/couples/shot-couple/albums/SHOTALBUMPHOTO00000000001.jpg?X-Amz-Expires=300&response-content-disposition=attachment%3B+filename%3D%22futary-20260805-SHOTALBUMPHOTO00000000001.jpg%22",
+  "note": "afterDownloadClickUrl は署名（X-Amz-Signature）・資格情報（X-Amz-Credential）・日時を落として記録している"
+}

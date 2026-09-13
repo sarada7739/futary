@@ -2,7 +2,12 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Post } from "@futary/contract";
 import { PostCard } from "../components/post-card";
+import { ImageViewer } from "../components/image-viewer";
 import { ROW_ITEM_WIDTH_RATIO } from "../components/post-images";
+
+// 041: ビューアの保存ボタンは photo.downloadUrl を呼ぶ。画面テストでは差し替える
+const { downloadUrlMock } = vi.hoisted(() => ({ downloadUrlMock: vi.fn() }));
+vi.mock("../lib/orpc", () => ({ client: { photo: { downloadUrl: downloadUrlMock } } }));
 
 function makePost(overrides: Partial<Post> = {}): Post {
   return {
@@ -249,5 +254,72 @@ describe("PostCard の複数画像（033: 横スワイプ）", () => {
 
     expect(screen.getByTestId("image-viewer-backdrop")).toBeTruthy();
     expect(screen.getByTestId("image-viewer-counter").textContent).toBe("2 / 3");
+  });
+});
+
+// 041・T12: ビューアの保存ボタン。download が無い画像には出ない。投稿カードからのビューアは
+// 保存ボタン以外が変わっていない（説明文・編集の導線が無い）
+describe("ImageViewer の保存ボタン（041）", () => {
+  beforeEach(() => {
+    downloadUrlMock.mockReset();
+  });
+
+  it("download が無い画像には保存ボタンも説明文も出ない（033 までと同じ見え方）", () => {
+    render(
+      <ImageViewer visible images={[{ url: "https://example.com/a.jpg", width: 10, height: 10 }]} onClose={vi.fn()} />,
+    );
+    expect(screen.queryByTestId("image-viewer-download")).toBeNull();
+    expect(screen.queryByTestId("image-viewer-caption")).toBeNull();
+  });
+
+  it("投稿カードからのビューアには保存ボタンだけが出て、説明文は出ない", () => {
+    render(<PostCard post={makePostWithImage({ body: "本文はカードに見えている" })} isOwn={false} />);
+    fireEvent.click(screen.getByLabelText("画像を全画面表示"));
+
+    expect(screen.getByTestId("image-viewer-download")).toHaveTextContent("保存");
+    expect(screen.queryByTestId("image-viewer-caption")).toBeNull();
+    // 閉じる導線・カウンター（1 枚なら無し）は 033 のまま
+    expect(screen.getByTestId("image-viewer-close")).toBeTruthy();
+    expect(screen.queryByTestId("image-viewer-counter")).toBeNull();
+  });
+
+  it("保存を押すと表示中の画像の ref（投稿 ID と位置）で photo.downloadUrl を呼び、<a download> を押す", async () => {
+    downloadUrlMock.mockResolvedValue({ url: "https://r2.example.com/x?response-content-disposition=attachment", filename: "futary-20260816-X.jpg" });
+    const clicked: string[] = [];
+    const originalCreate = document.createElement.bind(document);
+    const createSpy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const el = originalCreate(tag);
+      if (tag === "a") {
+        el.addEventListener("click", (e) => {
+          e.preventDefault();
+          clicked.push(`${(el as HTMLAnchorElement).download}|${(el as HTMLAnchorElement).href}`);
+        });
+      }
+      return el;
+    });
+
+    render(<PostCard post={makePost({ id: "post-9", images: makeImages(2) })} isOwn={false} />);
+    fireEvent.click(screen.getByLabelText("画像を全画面表示（2枚目）"));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("image-viewer-download"));
+      await Promise.resolve();
+    });
+
+    expect(downloadUrlMock).toHaveBeenCalledWith({ kind: "post", postId: "post-9", position: 1 });
+    expect(clicked).toEqual(["futary-20260816-X.jpg|https://r2.example.com/x?response-content-disposition=attachment"]);
+    // 保存ボタンを押してもビューアは閉じない（入れ子の Pressable が消費する）
+    expect(screen.getByTestId("image-viewer-backdrop")).toBeTruthy();
+    createSpy.mockRestore();
+  });
+
+  it("photo.downloadUrl が失敗したら「保存できませんでした」を出す", async () => {
+    downloadUrlMock.mockRejectedValue(new Error("network"));
+    render(<PostCard post={makePostWithImage()} isOwn={false} />);
+    fireEvent.click(screen.getByLabelText("画像を全画面表示"));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("image-viewer-download"));
+      await Promise.resolve();
+    });
+    expect(await screen.findByText("保存できませんでした")).toBeTruthy();
   });
 });

@@ -1,23 +1,23 @@
 import {
   fontFamily,
   iconPanelAi,
+  iconPanelAlbum,
   iconPanelList,
   iconPanelMemory,
   iconPanelMood,
   iconPanelStats,
-  iconPanelToday,
   iconPanelWant,
   iconTabCalendar,
   iconTabTimeline,
   logoMark,
   panelPhotoAi,
+  panelPhotoAlbum,
   panelPhotoCalendar,
   panelPhotoList,
   panelPhotoMemory,
   panelPhotoMood,
   panelPhotoStats,
   panelPhotoTimeline,
-  panelPhotoToday,
   panelPhotoWant,
   Screen,
   space,
@@ -134,8 +134,16 @@ export default function HomeScreen() {
           />
           <FeaturePanel label="統計" icon={iconPanelStats}
             photo={panelPhotoStats} onPress={() => router.push("/stats")} width={panelWidth} />
-          <FeaturePanel label="今日どうだった？" icon={iconPanelToday}
-            photo={panelPhotoToday} width={panelWidth} />
+          {/* 041: 「今日どうだった？」（押しても何も起きない次フェーズの枠）を「アルバム」に
+              置き換えた。位置はそのまま（2 行目の真ん中）。他の 8 枚は動かさない。panel-today.png
+              と写真タイルは消していない（次フェーズで戻す。タスク定義3節） */}
+          <FeaturePanel
+            label="アルバム"
+            icon={iconPanelAlbum}
+            photo={panelPhotoAlbum}
+            onPress={() => router.push("/album")}
+            width={panelWidth}
+          />
           <FeaturePanel label="リスト" icon={iconPanelList}
             photo={panelPhotoList} onPress={() => router.push("/list")} width={panelWidth} />
           {/* 040: 「リスト」の隣（近い意味のものを隣に。タスク定義5節） */}

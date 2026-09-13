@@ -281,6 +281,24 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     await expect(call(router.want.uploadUrl, { contentType: "image/jpeg" }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("album.uploadUrl / create / update / addPhotos / updatePhoto / removePhotos / delete は DEMO_COUPLE_ID が設定されていても FORBIDDEN（041）", async () => {
+    const demoCoupleId = await createDemoCouple();
+    const ctx = { context: contextFor(null, demoCoupleId) };
+    const id = crypto.randomUUID();
+    const imageId = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    await expect(call(router.album.uploadUrl, { contentType: "image/jpeg" }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.album.create, { title: "デモから作る" }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.album.update, { id, title: "x" }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      call(router.album.addPhotos, { id, photos: [{ imageId, width: 1, height: 1 }] }, ctx),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.album.updatePhoto, { id, photoId: imageId, caption: "x" }, ctx)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    await expect(call(router.album.removePhotos, { id, photoIds: [imageId] }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.album.delete, { id }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("wish.delete は DEMO_COUPLE_ID が設定されていても FORBIDDEN（027）", async () => {
     const demoCoupleId = await createDemoCouple();
 
@@ -571,6 +589,22 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
     await expect(call(router.want.create, { title: "ほしいもの" }, { context: contextFor(user) })).rejects.toMatchObject({
       code: "NEEDS_ONBOARDING",
     });
+  });
+
+  it("album.list / album.create / photo.list / photo.downloadUrl（041）", async () => {
+    const user = await createUser();
+    await expect(call(router.album.list, {}, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+    await expect(call(router.album.create, { title: "アルバム" }, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+    await expect(call(router.photo.list, {}, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+    await expect(
+      call(router.photo.downloadUrl, { kind: "album", photoId: "x" }, { context: contextFor(user) }),
+    ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 
   it("wish.create（027）", async () => {
@@ -1030,6 +1064,17 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     "mood.list",
     "aiSummary.get",
     "aiSummary.generate",
+    "album.list",
+    "album.get",
+    "album.uploadUrl",
+    "album.create",
+    "album.update",
+    "album.addPhotos",
+    "album.updatePhoto",
+    "album.removePhotos",
+    "album.delete",
+    "photo.list",
+    "photo.downloadUrl",
   ].sort();
 
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {

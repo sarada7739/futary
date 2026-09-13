@@ -240,3 +240,44 @@ export function formatJstDateTime(unixSeconds: number): string {
 export function formatJstDate(unixSeconds: number): string {
   return new Date(unixSeconds * 1000).toLocaleDateString("ja-JP", { timeZone: JST_TIME_ZONE });
 }
+
+// 041: アルバムの表示用の整形。「日付計算を画面に書かない」（architecture.md 5節）ため
+// ここに置く。入力は YYYY-MM-DD（暦日）か Unix 秒
+
+// "2026-08-15" → "2026年8月15日"（月・日はゼロ埋めしない。モックの見出しの形）
+export function formatDateJa(date: string): string {
+  const { year, month, day } = parseDate(date);
+  return `${year}年${month}月${day}日`;
+}
+
+// 期間の見出し。"2026年8月15日 - 8月17日"（同じ年なら終わりの年を省く。年をまたぐなら
+// 両方に年を付ける）。終わりが無ければ始まりだけ
+export function formatDateRangeJa(start: string, end: string | null): string {
+  if (end === null || end === start) return formatDateJa(start);
+  const s = parseDate(start);
+  const e = parseDate(end);
+  if (s.year === e.year) return `${formatDateJa(start)} - ${e.month}月${e.day}日`;
+  return `${formatDateJa(start)} - ${formatDateJa(end)}`;
+}
+
+// "2026-08-15" → "2026/08"（アルバムのカードの期間。年月だけ）
+export function formatYearMonthSlash(date: string): string {
+  const { year, month } = parseDate(date);
+  return `${String(year).padStart(4, "0")}/${String(month).padStart(2, "0")}`;
+}
+
+// Unix 秒 → JST の暦日を "2026/08/16"（ゼロ埋め。ビューアの説明文の日付）
+export function formatJstDateSlash(unixSeconds: number): string {
+  return todayJst(unixSeconds * 1000).replaceAll("-", "/");
+}
+
+// Unix 秒 → JST の暦日を "20260816"（保存するファイル名の一部。ASCII のみ）
+export function formatJstDateCompact(unixSeconds: number): string {
+  return todayJst(unixSeconds * 1000).replaceAll("-", "");
+}
+
+// 期間の日数（両端を含む）。"2026-08-15"〜"2026-08-17" は 3。終わりが無ければ 1
+export function inclusiveDays(start: string, end: string | null): number {
+  if (end === null) return 1;
+  return diffDays(start, end) + 1;
+}

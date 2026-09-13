@@ -145,6 +145,7 @@ function main(): void {
       `posts ${seed.posts.length}件（うち画像 ${seed.posts.filter((p) => p.images.length > 0).length}件） / ` +
       `images ${seed.images.length}件 / ` +
       `wishes ${seed.wishes.length}件（うち達成済み ${seed.wishes.filter((w) => w.doneAt !== null).length}件） / ` +
+      `albums ${seed.albums.length}件（写真 ${seed.albumPhotos.length}枚） / ` +
       `moods ${seed.moods.length}件`,
   );
 

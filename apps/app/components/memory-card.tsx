@@ -90,7 +90,7 @@ export function MemoryCard() {
             （FlatListの無限スクロールのみ）。既存の画像表示パターン
             （017のImageViewer・031のPostImages。post-card.tsxと同じ使い方）を
             再利用し、タップで画像を全画面表示する形にした */}
-        <PostImages images={post.images} accessibilityLabel="思い出の投稿を表示" />
+        <PostImages images={post.images} accessibilityLabel="思い出の投稿を表示" postId={post.id} />
 
         {hasBody && (
           // 画像タップ（全画面表示）とは別の当たり判定。テキストのみの思い出

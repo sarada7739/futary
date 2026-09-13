@@ -6,8 +6,14 @@ import {
   currentWeekJst,
   dayOfWeek,
   diffDays,
+  formatDateJa,
+  formatDateRangeJa,
   formatJstDate,
+  formatJstDateCompact,
+  formatJstDateSlash,
   formatJstDateTime,
+  formatYearMonthSlash,
+  inclusiveDays,
   isLeapYear,
   isoWeekKey,
   isoWeeksInYear,
@@ -390,5 +396,41 @@ describe("projectMonthDay", () => {
   // （architecture.md 5節）。31日を持たない月（4月）への射影でも同じ規則が働く
   it("31日を持たない月への射影は末日に寄せる", () => {
     expect(projectMonthDay(4, 31, 2027)).toBe("2027-04-30");
+  });
+});
+
+// 041: アルバムの表示用の整形
+describe("formatDateJa / formatDateRangeJa", () => {
+  it("YYYY-MM-DD を「2026年8月15日」にする（ゼロ埋めしない）", () => {
+    expect(formatDateJa("2026-08-05")).toBe("2026年8月5日");
+  });
+
+  it("同じ年の期間は終わりの年を省く。年をまたげば両方に年を付ける。終わりが無い・同じ日なら 1 日", () => {
+    expect(formatDateRangeJa("2026-08-15", "2026-08-17")).toBe("2026年8月15日 - 8月17日");
+    expect(formatDateRangeJa("2026-12-30", "2027-01-02")).toBe("2026年12月30日 - 2027年1月2日");
+    expect(formatDateRangeJa("2026-08-15", null)).toBe("2026年8月15日");
+    expect(formatDateRangeJa("2026-08-15", "2026-08-15")).toBe("2026年8月15日");
+  });
+});
+
+describe("formatYearMonthSlash / formatJstDateSlash / formatJstDateCompact", () => {
+  it("年月は「2026/08」", () => {
+    expect(formatYearMonthSlash("2026-08-15")).toBe("2026/08");
+  });
+
+  it("Unix 秒は JST の暦日で整形する（UTC 15:00 = JST 翌日 00:00）", () => {
+    const utc1459 = Date.UTC(2026, 7, 15, 14, 59, 59) / 1000;
+    const utc1500 = Date.UTC(2026, 7, 15, 15, 0, 0) / 1000;
+    expect(formatJstDateSlash(utc1459)).toBe("2026/08/15");
+    expect(formatJstDateSlash(utc1500)).toBe("2026/08/16");
+    expect(formatJstDateCompact(utc1500)).toBe("20260816");
+  });
+});
+
+describe("inclusiveDays", () => {
+  it("両端を含む日数。終わりが無ければ 1", () => {
+    expect(inclusiveDays("2026-08-15", "2026-08-17")).toBe(3);
+    expect(inclusiveDays("2026-08-15", "2026-08-15")).toBe(1);
+    expect(inclusiveDays("2026-08-15", null)).toBe(1);
   });
 });

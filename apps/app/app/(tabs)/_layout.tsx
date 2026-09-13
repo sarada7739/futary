@@ -162,6 +162,11 @@ export default function TabsLayout() {
       <Tabs.Screen name="want" options={{ href: null, headerShown: true, title: "ほしいもの" }} />
       {/* 037: ホームの機能パネル「AIまとめ」の行き先。上と同じ理由でhref: null */}
       <Tabs.Screen name="ai-summary" options={{ href: null, headerShown: true, title: "AIまとめ" }} />
+      {/* 041: ホームの機能パネル「アルバム」の行き先（一覧）と、その詳細（`?id=`。動的ルートは
+          静的エクスポートの前提を崩すため使わない。album-detail.tsx のコメント）。
+          詳細の題名は画面が setOptions で上書きする。上と同じ理由で href: null */}
+      <Tabs.Screen name="album" options={{ href: null, headerShown: true, title: "アルバム" }} />
+      <Tabs.Screen name="album-detail" options={{ href: null, headerShown: true, title: "アルバム" }} />
     </Tabs>
   );
 }

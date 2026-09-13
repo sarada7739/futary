@@ -38,6 +38,19 @@ import {
   wantUploadUrlContract,
 } from "./want";
 import { aiSummaryGenerateContract, aiSummaryGetContract } from "./ai-summary";
+import {
+  albumAddPhotosContract,
+  albumCreateContract,
+  albumDeleteContract,
+  albumGetContract,
+  albumListContract,
+  albumRemovePhotosContract,
+  albumUpdateContract,
+  albumUpdatePhotoContract,
+  albumUploadUrlContract,
+  photoDownloadUrlContract,
+  photoListContract,
+} from "./album";
 
 export type { Post, PostImage } from "./post";
 export { MAX_POST_IMAGES } from "./post";
@@ -54,6 +67,18 @@ export type { Want, WantOwnerSide } from "./want";
 export { isHttpUrl, MAX_WANT_NOTE_LENGTH, MAX_WANT_TITLE_LENGTH, MAX_WANT_URL_LENGTH, WANT_OWNER_SIDES } from "./want";
 export type { AiSummary } from "./ai-summary";
 export { AI_PROVIDERS, PERIOD_KINDS } from "./ai-summary";
+export type { Album, Photo, PhotoRef } from "./album";
+export {
+  MAX_ALBUM_NOTE_LENGTH,
+  MAX_ALBUM_TITLE_LENGTH,
+  MAX_PHOTO_CAPTION_LENGTH,
+  MAX_PHOTOS_PER_ADD,
+  MAX_PHOTOS_PER_REMOVE,
+  PHOTO_LIST_DEFAULT_LIMIT,
+  PHOTO_LIST_MAX_LIMIT,
+  TIMELINE_ALBUM_ID,
+  TIMELINE_PREVIEW_COUNT,
+} from "./album";
 
 export const contract = {
   health: {
@@ -120,6 +145,21 @@ export const contract = {
   aiSummary: {
     get: aiSummaryGetContract,
     generate: aiSummaryGenerateContract,
+  },
+  album: {
+    list: albumListContract,
+    get: albumGetContract,
+    uploadUrl: albumUploadUrlContract,
+    create: albumCreateContract,
+    update: albumUpdateContract,
+    addPhotos: albumAddPhotosContract,
+    updatePhoto: albumUpdatePhotoContract,
+    removePhotos: albumRemovePhotosContract,
+    delete: albumDeleteContract,
+  },
+  photo: {
+    list: photoListContract,
+    downloadUrl: photoDownloadUrlContract,
   },
 };
 

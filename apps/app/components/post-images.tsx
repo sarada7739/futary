@@ -2,12 +2,15 @@ import { useState } from "react";
 import { Image, Pressable, ScrollView, View } from "react-native";
 import { radius, space, Text, useTheme } from "@futary/ui";
 import type { PostImage } from "@futary/contract";
-import { ImageViewer } from "./image-viewer";
+import { ImageViewer, type ImageViewerImage } from "./image-viewer";
 
 export type PostImagesProps = {
   images: PostImage[];
   // ライトボックスを開くPressableのaccessibilityLabel（画面ごとに文言を変える）
   accessibilityLabel?: string;
+  // 041: 渡すとビューアに保存ボタンが出る（photo.downloadUrl の ref に投稿 ID と位置が要る）。
+  // 渡さなければ 033 までと同じ見え方（保存ボタン無し）
+  postId?: string;
 };
 
 // 033: 次の画像の端を見せるため、1枚をコンテナ幅より狭くする。
@@ -24,8 +27,16 @@ export const ROW_ITEM_WIDTH_RATIO = 0.88;
 // - 2枚以上（033で横一列に変更。正方形グリッドから覆した）: 横一列に並べ、
 //   指で送る。ドットのインジケータは置かない（最大4枚。端が見えていれば
 //   続きがあることは分かる。タスク定義2節）
-export function PostImages({ images, accessibilityLabel = "画像を全画面表示" }: PostImagesProps) {
+export function PostImages({ images, accessibilityLabel = "画像を全画面表示", postId }: PostImagesProps) {
   const { colors } = useTheme();
+  // 041: 投稿カードからのビューアにも保存ボタンを渡す（人間の「タイムラインの写真も
+  // ダウンロードしたい」）。caption は渡さない（本文はカードに見えている。タスク定義3節）
+  const viewerImages: ImageViewerImage[] = images.map((image, position) => ({
+    url: image.url,
+    width: image.width,
+    height: image.height,
+    download: postId ? { kind: "post", postId, position } : undefined,
+  }));
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   // 【033・security-auditor指摘】以前はposition（添字）をキーにしていたため、
@@ -87,7 +98,7 @@ export function PostImages({ images, accessibilityLabel = "画像を全画面表
             onError={() => markFailed(image.url)}
           />
         </Pressable>
-        <ImageViewer visible={viewerOpen} images={images} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />
+        <ImageViewer visible={viewerOpen} images={viewerImages} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />
       </>
     );
   }
@@ -155,7 +166,7 @@ export function PostImages({ images, accessibilityLabel = "画像を全画面表
           ))}
         </ScrollView>
       </View>
-      <ImageViewer visible={viewerOpen} images={images} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />
+      <ImageViewer visible={viewerOpen} images={viewerImages} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />
     </>
   );
 }

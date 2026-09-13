@@ -11,6 +11,7 @@ import { wishProcedures } from "./procedures/wish";
 import { moodProcedures } from "./procedures/mood";
 import { wantProcedures } from "./procedures/want";
 import { aiSummaryProcedures } from "./procedures/ai-summary";
+import { albumProcedures, photoProcedures } from "./procedures/album";
 import { resolveUserImage } from "./lib/r2-signed-url";
 import { isSessionFresh } from "./lib/reauth";
 
@@ -75,4 +76,6 @@ export const router = implementer.router({
   want: wantProcedures,
   mood: moodProcedures,
   aiSummary: aiSummaryProcedures,
+  album: albumProcedures,
+  photo: photoProcedures,
 });
