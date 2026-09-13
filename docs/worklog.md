@@ -12692,3 +12692,10 @@ Session: A
   確かめなかった。次にモデル名を変えるときは、送っている引数がそのモデルで有効かを一次情報で確かめてから
 
 Session: A
+
+## 2026-09-13 セッションB: fix/ai-summary — 本番で確認して閉じた
+
+- R 受け入れ（判定は `artifacts/fix-ai-summary-max-completion-tokens/review.md`）→ PR #280 マージ（main e48eb97）→ Deploy を人間が承認（01:14Z success）
+- 本番 tail: 10:18:27 の `aiSummary/generate - Ok` にエラー行無し（修正前は直後に `openai 400`）。10:18:31 の `get` も Ok。閉じる
+
+Session: B
