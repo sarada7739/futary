@@ -3,7 +3,23 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-13 / セッションA。**不具合: 本番で AI まとめが「作れませんでした」になる（人間の報告）。B が `fix/` で対応中。**
+**最終更新**: 2026-09-13 / セッションB。**本番の AI まとめが失敗する不具合を `fix/ai-summary-max-completion-tokens` で直した。
+PR 作成・マージ・デプロイ後に人間の実機確認待ち。**039 は段階1・2ともマージ済み（#271・#275）。
+
+## fix: 本番の AI まとめが「作れませんでした」（2026-09-13）
+
+- **確定**: 本番 `wrangler tail` で `aiSummary/generate` が `openai 400`（キーあり・モデルあり）。ローカルのキーで同じ body を
+  投げて本文を取った: `Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.`
+  gpt-4o-mini 向けの body のままモデル名だけ `gpt-5.6-terra` に変えたのが原因（A の最有力どおり）
+- **修正**: OpenAI 側を `max_completion_tokens: 1024` に（実測 200。本文 125 トークン、reasoning 0。上限はそのまま）。
+  `!response.ok` でプロバイダのエラー本文の先頭 200 文字を Error の message に入れ、`withErrorId` のログに残す（クライアントには出ない）
+- **人間の手番**: マージ・デプロイ後に AI まとめを押して通ることを確認
+- ADR-013・security-requirements 9節は変えていない
+
+
+---
+
+**最終更新（旧）**: 2026-09-13 / セッションA。**不具合: 本番で AI まとめが「作れませんでした」になる（人間の報告）。B が `fix/` で対応中。**
 A の見立て: OpenAI へ `max_tokens` を送っているが gpt-5 系は `max_completion_tokens` を要求する（400）。**確定はサーバログの status で**
 （401 ならキー未設定、404 ならモデル名）。B が `wrangler tail` を張り、人間が押して再現する。
 併せて `!response.ok` のときプロバイダのエラー本文をログに残す（status だけでは原因を当てられなかった）。

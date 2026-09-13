@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { buildPrompt, buildProviderRequest, MAX_INPUT_CHARS, resolveAiConfig, type PostEntry } from "../src/lib/ai";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  buildPrompt,
+  buildProviderRequest,
+  generateSummary,
+  MAX_INPUT_CHARS,
+  resolveAiConfig,
+  type PostEntry,
+} from "../src/lib/ai";
 
 // 037タスク定義3節: AI_PROVIDERが指すプロバイダのキーが無ければ落とす
 // （BETTER_AUTH_SECRETと同じfail-closed）
@@ -78,15 +85,24 @@ describe("buildProviderRequest（本物のAPIは叩かない）", () => {
   // OpenAI側に出力の上限が無かった。投稿本文に埋め込んだ指示
   // （プロンプトインジェクション）で出力トークンを膨らませられる経路が
   // あったため、両プロバイダに同じ上限を入れて揃えた
-  it("OpenAI・Anthropicの両方に出力トークンの上限（max_tokens）が入っている", () => {
+  // fix/ai-summary-max-completion-tokens: OpenAI 側の名前は max_completion_tokens。
+  // gpt-5 系は max_tokens を 400（unsupported_parameter）で拒む（本番で AI まとめが
+  // 全件失敗していた原因。B が同じ body で再現した）
+  it("出力トークンの上限は、OpenAI は max_completion_tokens（max_tokens は送らない）、Anthropic は max_tokens", () => {
     const openaiConfig = resolveAiConfig({ provider: "openai", openaiApiKey: "sk-openai" });
     const anthropicConfig = resolveAiConfig({ provider: "anthropic", anthropicApiKey: "sk-anthropic" });
 
-    const openaiRequest = buildProviderRequest(openaiConfig, "テスト本文") as { body: { max_tokens: number } };
-    const anthropicRequest = buildProviderRequest(anthropicConfig, "テスト本文") as { body: { max_tokens: number } };
+    const openaiRequest = buildProviderRequest(openaiConfig, "テスト本文") as {
+      body: { max_completion_tokens?: number; max_tokens?: number };
+    };
+    const anthropicRequest = buildProviderRequest(anthropicConfig, "テスト本文") as {
+      body: { max_completion_tokens?: number; max_tokens?: number };
+    };
 
-    expect(openaiRequest.body.max_tokens).toBeGreaterThan(0);
+    expect(openaiRequest.body.max_completion_tokens).toBeGreaterThan(0);
+    expect(openaiRequest.body).not.toHaveProperty("max_tokens");
     expect(anthropicRequest.body.max_tokens).toBeGreaterThan(0);
+    expect(anthropicRequest.body).not.toHaveProperty("max_completion_tokens");
   });
 
   it("投稿本文がリクエスト本文に入る（画像・利用者名・IDは渡していない）", () => {
@@ -96,6 +112,65 @@ describe("buildProviderRequest（本物のAPIは叩かない）", () => {
     };
     const serialized = JSON.stringify(request.body);
     expect(serialized).toContain("会いたい気持ちを書いた投稿");
+  });
+});
+
+// fix/ai-summary-max-completion-tokens: !response.ok のとき、status だけでなく
+// プロバイダのエラー本文の先頭がサーバログ（withErrorId が console.error に渡す
+// Error の message）に残る。status だけでは原因を当てられなかった。
+// クライアントには出ない（withErrorId が ID だけを返す。そちらは error-id の
+// 既存テストが固定している）
+describe("generateSummary: プロバイダが失敗したときのエラー本文（fetch は差し替える）", () => {
+  const env = { provider: "openai", openaiApiKey: "sk-openai-secret-key" };
+  const entries: PostEntry[] = [
+    { label: "A", body: "投稿1" },
+    { label: "B", body: "投稿2" },
+  ];
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("status とエラー本文の先頭が Error の message に入り、API キーは入らない", async () => {
+    const providerBody = JSON.stringify({
+      error: {
+        message: "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+        type: "invalid_request_error",
+        param: "max_tokens",
+        code: "unsupported_parameter",
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(providerBody, { status: 400 })));
+
+    await expect(generateSummary(env, entries)).rejects.toThrow(/openai 400: .*max_completion_tokens/);
+    await expect(generateSummary(env, entries)).rejects.not.toThrow(/sk-openai-secret-key/);
+  });
+
+  it("本文は改行を潰して先頭 200 文字に切る", async () => {
+    const longBody = "x".repeat(500) + "\n" + "y".repeat(500);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(longBody, { status: 502 })));
+
+    const error = await generateSummary(env, entries).catch((e: unknown) => e as Error);
+    expect(error).toBeInstanceOf(Error);
+    const head = (error as Error).message.split("openai 502: ")[1] ?? "";
+    expect(head.replace(/）$/, "")).toHaveLength(200);
+    expect((error as Error).message).not.toContain("\n");
+  });
+
+  it("本文が読めなくても status は残り、落ちない", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        const response = new Response("ignored", { status: 500 });
+        // text() が例外を投げる応答を作る
+        response.text = async () => {
+          throw new Error("stream broken");
+        };
+        return response;
+      }),
+    );
+
+    await expect(generateSummary(env, entries)).rejects.toThrow(/openai 500: \(本文を読めませんでした\)/);
   });
 });
 
