@@ -1277,11 +1277,15 @@ CREATE UNIQUE INDEX events_meetup_unique
 利用者が書き換えられない**）。有効期限は **5 分**（表示用の 1 時間より短い。押した瞬間にしか要らない）。
 
 - **`filename` はサーバが組み立てる。**クライアントから受け取らない（鍵と同じ理由）
-- Web は `<a href download>` を作ってクリックする。`Linking.openURL` は空のタブが残る
+- PC は `<a href download>` を作ってクリックする。`Linking.openURL` は空のタブが残る
+- **`navigator.canShare({ files })` が真の環境（iPhone・Android）は共有シート**（`fetch` → `File` → `navigator.share`）。
+  iOS Safari の「画像を保存」で写真ライブラリに 1 タップで入る（041 段階2。`attachment` のダウンロードは「ファイル」に落ちて遠い、と人間の実機で分かった）。
+  `fetch` には R2 の CORS（GET・アプリのオリジン）が要る。複数枚は同じ共有シートに複数の `File`（042）
 - **R2 が `response-content-disposition` を実際に返すかは 041 の段階0で確かめる。**返さなければ
   表示用 URL を `fetch` → `Blob` → `<a download>` に倒す（R2 の CORS に GET とアプリのオリジンが要る。
   `r2-cors.json`）。どちらになったかは `artifacts/041/download.md`
-- **まとめて ZIP（042）はブラウザで組む。**無料枠の Worker（CPU 10ms）で CRC32 を全バイトに掛けられない
+- **ZIP は作らない**（042 で一度決めて落とした。iPhone では「ファイル」に落ちるだけで写真ライブラリに入らない。
+  Worker で組む案も無料枠の CPU 10ms で CRC32 を全バイトに掛けられない）
 
 ### R2 バケットに CORS を設定する（設定しないとアップロードが動かない）
 

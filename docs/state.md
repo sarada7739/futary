@@ -3,7 +3,16 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-14 / セッションB。**041 段階1: #294 をマージ（main 4f4b529）→ 人間の許可でリモート D1 に `0022_albums.sql` を適用・デプロイ完了（deploy.yml run 34768330475 success。`d1 migrations list --remote` は No migrations to apply）。本番の `album.list` が応答する。A・B・R に手番は無い。**
+**最終更新**: 2026-09-14 / セッションA。**041 段階1 は本番で動いた（人間の iPhone 実機: 概ね問題なし）。人間の要望 2 点を受けて、041 段階2（iPhone は共有シートで写真ライブラリへ）と 042（選んだ写真をまとめて写真ライブラリへ）を定義した。ZIP は落とした。B の手番。**
+- 実機の結果: 1 枚保存は「ダウンロード」に 432KB の JPEG（`futary-20260914-…jpg`）で落ちた（想定どおり動いた）。写真ライブラリには「その他…」を経由しないと入らない → 要望 1。選んだ写真をまとめて写真ライブラリに入れたい → 要望 2
+- 本番 R2 の CORS は確認済み（人間の `r2:cors:list`）: `https://futary-api.sarada7739.workers.dev` に PUT・GET。`fetch` → `File` → `navigator.share` の前提は揃っている
+- `apps/api/r2-cors.json` は実体とずれている（ファイルは 19006 あり・workers.dev 無し）。**ファイルを実体に合わせる**（B が PR。apply は要らない。実体は既に正しい）
+- 段階2 の段階0: `await fetch` のあとの `navigator.share` が iPhone で `NotAllowedError` にならないか（人間の iPhone）。駄目なら先読み
+- 段階3（タイムラインの写真をアルバムに複製して入れる）の要否は、A が人間に聞く
+
+---
+
+**最終更新（旧）: 2026-09-14 / セッションB。**041 段階1: #294 をマージ（main 4f4b529）→ 人間の許可でリモート D1 に `0022_albums.sql` を適用・デプロイ完了（deploy.yml run 34768330475 success。`d1 migrations list --remote` は No migrations to apply）。本番の `album.list` が応答する。A・B・R に手番は無い。**
 **残りは人間の手番**: 本番（iPhone の Safari と PC のブラウザ）でアルバムを作る・5 枚まとめてアップロード・画像が見える・ビューアの保存ボタンで 1 枚保存できる。段階2の要否は実機のあとに A が人間に聞く。042 は本番 R2 の CORS を人間に確かめてもらってから。
 経緯: CI の gitleaks がテストの filename 文字列（ULID 風）を `generic-api-key` と誤検知したため、その 1 件の fingerprint を `.gitleaksignore` に登録した（文字列は変数から組む形に直し済み）。
 013da5e（#295・#296）のデプロイ実行は production の承認待ちのまま（4f4b529 の実行が内容を含んで完走したので不要）。
