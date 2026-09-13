@@ -45,8 +45,11 @@ export function canShareFiles(): boolean {
 export async function fetchPhotoFile(url: string, filename: string): Promise<File> {
   const response = await fetch(url);
   if (!response.ok) throw new Error("画像の取得に失敗しました");
-  const blob = await response.blob();
-  return new File([blob], filename, { type: JPEG_MIME });
+  // Blob ではなく ArrayBuffer を渡す。Blob は実行環境（realm）が違うと File が中身ではなく
+  // 文字列 "[object Blob]" を包んでしまう（CI の Node 22 + jsdom で実測。ブラウザでは起きないが、
+  // ArrayBuffer はどの環境でも同じに扱われる）
+  const bytes = await response.arrayBuffer();
+  return new File([bytes], filename, { type: JPEG_MIME });
 }
 
 // 共有シートに File を渡す。利用者が閉じた（AbortError）ときは "aborted" を返して何もしない。
