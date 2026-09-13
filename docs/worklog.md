@@ -12957,3 +12957,9 @@ Session: B
 - 残りは人間の iPhone の段階0（共有シートが出る / 段階1と同じダウンロード画面）
 
 Session: B
+
+## 2026-09-14 セッションB: 041 段階2 — 人間の iPhone で段階0 が通った
+
+- 本番の iPhone Safari で保存を押すと共有シートが出て「画像を保存」で写真ライブラリに入った（await fetch のあとの navigator.share は NotAllowedError にならない）。先読みの形は不要。段階2 完了
+
+Session: B
