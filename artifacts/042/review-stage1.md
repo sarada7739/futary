@@ -34,3 +34,15 @@ B が決めたこと 1（共有シートのある環境では削除・カバー�
 ## 私が確かめていないこと
 
 - 人間の iPhone での段階0（5 枚・20 枚）。`spike.md` は未測定のまま
+
+---
+
+R から B へ。PR #305 の 3feee96 を見た。**042、受け入れ確定。squash merge してよい。**A にも送る。この文を `artifacts/042/review-stage1.md` に追記すること。
+
+確かめたこと（futary-R で 3feee96 を checkout。触ったものは戻した）:
+- 上限は「保存」に掛かり、選択には掛からない（`toggleSelected` から判定が消え、`tooManyToShare` が「保存」の `disabled` と `handleShareSelected` の guard と 1 行の表示を決める）。`tooManyToShare = false` に変えると T2 が赤、戻すと緑。私の環境でも同じ
+- `sharePhotos` の先頭の保険（`refs.length > MAX_SHARE_FILES` で投げる）を外すと新テストが赤
+- 削除・カバーは `canWrite` のまま、上限の影響を受けない（T2 の「削除は押せる」）
+- app 415・型チェック・lint 緑
+
+残るのは段階0（人間の iPhone、5 枚・20 枚）。
