@@ -269,6 +269,18 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("want.create / update / setImage / setObtained / delete / uploadUrl は DEMO_COUPLE_ID が設定されていても FORBIDDEN（040）", async () => {
+    const demoCoupleId = await createDemoCouple();
+    const ctx = { context: contextFor(null, demoCoupleId) };
+    const id = crypto.randomUUID();
+    await expect(call(router.want.create, { title: "デモから登録" }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.want.update, { id, title: "x", url: null, note: "" }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.want.setImage, { id, imageId: null }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.want.setObtained, { id, obtained: true }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.want.delete, { id }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(call(router.want.uploadUrl, { contentType: "image/jpeg" }, ctx)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("wish.delete は DEMO_COUPLE_ID が設定されていても FORBIDDEN（027）", async () => {
     const demoCoupleId = await createDemoCouple();
 
@@ -547,6 +559,16 @@ describe("4. ペアに未所属のユーザーが呼ぶと NEEDS_ONBOARDING に�
   it("wish.list（027）", async () => {
     const user = await createUser();
     await expect(call(router.wish.list, {}, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+  });
+
+  it("want.list / want.create（040）", async () => {
+    const user = await createUser();
+    await expect(call(router.want.list, { ownerSide: "me" }, { context: contextFor(user) })).rejects.toMatchObject({
+      code: "NEEDS_ONBOARDING",
+    });
+    await expect(call(router.want.create, { title: "ほしいもの" }, { context: contextFor(user) })).rejects.toMatchObject({
       code: "NEEDS_ONBOARDING",
     });
   });
@@ -996,6 +1018,13 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     "wish.update",
     "wish.setDone",
     "wish.delete",
+    "want.list",
+    "want.create",
+    "want.update",
+    "want.setImage",
+    "want.setObtained",
+    "want.delete",
+    "want.uploadUrl",
     "mood.setToday",
     "mood.clearToday",
     "mood.list",

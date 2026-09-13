@@ -25,6 +25,10 @@ export { default as iconPanelToday } from "../assets/panel-today.png";
 export { default as iconPanelList } from "../assets/panel-list.png";
 export { default as iconPanelMood } from "../assets/panel-mood.png";
 export { default as iconPanelAi } from "../assets/panel-ai.png";
+// 040: ホームの機能パネル「ほしいもの」のピンクの線画アイコン。docs/sample/icon/ に該当する
+// 図案が無いため、既存の panel-*.png と同じ規格（96×96・単色 #4A3733・単線・塗りなし）で
+// B が新規に描き起こした（ハート。A の指示「ハートか、リボンの付いた箱」）。出自は docs/sample/README.md
+export { default as iconPanelWant } from "../assets/panel-want.png";
 // 035: 記念日カード・デモバナーの装飾用スパークル。同スプライトシート
 // （6sj6V6ve.png）から、ピンクの4方向の星を切り出した
 export { default as sparkle } from "../assets/sparkle.png";
@@ -45,6 +49,10 @@ export { default as panelPhotoToday } from "../assets/panel-white-today.jpg";
 export { default as panelPhotoList } from "../assets/panel-white-list.jpg";
 export { default as panelPhotoMood } from "../assets/panel-white-mood.jpg";
 export { default as panelPhotoAi } from "../assets/panel-white-ai.jpg";
+// 040: ホワイトの機能パネル「ほしいもの」の写真タイル。docs/sample/simpleMode/新機能/ の
+// Wishlist の絵（人間が「使っていい」と言ったもの）から 2×2 の商品グリッド部分を正方形に
+// 切り出し、600×600 の JPEG にした（039 と同じ置き方。出自は docs/sample/README.md）
+export { default as panelPhotoWant } from "../assets/panel-white-want.jpg";
 // 039 段階2: ホワイトの統計画面のヒーロー写真（仮）。人間からのヒーロー画像はまだ
 // 無いため、docs/sample/風景/RcmUGlPg.jpg（夕暮れの海辺に立つ男女。後ろ姿。AI 生成）を
 // 中央で 4:3（1280×960）に切り出して仮に置いている。本物が来たらここを差し替える

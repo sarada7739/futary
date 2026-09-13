@@ -26,6 +26,10 @@ function postImageKey(imageId: string): string {
 function userImageKey(userId: string, imageId: string): string {
   return `users/${userId}/profile/${imageId}.jpg`;
 }
+// 040: ほしいものの画像（wantImageKeyFor と同じ形。posts/ とは別の接頭辞）
+function wantImageKey(imageId: string): string {
+  return `couples/${DEMO_COUPLE_ID}/wants/${imageId}.jpg`;
+}
 
 // packages/db/seed/assets/ に置いた圧縮済み画像（docs/sample/README.mdが出自の記録。
 // 長辺1600px/JPEG品質0.8。architecture.md 6節と同じ規則で一度だけ圧縮済み）。
@@ -40,6 +44,8 @@ const MEETUP_PHOTOS: Array<{ file: string; width: number; height: number }> = [
 export const DEMO_ASSET_FILES = {
   avatarWoman: "avatar-woman.jpg",
   avatarMan: "avatar-man.jpg",
+  // 040: ほしいものの画像（800×800）
+  wantMug: "want-mug.jpg",
   meetupPhotos: MEETUP_PHOTOS.map((p) => p.file),
 };
 
@@ -109,6 +115,18 @@ interface PostRow {
   images: PostImageRow[];
 }
 
+// 040: ほしいもの。本人だけが書く。URL と画像を持つ
+interface WantRow {
+  id: string;
+  ownerId: string;
+  title: string;
+  url: string | null;
+  note: string;
+  imageKey: string | null;
+  createdAt: number;
+  obtainedAt: number | null;
+}
+
 interface WishRow {
   id: string;
   title: string;
@@ -141,6 +159,7 @@ export interface DemoSeed {
   reactions: Array<{ postId: string; userId: string }>;
   images: Array<{ key: string; assetFile: string }>;
   wishes: WishRow[];
+  wants: WantRow[];
   moods: MoodRow[];
   aiSummaries: AiSummaryRow[];
 }
@@ -351,6 +370,67 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     doneAt: w.done && w.doneDaysAgo !== undefined ? nowSecondsValue - w.doneDaysAgo * DAY_SECONDS : null,
   }));
 
+  // --- wants: 040。各 2 件（ゆい・れん）。URL あり・題名あり。画像は 1 件だけ R2 に置く
+  // （タスク定義6節）。実在の店の商品ページを指さない（014 と同じ理由。URL は
+  // 例示用の予約ドメイン example.com にする。押しても何も売っていない）。
+  // 画像は docs/sample/simpleMode/新機能/ の Wishlist の絵から切り出したマグカップ
+  // （AI 生成。実在の商品ではない。出自は docs/sample/README.md）
+  const wantImageKeyValue = wantImageKey("demo-want-image-mug");
+  images.push({ key: wantImageKeyValue, assetFile: DEMO_ASSET_FILES.wantMug });
+  const wantDefs: Array<{
+    title: string;
+    url: string;
+    note: string;
+    ownerId: string;
+    imageKey: string | null;
+    createdDaysAgo: number;
+    obtainedDaysAgo?: number;
+  }> = [
+    {
+      title: "ペアのマグカップ",
+      url: "https://shop.example.com/items/pair-mug",
+      note: "朝のコーヒー用。白い方がいい",
+      ownerId: DEMO_USER_WOMAN_ID,
+      imageKey: wantImageKeyValue,
+      createdDaysAgo: 2,
+    },
+    {
+      title: "オーバーサイズのニット",
+      url: "https://shop.example.com/items/oversized-knit",
+      note: "",
+      ownerId: DEMO_USER_WOMAN_ID,
+      imageKey: null,
+      createdDaysAgo: 12,
+    },
+    {
+      title: "フィルムカメラ",
+      url: "https://shop.example.com/items/film-camera",
+      note: "旅行の前に。中古でもいい",
+      ownerId: DEMO_USER_MAN_ID,
+      imageKey: null,
+      createdDaysAgo: 5,
+    },
+    {
+      title: "インテリアの写真集",
+      url: "https://shop.example.com/items/interior-book",
+      note: "",
+      ownerId: DEMO_USER_MAN_ID,
+      imageKey: null,
+      createdDaysAgo: 30,
+      obtainedDaysAgo: 8,
+    },
+  ];
+  const wants: WantRow[] = wantDefs.map((w, i) => ({
+    id: `demo-want-${i}`,
+    ownerId: w.ownerId,
+    title: w.title,
+    url: w.url,
+    note: w.note,
+    imageKey: w.imageKey,
+    createdAt: nowSecondsValue - w.createdDaysAgo * DAY_SECONDS,
+    obtainedAt: w.obtainedDaysAgo !== undefined ? nowSecondsValue - w.obtainedDaysAgo * DAY_SECONDS : null,
+  }));
+
   // --- moods: 029。2人分・3ヶ月ぶん（90日）を決定的に組み立てる。乱数は
   // 使わない（固定パターンをaddDaysだけで日付にする。014「日付に乱数を
   // 使わない」と同じ方針）。空の日を混ぜる（毎日埋まっていると未記録の
@@ -431,14 +511,15 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     reactions,
     images,
     wishes,
+    wants,
     moods,
     aiSummaries,
   };
 }
 
 // 投入の前にデモペアの既存行を消す（014タスク定義）。外部キーの順:
-// reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> invites -> couple_members -> couples -> user。
-// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_images・037でai_summariesを追加）
+// reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> wants -> invites -> couple_members -> couples -> user。
+// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_images・037でai_summaries・040でwantsを追加）
 function buildDeleteSql(seed: DemoSeed): string[] {
   const userIds = seed.users.map((u) => sqlString(u.id)).join(", ");
   return [
@@ -449,6 +530,7 @@ function buildDeleteSql(seed: DemoSeed): string[] {
     `DELETE FROM wishes WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM moods WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM ai_summaries WHERE couple_id = ${sqlString(seed.coupleId)};`,
+    `DELETE FROM wants WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM invites WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couple_members WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couples WHERE id = ${sqlString(seed.coupleId)};`,
@@ -513,6 +595,13 @@ function buildInsertSql(seed: DemoSeed, nowMs: number): string[] {
     statements.push(
       `INSERT INTO wishes (id, couple_id, title, note, created_by, created_at, done_at) VALUES ` +
         `(${sqlString(w.id)}, ${sqlString(seed.coupleId)}, ${sqlString(w.title)}, ${sqlString(w.note)}, ${sqlString(w.createdBy)}, ${w.createdAt}, ${w.doneAt ?? "NULL"});`,
+    );
+  }
+
+  for (const w of seed.wants) {
+    statements.push(
+      `INSERT INTO wants (id, couple_id, owner_id, title, url, note, image_key, created_at, obtained_at) VALUES ` +
+        `(${sqlString(w.id)}, ${sqlString(seed.coupleId)}, ${sqlString(w.ownerId)}, ${sqlString(w.title)}, ${sqlString(w.url)}, ${sqlString(w.note)}, ${sqlString(w.imageKey)}, ${w.createdAt}, ${w.obtainedAt ?? "NULL"});`,
     );
   }
 

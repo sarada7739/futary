@@ -1,0 +1,22 @@
+{
+  "baseURL": "http://localhost:8081",
+  "liveUrl": "https://www.amazon.co.jp/dp/B0HJBHHXK2/",
+  "live": {
+    "url": "https://www.amazon.co.jp/dp/B0HJBHHXK2/",
+    "fetchingLabelShown": true,
+    "elapsedMs": 1872,
+    "noticeShown": false,
+    "imageCards": 1
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

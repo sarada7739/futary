@@ -28,6 +28,15 @@ import {
   wishUpdateContract,
 } from "./wish";
 import { moodClearTodayContract, moodListContract, moodSetTodayContract } from "./mood";
+import {
+  wantCreateContract,
+  wantDeleteContract,
+  wantListContract,
+  wantSetImageContract,
+  wantSetObtainedContract,
+  wantUpdateContract,
+  wantUploadUrlContract,
+} from "./want";
 import { aiSummaryGenerateContract, aiSummaryGetContract } from "./ai-summary";
 
 export type { Post, PostImage } from "./post";
@@ -41,6 +50,8 @@ export { MEMORY_LABELS } from "./memory";
 export type { Wish } from "./wish";
 export { MAX_WISH_NOTE_LENGTH, MAX_WISH_TITLE_LENGTH } from "./wish";
 export type { MoodEntry } from "./mood";
+export type { Want, WantOwnerSide } from "./want";
+export { isHttpUrl, MAX_WANT_NOTE_LENGTH, MAX_WANT_TITLE_LENGTH, MAX_WANT_URL_LENGTH, WANT_OWNER_SIDES } from "./want";
 export type { AiSummary } from "./ai-summary";
 export { AI_PROVIDERS, PERIOD_KINDS } from "./ai-summary";
 
@@ -91,6 +102,15 @@ export const contract = {
     update: wishUpdateContract,
     setDone: wishSetDoneContract,
     delete: wishDeleteContract,
+  },
+  want: {
+    list: wantListContract,
+    create: wantCreateContract,
+    update: wantUpdateContract,
+    setImage: wantSetImageContract,
+    setObtained: wantSetObtainedContract,
+    delete: wantDeleteContract,
+    uploadUrl: wantUploadUrlContract,
   },
   mood: {
     setToday: moodSetTodayContract,

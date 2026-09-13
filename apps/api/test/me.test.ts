@@ -10,7 +10,7 @@ import type { Bindings } from "../src/index";
 import { router } from "../src/router";
 import { generateImageId } from "../src/lib/ulid";
 import { REAUTH_WINDOW_MS } from "../src/lib/reauth";
-import { imageKeyFor, userImageKeyFor } from "../src/lib/r2-signed-url";
+import { imageKeyFor, userImageKeyFor, wantImageKeyFor, wantImagePrefixFor } from "../src/lib/r2-signed-url";
 import type { RpcContext } from "../src/context";
 
 function createTestClient(): ContractRouterClient<Contract> {
@@ -409,6 +409,15 @@ describe("me.delete", () => {
     // これを消さずにcouplesを消そうとするとFK違反でbatch全体が失敗し、
     // アカウント削除が恒久的にできなくなる不具合があった（修正済み）
     await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
+    // 040・T7: wants.couple_id / owner_id も couples / user を参照する。画像は wants/ 接頭辞の
+    // R2 オブジェクトとして置く（自動取得の経路は使わず、実体を直接置いて行に紐づける）
+    const wantImageId = generateImageId();
+    await bucket.put(wantImageKeyFor(couple.id, wantImageId, "jpg"), new Uint8Array(100), {
+      httpMetadata: { contentType: "image/jpeg" },
+    });
+    await call(router.want.create, { title: "テストのほしいもの", imageId: wantImageId }, { context: contextFor(owner) });
+    // 相手の分も（owner_id が相手）
+    await call(router.want.create, { title: "相手のほしいもの" }, { context: contextFor(partner) });
     // 029: moods.couple_idも同じ理由でcouplesを参照する
     await call(router.mood.setToday, { level: 5 }, { context: contextFor(owner) });
     // 037: ai_summaries.couple_idも同じ理由でcouplesを参照する。
@@ -440,6 +449,7 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT id FROM wishes WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT 1 FROM moods WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT 1 FROM ai_summaries WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
+    expect(await db.prepare("SELECT 1 FROM wants WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
 
     // 自分のuser行は消え、相手のuser行はCandle型として残る（消えるのはペアのデータだけ）
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
@@ -449,6 +459,9 @@ describe("me.delete", () => {
     expect(await bucket.head(imageKeyFor(couple.id, postImageId))).toBeNull();
     expect(await bucket.head(userImageKeyFor(owner.id, ownerImageId))).toBeNull();
     expect(await bucket.head(userImageKeyFor(partner.id, partnerImageId))).toBeNull();
+    // 040・T7: wants/ に孤児が残らない
+    expect(await bucket.head(wantImageKeyFor(couple.id, wantImageId, "jpg"))).toBeNull();
+    expect((await bucket.list({ prefix: wantImagePrefixFor(couple.id) })).objects).toHaveLength(0);
 
     // 相手もどの手続きからもペアのデータを読めなくなる
     await expect(call(router.couple.get, undefined, { context: contextFor(partner) })).rejects.toMatchObject({
@@ -565,6 +578,8 @@ describe("me.delete", () => {
       { context: contextFor(owner) },
     );
     await call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(owner) });
+    // 040: wantsも同じ理由でこの機械的走査に自動的に拾われる
+    await call(router.want.create, { title: "ほしいもの" }, { context: contextFor(owner) });
     // 029: moodsもcouple_idを持つ表として、この機械的走査に自動的に拾われる
     await call(router.mood.setToday, { level: 3 }, { context: contextFor(owner) });
     // 037: ai_summariesも同じ理由でこの機械的走査に自動的に拾われる。
@@ -594,7 +609,7 @@ describe("me.delete", () => {
     // 検出ロジック自体の健全性: 既知の表が最低限含まれていることを保証する
     // （0件だと下のループが何もチェックせず成功してしまう）
     expect(coupleIdTables).toEqual(
-      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes", "moods", "ai_summaries"]),
+      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes", "moods", "ai_summaries", "wants"]),
     );
 
     // 【Rレビュー指摘R-1】削除前チェックが無いと、将来「couple_idを持つ新しい表」
@@ -713,6 +728,15 @@ describe("me.delete", () => {
       { context: contextFor(owner) },
     );
     await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
+    // 040・T7: wants.couple_id / owner_id も couples / user を参照する。画像は wants/ 接頭辞の
+    // R2 オブジェクトとして置く（自動取得の経路は使わず、実体を直接置いて行に紐づける）
+    const wantImageId = generateImageId();
+    await bucket.put(wantImageKeyFor(couple.id, wantImageId, "jpg"), new Uint8Array(100), {
+      httpMetadata: { contentType: "image/jpeg" },
+    });
+    await call(router.want.create, { title: "テストのほしいもの", imageId: wantImageId }, { context: contextFor(owner) });
+    // 相手の分も（owner_id が相手）
+    await call(router.want.create, { title: "相手のほしいもの" }, { context: contextFor(partner) });
     await call(router.mood.setToday, { level: 5 }, { context: contextFor(owner) });
     // 037: aiSummary.generateは本物のAPIを呼ぶため使わず、行を直接作る
     await db

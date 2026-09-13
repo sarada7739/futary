@@ -6,6 +6,7 @@ import {
   iconPanelMood,
   iconPanelStats,
   iconPanelToday,
+  iconPanelWant,
   iconTabCalendar,
   iconTabTimeline,
   logoMark,
@@ -17,6 +18,7 @@ import {
   panelPhotoStats,
   panelPhotoTimeline,
   panelPhotoToday,
+  panelPhotoWant,
   Screen,
   space,
   useTheme,
@@ -40,7 +42,9 @@ const LOGO_TEXT_SIZE = 40;
 const LOGO_TEXT_LINE_HEIGHT = 48;
 const LOGO_TEXT_LETTER_SPACING = 0.5;
 
-const PANEL_COLUMNS = 4;
+// 040: 9 枚目（ほしいもの）が入り 4 列では 4+4+1 で崩れるため 3 列 × 3 行に
+// （タスク定義5節。039 で凍結したピンクも変わる。機能が増えれば入口は変わる）
+const PANEL_COLUMNS = 3;
 const PANEL_COLUMN_GAP = 10;
 
 // 020: ホームを投稿一覧（タイムラインへ独立）から、状態を見て各機能へ入る画面へ
@@ -102,8 +106,7 @@ export default function HomeScreen() {
         {/* パネルは常に出す。データの取得に失敗しても入口が消えてはいけない
             （タスク定義「状態の網羅」）。取得状態に依存しないため、
             StatsCardのようにquery状態を気にする必要が無い。
-            4列×2行のグリッド（PR #132。モックアップの4+3の空き1枠を
-            タイムラインが埋める） */}
+            3列×3行のグリッド（040。4列×2行の8枚に「ほしいもの」が加わった） */}
         <View
           onLayout={(e) => setPanelGridWidth(e.nativeEvent.layout.width)}
           style={{ flexDirection: "row", flexWrap: "wrap", columnGap: PANEL_COLUMN_GAP, rowGap: 12 }}
@@ -135,6 +138,14 @@ export default function HomeScreen() {
             photo={panelPhotoToday} width={panelWidth} />
           <FeaturePanel label="リスト" icon={iconPanelList}
             photo={panelPhotoList} onPress={() => router.push("/list")} width={panelWidth} />
+          {/* 040: 「リスト」の隣（近い意味のものを隣に。タスク定義5節） */}
+          <FeaturePanel
+            label="ほしいもの"
+            icon={iconPanelWant}
+            photo={panelPhotoWant}
+            onPress={() => router.push("/want")}
+            width={panelWidth}
+          />
           <FeaturePanel
             label="気分の記録"
             icon={iconPanelMood}

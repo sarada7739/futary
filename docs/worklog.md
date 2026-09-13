@@ -12772,6 +12772,55 @@ Session: B
 
 Session: B
 
+## 2026-09-13 セッションB: 040 段階1 — ほしいものを実装した
+
+### やったこと
+- A の「段階0の決定」（#285）を読んでから着手。`wants` 表・契約 `want.*`・`link-preview.ts`（外部 fetch の 1 本）・`want-url.ts`・
+  `procedures/want.ts`・`me.delete` の追加・`(tabs)/want.tsx`・ホーム 3 列化・アイコン/写真タイル・デモシード
+- T1〜T11 を書いて緑。T2 は段階0の本物の HTML をフィクスチャに（`apps/api/test/fixtures/link-preview/`。EUC-JP は base64 で保つ）。
+  「1MB なら取れる」は 512KB の実物の後ろに実物の `<img id="landingImage">` を継ぎ足して固定
+- T9 は viewerKey を外して走査テストが赤になることを確かめてから戻した
+- 撮影: ローカル D1 にペアとセッション Cookie を作るスクリプト（`artifacts/040/scripts/make-session.mjs`）で
+  ログイン状態を再現し、両モード × ホーム（iPhone/PC 幅）・一覧・追加モーダル・ゲストを撮った。
+  人間の Amazon URL をローカルから実際に保存し、D1 の行と R2 の実体で確認した（報告は `artifacts/040/stage1.md`）
+
+### 気づき
+- react-native-web の Modal は #root の外（body 直下）に描かれる。039 の撮影スクリプトの「#root 以外を隠す」を
+  そのまま使うとモーダルが写らない（`capture.mjs` で除外した）
+- ローカルの署名付き GET URL は本物の R2 を指すので、ローカル R2 に置いた画像は画面に出ない（コンソールの 404）。
+  投稿画像も同じ。実体は `wrangler r2 object get --local` で確かめた
+- `new Response(Uint8Array)` は workers-types で型が合わない（`ArrayBuffer` を渡す）
+- `pnpm -r test` は api 549 / app 364 / db 30 / ui 16 / date 61 で緑
+
+Session: B
+
+## 2026-09-13 セッションB: 040 段階1 — 画像無しの行の 🔗 をやめた（A の指示）
+
+- A が報告とスクリーンショットを見て 1 点: 絵文字 🔗 はカラーで描かれ、ホワイト（黒と灰だけ）で浮く。素材が無いなら何も置かない。
+  `want.tsx` の画像無しの行を `surface-tint` の四角だけにした（#289 に積む）。タスク定義 5節の「リンクのアイコン」は A が撤回
+- B が決めた他の 5 点は A も了解。ホームの 3 列・題名 3 行の省略も良いとのこと
+
+Session: B
+
+## 2026-09-13 セッションB: 040 段階1 — R の必須修正 2 件を直した
+
+- R の判定は `artifacts/040/review-stage1.md`（一字一句）。守りたい一文と T1〜T11 は成り立っている。必須修正 2 件（`link-preview.ts`）
+- 修正1: `content` 属性の値の中の `'` を閉じ引用符と見なして `Levi's` が `Levi` で切れていた。引用符は開いた種類で閉じる（`QUOTED_VALUE`）。
+  `pickAmazonImage` の 2 本も同じ形に。テスト 1 本
+- 修正2: Amazon 用の規則を元 URL のホストで判定していた。実際に読んだページ（リダイレクト後 `finalUrl`）のホストで判定する
+  （amzn.asia の短縮 URL で画像が付くように）。テスト 2 本（短縮 URL 経由で付く・元が Amazon でも読んだ先が違えば効かない）
+- 記録2（`in` → `Object.hasOwn`）も直した。記録4（絵は 🔗 撤回前）は報告に書いた。記録1・3 は A へ（B は触らない）
+
+Session: B
+
+## 2026-09-13 セッションB: 040 段階1 — URL の正規化も最終 URL に対して行う（A の決定 #291）
+
+- `fetchLinkPreview` が実際に読んだページの URL（`finalUrl`）を返すようにし、`want.create` は辿り着いた先が Amazon の `/dp/{ASIN}` なら
+  正規形を保存する（amzn.asia の短縮 URL のまま残さない）。Amazon 以外は元の URL のまま。fetch に失敗したら元のまま
+- `want-url.ts` に `canonicalAmazonUrl`（Amazon の正規形か null）を分け、`normalizeWantUrl` はそれを使う
+- テスト 3 本: 短縮 URL → 301 → Amazon で画像・題名・保存 URL の 3 点、Amazon 以外は元のまま、fetch 失敗は元のまま
+
+Session: B
 ## 2026-09-13 セッションA: 040 段階1、R の必須修正 2 件に決定を返した
 
 - R は 6節の条件を実ファイルで確認し、IPv4 の別表記 5 種が弾かれることまで実測した上で、`link-preview.ts` に 2 件: `content` の `'` で題名が切れる・Amazon 専用の規則が元 URL のホストで決まりリダイレクト先を見ていない（`amzn.asia/d/…` で画像が付かない）
@@ -12780,3 +12829,19 @@ Session: B
 - A の起票時の抜け: 「Amazon のホスト」と書いたとき、短縮 URL の存在を考えていなかった。人間の実際の使い方（アプリの共有）を起票前に一度なぞるべきだった
 
 Session: A
+
+## 2026-09-13 セッションB: 040 段階1 — R の追加の必須（画像の fetch の期限共有テスト）
+
+- R が 6節の条件を 13 通り壊した検査で、画像の fetch がページと 12 秒の期限を共有していることだけをどのテストも捕まえていなかった。
+  ページは即 200・画像は abort まで返らない形のテストを 1 本足し、signal を共有しない別物に変えると赤になることを確かめて戻した
+- 記録（許可リストは先頭バイト側で閉じていて冗長）はコメントに書いた。R の追記は review-stage1.md に一字一句
+- main（#291）を取り込み、state.md の衝突を解消した
+
+Session: B
+
+## 2026-09-13 セッションB: 040 段階1 — R 受け入れ確定、#289 をマージ
+
+- R が head 0f9d7ab で受け入れを確定（期限共有テストの赤/緑・最終 URL の正規化の 2 点を R も実測）。判定文は review-stage1.md に一字一句
+- #289 を squash merge。残りは人間の手番: 本番で Amazon の URL と amzn.asia の共有リンクを貼って、画像と /dp/ の正規形を確かめる
+
+Session: B

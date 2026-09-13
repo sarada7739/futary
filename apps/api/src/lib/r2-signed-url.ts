@@ -64,6 +64,17 @@ export function imageKeyFor(coupleId: string, imageId: string): string {
   return `couples/${coupleId}/posts/${imageId}.jpg`;
 }
 
+// 040: ほしいものの画像。posts/ と分ける（退会時の deleteAllByPrefix の対象が分かる。
+// タスク定義3節）。投稿画像と違って拡張子が3種ある（自動取得は jpeg/png/webp。
+// 手で付ける経路は jpg のみ）。Content-Type は R2 の httpMetadata から署名付き GET で返る
+export function wantImageKeyFor(coupleId: string, imageId: string, extension: "jpg" | "png" | "webp"): string {
+  return `${wantImagePrefixFor(coupleId)}${imageId}.${extension}`;
+}
+
+export function wantImagePrefixFor(coupleId: string): string {
+  return `couples/${coupleId}/wants/`;
+}
+
 // プロフィール画像はペアに属さない個人の持ち物のため、couples/... とは
 // 別の前綴りにする（019・タスク定義）
 const USER_IMAGE_PREFIX = "users/";
