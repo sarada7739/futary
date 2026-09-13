@@ -13024,3 +13024,10 @@ Session: A
 - `conventions.md` 7節の例に Co-Authored-By を足し、「トレーラーは末尾の 1 段落。間に空行を入れない」を明記した
 
 Session: A
+## 2026-09-14 セッションB: fix #308 をマージ（選択バーのラベル）
+
+- R が f0bc484 を受け入れ（判定文は review-fix-bar-wrap.md）。A が 041・042 の 3節の文言を直した（#309）
+- #308 は 08:14 に自動 close されていた。原因は A の #309 の本文の「fix #308」（GitHub の閉じるキーワード。A が events で確認）。B は人間に「閉じていない」と確認して reopen → main を取り込んだ 096989c の CI 緑 → squash merge（main 76a751e、Session: B）。規約は A が直した（#311）
+- 残りは人間: デプロイ承認、iPhone で折れの確認、段階0（5 枚・20 枚）の結果
+
+Session: B
