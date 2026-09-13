@@ -248,9 +248,8 @@ albums                                          -- 041。アルバム（イベ�
   note           TEXT    NOT NULL DEFAULT ''     -- 0〜200文字
   start_date     TEXT                            -- YYYY-MM-DD。NULL可
   end_date       TEXT                            -- YYYY-MM-DD。NULL可。start_date 以上（入力スキーマ）
-  cover_post_id  TEXT                            -- カバー。NULL なら自動（アルバム内でいちばん新しい写真）
-  cover_position INTEGER                         -- post_images の (post_id, position)。FK を張らない。
-                                                 -- 外れた・消えたときは読む側で自動に倒す
+  cover_photo_id TEXT                            -- カバー（album_photos.id）。NULL なら自動（いちばん新しい写真）。
+                                                 -- FK を張らない。外れたときは読む側で自動に倒す
   created_by     TEXT    NOT NULL                -- 返さない（wishes と同じ。両方が触れる）
   created_at     INTEGER NOT NULL
   updated_at     INTEGER NOT NULL
@@ -259,16 +258,19 @@ albums                                          -- 041。アルバム（イベ�
                                                  -- 「タイムライン」のアルバムは行を持たない（仮想。
                                                  --  post_images から毎回引く）
 
-album_photos                                    -- 041。アルバムに入っている投稿写真
-  album_id  TEXT    NOT NULL -> albums.id
-  post_id   TEXT    NOT NULL
-  position  INTEGER NOT NULL
-  added_at  INTEGER NOT NULL
-  PRIMARY KEY (album_id, post_id, position)
-  FOREIGN KEY (post_id, position) -> post_images(post_id, position)
-  INDEX (post_id, position)
-                                                 -- 論理削除を持たない。post.delete が同じ batch() で消す
-                                                 -- （post_images より先）。1アルバム500枚・1ペア100アルバム
+album_photos                                    -- 041。アルバムに直接アップロードした写真
+  id          TEXT    PK                         -- imageId（ULID）と同じ値
+  album_id    TEXT    NOT NULL -> albums.id
+  key         TEXT    NOT NULL UNIQUE            -- couples/{coupleId}/albums/{id}.jpg。サーバが組み立てる
+  width       INTEGER NOT NULL
+  height      INTEGER NOT NULL
+  caption     TEXT    NOT NULL DEFAULT ''        -- 0〜200文字。写真ごとの説明文
+  taken_at    INTEGER NOT NULL                   -- 並び順。アップロードなら追加した時刻
+  created_at  INTEGER NOT NULL
+  INDEX (album_id, taken_at, id)
+                                                 -- 投稿の写真とは別の実体。投稿を消してもアルバムは変わらない。
+                                                 -- 論理削除を持たない（外す = 行の物理削除 → R2 の物理削除）。
+                                                 -- 1アルバム500枚・1ペア100アルバム
 
 ai_summaries                                    -- 037。月ごとのAIまとめ
   couple_id       TEXT    NOT NULL
@@ -301,8 +303,8 @@ moods                                           -- 029。1日1回の気分
 ### `posts` を読むクエリには必ず `deleted_at IS NULL` を含める
 
 **027 以降、`wishes` も同じである。**論理削除を持つ表が2つになった。
-**040 で `wants`、041 で `albums` が加わった。**`album_photos` から写真を引くときも
-`posts.deleted_at IS NULL` を JOIN に含める（`post.delete` が `album_photos` を消すことに依存しない）。
+**040 で `wants`、041 で `albums` が加わった。**タイムラインのアルバム（仮想）が `post_images` を
+引くときも `posts.deleted_at IS NULL` を含める。
 **「`posts` の規則」ではなく「論理削除を持つ表の規則」として読む。**
 
 **例外なし。**`posts` は論理削除であり、削除された行はテーブルに残り続ける。
@@ -794,17 +796,24 @@ album.list          {} -> { timeline: { photoCount, previews: Photo[]（最新4�
                     Album = { id, title, note, startDate, endDate, photoCount, cover: { url, width, height } | null, createdAt }
                     created_by を返さない。canEdit も返さない（wishes と同じ。両方が触れる）
 album.get           { id } -> Album。他ペア・削除済み・無い id は NOT_FOUND
-album.create        { title, note?, startDate?, endDate?, fillFromRange? } -> Album
-                    fillFromRange が真なら期間内（JST の日の境界）の投稿写真を最初から入れる。500枚超は古い方から500枚
-album.update        { id, title?, note?, startDate?, endDate?, cover?: PhotoRef | null } -> Album
-                    cover はアルバム内の写真だけ（他は INVALID_INPUT）。null で自動。日付を変えても写真は入れ直さない
-album.addPhotos     { id, photos: PhotoRef[]（1〜100） } -> Album。入っている分は無視（冪等）。合計500超は LIMIT_REACHED（部分的に入れない）
-album.removePhotos  { id, photos: PhotoRef[] } -> Album。投稿の写真は消えない
-album.delete        { id } -> { id }。論理削除。album_photos は同じ batch() で物理削除。写真は消えない
+album.uploadUrl     { contentType: "image/jpeg" } -> { imageId, url }。post.uploadUrl と同じ形（署名付き PUT・5分・ULID）
+album.create        { title, note?, startDate?, endDate?, cover?: { imageId, width, height } } -> Album
+                    cover があれば R2 に実体があることを確認してから最初の1枚として入れ、カバーにする（無ければ INVALID_INPUT。アルバムも作らない）
+album.update        { id, title?, note?, startDate?, endDate?, coverPhotoId?: string | null } -> Album
+                    coverPhotoId はアルバム内の写真だけ（他は INVALID_INPUT）。null で自動
+album.addPhotos     { id, photos: [{ imageId, width, height, caption? }]（1〜20） } -> Album
+                    全部の実体が R2 にあることを確認してから書く（1枚でも無ければ INVALID_INPUT。部分的に入れない。post.create と同じ）
+                    合計500超は LIMIT_REACHED
+album.updatePhoto   { id, photoId, caption } -> Photo。説明文だけ
+album.removePhotos  { id, photoIds }（1〜100） -> Album。行を物理削除してから R2 を消す（D1 → R2）
+album.delete        { id } -> { id }。論理削除。album_photos は同じ batch() で物理削除 → R2 を消す
+album.copyFromPosts { id, photos: [{ postId, position }] }（041 段階2。段階1では作らない）
+                    投稿の写真の実体を albums/ のキーへ複製して入れる。投稿を消してもアルバムは変わらない
 photo.list          { albumId?, cursor?, limit } -> { items: Photo[], nextCursor }（041。T9 対象）
-                    PhotoRef = { postId, position }。Photo = PhotoRef + { url, width, height, postedAt, body }
-                    albumId 無し = タイムライン（全投稿写真・新しい順）。あればそのアルバム（古い順）。limit 最大60
-                    posts.deleted_at IS NULL を必ず含める
+                    PhotoRef = { kind: "post", postId, position } | { kind: "album", photoId }
+                    Photo = { ref: PhotoRef, url, width, height, takenAt, caption }
+                    albumId 無し = タイムライン（全投稿写真・新しい順。caption は投稿本文）。あればそのアルバム（古い順）。limit 最大60
+                    タイムラインは posts.deleted_at IS NULL を必ず含める
 photo.downloadUrl   PhotoRef -> { url, filename }（041。6節「保存用の署名付き URL」）
                     Content-Disposition: attachment 付きの署名付き GET。有効5分。filename はサーバが組み立てる
                     他ペアの ref は NOT_FOUND
@@ -1240,7 +1249,9 @@ CREATE UNIQUE INDEX events_meetup_unique
 
 - R2 バケットは**非公開**。公開URLを発行しない
 - オブジェクトキー: `couples/{coupleId}/posts/{imageId}.jpg`。
-  **鍵はサーバだけが組み立てる。クライアントに鍵を渡さないし、受け取らない**（5節）
+  **鍵はサーバだけが組み立てる。クライアントに鍵を渡さないし、受け取らない**（5節）。
+  ほしいもの（040）は `couples/{coupleId}/wants/`、アルバム（041）は `couples/{coupleId}/albums/`。
+  **接頭辞で分ける**のは、退会時の `deleteAllByPrefix` と孤児の回収で対象が分かるようにするため
 - アップロード: `post.uploadUrl` が `imageId`（ULID）を生成し、その鍵に対する
   署名付き PUT URL（5分）を返す。クライアントは R2 へ直接送る。
   **画像本体は Worker を経由しない**
