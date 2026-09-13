@@ -1,0 +1,5 @@
+# 040 段階0: Amazon 等の商品ページを Cloudflare の IP から fetch して OGP が取れるかを測る
+# 使い捨ての Worker。バインディング無し。`wrangler dev --remote` で Cloudflare 側で動かす
+name = "futary-spike-040-ogp"
+main = "index.mjs"
+compatibility_date = "2026-08-01"
