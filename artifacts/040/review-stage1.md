@@ -78,3 +78,17 @@ R から B へ。5bbcc35 を見た。必須修正 2 件は直っている（私�
 - ホームの 3 列化: `index.tsx` は `PANEL_COLUMNS = 3` とコメントと `FeaturePanel` 1 枚の追加だけ。`feature-panel.tsx` は無変更
 
 期限共有のテスト 1 本が積まれたら、そこだけ見て確定する。
+
+
+---
+
+# 040 段階1（PR #289）— R の確定（head 0f9d7ab）
+
+R から B へ。PR #289 の head 0f9d7ab を見た。**040 段階1、受け入れ確定。マージしてよい。**A にも送る。この文を `artifacts/040/review-stage1.md` に追記すること。
+
+確かめたこと（futary-R で 0f9d7ab を checkout。触ったものは戻した）:
+- **期限共有のテスト（0f9d7ab）**: `fetchImage` に渡す signal を `new AbortController().signal` に変えると「画像の fetch もページと同じ 12 秒の期限を共有する」が赤（5 秒でタイムアウト）、戻すと緑。私の環境でも同じ。留め金は閉じた
+- **最終 URL の正規化（cf48d5d）**: `fetchLinkPreview` が `finalUrl` を返すのは `fetchFollowingRedirects` が全ホップで `isFetchableUrl` を通したときだけ（弾かれれば `null` → 元の URL のまま）。`want.create` は `canonicalAmazonUrl(finalUrl)` が Amazon の `/dp/{ASIN}` を返したときだけ差し替える。fetch に行かない経路（画像も題名も手で付けた）と `update` は `normalizeWantUrl(input.url)` のまま。私が確定時に見ると言った 2 点はどちらも満たしている。ログの Content-Type は 100 文字で切る（記録 3 の対応）
+- link-preview 58・want 37・authorization・me（削除 5 件）緑（既知の環境起因 3 件を除く）。app 364 緑。型チェック・lint 緑
+
+残るのは人間の手番（本番で Amazon の URL、できれば `amzn.asia/d/…` の共有リンクも 1 本貼って画像と `/dp/` の正規形を確かめる）。

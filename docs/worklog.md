@@ -12838,3 +12838,10 @@ Session: A
 - main（#291）を取り込み、state.md の衝突を解消した
 
 Session: B
+
+## 2026-09-13 セッションB: 040 段階1 — R 受け入れ確定、#289 をマージ
+
+- R が head 0f9d7ab で受け入れを確定（期限共有テストの赤/緑・最終 URL の正規化の 2 点を R も実測）。判定文は review-stage1.md に一字一句
+- #289 を squash merge。残りは人間の手番: 本番で Amazon の URL と amzn.asia の共有リンクを貼って、画像と /dp/ の正規形を確かめる
+
+Session: B
