@@ -12722,3 +12722,17 @@ Session: B
   state.md / worklog.md は本 PR で入れた。次からは `set -e` を先頭に置く
 
 Session: A
+## 2026-09-13 セッションB: 040 段階0 — Amazon 等を Cloudflare から fetch して測った
+
+### やったこと
+- `artifacts/040/spike/` に使い捨て Worker を書き、`wrangler dev --remote` で Cloudflare 側から Amazon 5 本・楽天・ユニクロ・無印を UA 2 通り × 3 回叩いた
+- 結果は `artifacts/040/spike.md`。Amazon は 200 が 30/30 だが **OGP が無い**（0/30）。`meta name="title"` + `data-old-hires` の予備なら 512KB で 28/30、1MB で 15/15
+- 楽天は Cloudflare からだと毎回 10.1 秒（5 秒では 0/6）、EUC-JP。ユニクロは OGP で 6/6。無印は 520 で 6/6。UA の差は無し
+- タスク定義 2節のとおり A の決定待ちで止まる。論点 6 つを spike.md に書いた
+
+### 気づき
+- タスク定義と security-requirements 6節は「OGP の `<meta>` だけを読む」前提で書かれているが、主役の Amazon が OGP を出さない。
+  Amazon 専用の抽出を入れるなら条文の範囲が変わる（A の判断）
+- 「OGP は `<head>` にある」は楽天・ユニクロでは正しい。Amazon の画像は `<body>` の 325〜612KB の位置で、応答ごとにずれる
+
+Session: B
