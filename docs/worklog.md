@@ -13016,3 +13016,11 @@ Session: B
 - `conventions.md` 7節に「他の PR に触れるときは `#NNN` とだけ書く。`fix`/`close`/`resolve` を付けない」を足した
 
 Session: A
+
+## 2026-09-14 セッションA: A の squash コミット 12 本で `Session:` トレーラーが解析できない（B の指摘）
+
+- `--body` を「Session: A → 空行 → Co-Authored-By」の形で書いていたため、git は末尾段落の Co-Authored-By だけをトレーラーとして読み、`Session: A` は本文になった
+- 対象: 2344e8f・e58fa8b・9e1c95a・013da5e・5255cd5・465b37c・182d765・c2cf3db・0b0eaae・9bdd07d・206eed7・88268a9（すべて A の docs PR）。`main` は書き換えない。`git log --grep='^Session: A'` で拾える
+- `conventions.md` 7節の例に Co-Authored-By を足し、「トレーラーは末尾の 1 段落。間に空行を入れない」を明記した
+
+Session: A
