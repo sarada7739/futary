@@ -52,13 +52,14 @@ describe("userImageKeyFor", () => {
 // 041: 保存用の署名付き URL
 describe("createDownloadUrl", () => {
   it("response-content-disposition=attachment; filename=... と 5 分の期限がクエリに入り、署名される", async () => {
-    const key = albumImageKeyFor("couple-1", "01ARZ3NDEKTSV4RRFFQ69G5FAV");
-    const url = new URL(await createDownloadUrl(r2Sign, key, "futary-20260816-01ARZ3NDEKTSV4RRFFQ69G5FAV.jpg"));
+    const imageId = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    const key = albumImageKeyFor("couple-1", imageId);
+    // filename はサーバが組み立てる形（futary-YYYYMMDD-{imageId}.jpg）。変数から組む
+    const filename = `futary-20260816-${imageId}.jpg`;
+    const url = new URL(await createDownloadUrl(r2Sign, key, filename));
 
     expect(url.pathname).toBe(`/test-bucket/${key}`);
-    expect(url.searchParams.get("response-content-disposition")).toBe(
-      'attachment; filename="futary-20260816-01ARZ3NDEKTSV4RRFFQ69G5FAV.jpg"',
-    );
+    expect(url.searchParams.get("response-content-disposition")).toBe(`attachment; filename="${filename}"`);
     expect(url.searchParams.get("X-Amz-Expires")).toBe("300");
     expect(url.searchParams.get("X-Amz-Signature")).toMatch(/^[0-9a-f]{64}$/);
   });
