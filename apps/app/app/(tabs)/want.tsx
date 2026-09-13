@@ -255,12 +255,10 @@ function WantCard({ want, width, onOpenMenu }: { want: Want; width: number | und
               resizeMode="cover"
               accessibilityIgnoresInvertColors
             />
-          ) : want.url ? (
-            // 画像が無い行: surface-tint の地にリンクのしるし（URL あり）。空の四角を出さない
-            <Text size="lg" color="muted">
-              🔗
-            </Text>
           ) : null}
+          {/* 画像が無い行は surface-tint の四角だけ（A の指示・段階1のレビュー）。
+              絵文字はカラーで描かれ、ホワイト（黒と灰だけの画面）で浮く。素材が無いなら
+              何も置かない。URL の有無は押せるかどうかで分かる（押せば開く） */}
         </View>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.xs }}>
           <View style={{ flex: 1, gap: space.xs }}>
