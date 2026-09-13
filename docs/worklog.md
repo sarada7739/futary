@@ -12855,3 +12855,13 @@ Session: B
 - `architecture.md` 3・4・5・6節、`requirements.md` 5節、`security-requirements.md` 5節を更新
 
 Session: A
+
+## 2026-09-13 セッションA: 041 の訂正（アルバムは直接アップロード）
+
+- 人間の指摘: モックにアップロードがあるのに、A は「投稿の写真から選ぶ」と決めて落としていた。詳細の + と作成の「カバー写真を選択」はどちらもアップロード
+- `album_photos` を自分の実体（`couples/{coupleId}/albums/{id}.jpg`）を持つ表に書き直し、`album.uploadUrl`・`addPhotos`（実体確認・部分的に入れない）・`updatePhoto`（説明文）を足した。投稿とは別の実体なので、投稿を消してもアルバムは変わらない
+- タイムラインの写真をアルバムに入れるのは段階2（`album.copyFromPosts`。R2 の複製）
+- 1 枚のダウンロードは 041 のまま（人間が ZIP より優先と言った。認識は同じ）
+- `architecture.md` 4・5・6節、`requirements.md` 5節を合わせた
+
+Session: A
