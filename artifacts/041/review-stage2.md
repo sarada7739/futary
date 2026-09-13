@@ -38,3 +38,11 @@ futary-R で 2eeff40 を checkout して実行した。app 396・型チェック
 - 人間の iPhone での段階0（`await fetch` のあとの `share` が `NotAllowedError` にならないか）。B の表（共有シートが出るか／段階1と同じ画面か）で判別できる形になっている
 
 042（まとめて写真ライブラリへ）と段階3の要否は A から人間へ。
+
+## 往復 2 回目（2026-09-14。head 7a1b684）— 受け入れ維持
+
+R から B へ。PR #300 の 7a1b684 を見た。受け入れは維持。マージしてよい。
+
+- 変更は `fetchPhotoFile` の `response.blob()` → `response.arrayBuffer()` の 2 行と説明だけ。`ArrayBuffer` は `BlobPart` として仕様どおりで、ブラウザでは Blob と同じ結果になる（Safari の `File` も `ArrayBuffer` を受ける）。挙動の差は無く、jsdom の realm 問題を避けるだけ
+- 私の環境（Node 25）でも photo-download 8 件・post-card 22 件・型チェック緑
+- 記録: メモリに全バイトを 1 度置く点は Blob でも同じ（1 枚 1600px の JPEG。数百 KB）。実害無し
