@@ -29,6 +29,11 @@ export { default as iconPanelAi } from "../assets/panel-ai.png";
 // 図案が無いため、既存の panel-*.png と同じ規格（96×96・単色 #4A3733・単線・塗りなし）で
 // B が新規に描き起こした（ハート。A の指示「ハートか、リボンの付いた箱」）。出自は docs/sample/README.md
 export { default as iconPanelWant } from "../assets/panel-want.png";
+// 041: ホームの機能パネル「アルバム」のピンクの線画アイコン。素材に該当する図案が無いため、
+// panel-want.png と同じ規格（96×96・単色 #4A3733・単線・塗りなし）で B が新規に描き起こした
+// （写真が 1 枚入ったアルバムの本。A の指示「重なった写真 2 枚か、アルバムの本」。重なった写真は
+// 「思い出」が既に使っている）。出自は docs/sample/README.md
+export { default as iconPanelAlbum } from "../assets/panel-album.png";
 // 035: 記念日カード・デモバナーの装飾用スパークル。同スプライトシート
 // （6sj6V6ve.png）から、ピンクの4方向の星を切り出した
 export { default as sparkle } from "../assets/sparkle.png";
@@ -53,6 +58,10 @@ export { default as panelPhotoAi } from "../assets/panel-white-ai.jpg";
 // Wishlist の絵（人間が「使っていい」と言ったもの）から 2×2 の商品グリッド部分を正方形に
 // 切り出し、600×600 の JPEG にした（039 と同じ置き方。出自は docs/sample/README.md）
 export { default as panelPhotoWant } from "../assets/panel-white-want.jpg";
+// 041: ホワイトの機能パネル「アルバム」の写真タイル。人間が docs/sample/simpleMode/アルバム機能/
+// モック画面/ホームアイコン/ に置いた 1254×1254 の生成画像を 600×600 の JPEG にした
+// （039・040 と同じ置き方。出自は docs/sample/README.md）
+export { default as panelPhotoAlbum } from "../assets/panel-white-album.jpg";
 // 039 段階2: ホワイトの統計画面のヒーロー写真（仮）。人間からのヒーロー画像はまだ
 // 無いため、docs/sample/風景/RcmUGlPg.jpg（夕暮れの海辺に立つ男女。後ろ姿。AI 生成）を
 // 中央で 4:3（1280×960）に切り出して仮に置いている。本物が来たらここを差し替える

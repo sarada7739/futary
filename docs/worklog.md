@@ -12865,3 +12865,13 @@ Session: A
 - `architecture.md` 4・5・6節、`requirements.md` 5節を合わせた
 
 Session: A
+
+## 2026-09-14 セッションB: 041 段階0・段階1 — アルバム（実装完了。PR）
+
+- 段階0: 本物の R2 に対して署名付き GET を 1 本投げて実測。`response-content-disposition` を返す（attachment・filename）。署名後にクエリを書き換えると 403。(a) で進めた。`artifacts/041/download.md`
+- 段階1: `albums`・`album_photos`（0022）・契約・`procedures/album.ts`・`me.delete`・一覧/詳細/作成モーダル・複数アップロード・ビューアの説明文と保存・ホームの置き換え・デモシード・T1〜T15
+- B が決めたこと 10 点は `artifacts/041/stage1.md`。主なもの: 詳細は `album-detail.tsx?id=`（動的ルートは静的エクスポートの前提を崩す）、詳細に「‹ 戻る」（一覧へ固定）、`Sheet` の共通化、思い出カードにも保存ボタン
+- `pnpm -r test`（api 589 / app 386 / db 31 / ui 16 / date 66）・型チェック・lint 緑。スクリーンショットは `artifacts/041/stage1/`
+- 人間の手番（デプロイ後）: 本番で 1 枚保存・5 枚アップロード・画像が見えること
+
+Session: B

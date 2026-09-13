@@ -1,0 +1,33 @@
+{
+  "baseURL": "http://localhost:8081",
+  "downloadUrlResponses": [
+    {
+      "status": 200
+    },
+    {
+      "status": 200
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 400 (Bad Request)"
+  ],
+  "afterDownloadClickUrl": "https://d08a3c92a0ca2b448831a612221af692.r2.cloudflarestorage.com/futary-images/couples/shot-couple/albums/SHOTALBUMPHOTO00000000001.jpg?X-Amz-Expires=300&response-content-disposition=attachment%3B+filename%3D%22futary-20260805-SHOTALBUMPHOTO00000000001.jpg%22&X-Amz-Date=20260913T155312Z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=24c06c1bd42c1af71220b0cd782b16c9%2F20260913%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=72453453662f5c7abe7f5ea435fea86ddcdb00e33b510e9cac036eacf8bdd631"
+}

@@ -138,6 +138,29 @@ describe("buildDemoSeed", () => {
     expect(seed.wants.every((w) => w.url?.startsWith("https://"))).toBe(true);
   });
 
+  // 041: アルバム 1 件（題名・期間つき）と写真 3 枚
+  it("albumsは1件で題名・期間つき。写真は3枚が albums/ のキーで、post_images のキーとは別のオブジェクト", () => {
+    const seed = buildDemoSeed();
+    expect(seed.albums).toHaveLength(1);
+    const album = seed.albums[0]!;
+    expect(album.title.length).toBeGreaterThan(0);
+    expect(album.startDate).not.toBeNull();
+    expect(album.endDate).not.toBeNull();
+    expect(album.endDate! >= album.startDate!).toBe(true);
+    expect(seed.albumPhotos).toHaveLength(3);
+    expect(seed.albumPhotos.every((p) => p.albumId === album.id)).toBe(true);
+    expect(seed.albumPhotos.every((p) => /^couples\/demo-couple\/albums\/.+\.jpg$/.test(p.key))).toBe(true);
+    expect(seed.albumPhotos.map((p) => p.id)).toContain(album.coverPhotoId);
+    const postKeys = new Set(seed.posts.flatMap((p) => p.images.map((i) => i.key)));
+    expect(seed.albumPhotos.some((p) => postKeys.has(p.key))).toBe(false);
+    // R2 に置く一覧（images）に 3 枚とも含まれる
+    const imageKeys = new Set(seed.images.map((i) => i.key));
+    expect(seed.albumPhotos.every((p) => imageKeys.has(p.key))).toBe(true);
+    // 古い順に並ぶことがデモで見えるよう taken_at が単調に増える
+    const takenAts = seed.albumPhotos.map((p) => p.takenAt);
+    expect([...takenAts].sort((a, b) => a - b)).toEqual(takenAts);
+  });
+
   it("wishesに達成済みと未達成の両方が入っている", () => {
     const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
     expect(seed.wishes.some((w) => w.doneAt === null)).toBe(true);

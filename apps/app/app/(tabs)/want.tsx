@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Image, Linking, Modal, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Image, Linking, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import type { Want, WantOwnerSide } from "@futary/contract";
 import { isHttpUrl, MAX_WANT_NOTE_LENGTH, MAX_WANT_TITLE_LENGTH, MAX_WANT_URL_LENGTH } from "@futary/contract";
 import { Badge, Button, type Colors, radius, Screen, space, Text, useTheme } from "@futary/ui";
 import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { Sheet } from "../../components/sheet";
 import { useGuestMode } from "../../lib/guest-mode";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
 import { orpc } from "../../lib/orpc";
@@ -174,37 +175,6 @@ function WantForm({
         </View>
       </View>
     </View>
-  );
-}
-
-// 画面の下から出る薄いシート（追加・編集・行のメニューで共用）
-function Sheet({ visible, onClose, children, title }: { visible: boolean; onClose: () => void; children: React.ReactNode; title: string }) {
-  const { colors } = useTheme();
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable
-        accessibilityLabel="閉じる"
-        onPress={onClose}
-        style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.35)", justifyContent: "flex-end" }}
-      >
-        {/* 中身を押しても閉じない */}
-        <Pressable onPress={() => {}} style={{ cursor: "auto" } as never}>
-          <View
-            style={{
-              backgroundColor: colors.surface,
-              borderTopLeftRadius: radius.card,
-              borderTopRightRadius: radius.card,
-              padding: space.lg,
-              paddingBottom: space.xl,
-              gap: space.md,
-            }}
-          >
-            <Text weight="bold">{title}</Text>
-            {children}
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
   );
 }
 

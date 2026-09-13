@@ -71,6 +71,9 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     const objects = await listIndexesAndTriggers();
 
     expect(objects.map((o) => `${o.type}:${o.name}`)).toEqual([
+      "index:album_photos_album_taken_idx",
+      "index:album_photos_key_unique",
+      "index:albums_couple_created_idx",
       "index:couple_members_couple_id_slot_unique",
       "index:couple_members_user_id_unique",
       "index:events_couple_date_idx",

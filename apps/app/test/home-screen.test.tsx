@@ -69,40 +69,26 @@ describe("HomeScreen: 記念日カード", () => {
 });
 
 describe("HomeScreen: 機能パネル", () => {
-  it("動くパネル7枚（タイムライン・カレンダー・思い出・統計・リスト・ほしいもの・気分の記録）が表示される", async () => {
+  // 041・T13: パネルは 9 枚で「アルバム」があり「今日どうだった？」が無い。他の 8 枚の並びは
+  // 変わっていない（「今日どうだった？」の位置〈2 行目の真ん中〉にアルバムが入っただけ）
+  it("パネルが 9 枚で、並びは タイムライン・カレンダー・思い出・統計・アルバム・リスト・ほしいもの・気分の記録・AIまとめ", async () => {
     renderScreen();
     await screen.findByTestId("stats-card-meetup-pill");
 
-    expect(screen.getByText("タイムライン")).toBeTruthy();
-    expect(screen.getByText("カレンダー")).toBeTruthy();
-    expect(screen.getByText("思い出")).toBeTruthy();
-    expect(screen.getByText("統計")).toBeTruthy();
-    expect(screen.getByText("リスト")).toBeTruthy();
-    expect(screen.getByText("ほしいもの")).toBeTruthy();
-    expect(screen.getByText("気分の記録")).toBeTruthy();
+    const labels = screen.getAllByRole("button").map((el) => el.getAttribute("aria-label")).filter((l) => l !== null);
+    expect(labels).toEqual(["タイムライン", "カレンダー", "思い出", "統計", "アルバム", "リスト", "ほしいもの", "気分の記録", "AIまとめ"]);
+    expect(screen.queryByText("今日どうだった？")).toBeNull();
   });
 
-  // 029: 「気分の記録」パネルにonPressが付き、次フェーズから動くパネルへ移った。
-  // 037: 「AIまとめ」パネルにもonPressが付き、次フェーズから動くパネルへ移った。
-  // 035: 表示文言を「次フェーズ」（開発都合の言葉）から「COMING SOON」に変えた
-  it("次フェーズのパネル1枚（今日どうだった？）が「COMING SOON」表示で出る", async () => {
+  // 041: 次フェーズのパネルは無くなった（「今日どうだった？」をアルバムに置き換えた）。
+  // 035: 表示文言を「次フェーズ」（開発都合の言葉）から「COMING SOON」に変えた経緯は残す
+  it("「COMING SOON」「準備中です」「次フェーズ」という文言がどこにも出ない", async () => {
     renderScreen();
     await screen.findByTestId("stats-card-meetup-pill");
 
-    expect(screen.getByText("今日どうだった？")).toBeTruthy();
-    expect(screen.getByText("AIまとめ")).toBeTruthy();
-    // 「今日どうだった？」だけが「COMING SOON」バッジを持つ
-    // （「準備中です」という文言は使わない）
-    expect(screen.getAllByText("COMING SOON")).toHaveLength(1);
-    expect(screen.queryByText("準備中です")).toBeNull();
-    expect(screen.queryByText("次フェーズ")).toBeNull();
-  });
-
-  it("「準備中です」という文言がどこにも出ない", async () => {
-    renderScreen();
-    await screen.findByTestId("stats-card-meetup-pill");
-
+    expect(screen.queryByText("COMING SOON")).toBeNull();
     expect(screen.queryByText(/準備中/)).toBeNull();
+    expect(screen.queryByText("次フェーズ")).toBeNull();
   });
 
   it("タイムラインパネルを押すと /timeline へ遷移する", async () => {
@@ -160,11 +146,11 @@ describe("HomeScreen: 機能パネル", () => {
     expect(pushMock).toHaveBeenCalledWith("/ai-summary");
   });
 
-  it("次フェーズのパネルを押しても何も起きない（遷移しない）", async () => {
+  it("アルバムパネルを押すと /album へ遷移する（041）", async () => {
     renderScreen();
-    fireEvent.click(await screen.findByText("今日どうだった？"));
+    fireEvent.click(await screen.findByText("アルバム"));
 
-    expect(pushMock).not.toHaveBeenCalled();
+    expect(pushMock).toHaveBeenCalledWith("/album");
   });
 });
 

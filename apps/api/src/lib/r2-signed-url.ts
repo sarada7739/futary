@@ -14,6 +14,9 @@ export interface R2SignConfig {
 
 export const PUT_URL_EXPIRES_SECONDS = 5 * 60;
 export const GET_URL_EXPIRES_SECONDS = 60 * 60;
+// 041: 保存用（Content-Disposition: attachment 付き）の署名付き GET URL の有効期限。
+// 押した瞬間にしか要らないので表示用（1 時間）より短い（architecture.md 6節）
+export const DOWNLOAD_URL_EXPIRES_SECONDS = 5 * 60;
 
 // アップロード後に post.create が env.BUCKET.head() で照合するサイズ上限。
 // 署名付き PUT URL（クエリ文字列署名）自体には body サイズを制約する仕組みが無い
@@ -75,6 +78,25 @@ export function wantImagePrefixFor(coupleId: string): string {
   return `couples/${coupleId}/wants/`;
 }
 
+// 041: アルバムに直接アップロードした写真。posts/・wants/ と分ける（退会時の
+// deleteAllByPrefix と孤児の回収で対象が分かる。architecture.md 6節）。JPEG のみ
+export function albumImageKeyFor(coupleId: string, imageId: string): string {
+  return `${albumImagePrefixFor(coupleId)}${imageId}.jpg`;
+}
+
+export function albumImagePrefixFor(coupleId: string): string {
+  return `couples/${coupleId}/albums/`;
+}
+
+// 鍵の末尾（imageId）。保存するファイル名に使う（photo.downloadUrl）。
+// 鍵はサーバが組み立てたもの（{prefix}{imageId}.jpg）だけが入るため、
+// 最後の "/" から拡張子までを取り出せば imageId になる
+export function imageIdOfKey(key: string): string {
+  const basename = key.slice(key.lastIndexOf("/") + 1);
+  const dot = basename.lastIndexOf(".");
+  return dot === -1 ? basename : basename.slice(0, dot);
+}
+
 // プロフィール画像はペアに属さない個人の持ち物のため、couples/... とは
 // 別の前綴りにする（019・タスク定義）
 const USER_IMAGE_PREFIX = "users/";
@@ -108,6 +130,22 @@ export async function createPutUrl(config: R2SignConfig, key: string, contentTyp
   const signed = await clientFor(config).sign(url.toString(), {
     method: "PUT",
     headers: { "content-type": contentType },
+    aws: { signQuery: true },
+  });
+  return signed.url;
+}
+
+// 041: 保存用の署名付き GET URL（有効期限 5 分）。S3 互換 API の response-content-disposition
+// をクエリに足してから署名する（aws4fetch の signQuery はクエリ全部を正規化して署名に
+// 含めるため、URL を持つ人も filename を書き換えられない。署名後にクエリを変えると R2 は
+// 403 を返す。artifacts/041/download.md で実測）。filename はサーバが組み立てた ASCII のみの
+// 値（futary-YYYYMMDD-{imageId}.jpg）で、引用符や改行を含む値は呼び出し側が作らない
+export async function createDownloadUrl(config: R2SignConfig, key: string, filename: string): Promise<string> {
+  const url = endpointFor(config, key);
+  url.searchParams.set("X-Amz-Expires", String(DOWNLOAD_URL_EXPIRES_SECONDS));
+  url.searchParams.set("response-content-disposition", `attachment; filename="${filename}"`);
+  const signed = await clientFor(config).sign(url.toString(), {
+    method: "GET",
     aws: { signQuery: true },
   });
   return signed.url;

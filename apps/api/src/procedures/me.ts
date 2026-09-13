@@ -1,6 +1,13 @@
 import { implementer } from "../implementer";
 import { generateImageId } from "../lib/ulid";
-import { createPutUrl, MAX_IMAGE_BYTES, resolveUserImage, userImageKeyFor, wantImagePrefixFor } from "../lib/r2-signed-url";
+import {
+  albumImagePrefixFor,
+  createPutUrl,
+  MAX_IMAGE_BYTES,
+  resolveUserImage,
+  userImageKeyFor,
+  wantImagePrefixFor,
+} from "../lib/r2-signed-url";
 import { isSessionFresh } from "../lib/reauth";
 import { authedProcedure, writeProcedure } from "./base";
 
@@ -101,9 +108,13 @@ async function deleteAllByPrefix(bucket: R2Bucket, prefix: string): Promise<void
 //      足したら、消す手順にも足す」）
 //   8. wants（040追加。couples(id)とuser(id)をON DELETE no actionで参照する。5回目。
 //      R2 の couples/{coupleId}/wants/ も posts/ と同じく接頭辞で消す）
-//   9. invites
-//   10. couple_members ← ここまで来れば、あとはcouple_idが要らない
-//   11. couples
+//   9. album_photos（041追加。albums を参照するため、albums を消す前に消す。
+//      post_images と同じ形）
+//   10. albums（041追加。couples(id) と user(id) を ON DELETE no action で参照する。
+//      R2 の couples/{coupleId}/albums/ も接頭辞で消す）
+//   11. invites
+//   12. couple_members ← ここまで来れば、あとはcouple_idが要らない
+//   13. couples
 //   （相手のuser.imageをNULLに。下のコメント参照）
 // 上記は1本のdb.batch()にまとめる（【security-auditor指摘】個別のrun()
 // だと、削除の実行中に別リクエストが新しい投稿・予定・招待を作った場合、
@@ -166,6 +177,8 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
     await deleteAllByPrefix(bucket, `couples/${coupleId}/posts/`);
     // 040: ほしいものの画像も接頭辞で消す（posts/ とは別の接頭辞。タスク定義3節）
     await deleteAllByPrefix(bucket, wantImagePrefixFor(coupleId));
+    // 041: アルバムの写真も接頭辞で消す（albums/。タスク定義1節）
+    await deleteAllByPrefix(bucket, albumImagePrefixFor(coupleId));
     for (const memberId of memberUserIds) {
       await deleteAllByPrefix(bucket, `users/${memberId}/profile/`);
     }
@@ -199,6 +212,13 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       // 【040】wants.couple_id / owner_id も同じ理由で couples / user を参照する。
       // 起票の時点でテスト項目（T7）に入れてある
       db.prepare("DELETE FROM wants WHERE couple_id = ?1").bind(coupleId),
+      // 【041】album_photos.album_id は albums を参照するため、albums を消す前に消す
+      // （post_images と同じ形）。albums.couple_id / created_by は couples / user を参照する。
+      // 起票の時点でテスト項目（T8）に入れてある
+      db
+        .prepare("DELETE FROM album_photos WHERE album_id IN (SELECT id FROM albums WHERE couple_id = ?1)")
+        .bind(coupleId),
+      db.prepare("DELETE FROM albums WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couples WHERE id = ?1").bind(coupleId),
@@ -220,6 +240,7 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
     // 塞がず受け入れる
     await deleteAllByPrefix(bucket, `couples/${coupleId}/posts/`);
     await deleteAllByPrefix(bucket, wantImagePrefixFor(coupleId));
+    await deleteAllByPrefix(bucket, albumImagePrefixFor(coupleId));
     for (const memberId of memberUserIds) {
       await deleteAllByPrefix(bucket, `users/${memberId}/profile/`);
     }

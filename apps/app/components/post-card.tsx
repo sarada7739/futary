@@ -87,7 +87,8 @@ export function PostCard({ post, isOwn, onDelete, onToggleReaction }: PostCardPr
 
         {hasBody && <Text>{post.body}</Text>}
 
-        <PostImages images={post.images} accessibilityLabel="画像を全画面表示" />
+        {/* 041: postId を渡すとビューアに保存ボタンが出る（タイムラインの写真も保存できる） */}
+        <PostImages images={post.images} accessibilityLabel="画像を全画面表示" postId={post.id} />
 
         {onToggleReaction && (
           <View style={{ flexDirection: "row" }}>
