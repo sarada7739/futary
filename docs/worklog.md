@@ -12935,3 +12935,18 @@ Session: B
 - 起票時の A の抜け: 「iOS Safari は attachment をダウンロードに入れる。それでよい」と決めたが、人間が欲しいのは写真ライブラリだった
 
 Session: A
+
+## 2026-09-14 セッションB: 041 段階2 — iPhone は共有シートで写真ライブラリへ（実装完了。PR）
+
+- A の決定 #299。downloadPhoto を canShare で分岐（共有シート / <a download>）。AbortError は何もしない、他の失敗は <a download> に倒す。photo.downloadUrl は変えない
+- AbortError の判定は name だけで行う（jsdom の DOMException は Error を継承しない。テストで発見）
+- r2-cors.json を実体に合わせた（apply 不要）。報告は artifacts/041/stage2.md。段階0（NotAllowedError）は人間の iPhone でデプロイ後に見る
+
+Session: B
+
+## 2026-09-14 セッションB: 041 段階2 — R 受け入れ、#300 をマージ
+
+- R が head 2eeff40 で受け入れ（4 通り壊して全部赤を実測。CSP の connect-src・CORS も読んで確認）。判定文は review-stage2.md に一字一句
+- #300 を squash merge。残りは人間の iPhone の段階0（共有シートが出るか / ダウンロード画面のままか）
+
+Session: B
