@@ -265,7 +265,7 @@ album_photos                                    -- 041。アルバムに直接�
   width       INTEGER NOT NULL
   height      INTEGER NOT NULL
   caption     TEXT    NOT NULL DEFAULT ''        -- 0〜200文字。写真ごとの説明文
-  taken_at    INTEGER NOT NULL                   -- 並び順。アップロードなら追加した時刻
+  taken_at    INTEGER NOT NULL                   -- 並び順。追加した時刻
   created_at  INTEGER NOT NULL
   INDEX (album_id, taken_at, id)
                                                  -- 投稿の写真とは別の実体。投稿を消してもアルバムは変わらない。
@@ -816,8 +816,6 @@ album.addPhotos     { id, photos: [{ imageId, width, height, caption? }]（1〜2
 album.updatePhoto   { id, photoId, caption } -> Photo。説明文だけ
 album.removePhotos  { id, photoIds }（1〜100） -> Album。行を物理削除してから R2 を消す（D1 → R2）
 album.delete        { id } -> { id }。論理削除。album_photos は同じ batch() で物理削除 → R2 を消す
-album.copyFromPosts { id, photos: [{ postId, position }] }（041 段階2。段階1では作らない）
-                    投稿の写真の実体を albums/ のキーへ複製して入れる。投稿を消してもアルバムは変わらない
 photo.list          { albumId?, cursor?, limit } -> { items: Photo[], nextCursor }（041。T9 対象）
                     PhotoRef = { kind: "post", postId, position } | { kind: "album", photoId }
                     Photo = { ref: PhotoRef, url, width, height, takenAt, caption }
