@@ -252,6 +252,20 @@ CREATE INDEX wants_couple_owner_created_idx ON wants (couple_id, owner_id, creat
 
 **段階1に入ってよい。**
 
+## R の段階1レビューへの決定（2026-09-13）
+
+| R の必須修正 | A の決定 |
+|---|---|
+| `content` 属性の中の `'` で題名が切れる（`Levi's` → `Levi`） | 直す。引用符の種類ごとに閉じる |
+| Amazon 用の規則が**元 URL のホスト**で決まり、リダイレクト先を見ていない。`amzn.asia/d/…`（Amazon アプリの共有の形）で画像が付かない | **最終 URL（リダイレクトを辿り終えたホスト）で判定する。**条文の「Amazon のホストのときだけ」は読んだページのホストのことで、効く範囲は狭いまま。6節に一文足した |
+
+**併せて**: 3節「URL の正規化」も**最終 URL に対して**行う。`amzn.asia/d/…` を保存するとき、最終 URL が `amazon.co.jp/…/dp/{ASIN}` なら
+`https://www.amazon.co.jp/dp/{ASIN}` を保存する（短縮 URL のまま残さない。短縮 URL は Amazon の都合で切れうる）。
+**Amazon 以外は元の URL をそのまま保存する**（リダイレクト先で置き換えない。他店の短縮・追跡 URL の扱いは決めていない）。
+fetch が失敗して最終 URL が分からなければ、元の URL をそのまま保存する。
+
+R の記録（`127.0.0.1.nip.io` は字面の検査を通る。名前解決の先は Cloudflare 側が塞ぐ）は 6節に一文足した。
+
 ## 進捗
 
 （B が書く）
