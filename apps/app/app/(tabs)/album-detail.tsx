@@ -78,7 +78,7 @@ export default function AlbumDetailScreen() {
   const isTimeline = albumId === TIMELINE_ALBUM_ID;
   // ゲストは見られる。+・編集を出さない。タイムラインにも無い（自動）
   const canWrite = !isGuestMode && !isTimeline;
-  // 042: 共有シートに File を渡せる環境（iPhone・Android）では、選択モードに「保存（N 枚）」を出す。
+  // 042: 共有シートに File を渡せる環境（iPhone・Android）では、選択モードに「保存」を出す。
   // ゲストもタイムラインも押せる（041 の保存と同じ理由）。PC には出さない。判定は起動後に変わらない
   const canShare = useMemo(() => canShareFiles(), []);
   // 選択モードに入れるのは、写真を消せる（メンバーのアルバム）か、まとめて保存できる（共有シート）とき
@@ -429,7 +429,7 @@ export default function AlbumDetailScreen() {
         )}
       </ScrollView>
 
-      {/* 選択モードの下のバー: 「カバーにする」（1 枚のときだけ）「削除」（確認） */}
+      {/* 選択モードの下のバー: 「保存」（共有シートのある環境）「カバー」（1 枚のときだけ）「削除」（確認） */}
       {isSelecting && (
         <View
           testID="album-detail-selection-bar"
@@ -472,7 +472,9 @@ export default function AlbumDetailScreen() {
                 </Text>
               )}
               <View style={{ flexDirection: "row", gap: space.sm }}>
-                {/* 042: 共有シートで保存できる環境だけ。タイムライン・ゲストはこれだけ */}
+                {/* 042: 共有シートで保存できる環境だけ。タイムライン・ゲストはこれだけ。
+                    ラベルは「保存」「カバー」「削除」（iPhone の幅では「保存（7 枚）」「カバーにする」が折れた。
+                    枚数はヘッダーの「N 枚を選択中」にある。人間の決定 2026-09-14） */}
                 {canShare && (
                   <View style={{ flex: 1 }}>
                     <Button
@@ -481,7 +483,7 @@ export default function AlbumDetailScreen() {
                       disabled={selected.size === 0 || tooManyToShare || shareProgress !== null}
                       testID="album-detail-share"
                     >
-                      {`保存（${selected.size} 枚）`}
+                      保存
                     </Button>
                   </View>
                 )}
@@ -489,7 +491,7 @@ export default function AlbumDetailScreen() {
                   <>
                     <View style={{ flex: 1 }}>
                       <Button variant="secondary" onPress={handleSetCover} disabled={selected.size !== 1} testID="album-detail-set-cover">
-                        カバーにする
+                        カバー
                       </Button>
                     </View>
                     <View style={{ flex: 1 }}>
