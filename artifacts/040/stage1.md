@@ -78,6 +78,8 @@ AssertionError: apps\app\app\(tabs)\want.tsx:304:24 の useQuery(...): viewerKey
 | `{pink,white}-want-guest.png` / `-guest-me-tab.png` | ゲスト: 2 人分（ゆい・れん）のタブ。+ は無く、ログイン導線だけ |
 | `capture.json` | ライブ保存の計測とコンソールエラー |
 
+スクリーンショットは 🔗 を外す前（`ed6be62`）に撮ったもので、`pink-want-me.png` 等に 🔗 が残っている（R の記録4）。差し替えていない。
+
 **ライブ保存**（`https://www.amazon.co.jp/dp/B0HJBHHXK2/`。ローカルの wrangler dev から。**PC の IP から出るので本番の証明ではない**）:
 「画像を取得中…」の表示あり・2.4 秒で閉じた・「画像は取れませんでした」は出ていない。ローカル D1 の行:
 `url = https://www.amazon.co.jp/dp/B0HJBHHXK2`（tag・末尾の / が落ちた）、`title = Apple iPhone 18 Pro Max (2 TB) - グレイシャー | …一日中使`（100 文字。前置き・後置き無し）、

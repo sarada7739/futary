@@ -92,14 +92,22 @@ function escapeRegExp(value: string): string {
 
 // `<meta property="og:title" content="…">` と、content が先に来る書き方の両方を拾う。
 // 6節「取った HTML から拾うのは、決まった属性値だけ。DOM を組み立てない」。
-// 属性値に `<` `>` を許さない（閉じ引用符の無い壊れた属性が、次のタグまで丸ごと値になるのを防ぐ）
+// 属性値に `<` `>` を許さない（閉じ引用符の無い壊れた属性が、次のタグまで丸ごと値になるのを防ぐ）。
+// 引用符は開いた種類と同じもので閉じる（R の必須修正1: `content="Levi's 501"` の `'` を閉じ引用符と
+// 見なして `Levi` で切れていた。`Levi's`・`Kids'` は商品名に普通にある）
+const QUOTED_VALUE = `(?:"([^"<>]*)"|'([^'<>]*)')`;
+
+function quotedValueOf(match: RegExpMatchArray, firstGroup: number): string {
+  return match[firstGroup] ?? match[firstGroup + 1] ?? "";
+}
+
 function pickMeta(html: string, attr: "property" | "name", key: string): string | null {
   const k = escapeRegExp(key);
-  const first = new RegExp(`<meta\\b[^>]*\\b${attr}\\s*=\\s*["']${k}["'][^>]*\\bcontent\\s*=\\s*["']([^"'<>]*)["']`, "i");
-  const second = new RegExp(`<meta\\b[^>]*\\bcontent\\s*=\\s*["']([^"'<>]*)["'][^>]*\\b${attr}\\s*=\\s*["']${k}["']`, "i");
+  const first = new RegExp(`<meta\\b[^>]*\\b${attr}\\s*=\\s*["']${k}["'][^>]*\\bcontent\\s*=\\s*${QUOTED_VALUE}`, "i");
+  const second = new RegExp(`<meta\\b[^>]*\\bcontent\\s*=\\s*${QUOTED_VALUE}[^>]*\\b${attr}\\s*=\\s*["']${k}["']`, "i");
   const match = html.match(first) ?? html.match(second);
   if (!match) return null;
-  const value = decodeEntities(match[1] ?? "").trim();
+  const value = decodeEntities(quotedValueOf(match, 1)).trim();
   return value === "" ? null : value;
 }
 
@@ -114,11 +122,14 @@ export function isAmazonHost(hostname: string): boolean {
 // `<img id="landingImage" data-old-hires="…" data-a-dynamic-image="{…}">`。
 // data-old-hires が無ければ data-a-dynamic-image（JSON を &quot; で書いた属性）の先頭のキー
 function pickAmazonImage(html: string): string | null {
-  const hires = html.match(/\bdata-old-hires\s*=\s*["']([^"'<>]+)["']/i);
-  if (hires?.[1]) return decodeEntities(hires[1]);
-  const dynamic = html.match(/\bdata-a-dynamic-image\s*=\s*["']([^"'<>]+)["']/i);
-  if (dynamic?.[1]) {
-    const firstKey = decodeEntities(dynamic[1]).match(/"(https?:[^"]+)"/);
+  const hires = html.match(new RegExp(`\\bdata-old-hires\\s*=\\s*${QUOTED_VALUE}`, "i"));
+  if (hires) {
+    const value = decodeEntities(quotedValueOf(hires, 1));
+    if (value !== "") return value;
+  }
+  const dynamic = html.match(new RegExp(`\\bdata-a-dynamic-image\\s*=\\s*${QUOTED_VALUE}`, "i"));
+  if (dynamic) {
+    const firstKey = decodeEntities(quotedValueOf(dynamic, 1)).match(/"(https?:[^"]+)"/);
     if (firstKey?.[1]) return firstKey[1];
   }
   return null;
@@ -304,7 +315,8 @@ async function fetchImage(
     return null;
   }
   const declared = mediaTypeOf(response.headers.get("content-type"));
-  if (!(declared in ALLOWED_IMAGE_TYPES)) {
+  // `in` だと `constructor` 等のプロトタイプ名が通る（先頭バイトで必ず落ちるが、意図が読める方に。R の記録2）
+  if (!Object.hasOwn(ALLOWED_IMAGE_TYPES, declared)) {
     await response.body?.cancel().catch(() => {});
     failures.push(`画像の Content-Type が許可外: ${declared || "(無し)"}`);
     return null;
@@ -315,7 +327,7 @@ async function fetchImage(
     return null;
   }
   const sniffed = sniffImageType(bytes);
-  if (sniffed !== declared) {
+  if (sniffed === null || sniffed !== declared) {
     failures.push(`画像の先頭バイトが Content-Type（${declared}）と合わない`);
     return null;
   }
@@ -338,7 +350,6 @@ export async function fetchLinkPreview(url: string, options: FetchLinkPreviewOpt
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TOTAL_TIMEOUT_MS);
   try {
-    const pageHostname = new URL(url).hostname;
     const fetched = await fetchFollowingRedirects(
       fetchImpl,
       url,
@@ -352,6 +363,10 @@ export async function fetchLinkPreview(url: string, options: FetchLinkPreviewOpt
       failures.push(`ページ ${response.status}: ${await bodyHead(response)}`);
       return { title: null, image: null, failures };
     }
+    // 店ごとの規則（Amazon）は、元の URL ではなく実際に読んだページ（リダイレクト後）のホストで
+    // 判定する（R の必須修正2: Amazon アプリの共有は amzn.asia の短縮 URL で、元の URL のホストで
+    // 判定すると人間の主な使い方で画像が付かない。効く範囲は「読んだページが Amazon」のまま狭い）
+    const pageHostname = new URL(finalUrl).hostname;
     // 6節: ページは先頭 1MB で打ち切る
     const { bytes } = await readUpTo(response, PAGE_BYTE_LIMIT);
     const html = decodeHtml(bytes, response.headers.get("content-type"));

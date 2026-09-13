@@ -157,6 +157,15 @@ describe("extractMeta: 段階0で取った本物の HTML（T2）", () => {
     expect(extractMeta(html, "example.com")).toEqual({ title: "題名", imageUrl: "https://cdn.example.com/a.jpg?x=1&y=2" });
   });
 
+  it("値の中のアポストロフィで切れない（R の必須修正1: Levi's）。引用符は開いた種類で閉じる", () => {
+    const html =
+      '<meta property="og:title" content="Levi\'s 501 ジーンズ"><meta property="og:image" content=\'https://cdn.example.com/it"s.jpg\'>' +
+      '<img id="landingImage" data-old-hires="https://m.media-amazon.com/images/I/x\'y.jpg">';
+    expect(extractMeta(html, "example.com")).toEqual({ title: "Levi's 501 ジーンズ", imageUrl: 'https://cdn.example.com/it"s.jpg' });
+    const amazonOnly = '<img id="landingImage" data-old-hires="https://m.media-amazon.com/images/I/x\'y.jpg">';
+    expect(extractMeta(amazonOnly, AMAZON_HOST).imageUrl).toBe("https://m.media-amazon.com/images/I/x'y.jpg");
+  });
+
   it("未知の charset なら UTF-8 で読む（落とさない）", () => {
     const bytes = new TextEncoder().encode('<meta property="og:title" content="日本語">');
     expect(extractMeta(decodeHtml(bytes, "text/html; charset=x-unknown-9"), "example.com").title).toBe("日本語");
@@ -396,6 +405,34 @@ describe("fetchLinkPreview: リダイレクト（6節: 3 回まで。行き先�
     expect(preview.title).toBeNull();
     expect(calls.map((c) => c.url)).not.toContain("https://shop.example.com/r4");
     expect(preview.failures.join(" ")).toContain("超えた");
+  });
+
+  it("Amazon 用の規則は読んだページ（リダイレクト後）のホストで決まる（R の必須修正2: amzn.asia の短縮 URL）", async () => {
+    const short = "https://amzn.asia/d/abc123";
+    const product = "https://www.amazon.co.jp/dp/B0HJBHHXK2";
+    const image = "https://m.media-amazon.com/images/I/71hktoqrWjL._AC_SL1500_.jpg";
+    const { impl, calls } = fakeFetch({
+      [short]: redirectTo(product),
+      [product]: htmlResponse(amazonHtml, "text/html;charset=UTF-8"),
+      [image]: { headers: { "content-type": "image/jpeg" }, body: bytesOf(JPEG_HEAD, 512) },
+    });
+    const preview = await fetchLinkPreview(short, { fetchImpl: impl, maxTitleLength: MAX_TITLE });
+    expect(calls.map((c) => c.url)).toEqual([short, product, image]);
+    expect(preview.image?.contentType).toBe("image/jpeg");
+    expect(preview.title?.startsWith("Apple iPhone 18 Pro Max")).toBe(true);
+    expect(preview.title).not.toContain("通販");
+  });
+
+  it("元の URL が Amazon でも、読んだページが Amazon でなければ Amazon 用の規則は効かない", async () => {
+    const start = "https://www.amazon.co.jp/dp/B0HJBHHXK2";
+    const elsewhere = "https://shop.example.com/moved";
+    const { impl } = fakeFetch({
+      [start]: redirectTo(elsewhere),
+      [elsewhere]: htmlResponse('<meta name="title" content="Amazon | 何か | 通販"><img id="landingImage" data-old-hires="https://x/y.jpg">'),
+    });
+    const preview = await fetchLinkPreview(start, { fetchImpl: impl, maxTitleLength: MAX_TITLE });
+    expect(preview.image).toBeNull();
+    expect(preview.title).toBe("Amazon | 何か | 通販");
   });
 
   it("リダイレクト先が内部（IP リテラル）なら取りに行かない", async () => {
