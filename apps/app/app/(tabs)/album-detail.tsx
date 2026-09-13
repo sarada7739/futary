@@ -17,6 +17,7 @@ import { ImageViewer, type ImageViewerImage } from "../../components/image-viewe
 import { Sheet } from "../../components/sheet";
 import { pickAlbumImages, uploadAlbumImages, type UploadProgress } from "../../lib/album-upload";
 import { chunk } from "../../lib/chunk";
+import { canShareFiles, MAX_SHARE_FILES, sharePhotos, type ShareProgress } from "../../lib/photo-download";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
@@ -75,8 +76,13 @@ export default function AlbumDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const albumId = typeof params.id === "string" && params.id !== "" ? params.id : TIMELINE_ALBUM_ID;
   const isTimeline = albumId === TIMELINE_ALBUM_ID;
-  // ゲストは見られる。+・選択・編集を出さない。タイムラインにも無い（自動）
+  // ゲストは見られる。+・編集を出さない。タイムラインにも無い（自動）
   const canWrite = !isGuestMode && !isTimeline;
+  // 042: 共有シートに File を渡せる環境（iPhone・Android）では、選択モードに「保存（N 枚）」を出す。
+  // ゲストもタイムラインも押せる（041 の保存と同じ理由）。PC には出さない。判定は起動後に変わらない
+  const canShare = useMemo(() => canShareFiles(), []);
+  // 選択モードに入れるのは、写真を消せる（メンバーのアルバム）か、まとめて保存できる（共有シート）とき
+  const canSelect = canWrite || canShare;
 
   // queryKey に viewerKey を含める理由は apps/app/lib/viewer-key.ts 参照（T10）
   const viewerKey = useViewerQueryKey();
@@ -118,6 +124,7 @@ export default function AlbumDetailScreen() {
   const [captionFor, setCaptionFor] = useState<Photo | null>(null);
   const [captionDraft, setCaptionDraft] = useState("");
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  const [shareProgress, setShareProgress] = useState<ShareProgress | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const tileSize = gridWidth > 0 ? (gridWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS : undefined;
@@ -138,25 +145,54 @@ export default function AlbumDetailScreen() {
       headerLeft: () => <HeaderTextButton label="‹ 戻る" onPress={() => router.push("/album")} testID="album-detail-back" />,
       headerRight: isSelecting
         ? () => <HeaderTextButton label="やめる" onPress={stopSelecting} testID="album-detail-stop-selecting" />
-        : canWrite
+        : canSelect
           ? () => (
               <View style={{ flexDirection: "row" }}>
-                <HeaderTextButton label="編集" onPress={() => setIsEditing(true)} testID="album-detail-edit" />
+                {canWrite && <HeaderTextButton label="編集" onPress={() => setIsEditing(true)} testID="album-detail-edit" />}
                 <HeaderTextButton label="選択" onPress={() => setIsSelecting(true)} testID="album-detail-select" />
               </View>
             )
           : undefined,
     });
     // stopSelecting・router は毎回同じ振る舞い。依存に入れると setOptions が描画のたびに走る
-  }, [navigation, title, canWrite, isSelecting, selected.size]);
+  }, [navigation, title, canWrite, canSelect, isSelecting, selected.size]);
 
+  // 042 1節: 共有シートで保存できる環境では 1 回 MAX_SHARE_FILES 枚まで。21 枚目は選ばせず 1 行出す。
+  // PC（共有シート無し）は削除のための選択なので上限を掛けない（100 枚を超える削除は分けて送る）
   function toggleSelected(id: string) {
+    if (!selected.has(id) && canShare && selected.size >= MAX_SHARE_FILES) {
+      setNotice(`一度に保存できるのは ${MAX_SHARE_FILES} 枚までです`);
+      return;
+    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  // 042: 選んだ写真を表示順に共有シートへ（fetch → File を枚数ぶん。進捗「3 / 12 枚を取得中…」）。
+  // 閉じた（AbortError）ときは何もしない（選択は残す）。取得できなかった枚数は共有シートのあとに 1 行
+  async function handleShareSelected() {
+    if (selected.size === 0 || shareProgress) return;
+    const refs = photos.filter((photo) => selected.has(photoKey(photo))).map((photo) => photo.ref);
+    setNotice(null);
+    try {
+      const result = await sharePhotos(refs, setShareProgress);
+      if (result.outcome === "nothing") {
+        setNotice("取得できませんでした。もう一度お試しください");
+      } else if (result.outcome === "shared") {
+        if (result.failed > 0) setNotice(`${result.failed} 枚は取得できませんでした`);
+        stopSelecting();
+      } else if (result.failed > 0) {
+        setNotice(`${result.failed} 枚は取得できませんでした`);
+      }
+    } catch {
+      setNotice("保存できませんでした。もう一度お試しください");
+    } finally {
+      setShareProgress(null);
+    }
   }
 
   // + FAB: 写真を追加（複数選択。1 回 20 枚まで）→ 圧縮 → 1 枚ずつ署名付き PUT → addPhotos（1 回）。
@@ -309,6 +345,11 @@ export default function AlbumDetailScreen() {
                 {`${uploadProgress.done} / ${uploadProgress.total} 枚を送っています…`}
               </Text>
             )}
+            {shareProgress && (
+              <Text color="muted" align="center" testID="album-detail-share-progress">
+                {`${shareProgress.done} / ${shareProgress.total} 枚を取得中…`}
+              </Text>
+            )}
             {notice && (
               <Text color="muted" align="center">
                 {notice}
@@ -426,16 +467,33 @@ export default function AlbumDetailScreen() {
             </>
           ) : (
             <View style={{ flexDirection: "row", gap: space.sm }}>
-              <View style={{ flex: 1 }}>
-                <Button variant="secondary" onPress={handleSetCover} disabled={selected.size !== 1} testID="album-detail-set-cover">
-                  カバーにする
-                </Button>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button variant="secondary" onPress={() => setConfirmingRemove(true)} disabled={selected.size === 0} testID="album-detail-remove">
-                  削除
-                </Button>
-              </View>
+              {/* 042: 共有シートで保存できる環境だけ。タイムライン・ゲストはこれだけ */}
+              {canShare && (
+                <View style={{ flex: 1 }}>
+                  <Button
+                    variant="secondary"
+                    onPress={handleShareSelected}
+                    disabled={selected.size === 0 || shareProgress !== null}
+                    testID="album-detail-share"
+                  >
+                    {`保存（${selected.size} 枚）`}
+                  </Button>
+                </View>
+              )}
+              {canWrite && (
+                <>
+                  <View style={{ flex: 1 }}>
+                    <Button variant="secondary" onPress={handleSetCover} disabled={selected.size !== 1} testID="album-detail-set-cover">
+                      カバーにする
+                    </Button>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Button variant="secondary" onPress={() => setConfirmingRemove(true)} disabled={selected.size === 0} testID="album-detail-remove">
+                      削除
+                    </Button>
+                  </View>
+                </>
+              )}
             </View>
           )}
         </View>
