@@ -742,9 +742,15 @@ gh pr merge <番号> --squash --delete-branch --subject "003: 認証基盤 (#5)"
 <変更の要約>
 
 Session: B
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 EOF
 )"
 ```
+
+**トレーラーは末尾の 1 段落にまとめる。`Session:` と `Co-Authored-By:` の間に空行を入れない。**
+git は最後の段落だけをトレーラーとして読むので、空行を挟むと `Session:` は本文になり
+`%(trailers:key=Session)` で取り出せなくなる（A の squash コミット 12 本、`2344e8f`〜`88268a9` で起きた。
+文字は入っているが解析できない。`main` は書き換えないので、これらは `git log --grep='^Session: A'` で拾う）。
 
 **`--delete-branch` を付ける。**リモートブランチを消すのはマージした者の担当である
 （`harness.md` 3節）。切った側はローカルしか消さない。
