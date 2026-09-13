@@ -129,6 +129,8 @@ export default function AlbumDetailScreen() {
 
   const tileSize = gridWidth > 0 ? (gridWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS : undefined;
   const selectedIds = [...selected];
+  // 042 1節: 1 回の共有は MAX_SHARE_FILES 枚まで。超えていたら「保存」を押せなくして 1 行を出す
+  const tooManyToShare = canShare && selected.size > MAX_SHARE_FILES;
 
   function stopSelecting() {
     setIsSelecting(false);
@@ -157,13 +159,9 @@ export default function AlbumDetailScreen() {
     // stopSelecting・router は毎回同じ振る舞い。依存に入れると setOptions が描画のたびに走る
   }, [navigation, title, canWrite, canSelect, isSelecting, selected.size]);
 
-  // 042 1節: 共有シートで保存できる環境では 1 回 MAX_SHARE_FILES 枚まで。21 枚目は選ばせず 1 行出す。
-  // PC（共有シート無し）は削除のための選択なので上限を掛けない（100 枚を超える削除は分けて送る）
+  // 選択に上限は掛けない（042 1節。選択モードは削除・カバーと共用で、選ぶ時点では何をするか分からない。
+  // 100 枚を超える削除は分けて送る）。20 枚の上限は下のバーの「保存」に掛ける（tooManyToShare）
   function toggleSelected(id: string) {
-    if (!selected.has(id) && canShare && selected.size >= MAX_SHARE_FILES) {
-      setNotice(`一度に保存できるのは ${MAX_SHARE_FILES} 枚までです`);
-      return;
-    }
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -175,7 +173,7 @@ export default function AlbumDetailScreen() {
   // 042: 選んだ写真を表示順に共有シートへ（fetch → File を枚数ぶん。進捗「3 / 12 枚を取得中…」）。
   // 閉じた（AbortError）ときは何もしない（選択は残す）。取得できなかった枚数は共有シートのあとに 1 行
   async function handleShareSelected() {
-    if (selected.size === 0 || shareProgress) return;
+    if (selected.size === 0 || tooManyToShare || shareProgress) return;
     const refs = photos.filter((photo) => selected.has(photoKey(photo))).map((photo) => photo.ref);
     setNotice(null);
     try {
@@ -466,35 +464,43 @@ export default function AlbumDetailScreen() {
               </View>
             </>
           ) : (
-            <View style={{ flexDirection: "row", gap: space.sm }}>
-              {/* 042: 共有シートで保存できる環境だけ。タイムライン・ゲストはこれだけ */}
-              {canShare && (
-                <View style={{ flex: 1 }}>
-                  <Button
-                    variant="secondary"
-                    onPress={handleShareSelected}
-                    disabled={selected.size === 0 || shareProgress !== null}
-                    testID="album-detail-share"
-                  >
-                    {`保存（${selected.size} 枚）`}
-                  </Button>
-                </View>
+            <>
+              {/* 042 1節: 21 枚以上選んでいるときは「保存」を押せなくして 1 行。選択には上限を掛けない（削除は何枚でも） */}
+              {tooManyToShare && (
+                <Text color="muted" align="center" testID="album-detail-share-limit">
+                  {`一度に保存できるのは ${MAX_SHARE_FILES} 枚までです`}
+                </Text>
               )}
-              {canWrite && (
-                <>
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                {/* 042: 共有シートで保存できる環境だけ。タイムライン・ゲストはこれだけ */}
+                {canShare && (
                   <View style={{ flex: 1 }}>
-                    <Button variant="secondary" onPress={handleSetCover} disabled={selected.size !== 1} testID="album-detail-set-cover">
-                      カバーにする
+                    <Button
+                      variant="secondary"
+                      onPress={handleShareSelected}
+                      disabled={selected.size === 0 || tooManyToShare || shareProgress !== null}
+                      testID="album-detail-share"
+                    >
+                      {`保存（${selected.size} 枚）`}
                     </Button>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Button variant="secondary" onPress={() => setConfirmingRemove(true)} disabled={selected.size === 0} testID="album-detail-remove">
-                      削除
-                    </Button>
-                  </View>
-                </>
-              )}
-            </View>
+                )}
+                {canWrite && (
+                  <>
+                    <View style={{ flex: 1 }}>
+                      <Button variant="secondary" onPress={handleSetCover} disabled={selected.size !== 1} testID="album-detail-set-cover">
+                        カバーにする
+                      </Button>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Button variant="secondary" onPress={() => setConfirmingRemove(true)} disabled={selected.size === 0} testID="album-detail-remove">
+                        削除
+                      </Button>
+                    </View>
+                  </>
+                )}
+              </View>
+            </>
           )}
         </View>
       )}

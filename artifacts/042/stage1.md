@@ -11,10 +11,11 @@
   - 1 枚でも `photo.downloadUrl` か `fetch` に失敗したら **その枚を飛ばして続ける**（`failed` に数える）。1 枚も取れなければ共有シートを出さず `outcome: "nothing"`
   - 共有シートを閉じた（`AbortError`）ときは `outcome: "aborted"`。それ以外の失敗は例外のまま投げる
   - 進捗は `{ done, total }` で 0/N から N/N まで（失敗も `done` に数える）
+  - `refs` が `MAX_SHARE_FILES` を超えていたら何も呼ばずに例外（保険。R の記録 1。画面が「保存」を無効にして守るので、通常は届かない）
 - `apps/app/app/(tabs)/album-detail.tsx`
   - 起動時に `canShareFiles()` を 1 回評価する（`useMemo`）。**真のときだけ**選択モードの下のバーに「保存（N 枚）」（0 枚では押せない）。PC（偽）には出ない
   - **選択モードに入れる条件**を `canWrite`（メンバーのアルバム）**または** `canShare` に広げた。**タイムラインとゲストのアルバムは `canShare` が真なら「選択」が出て、下のバーは「保存」だけ**（「編集」「カバーにする」「削除」「+」は出ない）。偽なら今までどおり出ない
-  - `canShare` が真のとき、**21 枚目は選ばせず**「一度に保存できるのは 20 枚までです」の 1 行を出す。1 枚外せばまた選べる
+  - **選択に上限は掛けない**（削除・カバーと共用。1節）。`canShare` が真で **21 枚以上選んでいるときは「保存」を押せなくして**、下のバーに「一度に保存できるのは 20 枚までです」の 1 行を出す（`album-detail-share-limit`）。20 枚以下に戻すと押せて 1 行が消える。削除は何枚でも
   - 押すと「3 / 12 枚を取得中…」（`album-detail-share-progress`）→ 共有シート。取得中はボタンを押せない
   - 結果の扱い（3節）: 共有できたら選択モードを抜ける。取れなかった枚数があれば **共有シートのあとに**「2 枚は取得できませんでした」。閉じた（`AbortError`）ときは何も出さず選択を残す。1 枚も取れなければ「取得できませんでした。もう一度お試しください」。`share` が `NotAllowedError` 等で失敗したら「保存できませんでした。もう一度お試しください」（いずれも選択は残す）
 - 設計ドキュメント・API・`packages/contract` は触っていない
@@ -24,20 +25,20 @@
 | # | 何を | どこで（テスト名） |
 |---|---|---|
 | T1 | `canShare` が偽なら選択モードに「保存」が出ない（カバー・削除はある）。真なら出て、0 枚では押せず、選ぶと枚数が変わる | `test/album-detail-share.test.tsx`「選択モードの「保存」（042 T1）」 |
-| T2 | 25 枚のアルバムで 21 回押すと 20 枚のまま、21 枚目にチェックが付かず 1 行が出る。1 枚外せば 21 枚目が選べる。PC に上限が無いことは既存の「101 枚選んで削除」がそのまま緑 | 同「20 枚の上限（042 T2）」 |
+| T2 | 25 枚のアルバムで 21 枚選ぶと「保存（21 枚）」が押せず 1 行が出る。押しても `share`・`photo.downloadUrl` は呼ばれない。「削除」は押せる。1 枚外して 20 枚に戻すと「保存」が押せて 1 行が消える。PC は「保存」自体が無く、選択に上限が無いことは既存の「101 枚選んで削除」がそのまま緑 | 同「20 枚の上限（042 T2）」 |
 | T3 | `refs` の順に `photo.downloadUrl`・`fetch` が呼ばれ、`share` に渡る `File` の数・名前（`photo.downloadUrl` の `filename` そのまま）・型（`image/jpeg`）・中身の順序（size で判別）が一致する。画面側: 3 → 1 の順に選んでも表示順（1 → 3）で渡る。終わったら選択モードを抜ける | `test/share-photos.test.ts` T3 / `album-detail-share.test.tsx` T3 |
 | T4 | 2 枚目の `fetch` が 404 でも残り 2 枚で `share` が呼ばれ、`failed: 1`。`photo.downloadUrl` の失敗も同じ。画面には「1 枚は取得できませんでした」。全部失敗なら `share` を呼ばず「取得できませんでした」で選択が残る | 両ファイルの T4 |
 | T5 | `AbortError` で `aborted`。画面は何も出さず、チェック・題名「2 枚を選択中」が残り、ボタンがまた押せる。`NotAllowedError` は「保存できませんでした」で選択が残る | 両ファイルの T5 |
 | T6 | タイムライン（`id=timeline`）で `canShare` 真なら「選択」が出て、バーは「保存」だけ（カバー・削除・編集・+ が無い）。投稿の写真の `ref` で `photo.downloadUrl` が呼ばれる。ゲストのアルバムも同じ。偽なら「選択」が出ないことは既存テストがそのまま緑 | `album-detail-share.test.tsx`「タイムライン・ゲストの選択モード（042 T6）」 |
 | T7 | 依存が増えていない | `git diff origin/main --stat -- '*package.json' pnpm-lock.yaml` が空（目視） |
 
-- 新規 18 件（`share-photos.test.ts` 8・`album-detail-share.test.tsx` 10）。既存の `album-detail-screen.test.tsx`・`photo-download.test.ts`・`post-card.test.tsx` はそのまま緑
-- `pnpm test`: app 414（041 段階2 時点の 396 + 18）・api 591・ui 16・date 66・db 31、全て緑。`pnpm type-check`・`pnpm lint` 緑
-- テストが実装を縛っていることの確かめ（1 点だけ。採点は R）: 上限判定（`canShare && selected.size >= MAX_SHARE_FILES`）を `false` にすると T2 が「expected '21 枚を選択中' to be '20 枚を選択中'」で赤になった。戻して緑
+- 新規 19 件（`share-photos.test.ts` 9・`album-detail-share.test.tsx` 10）。既存の `album-detail-screen.test.tsx`・`photo-download.test.ts`・`post-card.test.tsx` はそのまま緑
+- `pnpm test`: app 415（041 段階2 時点の 396 + 19）・api 591・ui 16・date 66・db 31、全て緑。`pnpm type-check`・`pnpm lint` 緑
+- テストが実装を縛っていることの確かめ（1 点だけ。採点は R）: 上限判定（`tooManyToShare = canShare && selected.size > MAX_SHARE_FILES`）を `false` にすると T2 が「expected null to be 'true'」（「保存」の aria-disabled が付かない）で赤になった。戻して緑
 
-## B が決めたこと（A の判断が要るものは印を付けた）
+## B が決めたこと
 
-1. **共有シートのある環境（iPhone・Android）では、削除・カバーのための選択にも 20 枚の上限が掛かる。**選択モードは 1 つで、選んだあとに「保存」か「削除」かが決まるため、選ぶ時点では区別できない。タスク定義 1節の「選択モードで 21 枚目を選ぼうとしたら選ばせない」のとおりに実装した。PC（共有シート無し）には上限が無い（既存の 100 枚超の削除はそのまま）。**iPhone で 21 枚以上をまとめて消したい場面が出るなら A の判断**（削除は上限を外して「保存」を 20 枚超で押せなくする形もある）
+1. 上限の掛け先は A の決定（#306。1節）のとおり「保存」。選択には掛けない。`tooManyToShare` で「保存」を無効にし、1 行は下のバーの中（ボタンの上）に出す。PC（共有シート無し）には「保存」が無いので何も変わらない
 2. `canShareFiles()` は起動時に 1 回だけ評価する（041 の R の記録「1 回覚えてもよい」と同じ。押すたびに判定しない）
 3. 選んだ順ではなく**表示順**で共有シートに渡す（写真ライブラリに入る順が並びと揃う）
 4. 取得中の進捗はアップロードの「N / M 枚を送っています…」と同じ場所に「N / M 枚を取得中…」を出す（別の `testID`）

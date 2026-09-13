@@ -131,6 +131,14 @@ describe("sharePhotos（042）", () => {
     await expect(sharePhotos(REFS)).rejects.toMatchObject({ name: "NotAllowedError" });
   });
 
+  it("21 枚以上は photo.downloadUrl も share も呼ばず例外（保険。画面は「保存」を無効にして守る）", async () => {
+    const many = Array.from({ length: MAX_SHARE_FILES + 1 }, (_, i) => ({ kind: "album" as const, photoId: `photo-${i}` }));
+
+    await expect(sharePhotos(many)).rejects.toThrow("一度に保存できるのは 20 枚までです");
+    expect(downloadUrlMock).not.toHaveBeenCalled();
+    expect(shareMock).not.toHaveBeenCalled();
+  });
+
   it("refs が空なら share を呼ばず nothing（画面は 0 枚では押せないので保険）", async () => {
     const result = await sharePhotos([]);
     expect(result).toEqual({ outcome: "nothing", failed: 0 });

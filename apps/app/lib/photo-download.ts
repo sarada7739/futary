@@ -103,11 +103,13 @@ export type SharePhotosResult = {
 
 // 写真の ref を順に photo.downloadUrl → fetch → File にして、揃った分を 1 回の navigator.share に渡す。
 // photo.downloadUrl は枚数ぶん呼ぶ（1 リクエスト 1 署名。専用の手続きを足さない。042 3節）。
-// 1 枚でも失敗したらその枚を飛ばす。AbortError は "aborted"。他の失敗は例外のまま投げる
+// 1 枚でも失敗したらその枚を飛ばす。AbortError は "aborted"。他の失敗は例外のまま投げる。
+// MAX_SHARE_FILES 超は例外（保険。画面が「保存」を無効にして守る。画面の判定が外れても lib で止まる）
 export async function sharePhotos(
   refs: readonly PhotoRef[],
   onProgress?: (progress: ShareProgress) => void,
 ): Promise<SharePhotosResult> {
+  if (refs.length > MAX_SHARE_FILES) throw new Error(`一度に保存できるのは ${MAX_SHARE_FILES} 枚までです`);
   const files: File[] = [];
   let failed = 0;
   onProgress?.({ done: 0, total: refs.length });

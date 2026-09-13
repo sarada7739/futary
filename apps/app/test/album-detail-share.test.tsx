@@ -3,7 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// 042: 選択モードの「保存（N 枚）」（T1・T2・T4・T5・T6 の画面側）。album-detail-screen.test.tsx と同じ形。
+// 042: 選択モードの「保存（N 枚）」（T1・T2・T4・T5・T6 の画面側。上限は「保存」に掛ける。1節）。album-detail-screen.test.tsx と同じ形。
 // jsdom の navigator に canShare / share は無い（= PC）。共有シートのある環境（iPhone・Android）は
 // テストごとに生やして、終わったら消す。ロジック側（File の中身・順序）は share-photos.test.ts
 const { getMock, listMock, photoListMock, downloadUrlMock, setOptionsMock, searchParams } = vi.hoisted(() => ({
@@ -210,8 +210,8 @@ describe("AlbumDetailScreen: 選択モードの「保存」（042 T1）", () => 
 });
 
 describe("AlbumDetailScreen: 20 枚の上限（042 T2）", () => {
-  it("21 枚目は選べず「一度に保存できるのは 20 枚までです」が出る。1 枚外せばまた選べる", async () => {
-    enableShareSheet();
+  it("21 枚以上選ぶと「保存」が押せず 1 行が出る（押しても share は呼ばれない）。削除は押せる。20 枚に戻すと「保存」が押せる", async () => {
+    const share = enableShareSheet();
     photoListMock.mockResolvedValue({ items: Array.from({ length: 25 }, (_, i) => makeAlbumPhoto(i + 1)), nextCursor: null });
     getMock.mockResolvedValue(makeAlbum({ photoCount: 25 }));
     renderScreen();
@@ -219,19 +219,23 @@ describe("AlbumDetailScreen: 20 枚の上限（042 T2）", () => {
 
     for (let i = 1; i <= 21; i++) fireEvent.click(screen.getByTestId(`album-photo-photo-${i}`));
 
-    expect(lastHeaderOptions().title).toBe("20 枚を選択中");
-    expect(screen.getByTestId("album-photo-check-photo-20")).toBeTruthy();
-    expect(screen.queryByTestId("album-photo-check-photo-21")).toBeNull();
-    expect(screen.getByText("一度に保存できるのは 20 枚までです")).toBeTruthy();
-    expect(screen.getByTestId("album-detail-share")).toHaveTextContent("保存（20 枚）");
-
-    fireEvent.click(screen.getByTestId("album-photo-photo-1"));
-    fireEvent.click(screen.getByTestId("album-photo-photo-21"));
-    expect(screen.queryByTestId("album-photo-check-photo-1")).toBeNull();
+    // 選択には上限が無い（削除・カバーと共用）
+    expect(lastHeaderOptions().title).toBe("21 枚を選択中");
     expect(screen.getByTestId("album-photo-check-photo-21")).toBeTruthy();
+    expect(screen.getByTestId("album-detail-share")).toHaveTextContent("保存（21 枚）");
+    expect(screen.getByTestId("album-detail-share").getAttribute("aria-disabled")).toBe("true");
+    expect(screen.getByTestId("album-detail-share-limit")).toHaveTextContent("一度に保存できるのは 20 枚までです");
+    expect(screen.getByTestId("album-detail-remove").getAttribute("aria-disabled")).not.toBe("true");
+    await pressShare();
+    expect(share).not.toHaveBeenCalled();
+    expect(downloadUrlMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("album-photo-photo-21"));
     expect(lastHeaderOptions().title).toBe("20 枚を選択中");
+    expect(screen.getByTestId("album-detail-share").getAttribute("aria-disabled")).not.toBe("true");
+    expect(screen.queryByTestId("album-detail-share-limit")).toBeNull();
   });
-  // 共有シートが無い環境（PC）に上限は無い: album-detail-screen.test.tsx の「101 枚選んで削除」がそのまま緑
+  // 共有シートが無い環境（PC）は「保存」自体が無い。選択に上限が無いことは album-detail-screen.test.tsx の「101 枚選んで削除」がそのまま緑
 });
 
 describe("AlbumDetailScreen: 保存を押す（042 T3・T4・T5）", () => {
