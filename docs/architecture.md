@@ -1651,6 +1651,11 @@ CSP との関係は `security-requirements.md` 7節。
 | 統計 | ヒーロー写真 + 二段見出し + 区切り線 | ヒーローは **4:3、長辺 1280px**（`layout.maxWidth` 640 × 2倍）。`View` で 4:3 の箱を作り中に `Image`（`react-native-web` の `Image` に直接 `aspectRatio` を当てると効かず縦に伸びた）。行は `border` の区切り線、最後の行には引かない。**写真は仮**（`docs/sample/風景/RcmUGlPg.jpg` を中央で切り出し。本物が来たら `statsHeroPlaceholder` だけ差し替える） |
 | 二段見出し | 統計だけ | 他画面には足さない（039 5-2 g。人間の答えが無いので足さない） |
 
+#### ピンクにも Poppins 300 が preload される（受け入れた差。R の記録）
+
+`+html.tsx` の `<link rel="preload">` は静的 HTML で、外観で分岐するには inline script がもう1本要る。
+**約 8KB のために CSP のハッシュを増やさない。**描画は変わらない。
+
 #### 統計のヘッダ（A が段階2の画面を見て決めた）
 
 ホワイトの統計は、**ヘッダ「統計」+ 小さな「統計」+ 大きな「統計」で同じ語が3回**並んでいた。
