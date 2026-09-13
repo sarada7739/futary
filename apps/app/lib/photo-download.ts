@@ -86,3 +86,43 @@ export async function downloadPhoto(ref: PhotoRef): Promise<void> {
   }
   saveFromUrl(url, filename);
 }
+
+// 042: 選んだ写真をまとめて写真ライブラリへ（同じ共有シートに複数の File）。
+// 1 回の共有は MAX_SHARE_FILES 枚まで（1600px の JPEG は 1 枚 300〜600KB。共有シートに渡す File は
+// ブラウザのメモリに乗る。iOS で何枚まで安定するかは段階0で人間の iPhone が測る。通れば 50 に上げる）
+export const MAX_SHARE_FILES = 20;
+
+export type ShareProgress = { done: number; total: number };
+
+export type SharePhotosResult = {
+  // shared: 共有シートで保存した / aborted: 閉じた / nothing: 1 枚も取得できず共有シートを出していない
+  outcome: ShareOutcome | "nothing";
+  // 取得できなかった枚数（飛ばして残りで共有シートを出す。全部やり直しにしない。042 3節）
+  failed: number;
+};
+
+// 写真の ref を順に photo.downloadUrl → fetch → File にして、揃った分を 1 回の navigator.share に渡す。
+// photo.downloadUrl は枚数ぶん呼ぶ（1 リクエスト 1 署名。専用の手続きを足さない。042 3節）。
+// 1 枚でも失敗したらその枚を飛ばす。AbortError は "aborted"。他の失敗は例外のまま投げる。
+// MAX_SHARE_FILES 超は例外（保険。画面が「保存」を無効にして守る。画面の判定が外れても lib で止まる）
+export async function sharePhotos(
+  refs: readonly PhotoRef[],
+  onProgress?: (progress: ShareProgress) => void,
+): Promise<SharePhotosResult> {
+  if (refs.length > MAX_SHARE_FILES) throw new Error(`一度に保存できるのは ${MAX_SHARE_FILES} 枚までです`);
+  const files: File[] = [];
+  let failed = 0;
+  onProgress?.({ done: 0, total: refs.length });
+  for (const ref of refs) {
+    try {
+      const { url, filename } = await client.photo.downloadUrl(ref);
+      files.push(await fetchPhotoFile(url, filename));
+    } catch {
+      failed += 1;
+    }
+    onProgress?.({ done: files.length + failed, total: refs.length });
+  }
+  if (files.length === 0) return { outcome: "nothing", failed };
+  const outcome = await shareFiles(files);
+  return { outcome, failed };
+}
