@@ -12771,3 +12771,25 @@ Session: B
 - 教訓: Python の置換は `set -e` があっても heredoc の後ろに `&&` が無いと止まらない。**置換の後に「元の値が残っていない」を grep で確かめてからコミットする**
 
 Session: B
+
+## 2026-09-13 セッションB: 040 段階1 — ほしいものを実装した
+
+### やったこと
+- A の「段階0の決定」（#285）を読んでから着手。`wants` 表・契約 `want.*`・`link-preview.ts`（外部 fetch の 1 本）・`want-url.ts`・
+  `procedures/want.ts`・`me.delete` の追加・`(tabs)/want.tsx`・ホーム 3 列化・アイコン/写真タイル・デモシード
+- T1〜T11 を書いて緑。T2 は段階0の本物の HTML をフィクスチャに（`apps/api/test/fixtures/link-preview/`。EUC-JP は base64 で保つ）。
+  「1MB なら取れる」は 512KB の実物の後ろに実物の `<img id="landingImage">` を継ぎ足して固定
+- T9 は viewerKey を外して走査テストが赤になることを確かめてから戻した
+- 撮影: ローカル D1 にペアとセッション Cookie を作るスクリプト（`artifacts/040/scripts/make-session.mjs`）で
+  ログイン状態を再現し、両モード × ホーム（iPhone/PC 幅）・一覧・追加モーダル・ゲストを撮った。
+  人間の Amazon URL をローカルから実際に保存し、D1 の行と R2 の実体で確認した（報告は `artifacts/040/stage1.md`）
+
+### 気づき
+- react-native-web の Modal は #root の外（body 直下）に描かれる。039 の撮影スクリプトの「#root 以外を隠す」を
+  そのまま使うとモーダルが写らない（`capture.mjs` で除外した）
+- ローカルの署名付き GET URL は本物の R2 を指すので、ローカル R2 に置いた画像は画面に出ない（コンソールの 404）。
+  投稿画像も同じ。実体は `wrangler r2 object get --local` で確かめた
+- `new Response(Uint8Array)` は workers-types で型が合わない（`ArrayBuffer` を渡す）
+- `pnpm -r test` は api 549 / app 364 / db 30 / ui 16 / date 61 で緑
+
+Session: B

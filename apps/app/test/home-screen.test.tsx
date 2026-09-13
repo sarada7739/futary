@@ -69,7 +69,7 @@ describe("HomeScreen: 記念日カード", () => {
 });
 
 describe("HomeScreen: 機能パネル", () => {
-  it("動くパネル6枚（タイムライン・カレンダー・思い出・統計・リスト・気分の記録）が表示される", async () => {
+  it("動くパネル7枚（タイムライン・カレンダー・思い出・統計・リスト・ほしいもの・気分の記録）が表示される", async () => {
     renderScreen();
     await screen.findByTestId("stats-card-meetup-pill");
 
@@ -78,6 +78,7 @@ describe("HomeScreen: 機能パネル", () => {
     expect(screen.getByText("思い出")).toBeTruthy();
     expect(screen.getByText("統計")).toBeTruthy();
     expect(screen.getByText("リスト")).toBeTruthy();
+    expect(screen.getByText("ほしいもの")).toBeTruthy();
     expect(screen.getByText("気分の記録")).toBeTruthy();
   });
 
@@ -144,6 +145,12 @@ describe("HomeScreen: 機能パネル", () => {
     fireEvent.click(await screen.findByText("気分の記録"));
 
     expect(pushMock).toHaveBeenCalledWith("/mood");
+  });
+
+  it("ほしいものパネルを押すと /want へ遷移する（040）", async () => {
+    renderScreen();
+    fireEvent.click(await screen.findByText("ほしいもの"));
+    expect(pushMock).toHaveBeenCalledWith("/want");
   });
 
   it("AIまとめパネルを押すと /ai-summary へ遷移する（037）", async () => {

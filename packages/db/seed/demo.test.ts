@@ -125,6 +125,19 @@ describe("buildDemoSeed", () => {
 
   // 027: 「リスト」パネルが押せるようになるため、デモに達成済み・未達成の
   // 両方を入れる（並び順が見えるように）
+  // 040: 各 2 件（ゆい・れん）。画像は 1 件だけ。手に入れたものも 1 件
+  it("wantsは2人に2件ずつ。画像は1件だけR2に置く。手に入れたものが1件ある", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    expect(seed.wants.filter((w) => w.ownerId === DEMO_USER_WOMAN_ID)).toHaveLength(2);
+    expect(seed.wants.filter((w) => w.ownerId === DEMO_USER_MAN_ID)).toHaveLength(2);
+    const withImage = seed.wants.filter((w) => w.imageKey !== null);
+    expect(withImage).toHaveLength(1);
+    expect(withImage[0]?.imageKey).toMatch(/^couples\/demo-couple\/wants\/.+\.jpg$/);
+    expect(seed.images.some((image) => image.key === withImage[0]?.imageKey)).toBe(true);
+    expect(seed.wants.filter((w) => w.obtainedAt !== null)).toHaveLength(1);
+    expect(seed.wants.every((w) => w.url?.startsWith("https://"))).toBe(true);
+  });
+
   it("wishesに達成済みと未達成の両方が入っている", () => {
     const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
     expect(seed.wishes.some((w) => w.doneAt === null)).toBe(true);

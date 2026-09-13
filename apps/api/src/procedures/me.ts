@@ -1,6 +1,6 @@
 import { implementer } from "../implementer";
 import { generateImageId } from "../lib/ulid";
-import { createPutUrl, MAX_IMAGE_BYTES, resolveUserImage, userImageKeyFor } from "../lib/r2-signed-url";
+import { createPutUrl, MAX_IMAGE_BYTES, resolveUserImage, userImageKeyFor, wantImagePrefixFor } from "../lib/r2-signed-url";
 import { isSessionFresh } from "../lib/reauth";
 import { authedProcedure, writeProcedure } from "./base";
 
@@ -99,9 +99,11 @@ async function deleteAllByPrefix(bucket: R2Bucket, prefix: string): Promise<void
 //   7. ai_summaries（037追加。couples(id)をON DELETE no actionで参照する
 //      ため、wishes・moodsと同じ理由。4回目。architecture.md 4節「表を
 //      足したら、消す手順にも足す」）
-//   8. invites
-//   9. couple_members ← ここまで来れば、あとはcouple_idが要らない
-//   10. couples
+//   8. wants（040追加。couples(id)とuser(id)をON DELETE no actionで参照する。5回目。
+//      R2 の couples/{coupleId}/wants/ も posts/ と同じく接頭辞で消す）
+//   9. invites
+//   10. couple_members ← ここまで来れば、あとはcouple_idが要らない
+//   11. couples
 //   （相手のuser.imageをNULLに。下のコメント参照）
 // 上記は1本のdb.batch()にまとめる（【security-auditor指摘】個別のrun()
 // だと、削除の実行中に別リクエストが新しい投稿・予定・招待を作った場合、
@@ -162,6 +164,8 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
     // オブジェクトが誰からも辿れなくなる（couple_idが引けなくなるため）
     // ため、回復可能な側に倒すこの順序を維持する
     await deleteAllByPrefix(bucket, `couples/${coupleId}/posts/`);
+    // 040: ほしいものの画像も接頭辞で消す（posts/ とは別の接頭辞。タスク定義3節）
+    await deleteAllByPrefix(bucket, wantImagePrefixFor(coupleId));
     for (const memberId of memberUserIds) {
       await deleteAllByPrefix(bucket, `users/${memberId}/profile/`);
     }
@@ -192,6 +196,9 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       // 【037】ai_summaries.couple_idも同じ理由でcouplesを参照する。
       // 起票の時点でテスト項目に入れてある（027・029で一度ずつ踏んだ形）
       db.prepare("DELETE FROM ai_summaries WHERE couple_id = ?1").bind(coupleId),
+      // 【040】wants.couple_id / owner_id も同じ理由で couples / user を参照する。
+      // 起票の時点でテスト項目（T7）に入れてある
+      db.prepare("DELETE FROM wants WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couples WHERE id = ?1").bind(coupleId),
@@ -212,6 +219,7 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
     // 孤児オブジェクト（容量）だけで開示にはならないため、この窓自体は
     // 塞がず受け入れる
     await deleteAllByPrefix(bucket, `couples/${coupleId}/posts/`);
+    await deleteAllByPrefix(bucket, wantImagePrefixFor(coupleId));
     for (const memberId of memberUserIds) {
       await deleteAllByPrefix(bucket, `users/${memberId}/profile/`);
     }

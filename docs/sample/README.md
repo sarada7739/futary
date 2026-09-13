@@ -47,6 +47,14 @@
 | `panel-white-{timeline,calendar,memory,stats,today,list,mood,ai}.jpg` | `simpleMode/A_single_isolated_*.png`（上の対応表） | 600×600 に縮小し JPEG（品質 82）に。**役割の名前で保存**（元のファイル名を持ち込まない） |
 | `stats-hero-placeholder.jpg` | `風景/RcmUGlPg.jpg` | **仮。**中央で 4:3（1280×960）に切り出し。人間からヒーロー画像が来たら差し替える（`packages/ui/src/assets.ts`） |
 
+### 040 で切り出したもの
+
+| ファイル | 元 | 加工 |
+|---|---|---|
+| `packages/ui/assets/panel-white-want.jpg` | `simpleMode/新機能/A_single_isolated_Wishlist_*.png`（人間が「これを使っていい」と言った） | 2×2 の商品グリッド部分（x 262〜1000・y 300〜1038）を正方形に切り出し、600×600・JPEG 品質 82 に。役割の名前で保存 |
+| `packages/ui/assets/panel-want.png` | **原本無し。B が新規に描き起こした**（ハート。A の指示「ハートか、リボンの付いた箱」） | 既存の `panel-*.png` と同じ規格: 96×96・RGBA・単色 #4A3733・線幅 6px・塗りなし。PIL で 8 倍で描いて縮小 |
+| `packages/db/seed/assets/want-mug.jpg` | 同じ Wishlist の絵のマグカップの写真部分（x 650〜980・y 668〜998） | 正方形に切り出し 800×800・JPEG 品質 82。デモペアの「ほしいもの」の画像（AI 生成。実在の商品ではない） |
+
 **`風景/` というフォルダ名だが、6枚中4枚は男女2人が写っている。**
 名前を実態に合わせて変えるより、この記録で足りると判断した（原本は加工しない方針のため）。
 

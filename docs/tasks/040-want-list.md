@@ -254,4 +254,7 @@ CREATE INDEX wants_couple_owner_created_idx ON wants (couple_id, owner_id, creat
 
 ## 進捗
 
-（B が書く）
+- 2026-09-13 段階0: 測って止まった（`artifacts/040/spike.md`。#284）。A が 6 点を決めた（#285）
+- 2026-09-13 段階1: 実装した。T1〜T11 緑、`pnpm -r test`・型チェック・lint 緑。報告と B が決めたこと 6 点は
+  `artifacts/040/stage1.md`、スクリーンショットは `artifacts/040/stage1/`。R のレビュー待ち。
+  本番で Amazon の URL に画像が付くかは人間の手番（デプロイ後）
