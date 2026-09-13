@@ -12761,3 +12761,13 @@ Session: A
 - 測定スクリプトは A の指示の `artifacts/040/scripts/` ではなく `artifacts/040/spike/` に置いた（結果・HTML と同じ場所）
 
 Session: B
+
+## 2026-09-13 セッションB: 040 段階0 — 伏せ字化の本体（#286 は作業ログだけだった）
+
+- #286 の置換スクリプトは、512KB で切った Amazon の HTML が多バイト文字の途中で終わっていて UTF-8 として復号できず、途中で落ちていた。
+  作業ログとコミットだけが進み、HTML は変わっていなかった（`git show --stat` で確認: worklog.md の 1 ファイルのみ）
+- 文字コードに依らないよう**バイト列のまま**置換し直した。Amazon の `session-id`・各種 `CsrfToken`（`&quot;` でエスケープされた JSON も）、
+  楽天の `apiKey` 2 つ、ユニクロの `API_key` と `BOOMR.url` のキーを `REDACTED` に。元の値が残っていないことを grep で確認
+- 教訓: Python の置換は `set -e` があっても heredoc の後ろに `&&` が無いと止まらない。**置換の後に「元の値が残っていない」を grep で確かめてからコミットする**
+
+Session: B
