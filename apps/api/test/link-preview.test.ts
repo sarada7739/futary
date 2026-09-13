@@ -471,6 +471,31 @@ describe("fetchLinkPreview: 全体で 12 秒（6節）", () => {
     }
   });
 
+  // R の必須（6節を 1 つずつ壊す検査で、画像側の期限共有だけをどのテストも捕まえていなかった）:
+  // ページは即 200 で返り、画像サーバが返さない（drip）ケース。画像の fetch がページと同じ
+  // AbortController を共有していなければ、12 秒を超えて待ち続けても誰も気づかない
+  it("画像の fetch もページと同じ 12 秒の期限を共有する（ページは即返り、画像が返らない）", async () => {
+    vi.useFakeTimers();
+    try {
+      const page = "https://shop.example.com/item/drip";
+      const image = "https://cdn.example.com/drip.jpg";
+      const html = `<meta property="og:title" content="商品"><meta property="og:image" content="${image}">`;
+      const impl: FetchLike = (url, init) => {
+        if (url === page) return Promise.resolve(new Response(html, { headers: { "content-type": "text/html" } }));
+        return new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        });
+      };
+      const pending = fetchLinkPreview(page, { fetchImpl: impl, maxTitleLength: MAX_TITLE });
+      await vi.advanceTimersByTimeAsync(TOTAL_TIMEOUT_MS + 1);
+      const preview = await pending;
+      expect(preview.image).toBeNull();
+      expect(preview.failures.join(" ")).toContain(`${TOTAL_TIMEOUT_MS}ms`);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("上限は 12 秒（5 秒では楽天が常に画像無しになる。段階0）", () => {
     expect(TOTAL_TIMEOUT_MS).toBe(12_000);
     expect(PAGE_BYTE_LIMIT).toBe(1024 * 1024);

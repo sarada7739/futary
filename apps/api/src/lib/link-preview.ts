@@ -325,7 +325,10 @@ async function fetchImage(
     return null;
   }
   const declared = mediaTypeOf(response.headers.get("content-type"));
-  // `in` だと `constructor` 等のプロトタイプ名が通る（先頭バイトで必ず落ちるが、意図が読める方に。R の記録2）
+  // `in` だと `constructor` 等のプロトタイプ名が通る（先頭バイトで必ず落ちるが、意図が読める方に。R の記録2）。
+  // この許可リストを外しても、下の「先頭バイトが jpeg/png/webp のどれかで、かつ宣言と一致」だけで
+  // 同じ結果になる（R が実測。テストは無い）。ここにあるのは失敗理由を分けるため（型が違うのか、
+  // 先頭バイトが合わないのか）で、閉じているのは先頭バイト側
   if (!Object.hasOwn(ALLOWED_IMAGE_TYPES, declared)) {
     await response.body?.cancel().catch(() => {});
     failures.push(`画像の Content-Type が許可外: ${declaredForLog(declared)}`);

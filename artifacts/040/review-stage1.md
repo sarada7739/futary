@@ -49,3 +49,32 @@ Amazon アプリの共有は `https://amzn.asia/d/…` の短縮 URL を出す�
 - iPhone 実機
 
 必須修正 2 件のコミットが積まれたら、そこだけ見て確定する。
+
+
+---
+
+# 040 段階1（PR #289）— R の追記（5bbcc35 を見て）
+
+R から B へ。5bbcc35 を見た。必須修正 2 件は直っている（私の再現 2 本を 5bbcc35 で走らせ直した: `content="Levi's 501 ジーンズ"` → `Levi's 501 ジーンズ`、`amzn.example` → 301 → `www.amazon.co.jp` で画像あり・題名「テスト商品」）。`Object.hasOwn` も確認。link-preview 90・want 34・authorization・me の削除テスト、型・lint 緑（私の環境の既知の 3 件を除く）。
+
+**ただし、A から別途「6節の条件を 1 つずつ壊して対応するテストが赤くなるか」を当てるよう依頼があり、実際に 13 通り壊した。11 通りは赤になった。赤にならなかったのが 2 つ。うち 1 つを必須（テスト追加のみ）にする。**この文も `artifacts/040/review-stage1.md` に追記すること。
+
+## 壊して赤になった（11）
+`.internal` を外す（2 件赤）／`.local` を外す（2）／リダイレクト先の再検査を外す（1）／`MAX_REDIRECTS` を 4 に（2）／先頭バイトの検査を外す（1）／画像 1MB を 2MB に（1。want.test の T3）／ページ 1MB を 2MB に（1）／12 秒を 60 秒に（1）／Cookie ヘッダを足す（1）／scheme の検査を外す（2）／Amazon 判定を全ホストに（1。A の 6 点目「他店の HTML に `data-old-hires`」は B のフィクスチャで既に捕まっている）
+
+## 赤にならなかった（2）
+
+### 必須（テスト追加）: 画像の fetch が 12 秒の期限を共有していることを、どのテストも捕まえていない
+`fetchImage(fetchImpl, resolved, controller.signal, failures)` の `controller.signal` を `new AbortController().signal`（共有しない別物）に変えても、**link-preview 90 件・want 34 件が全部緑**（5bbcc35 で再確認）。コードは正しいが留め金が無い。ページが 1 秒で返り、画像サーバが返さない（drip）ケースで、12 秒を超えて待ち続けても誰も気づかない。
+テストの形: ページは即 200（`og:image` あり）、画像の `fetchImpl` は `signal` の abort まで resolve しない Promise を返す（`signal.addEventListener("abort", () => reject(new DOMException("…", "AbortError")))`）。fake timers で 12 秒進めて、`image` が null・`failures` に「12000ms で打ち切った」が入ることを見る。既存の「上限は 12 秒」のテストがページ側で同じ形をしているなら、それを画像側にも 1 本。
+
+### 記録（判定に使わない）: Content-Type の許可リストを外しても緑
+`if (!(declared in ALLOWED_IMAGE_TYPES))` を素通しにしても全部緑。理由は、その後の `sniffed !== declared` が「先頭バイトが jpeg/png/webp のどれかで、かつ宣言と一致」を要求するので、許可リストは冗長になっているから。穴ではない（sniff 側で閉じている）。テストを足す必要は無いが、コメントに「先頭バイトの一致だけで十分。許可リストは失敗理由を分けるため」と書いておくと次の人が「テストが無い」と慌てない。
+
+## A の残りの点（私の答え）
+- fetch が外へ出る場所: `apps/api/src` で `fetch(` は `link-preview.ts` と既存 `ai.ts` だけ（前の判定で確認済み）
+- `owner_id` は `toWant` の戻り値に無い。`Want.url` の出力は `isHttpUrl` で `javascript:` を落とす（T11、DB 直挿しのテストあり）
+- `me.delete`: `wants` は batch 内で `invites`・`couple_members`・`couples` の前。`user` 行は消さない（Candle 型）ので `owner_id` の FK にも当たらない。T7 緑
+- ホームの 3 列化: `index.tsx` は `PANEL_COLUMNS = 3` とコメントと `FeaturePanel` 1 枚の追加だけ。`feature-panel.tsx` は無変更
+
+期限共有のテスト 1 本が積まれたら、そこだけ見て確定する。
