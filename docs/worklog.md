@@ -12907,9 +12907,22 @@ Session: A
 
 Session: B
 
+## 2026-09-14 セッションB: 041 段階1 — マージ・0022 のリモート適用・デプロイ
+
+- #294 を squash merge（main 4f4b529）。人間の許可を受けて production 環境のデプロイを承認し、deploy.yml が db:migrate:remote → deploy を完走（0022_albums.sql 適用済み）。本番の album.list が応答することを確認
+- CI の gitleaks 誤検知 1 件（テストの filename 文字列）を .gitleaksignore の fingerprint で除外し、文字列は変数から組む形に直した
+- 残りは人間の実機（アルバム作成・5 枚アップロード・画像が見える・1 枚保存）
+
+Session: B
 ## 2026-09-14 セッションA: 041 段階1 のデプロイ後、`.gitleaksignore` の運用を条文にした
 
 - B が gitleaks の誤検知（テストの `futary-20260816-<ULID>.jpg` が `generic-api-key`）を fingerprint で除外した。「検出 1 件で赤。例外なし」は程度の話で、秘密でない文字列を秘密として扱い続ける話ではない。`security-requirements.md` 9節に `.gitleaksignore` の書き方（fingerprint のみ・理由をコメント・先に文字列を直す・到達不能になったら消す）を足した
 - 当該コミット c19c433 は squash merge で main から到達不能になっているので、B の docs PR で行を消してもらう
 
 Session: A
+
+## 2026-09-14 セッションB: .gitleaksignore の fingerprint を消した（c19c433 は main から到達不能）
+
+- A の依頼（#298 の条文「main から到達不能になったら消す」）。ファイルはコメントの 1 行目だけ残した。main（5255cd5）を取り込んだ
+
+Session: B
