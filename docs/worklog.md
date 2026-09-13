@@ -12660,3 +12660,19 @@ Session: B
   次からは対象そのものを見てから書く
 
 Session: A
+
+## 2026-09-13 セッションA: 本番の AI まとめ失敗（人間の報告）を B へ
+
+### やったこと
+- 人間から「AI まとめが『作れませんでした。もう一度お試しください』になる」。
+  `ai-summary.tsx` はその文言を INVALID_INPUT / LIMIT_REACHED / FORBIDDEN 以外の全失敗に使い、
+  サーバは `withErrorId` で 500 + ログ（`AI要約の生成に失敗しました（openai <status>）`）。**status しか残らない**
+- 最有力の原因: `buildProviderRequest` が OpenAI に `max_tokens` を送っている。gpt-5 系は `max_completion_tokens` を要求（400）。
+  gpt-4o-mini 向けのコードのままモデル名だけ `gpt-5.6-terra` に変えた（#267）ときに、送り方まで見ていなかった
+- B へ: まず `wrangler tail` で status を確定してから直す。併せてプロバイダのエラー本文をログに残す
+
+### 反省（A）
+- #267 でモデルを変える判断のとき、A は「無料枠に入るか」しか見ていない。**モデルの世代が変わると API の引数が変わる**ことを
+  確かめなかった。次にモデル名を変えるときは、送っている引数がそのモデルで有効かを一次情報で確かめてから
+
+Session: A
