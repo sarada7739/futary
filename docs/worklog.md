@@ -12812,3 +12812,12 @@ Session: B
 - 記録2（`in` → `Object.hasOwn`）も直した。記録4（絵は 🔗 撤回前）は報告に書いた。記録1・3 は A へ（B は触らない）
 
 Session: B
+
+## 2026-09-13 セッションB: 040 段階1 — URL の正規化も最終 URL に対して行う（A の決定 #291）
+
+- `fetchLinkPreview` が実際に読んだページの URL（`finalUrl`）を返すようにし、`want.create` は辿り着いた先が Amazon の `/dp/{ASIN}` なら
+  正規形を保存する（amzn.asia の短縮 URL のまま残さない）。Amazon 以外は元の URL のまま。fetch に失敗したら元のまま
+- `want-url.ts` に `canonicalAmazonUrl`（Amazon の正規形か null）を分け、`normalizeWantUrl` はそれを使う
+- テスト 3 本: 短縮 URL → 301 → Amazon で画像・題名・保存 URL の 3 点、Amazon 以外は元のまま、fetch 失敗は元のまま
+
+Session: B

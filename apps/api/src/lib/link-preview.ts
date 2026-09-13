@@ -35,6 +35,10 @@ export interface LinkImage {
 export interface LinkPreview {
   title: string | null;
   image: LinkImage | null;
+  // 実際に読んだページの URL（リダイレクトを辿り終えたもの）。ページを読めなければ null。
+  // 呼ぶ側は Amazon の短縮 URL（amzn.asia）をこの URL で正規化する（A の決定。タスク定義
+  // 「R の段階1レビューへの決定」）
+  finalUrl: string | null;
   // 取れなかった理由（status・本文の先頭 200 文字）。ログにだけ出す。クライアントには返さない
   failures: string[];
 }
@@ -244,6 +248,12 @@ async function bodyHead(response: Response): Promise<string> {
   }
 }
 
+// 外部の応答ヘッダをそのままログに流さない（本文を 200 文字で切るのと同じ理由。A の決定・R の記録3）
+const FAILURE_HEADER_HEAD = 100;
+function declaredForLog(declared: string): string {
+  return declared === "" ? "(無し)" : declared.slice(0, FAILURE_HEADER_HEAD);
+}
+
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 interface Fetched {
@@ -318,7 +328,7 @@ async function fetchImage(
   // `in` だと `constructor` 等のプロトタイプ名が通る（先頭バイトで必ず落ちるが、意図が読める方に。R の記録2）
   if (!Object.hasOwn(ALLOWED_IMAGE_TYPES, declared)) {
     await response.body?.cancel().catch(() => {});
-    failures.push(`画像の Content-Type が許可外: ${declared || "(無し)"}`);
+    failures.push(`画像の Content-Type が許可外: ${declaredForLog(declared)}`);
     return null;
   }
   const { bytes, truncated } = await readUpTo(response, IMAGE_BYTE_LIMIT);
@@ -328,7 +338,7 @@ async function fetchImage(
   }
   const sniffed = sniffImageType(bytes);
   if (sniffed === null || sniffed !== declared) {
-    failures.push(`画像の先頭バイトが Content-Type（${declared}）と合わない`);
+    failures.push(`画像の先頭バイトが Content-Type（${declaredForLog(declared)}）と合わない`);
     return null;
   }
   return { bytes, contentType: sniffed, extension: ALLOWED_IMAGE_TYPES[sniffed] };
@@ -357,11 +367,11 @@ export async function fetchLinkPreview(url: string, options: FetchLinkPreviewOpt
       controller.signal,
       failures,
     );
-    if (!fetched) return { title: null, image: null, failures };
+    if (!fetched) return { title: null, image: null, finalUrl: null, failures };
     const { response, finalUrl } = fetched;
     if (!response.ok) {
       failures.push(`ページ ${response.status}: ${await bodyHead(response)}`);
-      return { title: null, image: null, failures };
+      return { title: null, image: null, finalUrl, failures };
     }
     // 店ごとの規則（Amazon）は、元の URL ではなく実際に読んだページ（リダイレクト後）のホストで
     // 判定する（R の必須修正2: Amazon アプリの共有は amzn.asia の短縮 URL で、元の URL のホストで
@@ -387,12 +397,12 @@ export async function fetchLinkPreview(url: string, options: FetchLinkPreviewOpt
     } else {
       failures.push("画像の属性が無い");
     }
-    return { title, image, failures };
+    return { title, image, finalUrl, failures };
   } catch (error) {
     // 中断（12 秒超）・ネットワーク断・デコード失敗。URL や本文は含めない
     const name = error instanceof Error ? error.name : "Error";
     failures.push(name === "AbortError" ? `${TOTAL_TIMEOUT_MS}ms で打ち切った` : `fetch に失敗した（${name}）`);
-    return { title: null, image: null, failures };
+    return { title: null, image: null, finalUrl: null, failures };
   } finally {
     clearTimeout(timer);
   }

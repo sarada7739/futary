@@ -306,6 +306,15 @@ describe("fetchLinkPreview: 画像の制限（T3。失敗しても例外にし�
     expect(html.preview.image).toBeNull();
   });
 
+  it("failures に入る Content-Type は 100 文字で切る（外部のヘッダをそのままログに流さない）", async () => {
+    const longType = "image/" + "x".repeat(300);
+    const { preview } = await run({ headers: { "content-type": longType }, body: bytesOf(JPEG_HEAD, 10) });
+    expect(preview.image).toBeNull();
+    const line = preview.failures.find((f) => f.includes("許可外")) ?? "";
+    expect(line).toContain("image/xxxx");
+    expect(line.length).toBeLessThan(160);
+  });
+
   it("Content-Type は image/png だが先頭バイトが JPEG → 画像無し（両方を見る）", async () => {
     const { preview } = await run({ headers: { "content-type": "image/png" }, body: bytesOf(JPEG_HEAD, 100) });
     expect(preview.image).toBeNull();
@@ -365,12 +374,12 @@ describe("fetchLinkPreview: ページの応答（T3）", () => {
     expect(calls).toHaveLength(1);
   });
 
-  it("fetch が例外を投げても失敗理由を返すだけ（例外にしない）", async () => {
+  it("fetch が例外を投げても失敗理由を返すだけ（例外にしない）。finalUrl は null", async () => {
     const impl: FetchLike = async () => {
       throw new TypeError("network down");
     };
     const preview = await fetchLinkPreview("https://shop.example.com/", { fetchImpl: impl, maxTitleLength: MAX_TITLE });
-    expect(preview).toMatchObject({ title: null, image: null });
+    expect(preview).toMatchObject({ title: null, image: null, finalUrl: null });
     expect(preview.failures.join(" ")).toContain("TypeError");
   });
 });
@@ -418,6 +427,7 @@ describe("fetchLinkPreview: リダイレクト（6節: 3 回まで。行き先�
     });
     const preview = await fetchLinkPreview(short, { fetchImpl: impl, maxTitleLength: MAX_TITLE });
     expect(calls.map((c) => c.url)).toEqual([short, product, image]);
+    expect(preview.finalUrl).toBe(product);
     expect(preview.image?.contentType).toBe("image/jpeg");
     expect(preview.title?.startsWith("Apple iPhone 18 Pro Max")).toBe(true);
     expect(preview.title).not.toContain("通販");

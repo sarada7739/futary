@@ -9,7 +9,7 @@ import {
   type R2SignConfig,
 } from "../lib/r2-signed-url";
 import { generateImageId } from "../lib/ulid";
-import { normalizeWantUrl } from "../lib/want-url";
+import { canonicalAmazonUrl, normalizeWantUrl } from "../lib/want-url";
 import { isConstraintViolation } from "./couple";
 import { readProcedure, writeProcedure } from "./base";
 
@@ -178,7 +178,7 @@ const wantCreate = implementer.want.create.use(writeProcedure).handler(async ({ 
     .first<{ count: number }>();
   if ((countRow?.count ?? 0) >= MAX_WANTS_PER_OWNER) throw errors.LIMIT_REACHED();
 
-  const url = input.url !== undefined ? normalizeWantUrl(input.url) : null;
+  let url = input.url !== undefined ? normalizeWantUrl(input.url) : null;
   const note = input.note ?? "";
 
   let imageKey: string | null = null;
@@ -199,6 +199,11 @@ const wantCreate = implementer.want.create.use(writeProcedure).handler(async ({ 
       needImage: !imageKey,
     });
     logPreviewFailures(preview.failures);
+    // A の決定（R の段階1レビュー）: URL の正規化も最終 URL に対して行う。amzn.asia の短縮 URL が
+    // Amazon の /dp/{ASIN} に辿り着いたなら正規形を保存する（短縮 URL のまま残さない）。
+    // Amazon 以外は元の URL のまま（リダイレクト先で置き換えない）。読めなければ元のまま
+    const canonical = preview.finalUrl ? canonicalAmazonUrl(preview.finalUrl) : null;
+    if (canonical) url = canonical;
     if (!title && preview.title) title = preview.title;
     if (!imageKey && preview.image) {
       // 取った画像は R2 に保存して署名付き URL で出す（外部 URL を img-src に足さない。6節）。

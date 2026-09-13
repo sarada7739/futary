@@ -515,6 +515,53 @@ describe("Amazon の URL の正規化（T8）", () => {
     expect(normalizeWantUrl(input)).toBe(expected);
   });
 
+  it("amzn.asia の短縮 URL → 301 → amazon.co.jp/…/dp/{ASIN}: 画像が取れ、題名の前置きが落ち、保存される url は /dp/{ASIN}", async () => {
+    const { owner } = await createPair();
+    const short = "https://amzn.asia/d/abc123";
+    const product = "https://www.amazon.co.jp/Apple-iPhone-18-Pro-Max/dp/B0HJBHHXK2?ref_=cm_sw_r_apin";
+    const image = "https://m.media-amazon.com/images/I/71hktoqrWjL._AC_SL1500_.jpg";
+    const amazonHtml =
+      '<html><head><meta name="title" content="Amazon | Apple iPhone 18 Pro Max | スマートフォン本体 通販"></head>' +
+      `<body><img id="landingImage" data-old-hires="${image}"></body></html>`;
+    const { calls } = stubPreviewFetch({
+      [short]: () => new Response(null, { status: 301, headers: { location: product } }),
+      [product]: () => new Response(amazonHtml, { headers: { "content-type": "text/html;charset=UTF-8" } }),
+      [image]: () => new Response(jpegBytes(300), { headers: { "content-type": "image/jpeg" } }),
+    });
+
+    const created = await call(router.want.create, { url: short }, { context: contextFor(owner) });
+
+    expect(calls).toEqual([short, product, image]);
+    expect(created.image).not.toBeNull();
+    expect(created.title).toBe("Apple iPhone 18 Pro Max");
+    expect(created.url).toBe("https://www.amazon.co.jp/dp/B0HJBHHXK2");
+  });
+
+  it("Amazon 以外の短縮 URL は、リダイレクト先ではなく元の URL のまま保存する", async () => {
+    const { owner } = await createPair();
+    const short = "https://sh.example/x1";
+    const product = "https://shop.example.com/items/42?utm=1";
+    stubPreviewFetch({
+      [short]: () => new Response(null, { status: 302, headers: { location: product } }),
+      [product]: () => new Response('<meta property="og:title" content="商品">', { headers: { "content-type": "text/html" } }),
+    });
+    const created = await call(router.want.create, { url: short }, { context: contextFor(owner) });
+    expect(created.url).toBe(short);
+    expect(created.title).toBe("商品");
+  });
+
+  it("fetch が失敗して最終 URL が分からなければ、元の URL のまま保存する", async () => {
+    const { owner } = await createPair();
+    const short = "https://amzn.asia/d/dead";
+    setLinkPreviewFetchForTest(async () => {
+      throw new TypeError("network down");
+    });
+    const created = await call(router.want.create, { url: short }, { context: contextFor(owner) });
+    expect(created.url).toBe(short);
+    expect(created.title).toBe("amzn.asia");
+    expect(created.image).toBeNull();
+  });
+
   it("create で保存される URL も正規化されている", async () => {
     const { owner } = await createPair();
     stubPreviewFetch({});
