@@ -1,4 +1,1 @@
 # gitleaks の誤検知の除外（security-requirements.md 9節）。fingerprint（commit:file:rule:line）で 1 件ずつ登録する。
-# 041: テストの filename の文字列 futary-20260816-<ULID>.jpg が generic-api-key に見えた（秘密ではない）。
-# 当該コミット c19c433 は PR #294 の履歴に残るため fingerprint で除外する。後続のコミットでは文字列を変数から組む形に直してある
-c19c433056eccaea7cd5e9772d401ebc24bb9370:apps/api/test/r2-signed-url.test.ts:generic-api-key:56
