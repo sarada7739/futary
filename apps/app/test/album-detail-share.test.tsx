@@ -3,7 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// 042: 選択モードの「保存（N 枚）」（T1・T2・T4・T5・T6 の画面側。上限は「保存」に掛ける。1節）。album-detail-screen.test.tsx と同じ形。
+// 042: 選択モードの「保存」（T1・T2・T4・T5・T6 の画面側。ラベルは「保存」「カバー」「削除」。上限は「保存」に掛ける。1節）。album-detail-screen.test.tsx と同じ形。
 // jsdom の navigator に canShare / share は無い（= PC）。共有シートのある環境（iPhone・Android）は
 // テストごとに生やして、終わったら消す。ロジック側（File の中身・順序）は share-photos.test.ts
 const { getMock, listMock, photoListMock, downloadUrlMock, setOptionsMock, searchParams } = vi.hoisted(() => ({
@@ -192,19 +192,19 @@ describe("AlbumDetailScreen: 選択モードの「保存」（042 T1）", () => 
     expect(screen.getByTestId("album-detail-remove")).toBeTruthy();
   });
 
-  it("共有シートがある環境では「保存（N 枚）」が出る。0 枚では押せず、選ぶと枚数が変わる。カバー・削除も残る", async () => {
+  it("共有シートがある環境では「保存」が出る。0 枚では押せず、選ぶと押せる（枚数はヘッダー）。カバー・削除も残る", async () => {
     enableShareSheet();
     renderScreen();
     await enterSelection("album-photo-photo-1");
 
     const share = screen.getByTestId("album-detail-share");
-    expect(share).toHaveTextContent("保存（0 枚）");
+    expect(share).toHaveTextContent("保存");
     expect(share.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(screen.getByTestId("album-photo-photo-1"));
     fireEvent.click(screen.getByTestId("album-photo-photo-2"));
-    expect(screen.getByTestId("album-detail-share")).toHaveTextContent("保存（2 枚）");
+    expect(lastHeaderOptions().title).toBe("2 枚を選択中");
     expect(screen.getByTestId("album-detail-share").getAttribute("aria-disabled")).not.toBe("true");
-    expect(screen.getByTestId("album-detail-set-cover")).toBeTruthy();
+    expect(screen.getByTestId("album-detail-set-cover")).toHaveTextContent("カバー");
     expect(screen.getByTestId("album-detail-remove")).toBeTruthy();
   });
 });
@@ -222,7 +222,6 @@ describe("AlbumDetailScreen: 20 枚の上限（042 T2）", () => {
     // 選択には上限が無い（削除・カバーと共用）
     expect(lastHeaderOptions().title).toBe("21 枚を選択中");
     expect(screen.getByTestId("album-photo-check-photo-21")).toBeTruthy();
-    expect(screen.getByTestId("album-detail-share")).toHaveTextContent("保存（21 枚）");
     expect(screen.getByTestId("album-detail-share").getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByTestId("album-detail-share-limit")).toHaveTextContent("一度に保存できるのは 20 枚までです");
     expect(screen.getByTestId("album-detail-remove").getAttribute("aria-disabled")).not.toBe("true");
@@ -356,7 +355,7 @@ describe("AlbumDetailScreen: タイムライン・ゲストの選択モード（
 
     fireEvent.click(screen.getByTestId("album-photo-post-1:0"));
     fireEvent.click(screen.getByTestId("album-photo-post-2:0"));
-    expect(screen.getByTestId("album-detail-share")).toHaveTextContent("保存（2 枚）");
+    expect(lastHeaderOptions().title).toBe("2 枚を選択中");
     await pressShare();
 
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
