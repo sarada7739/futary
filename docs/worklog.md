@@ -12950,3 +12950,16 @@ Session: B
 - #300 を squash merge。残りは人間の iPhone の段階0（共有シートが出るか / ダウンロード画面のままか）
 
 Session: B
+
+## 2026-09-14 セッションB: 041 段階2 — デプロイ完走
+
+- CI で File の size が 13 になる赤（jsdom の別 realm の Blob）を arrayBuffer() 経由に直し、R が受け入れ維持。#300 を squash merge（main 82dd476）。人間の承認でデプロイ完走
+- 残りは人間の iPhone の段階0（共有シートが出る / 段階1と同じダウンロード画面）
+
+Session: B
+
+## 2026-09-14 セッションB: 041 段階2 — 人間の iPhone で段階0 が通った
+
+- 本番の iPhone Safari で保存を押すと共有シートが出て「画像を保存」で写真ライブラリに入った（await fetch のあとの navigator.share は NotAllowedError にならない）。先読みの形は不要。段階2 完了
+
+Session: B
