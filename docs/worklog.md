@@ -12994,3 +12994,10 @@ Session: B
 - 手番の渡し方: state.md に書くだけでは他役は動かない。B が R・A に SendMessage で送る（人間の指摘）
 
 Session: B
+
+## 2026-09-14 セッションB: 042 — R 受け入れ確定、#305 をマージ
+
+- R が 3feee96 を見て受け入れ確定（判定文は review-stage1.md に追記）。#305 を squash merge（main cfb4eba、Session: B を確認）
+- 残りは人間: デプロイの承認と、iPhone の段階0（5 枚・20 枚。artifacts/042/spike.md）
+
+Session: B
