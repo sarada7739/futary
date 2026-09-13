@@ -222,6 +222,7 @@ events
   CHECK (end_time IS NULL OR end_time > start_time)        -- 022。日をまたがない
 
 wishes                                          -- 027。行きたい場所・食べたいもの
+wants                                           -- 040。ほしいもの（本人だけが書く。URL・画像）
   id          TEXT    PK
   couple_id   TEXT    NOT NULL
   title       TEXT    NOT NULL                  -- 1〜100文字。trim 後に空なら拒否
@@ -745,6 +746,14 @@ wish.setDone        { id, done } -> 更新後の1件
                     toggle にしない。クライアントが目標の状態を送る。
                     同じ要求が2回届いても結果が同じになる（二重発火。conventions.md 4節）
 wish.delete         { id } -> { id }。論理削除
+
+want.list           { ownerSide: "me"|"partner" } -> { items: [{ id, title, url, note, image, isMine, ownerName, obtainedAt, createdAt }], ownerName }（040。T9 対象）
+want.create         { title?, url?, note?, imageId? } -> 作った1件。url があり imageId が無ければ OGP から画像を試す（失敗しても 200・image null）。101件目は LIMIT_REACHED
+want.update         { id, title, url, note } -> 更新後の1件。本人のみ（他人の id は NOT_FOUND）
+want.setImage       { id, imageId | null } -> 更新後の1件。本人のみ
+want.setObtained    { id, obtained } -> 更新後の1件。本人のみ
+want.delete         { id } -> { id }。論理削除 + R2 は物理削除。本人のみ
+want.uploadUrl      { contentType: "image/jpeg" } -> { imageId, url }。post.uploadUrl と同じ形
                     他ペアの id は NOT_FOUND（FORBIDDEN にしない。存在を教えない）
 aiSummary.get       { periodKind, periodKey } -> { body, provider, model, updatedAt, generatedCount } | null
                     periodKind は 'month' | 'week'。週は ISO 8601（月曜始まり・JST）
