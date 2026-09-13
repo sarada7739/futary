@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, TextInput, View } from "react-native";
 import type { Album, Photo } from "@futary/contract";
-import { MAX_PHOTO_CAPTION_LENGTH, MAX_PHOTOS_PER_ADD, PHOTO_LIST_MAX_LIMIT, TIMELINE_ALBUM_ID } from "@futary/contract";
+import {
+  MAX_PHOTO_CAPTION_LENGTH,
+  MAX_PHOTOS_PER_ADD,
+  MAX_PHOTOS_PER_REMOVE,
+  PHOTO_LIST_MAX_LIMIT,
+  TIMELINE_ALBUM_ID,
+} from "@futary/contract";
 import { formatDateRangeJa, formatJstDateSlash, inclusiveDays } from "@futary/date";
 import { Button, type Colors, FabIcon, radius, Screen, space, Text, useTheme } from "@futary/ui";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
@@ -10,6 +16,7 @@ import { AlbumForm, type AlbumFormValues } from "../../components/album-form";
 import { ImageViewer, type ImageViewerImage } from "../../components/image-viewer";
 import { Sheet } from "../../components/sheet";
 import { pickAlbumImages, uploadAlbumImages, type UploadProgress } from "../../lib/album-upload";
+import { chunk } from "../../lib/chunk";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
@@ -188,11 +195,16 @@ export default function AlbumDetailScreen() {
     }
   }
 
+  // 契約の上限（1 回 100 枚）を超える選択は 100 ずつに分けて順に送る（R の段階1レビュー。
+  // 60 枚読み込み → 「もっと見る」で 100 枚を超えて選べる）。途中で失敗したら残りは送らず、
+  // 消えた分は消えたまま（invalidate で画面に反映される）
   async function handleRemoveSelected() {
     if (selectedIds.length === 0) return;
     setNotice(null);
     try {
-      await removePhotos.mutateAsync({ id: albumId, photoIds: selectedIds });
+      for (const photoIds of chunk(selectedIds, MAX_PHOTOS_PER_REMOVE)) {
+        await removePhotos.mutateAsync({ id: albumId, photoIds });
+      }
       stopSelecting();
     } catch {
       setNotice("削除できませんでした。もう一度お試しください");

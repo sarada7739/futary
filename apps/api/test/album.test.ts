@@ -6,6 +6,7 @@ import type { Bindings } from "../src/index";
 import type { RpcContext } from "../src/context";
 import { generateImageId } from "../src/lib/ulid";
 import { albumImageKeyFor, imageKeyFor } from "../src/lib/r2-signed-url";
+import { D1_MAX_BOUND_PARAMETERS } from "../src/procedures/album";
 
 // 041: アルバム（T1〜T7・T9）。want.test.ts と同じ形でペアと R2 の実体を用意する
 const db = (env as unknown as Bindings).DB;
@@ -203,6 +204,38 @@ describe("album.create / album.list / album.get（基本）", () => {
   });
 });
 
+// R の段階1レビューの記録 1（A の決定 #296）: post.delete は post_images を物理削除するため、
+// `posts.deleted_at IS NULL` の条件が効く場面は今は無い（外してもテストが緑だった）。
+// 条文（architecture.md 4節「posts を読むクエリには必ず deleted_at IS NULL を含める」）を試せる形で
+// 置くため、deleted_at を SQL で直接立てて post_images の行を残した状態を作る
+describe("posts.deleted_at IS NULL の条件そのもの（post_images の行が残っていても出さない）", () => {
+  it("photo.list（タイムライン）にも album.list の timeline にも、削除済み投稿の写真は出ない", async () => {
+    const { owner, coupleId } = await createPair();
+    const base = 1_700_000_000;
+    const alive = await insertPostWithImages(coupleId, owner.id, base, 1, "生きている");
+    const deleted = await insertPostWithImages(coupleId, owner.id, base + 10, 2, "消したのに行が残っている");
+    // post.delete を通さず deleted_at だけ立てる（post_images は残る）
+    await db.prepare("UPDATE posts SET deleted_at = ?1 WHERE id = ?2").bind(base + 20, deleted).run();
+    const remaining = await db
+      .prepare("SELECT COUNT(*) AS count FROM post_images WHERE post_id = ?1")
+      .bind(deleted)
+      .first<{ count: number }>();
+    expect(remaining?.count).toBe(2);
+
+    const photos = await call(router.photo.list, {}, { context: contextFor(owner) });
+    expect(photos.items.map((p) => (p.ref.kind === "post" ? p.ref.postId : ""))).toEqual([alive]);
+
+    const list = await call(router.album.list, {}, { context: contextFor(owner) });
+    expect(list.timeline.photoCount).toBe(1);
+    expect(list.timeline.previews.map((p) => (p.ref.kind === "post" ? p.ref.postId : ""))).toEqual([alive]);
+
+    // 保存 URL も同じ条件で引く
+    await expect(
+      call(router.photo.downloadUrl, { kind: "post", postId: deleted, position: 0 }, { context: contextFor(owner) }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
 describe("T1: couple_id スコープ", () => {
   it("別ペアのアルバムは list に出ず、get / update / addPhotos / updatePhoto / removePhotos / delete / photo.list は NOT_FOUND（存在しない id と同じ応答）", async () => {
     const a = await createPair();
@@ -330,6 +363,60 @@ describe("T3: D1 → R2 の順。R2 の削除が失敗しても手続きは成�
     expect(await bucket.head(albumImageKeyFor(coupleId, photos[0]!.imageId))).toBeNull();
     expect(await bucket.head(albumImageKeyFor(coupleId, photos[1]!.imageId))).toBeNull();
     expect(await bucket.head(albumImageKeyFor(coupleId, photos[2]!.imageId))).not.toBeNull();
+  });
+
+  // R の段階1レビュー（必須修正）: D1 は 1 文の束縛パラメータが 100 まで。100 枚を 1 回で消すと
+  // IN 句 + 2 個で超える。ローカルの SQLite は通してしまうため、db.prepare に渡った SQL の
+  // プレースホルダを数えて「文ごとに 100 以下」を固定する（batch の中の各文に個別に適用される）
+  it("100 枚を 1 回の removePhotos で消せる。文ごとの束縛パラメータは D1 の上限（100）を超えない", async () => {
+    const { owner, coupleId } = await createPair();
+    const album = await call(router.album.create, { title: "100 枚" }, { context: contextFor(owner) });
+    const ids: string[] = [];
+    const inserts = [];
+    for (let i = 0; i < 100; i++) {
+      const id = generateImageId();
+      ids.push(id);
+      inserts.push(
+        db
+          .prepare(
+            `INSERT INTO album_photos (id, album_id, key, width, height, caption, taken_at, created_at)
+             VALUES (?1, ?2, ?3, 1, 1, '', ?4, ?4)`,
+          )
+          .bind(id, album.id, albumImageKeyFor(coupleId, id), 1_000 + i),
+      );
+    }
+    await db.batch(inserts);
+
+    // prepare に渡った SQL を記録する（束縛は SQL の ?N の数と一致する。bind の個数も数える）
+    const boundCounts: number[] = [];
+    const recordingDb = new Proxy(db, {
+      get(target, prop, receiver) {
+        if (prop !== "prepare") return Reflect.get(target, prop, receiver);
+        return (sql: string) => {
+          const statement = target.prepare(sql);
+          const placeholderCount = new Set(sql.match(/\?\d+/g) ?? []).size;
+          const original = statement.bind.bind(statement);
+          statement.bind = ((...values: unknown[]) => {
+            boundCounts.push(Math.max(placeholderCount, values.length));
+            return original(...values);
+          }) as typeof statement.bind;
+          return statement;
+        };
+      },
+    });
+
+    const result = await call(
+      router.album.removePhotos,
+      { id: album.id, photoIds: ids },
+      { context: { ...contextFor(owner), db: recordingDb } },
+    );
+
+    expect(result.photoCount).toBe(0);
+    expect(await countAlbumPhotos(album.id)).toBe(0);
+    expect(boundCounts.length).toBeGreaterThan(0);
+    expect(Math.max(...boundCounts)).toBeLessThanOrEqual(D1_MAX_BOUND_PARAMETERS);
+    // 100 個の id は 2 文以上に分かれている（1 文なら 102 個になる）
+    expect(boundCounts.filter((n) => n > 2).length).toBeGreaterThanOrEqual(2);
   });
 
   it("R2 の削除に失敗しても removePhotos / album.delete は成功して返り、行は消えている", async () => {

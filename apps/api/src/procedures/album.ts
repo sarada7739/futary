@@ -22,6 +22,13 @@ const MAX_PHOTOS_PER_ALBUM = 500;
 // 実体確認のタイミングで検証する（post.create と同じ）
 const UPLOAD_CONTENT_TYPE = "image/jpeg";
 
+// Cloudflare D1 の「1 文あたりの束縛パラメータ」の上限は 100（developers.cloudflare.com/d1/platform/limits/。
+// R の段階1レビューで指摘）。ローカルの SQLite（miniflare）は 32766 まで通すためテストでは見えない。
+// IN 句に並べる id はこの数ずつの DELETE 文に分け、1 本の batch() に入れる（上限は batch 内の各文に
+// 個別に適用される）。1 文のパラメータは id の数 + 2（album_id・couple_id）
+export const D1_MAX_BOUND_PARAMETERS = 100;
+export const REMOVE_PHOTOS_CHUNK_SIZE = 50;
+
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
@@ -482,21 +489,31 @@ const albumRemovePhotos = implementer.album.removePhotos
 
     await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
 
-    const placeholders = input.photoIds.map((_, i) => `?${i + 3}`).join(", ");
-    const { results } = await db
-      .prepare(
-        `DELETE FROM album_photos
-          WHERE album_id = ?1 AND id IN (${placeholders})
-            AND EXISTS (SELECT 1 FROM albums WHERE id = ?1 AND couple_id = ?2 AND deleted_at IS NULL)
-         RETURNING key AS key`,
-      )
-      .bind(input.id, coupleId, ...input.photoIds)
-      .all<{ key: string }>();
+    // photoIds を REMOVE_PHOTOS_CHUNK_SIZE ずつの DELETE に分けて 1 本の batch() で消す
+    // （D1 の束縛パラメータの上限。上の定数のコメント）。batch はトランザクションなので
+    // 途中で割れない
+    const statements = [];
+    for (let start = 0; start < input.photoIds.length; start += REMOVE_PHOTOS_CHUNK_SIZE) {
+      const chunk = input.photoIds.slice(start, start + REMOVE_PHOTOS_CHUNK_SIZE);
+      const placeholders = chunk.map((_, i) => `?${i + 3}`).join(", ");
+      statements.push(
+        db
+          .prepare(
+            `DELETE FROM album_photos
+              WHERE album_id = ?1 AND id IN (${placeholders})
+                AND EXISTS (SELECT 1 FROM albums WHERE id = ?1 AND couple_id = ?2 AND deleted_at IS NULL)
+             RETURNING key AS key`,
+          )
+          .bind(input.id, coupleId, ...chunk),
+      );
+    }
+    const batchResults = await db.batch<{ key?: string }>(statements);
+    const keys = batchResults
+      .flatMap((result) => result.results)
+      .map((r) => r.key)
+      .filter((key): key is string => typeof key === "string");
 
-    await deleteQuietly(
-      bucket,
-      results.map((r) => r.key),
-    );
+    await deleteQuietly(bucket, keys);
 
     const row = await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
     return toAlbum(row, r2Sign);

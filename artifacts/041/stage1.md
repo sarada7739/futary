@@ -105,3 +105,15 @@ query: X-Amz-Expires=300, response-content-disposition=attachment; filename="fut
 - 段階2（タイムラインの写真をアルバムに入れる）は段階1の受け入れ後（タスク定義8節）
 - 設計文書（`architecture.md` 等）は変えていない。実装は 4・5・6節の記述と一致している（B が読み合わせた。`architecture.md` は詳細のルート名を書いていない）。
   タスク定義3節の `(tabs)/album/[id].tsx` だけが `album-detail.tsx?id=` と違う（上の「B が決めたこと」1）
+
+## レビュー往復 1 回目（R の必須修正 1 件 + A の決定 #296）
+
+- **必須修正: `album.removePhotos` の 1 文の束縛パラメータが D1 の上限（100）を超える**（`photoIds` 100 + 2 個）。R の直し方 (2) + 画面側の分割にした
+  - サーバ: `photoIds` を 50 個ずつ（`REMOVE_PHOTOS_CHUNK_SIZE`）の DELETE に分けて 1 本の `db.batch()` に入れる（1 文 52 個。上限は batch 内の各文に個別）。契約はそのまま（1〜100）
+  - 画面: 選択が 100 枚を超えたら `MAX_PHOTOS_PER_REMOVE` ずつに分けて順に送る（`lib/chunk.ts`）。途中で失敗したら残りは送らない
+  - テスト: `album.test.ts`「100 枚を 1 回の removePhotos で消せる。文ごとの束縛パラメータは D1 の上限（100）を超えない」（`db.prepare` を Proxy で包み、SQL の `?N` の数と bind の個数の大きい方を文ごとに記録して ≤ 100 を固定。2 文以上に分かれていることも見る）、
+    `album-detail-screen.test.tsx`「101 枚選んで削除すると 100 枚 + 1 枚の 2 回に分かれて呼ばれる」、`chunk.test.ts`
+- **R の記録 1（A の決定で同じ PR に）: `posts.deleted_at IS NULL` の条件そのものを見るテスト**を 1 本足した（`album.test.ts`「posts.deleted_at IS NULL の条件そのもの」。
+  `deleted_at` を SQL で直接立てて `post_images` を残し、`photo.list`・`album.list` の timeline・`photo.downloadUrl` に出ないことを見る）。
+  **条件を外すと赤になることを確かめてから戻した**（`TIMELINE_SELECT` の `AND posts.deleted_at IS NULL` を外す → 1 件赤、戻す → 緑）
+- R の記録 2（100 枚を超える選択が BAD_REQUEST）は上の画面側の分割で消えた

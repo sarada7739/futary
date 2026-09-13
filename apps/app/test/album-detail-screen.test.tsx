@@ -261,6 +261,32 @@ describe("AlbumDetailScreen: 選択モード（T11）", () => {
   });
 });
 
+describe("AlbumDetailScreen: 100 枚を超える削除（R の段階1レビュー）", () => {
+  it("101 枚選んで削除すると album.removePhotos が 100 枚 + 1 枚の 2 回に分かれて呼ばれる", async () => {
+    const many = Array.from({ length: 101 }, (_, i) => makeAlbumPhoto(i + 1));
+    photoListMock.mockResolvedValue({ items: many, nextCursor: null });
+    getMock.mockResolvedValue(makeAlbum({ photoCount: 101 }));
+    removePhotosMock.mockResolvedValue(makeAlbum({ photoCount: 0 }));
+    renderScreen();
+    await screen.findByTestId("album-photo-photo-101");
+    renderHeaderRight();
+    fireEvent.click(screen.getByTestId("album-detail-select"));
+    await screen.findByTestId("album-detail-selection-bar");
+    for (let i = 1; i <= 101; i++) fireEvent.click(screen.getByTestId(`album-photo-photo-${i}`));
+    expect(lastHeaderOptions().title).toBe("101 枚を選択中");
+    fireEvent.click(screen.getByTestId("album-detail-remove"));
+    await act(async () => {
+      fireEvent.click(await screen.findByText("削除する"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(removePhotosMock).toHaveBeenCalledTimes(2));
+    const calls = removePhotosMock.mock.calls.map((c) => (c[0] as { photoIds: string[] }).photoIds.length);
+    expect(calls).toEqual([100, 1]);
+    // 101 回のクリックは全体実行のときに既定の 5 秒を超えることがある（単体では 1 秒台）
+  }, 20_000);
+});
+
 describe("AlbumDetailScreen: ビューア", () => {
   it("写真を押すとビューアが開き、説明文（アルバム名・日付・本文）と保存ボタンが出る。説明文を押すと入力 → album.updatePhoto", async () => {
     updatePhotoMock.mockResolvedValue(makeAlbumPhoto(1, "新しい説明"));
