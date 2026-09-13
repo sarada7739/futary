@@ -12906,3 +12906,10 @@ Session: A
 - #294 を squash merge。残りは人間の手番: リモート D1 へ 0022 を当てる許可 → デプロイ → 本番で 1 枚保存・5 枚アップロード・画像が見える
 
 Session: B
+
+## 2026-09-14 セッションA: 041 段階1 のデプロイ後、`.gitleaksignore` の運用を条文にした
+
+- B が gitleaks の誤検知（テストの `futary-20260816-<ULID>.jpg` が `generic-api-key`）を fingerprint で除外した。「検出 1 件で赤。例外なし」は程度の話で、秘密でない文字列を秘密として扱い続ける話ではない。`security-requirements.md` 9節に `.gitleaksignore` の書き方（fingerprint のみ・理由をコメント・先に文字列を直す・到達不能になったら消す）を足した
+- 当該コミット c19c433 は squash merge で main から到達不能になっているので、B の docs PR で行を消してもらう
+
+Session: A
