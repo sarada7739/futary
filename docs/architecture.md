@@ -801,6 +801,7 @@ album.create        { title, note?, startDate?, endDate?, cover?: { imageId, wid
                     cover があれば R2 に実体があることを確認してから最初の1枚として入れ、カバーにする（無ければ INVALID_INPUT。アルバムも作らない）
 album.update        { id, title?, note?, startDate?, endDate?, coverPhotoId?: string | null } -> Album
                     coverPhotoId はアルバム内の写真だけ（他は INVALID_INPUT）。null で自動
+                    startDate を null にすると endDate も外れる。endDate だけ渡して開始日が無い・前なら INVALID_INPUT
 album.addPhotos     { id, photos: [{ imageId, width, height, caption? }]（1〜20） } -> Album
                     全部の実体が R2 にあることを確認してから書く（1枚でも無ければ INVALID_INPUT。部分的に入れない。post.create と同じ）
                     合計500超は LIMIT_REACHED

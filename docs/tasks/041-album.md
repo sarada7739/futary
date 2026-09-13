@@ -93,7 +93,7 @@ Album     = { id, title, note, startDate, endDate, photoCount, cover: { url, wid
 | `photo.list` | read | `{ albumId?: string, cursor?, limit }` | `{ items: Photo[], nextCursor }` | **`albumId` 無し = タイムライン**（全投稿写真・新しい順）。あればそのアルバムの写真（古い順）。`post.list` と同じカーソル方式。`limit` 最大 60。**T-viewerKey の対象** |
 | `album.uploadUrl` | write | `{ contentType: "image/jpeg" }` | `{ imageId, url }` | `post.uploadUrl` と同じ形（署名付き PUT・5 分・ULID）。**JPEG のみ**（クライアントが圧縮する。ADR-007） |
 | `album.create` | write | `{ title, note?, startDate?, endDate?, cover?: { imageId, width, height } }` | `Album` | `cover` があれば **R2 に実体があることを確認してから** 最初の 1 枚として入れ、カバーにする（`post.create` と同じ検査。無ければ `INVALID_INPUT` で**アルバムも作らない**） |
-| `album.update` | write | `{ id, title?, note?, startDate?, endDate?, coverPhotoId?: string \| null }` | `Album` | 渡されなかった項目は変えない。`coverPhotoId` は**アルバム内の写真**でなければ `INVALID_INPUT`。`null` で自動 |
+| `album.update` | write | `{ id, title?, note?, startDate?, endDate?, coverPhotoId?: string \| null }` | `Album` | 渡されなかった項目は変えない。`coverPhotoId` は**アルバム内の写真**でなければ `INVALID_INPUT`。`null` で自動。**`startDate` を `null` にすると `endDate` も外れる。**`endDate` だけを明示的に渡して開始日が無い・開始日より前なら `INVALID_INPUT`（黙って捨てない） |
 | `album.addPhotos` | write | `{ id, photos: [{ imageId, width, height, caption? }] (1〜20) }` | `Album` | **全部の実体が R2 にあることを確認してから**書く（1 枚でも無ければ `INVALID_INPUT`。部分的に入れない。`post.create` と同じ）。合計が 500 を超えるなら `LIMIT_REACHED`。`taken_at` = 今 |
 | `album.updatePhoto` | write | `{ id, photoId, caption }` | `Photo` | 説明文だけ変える |
 | `album.removePhotos` | write | `{ id, photoIds: string[] (1〜100) }` | `Album` | 行を物理削除（D1 → R2）。入っていない id は無視 |
@@ -158,16 +158,18 @@ Album     = { id, title, note, startDate, endDate, photoCount, cover: { url, wid
 - アップロード中は「作成」を無効にして「写真を送っています…」（040 の「取得中…」と同じ形）
 - 二重発火は `Button` が防ぐ（`conventions.md` 4節）
 
-### 詳細: `(tabs)/album/[id].tsx`（`href: null`）
+### 詳細: `(tabs)/album-detail.tsx?id=`（`href: null`）
 
 `id` が `timeline` ならタイムライン（仮想）。ULID は 26 文字の英数大文字なので衝突しない。
-**`(tabs)` の下の動的ルートが `Tabs.Screen` の `href: null` で隠せなければ、`album-detail.tsx` + クエリ `?id=` に倒してよい**
-（結果に書く。**`(tabs)` の外に出さない**。`architecture.md` 3節「ボトムタブを消さない」）。
+**動的ルート（`[id].tsx`）にしない。**`apps/app` は `web.output="static"` で「動的セグメントが無いので全ルートが実ファイルとして書き出せる」前提
+（`scripts/build-public.mjs`）。**`(tabs)` の外に出さない**（`architecture.md` 3節「ボトムタブを消さない」）。
+ヘッダー左に「‹ 戻る」（行き先は一覧に固定。`href: null` の画面同士では履歴に依存するとホームへ戻ることがある）。
+ヘッダーの `+`・「編集」「選択」「やめる」は `navigation.setOptions` で置く。
 
 ```
- ‹  京都旅行              編集  選択
+ ‹ 戻る  京都旅行           編集  選択
 ┌────────────────────────┐
-│        カバー（横長）        │
+│        カバー（横長）        │   ← タイムラインは最新の 1 枚
 └────────────────────────┘
    2026年8月15日 - 8月17日
    38枚の写真・3日間の思い出
@@ -180,7 +182,7 @@ Album     = { id, title, note, startDate, endDate, photoCount, cover: { url, wid
 - **見出しの 2 行**: 期間（`startDate`〜`endDate`。片方だけなら 1 日。無ければ出さない）と「N枚の写真・M日間の思い出」
   （M = `diffDays + 1`。期間が無ければ「N枚の写真」だけ）。`packages/date` を使う。**日付計算を画面に書かない**（`architecture.md` 5節）
 - **`+`（FAB）**: **写真を追加（アップロード）**。このタスクでは**ここだけ FAB を使う**（投稿の FAB はこの画面に無い）。
-  押すと画像を選ぶ（**複数選択**。`compose` の選び方を複数にする。**1 回 20 枚まで**）→ クライアントで圧縮 → 1 枚ずつ署名付き PUT →
+  押すと画像を選ぶ（**複数選択**。`compose` の選び方を複数にする。**1 回 20 枚まで**）→ クライアントで圧縮 → **1 枚ずつ直列に**署名付き PUT（進捗を出すため。`imageId` の ULID が選んだ順に並ぶ）→
   `album.addPhotos`（20 枚を 1 回で）。進捗は「3 / 12 枚を送っています…」の 1 行。**途中で失敗したら 1 枚も入れない**（`addPhotos` が全部の実体を確かめてから書く）
   → 「送れませんでした。もう一度お試しください」。**タイムラインには無い**（自動）
 - **選択**: 押すと選択モードに入る（ヘッダーが「N 枚を選択中」「やめる」になり、写真にチェックが出る）。
@@ -203,7 +205,9 @@ Album     = { id, title, note, startDate, endDate, photoCount, cover: { url, wid
 - **投稿カード（タイムライン）からのビューアにも `download` を渡す**（人間の「タイムラインの写真もダウンロードしたい」）。`caption` は渡さない（本文はカードに見えている）
 - アルバムからのビューアは `caption` = { アルバム名（タイムラインなら「タイムライン」）, `takenAt` の日付, `caption`（タイムラインなら投稿本文） }。
   説明文が空なら「説明を追加」を薄く出す（アルバムだけ。押すと入力）
-- 「n / 総数」・閉じる 3 導線・スワイプ・左右ボタンは 033 のまま。**アルバムでは `photo.list` の読み込み済みの範囲を送る**（次ページの先読みはしない。端で止まる。結果に書く）
+- 「n / 総数」・閉じる 3 導線・スワイプ・左右ボタンは 033 のまま。**アルバムでは `photo.list` の読み込み済みの範囲を送る**（次ページの先読みはしない。端で止まる）。
+  グリッドは 60 枚ずつ取り、**「もっと見る」のボタン**で次ページ（`ScrollView` のため端での自動読み込みはしない）
+- **思い出カード（`memory-card.tsx`）からのビューアにも `download` を渡す**（投稿の写真であることは同じ）
 - 保存ボタンは `⋯` にしまわない（モックは `⋯` だが、中身が 1 つしかないメニューは作らない）
 
 ### ピンクの見え方（モックはホワイト）
@@ -314,3 +318,7 @@ S3 の仕様にはあり、R2 の S3 互換 API も対応を謳っているが�
 ## 順序
 
 040 のマージ後（済）。段階2は段階1の受け入れ後。042 はこのタスクのマージ後。
+
+## 進捗
+
+- 2026-09-14 段階0・段階1: B が実装（PR #294。報告は `artifacts/041/stage1.md`。段階0は (a)）。B が決めた 10 点は A が全部受け入れ、定義を今の形に合わせた（この版）。R のレビュー待ち

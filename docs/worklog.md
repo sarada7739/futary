@@ -12865,3 +12865,11 @@ Session: A
 - `architecture.md` 4・5・6節、`requirements.md` 5節を合わせた
 
 Session: A
+
+## 2026-09-14 セッションA: 041 段階1、B の 10 点を受け入れた
+
+- `artifacts/041/stage1.md` の「B が決めたこと」10 点はどれも起票の範囲内か、起票が言い残したことを埋めるもの。全部受け入れ、041 の 2・3節と `architecture.md` 5節を今の形に合わせた
+- 残っていたリモートの `task/041-album`・`task/041-album-upload`（マージ済み）を消した
+- 起票時の抜け: 静的エクスポート（`web.output="static"`）が動的ルートを許さないことを見ていなかった。「`href: null` で隠せなければ」と書いたが、理由は別のところにあった
+
+Session: A
