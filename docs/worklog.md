@@ -12845,3 +12845,13 @@ Session: B
 - #289 を squash merge。残りは人間の手番: 本番で Amazon の URL と amzn.asia の共有リンクを貼って、画像と /dp/ の正規形を確かめる
 
 Session: B
+
+## 2026-09-13 セッションA: 041（アルバム）と 042（まとめて ZIP）を起票
+
+- 人間の指示: アルバムごとに写真をまとめる。「タイムライン」は自動（写真付き投稿）。イベントごとに作れる。カラーは無視。ダウンロードが欲しい（タイムラインの写真も）
+- モック 5 枚（`docs/sample/simpleMode/アルバム機能/`）を読んで 041 を書いた。先に決めた 6 点は 0節（写真は投稿から・ホームは「今日どうだった？」を置き換え・ZIP は 042・タイムラインは仮想・検索窓とハートは置かない）
+- 1 枚の保存は `response-content-disposition` 付きの署名付き GET（5 分）。R2 が返すかは B の段階0で確かめる（返らなければ fetch → Blob）。止まらない形にした
+- ZIP はブラウザで組む（無料枠の Worker では CRC32 の CPU が足りない）。100 枚ずつ。本番の R2 CORS を人間に確かめてもらってから着手
+- `architecture.md` 3・4・5・6節、`requirements.md` 5節、`security-requirements.md` 5節を更新
+
+Session: A

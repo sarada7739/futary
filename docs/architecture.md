@@ -133,6 +133,10 @@ Worker は1つ。ドメインも1つ。ビルド時に `apps/landing` の出力�
 **動くものをタブに出し、動かないものを引っ込める。**
 デモは公開前提であり、**最初に触る画面で「準備中です」に当たるのは弱い。**
 
+**041 でアルバムはホームの機能パネルとして入る**（タブには戻さない。タブは5つのまま）。
+同じ規則で、**押しても何も起きなかった「今日どうだった？」のパネルをアルバムに置き換えた**
+（3列×3行の9枚を保つ。「今日どうだった？」は次フェーズで作るときに入口を考え直す）。
+
 ## 4. データモデル
 
 タイムスタンプは Unix 秒（INTEGER）。日付は `YYYY-MM-DD` の文字列。
@@ -237,6 +241,35 @@ wants                                           -- 040。ほしいもの（本�
                                                 -- kind を持たない。「カフェ」は場所でもあり
                                                 -- 食べ物でもある。迷わせる分類は書かれない（027）
 
+albums                                          -- 041。アルバム（イベントごとに投稿写真をまとめる）
+  id             TEXT    PK
+  couple_id      TEXT    NOT NULL
+  title          TEXT    NOT NULL                -- 1〜50文字
+  note           TEXT    NOT NULL DEFAULT ''     -- 0〜200文字
+  start_date     TEXT                            -- YYYY-MM-DD。NULL可
+  end_date       TEXT                            -- YYYY-MM-DD。NULL可。start_date 以上（入力スキーマ）
+  cover_post_id  TEXT                            -- カバー。NULL なら自動（アルバム内でいちばん新しい写真）
+  cover_position INTEGER                         -- post_images の (post_id, position)。FK を張らない。
+                                                 -- 外れた・消えたときは読む側で自動に倒す
+  created_by     TEXT    NOT NULL                -- 返さない（wishes と同じ。両方が触れる）
+  created_at     INTEGER NOT NULL
+  updated_at     INTEGER NOT NULL
+  deleted_at     INTEGER                         -- 論理削除
+  INDEX (couple_id, created_at DESC)
+                                                 -- 「タイムライン」のアルバムは行を持たない（仮想。
+                                                 --  post_images から毎回引く）
+
+album_photos                                    -- 041。アルバムに入っている投稿写真
+  album_id  TEXT    NOT NULL -> albums.id
+  post_id   TEXT    NOT NULL
+  position  INTEGER NOT NULL
+  added_at  INTEGER NOT NULL
+  PRIMARY KEY (album_id, post_id, position)
+  FOREIGN KEY (post_id, position) -> post_images(post_id, position)
+  INDEX (post_id, position)
+                                                 -- 論理削除を持たない。post.delete が同じ batch() で消す
+                                                 -- （post_images より先）。1アルバム500枚・1ペア100アルバム
+
 ai_summaries                                    -- 037。月ごとのAIまとめ
   couple_id       TEXT    NOT NULL
   period_kind     TEXT    NOT NULL            -- 'month' | 'week'
@@ -268,6 +301,8 @@ moods                                           -- 029。1日1回の気分
 ### `posts` を読むクエリには必ず `deleted_at IS NULL` を含める
 
 **027 以降、`wishes` も同じである。**論理削除を持つ表が2つになった。
+**040 で `wants`、041 で `albums` が加わった。**`album_photos` から写真を引くときも
+`posts.deleted_at IS NULL` を JOIN に含める（`post.delete` が `album_photos` を消すことに依存しない）。
 **「`posts` の規則」ではなく「論理削除を持つ表の規則」として読む。**
 
 **例外なし。**`posts` は論理削除であり、削除された行はテーブルに残り続ける。
@@ -755,6 +790,24 @@ want.setObtained    { id, obtained } -> 更新後の1件。本人のみ
 want.delete         { id } -> { id }。論理削除 + R2 は物理削除。本人のみ
 want.uploadUrl      { contentType: "image/jpeg" } -> { imageId, url }。post.uploadUrl と同じ形
                     他ペアの id は NOT_FOUND（FORBIDDEN にしない。存在を教えない）
+album.list          {} -> { timeline: { photoCount, previews: Photo[]（最新4枚） }, items: Album[] }（041。新しい順。100件上限。T9 対象）
+                    Album = { id, title, note, startDate, endDate, photoCount, cover: { url, width, height } | null, createdAt }
+                    created_by を返さない。canEdit も返さない（wishes と同じ。両方が触れる）
+album.get           { id } -> Album。他ペア・削除済み・無い id は NOT_FOUND
+album.create        { title, note?, startDate?, endDate?, fillFromRange? } -> Album
+                    fillFromRange が真なら期間内（JST の日の境界）の投稿写真を最初から入れる。500枚超は古い方から500枚
+album.update        { id, title?, note?, startDate?, endDate?, cover?: PhotoRef | null } -> Album
+                    cover はアルバム内の写真だけ（他は INVALID_INPUT）。null で自動。日付を変えても写真は入れ直さない
+album.addPhotos     { id, photos: PhotoRef[]（1〜100） } -> Album。入っている分は無視（冪等）。合計500超は LIMIT_REACHED（部分的に入れない）
+album.removePhotos  { id, photos: PhotoRef[] } -> Album。投稿の写真は消えない
+album.delete        { id } -> { id }。論理削除。album_photos は同じ batch() で物理削除。写真は消えない
+photo.list          { albumId?, cursor?, limit } -> { items: Photo[], nextCursor }（041。T9 対象）
+                    PhotoRef = { postId, position }。Photo = PhotoRef + { url, width, height, postedAt, body }
+                    albumId 無し = タイムライン（全投稿写真・新しい順）。あればそのアルバム（古い順）。limit 最大60
+                    posts.deleted_at IS NULL を必ず含める
+photo.downloadUrl   PhotoRef -> { url, filename }（041。6節「保存用の署名付き URL」）
+                    Content-Disposition: attachment 付きの署名付き GET。有効5分。filename はサーバが組み立てる
+                    他ペアの ref は NOT_FOUND
 aiSummary.get       { periodKind, periodKey } -> { body, provider, model, updatedAt, generatedCount } | null
                     periodKind は 'month' | 'week'。週は ISO 8601（月曜始まり・JST）
 aiSummary.generate  { periodKind, periodKey } -> 生成して保存し、同じ形を返す（037）
@@ -1194,6 +1247,21 @@ CREATE UNIQUE INDEX events_meetup_unique
 - 表示: `post.list` のレスポンスに署名付き GET URL（1時間）を含める。
   鍵は行の `couple_id` と `image_key` から作る
 - クライアント側で長辺 1600px / JPEG 品質 0.8 に圧縮してから送る
+
+### 保存用の署名付き URL（041）
+
+表示用の署名付き GET URL は `<img>` に読ませるためのもので、ブラウザは保存しない。
+**保存には `Content-Disposition: attachment` が要る。**署名付き GET URL のクエリに
+`response-content-disposition=attachment; filename="futary-YYYYMMDD-{imageId}.jpg"` を
+足してから署名する（S3 互換 API の `response-*` パラメータ。**クエリは署名に含まれるため
+利用者が書き換えられない**）。有効期限は **5 分**（表示用の 1 時間より短い。押した瞬間にしか要らない）。
+
+- **`filename` はサーバが組み立てる。**クライアントから受け取らない（鍵と同じ理由）
+- Web は `<a href download>` を作ってクリックする。`Linking.openURL` は空のタブが残る
+- **R2 が `response-content-disposition` を実際に返すかは 041 の段階0で確かめる。**返さなければ
+  表示用 URL を `fetch` → `Blob` → `<a download>` に倒す（R2 の CORS に GET とアプリのオリジンが要る。
+  `r2-cors.json`）。どちらになったかは `artifacts/041/download.md`
+- **まとめて ZIP（042）はブラウザで組む。**無料枠の Worker（CPU 10ms）で CRC32 を全バイトに掛けられない
 
 ### R2 バケットに CORS を設定する（設定しないとアップロードが動かない）
 
