@@ -12906,3 +12906,11 @@ Session: A
 - #294 を squash merge。残りは人間の手番: リモート D1 へ 0022 を当てる許可 → デプロイ → 本番で 1 枚保存・5 枚アップロード・画像が見える
 
 Session: B
+
+## 2026-09-14 セッションB: 041 段階1 — マージ・0022 のリモート適用・デプロイ
+
+- #294 を squash merge（main 4f4b529）。人間の許可を受けて production 環境のデプロイを承認し、deploy.yml が db:migrate:remote → deploy を完走（0022_albums.sql 適用済み）。本番の album.list が応答することを確認
+- CI の gitleaks 誤検知 1 件（テストの filename 文字列）を .gitleaksignore の fingerprint で除外し、文字列は変数から組む形に直した
+- 残りは人間の実機（アルバム作成・5 枚アップロード・画像が見える・1 枚保存）
+
+Session: B
