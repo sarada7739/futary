@@ -396,6 +396,14 @@ B は**実行前に人間の許可を得ている**（`worklog.md` 4292行）。
 `batch()` は文の**エラー**でロールバックする。更新件数0はエラーではないため、
 「起きてはいけない状態」は宣言的制約（UNIQUE / CHECK）でエラーにする。
 
+### D1 の 1 文に束ねられるパラメータは 100 個まで
+
+**`IN (?, ?, …)` に配列をそのまま束ねない。**D1 の上限は「Maximum bound parameters per query: 100」
+（041 の R が公式ドキュメントで確認）。**ローカルの SQLite は 32766 まで通すので、テストは緑のまま本番だけ 500 になる。**
+契約が 100 件を受けるなら（`album.removePhotos` の `photoIds`。他の条件と合わせて 101 個になる）、
+**サーバで 50 個ずつの文に分けて `batch()` にまとめる**（原子性は `batch()` が持つ）。
+契約の上限を決めるときは、この数を思い出す。
+
 ### 制約の担保箇所
 
 | 制約 | 担保方法 |
@@ -801,6 +809,7 @@ album.create        { title, note?, startDate?, endDate?, cover?: { imageId, wid
                     cover があれば R2 に実体があることを確認してから最初の1枚として入れ、カバーにする（無ければ INVALID_INPUT。アルバムも作らない）
 album.update        { id, title?, note?, startDate?, endDate?, coverPhotoId?: string | null } -> Album
                     coverPhotoId はアルバム内の写真だけ（他は INVALID_INPUT）。null で自動
+                    startDate を null にすると endDate も外れる。endDate だけ渡して開始日が無い・前なら INVALID_INPUT
 album.addPhotos     { id, photos: [{ imageId, width, height, caption? }]（1〜20） } -> Album
                     全部の実体が R2 にあることを確認してから書く（1枚でも無ければ INVALID_INPUT。部分的に入れない。post.create と同じ）
                     合計500超は LIMIT_REACHED
