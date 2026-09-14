@@ -39,10 +39,14 @@ export type ZipResult = {
   parts: number;
 };
 
-// ZIP とフォルダの名前に使えない文字を `_` に（タスク定義 2節）。空になったら "album"
+// ZIP とフォルダの名前に使えない文字（`/ \ : * ? " < > |` と制御文字・TAB・改行）を `_` に（タスク定義 2節）。
+// `.` だけの名前（`.` `..`）は "album" に倒す（全部のときのフォルダ名になるので `../` のパスを ZIP に入れない。
+// captions.txt の区切り（TAB）も壊さない）。空になったら "album"
+// eslint-disable-next-line no-control-regex -- 制御文字を名前から落とすのが目的
+const UNSAFE_NAME_CHARS = /[/\\:*?"<>|\x00-\x1f\x7f]/g;
 export function safeZipName(name: string): string {
-  const safe = name.replace(/[/\\:*?"<>|]/g, "_").trim();
-  return safe === "" ? "album" : safe;
+  const safe = name.replace(UNSAFE_NAME_CHARS, "_").trim();
+  return safe === "" || /^\.+$/.test(safe) ? "album" : safe;
 }
 
 export function zipBaseName(source: ZipSource): string {
@@ -69,9 +73,9 @@ export function zipPartsLabel(parts: number): string {
   return `${parts} つのファイルに分けて保存します`;
 }
 
-// captions.txt の中身。1 行 1 枚「{ZIP 内のパス}<TAB>{説明文}」。説明文の改行は空白にする（1 行に保つ）
+// captions.txt の中身。1 行 1 枚「{ZIP 内のパス}<TAB>{説明文}」。説明文の改行・TAB は空白にする（1 行・区切り 1 つに保つ）
 export function captionsText(entries: readonly { name: string; caption: string }[]): string {
-  return entries.map((e) => `${e.name}\t${e.caption.replace(/\r?\n/g, " ")}`).join("\n") + "\n";
+  return entries.map((e) => `${e.name}\t${e.caption.replace(/\r?\n|\t/g, " ")}`).join("\n") + "\n";
 }
 
 // 1 つのアルバムの写真を全部集める（photo.list を limit 60 で最後まで。ゲストも呼べる）
