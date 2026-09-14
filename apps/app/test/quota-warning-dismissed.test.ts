@@ -28,4 +28,28 @@ describe("quota-warning-dismissed", () => {
     dismissQuotaWarning(0);
     expect(isQuotaWarningDismissed(0)).toBe(true);
   });
+
+  // 【R の記録 1】向きを縛る: ストレージが例外を投げる環境では「消していない」（警告は出る方に倒す。
+  // 043 の「見た」は逆向き（既読扱い）なので、同じ形のテストで向きの違いを固定する）
+  it("sessionStorage が例外を投げる環境では「消していない」扱い（false）。書き込みも例外にならない", () => {
+    withThrowingStorage("sessionStorage", () => {
+      expect(() => dismissQuotaWarning(4)).not.toThrow();
+      expect(isQuotaWarningDismissed(4)).toBe(false);
+    });
+  });
 });
+
+function withThrowingStorage(name: "localStorage" | "sessionStorage", run: () => void) {
+  const original = Object.getOwnPropertyDescriptor(globalThis, name);
+  Object.defineProperty(globalThis, name, {
+    configurable: true,
+    get() {
+      throw new Error("SecurityError: storage is disabled");
+    },
+  });
+  try {
+    run();
+  } finally {
+    if (original) Object.defineProperty(globalThis, name, original);
+  }
+}
