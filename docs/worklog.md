@@ -13216,3 +13216,5 @@ Session: B
 - B の判断（アルバムごとのフォルダ・captions.txt の形）を定義に写した
 
 Session: A
+
+- 追記: R の記録 1・2 を fix #342 で直した（`safeZipName` の `.`・制御文字・TAB、説明文の TAB、無圧縮の検査を縮む中身で）。R 受け入れ → squash merge（main fb7f372）。次は人間のデプロイ承認・実機
