@@ -65,7 +65,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
             500は「会った日数」の数字・COMING SOON、800は72ptの記念日
             数字に使う（700 vs 800はAの指示で実測比較し、800を採用した） */}
         {/* 039 段階2の 300（ホワイトのホームの文字ロゴ）は 051 でロゴが両モード同じ画像になり、
-            使う要素が無くなった。preload と @font-face は外した（ファイルは残している） */}
+            使う要素が無くなった。preload と @font-face を外し、public/fonts/poppins-300.woff2 も消した */}
         <link rel="preload" href={`${baseUrl}/fonts/poppins-500.woff2`} as="font" type="font/woff2" crossOrigin="" />
         <link rel="preload" href={`${baseUrl}/fonts/poppins-800.woff2`} as="font" type="font/woff2" crossOrigin="" />
         {/* @font-faceはCSSとしてのみ書ける。外部URLを含まない静的な
