@@ -13295,3 +13295,10 @@ Session: B
 - 追記: 人間が Google OAuth の同意画面のアプリ名を Nisoine に変えた（2026-09-15。A 経由）。`artifacts/051/stage1.md` に追記。アイコン入れ直し・OGP は未確認
 
 - 追記: 人間が X で OGP のカード（Nisoine）を確認（2026-09-15。A 経由）。051 完了。次は 048 段階2 の合図待ち
+
+## 2026-09-15 セッションA: 認証の一意と束ね方を決めた（iOS・Apple ID の前に）
+
+- 人間の決定: Google と Apple で入った同じ人は別の人として扱う。一意は account の (providerId, accountId)。メールで束ねない。`security-requirements.md` 2節に
+- iOS を出すには Sign in with Apple が要る（規約 4.8）。メール認証（マジックリンク）は独自ドメインの後
+
+Session: A
