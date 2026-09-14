@@ -9,7 +9,7 @@
 // - 全体で 12 秒（楽天は Cloudflare からの fetch を約 10 秒待たせる）
 // - Amazon は OGP を出さない。`<meta name="title">` と `data-old-hires` から取る
 
-export const LINK_PREVIEW_USER_AGENT = "futary-link-preview/1 (+https://futary-api.sarada7739.workers.dev)";
+export const LINK_PREVIEW_USER_AGENT = "nisoine-link-preview/1 (+https://futary-api.sarada7739.workers.dev)";
 export const MAX_REDIRECTS = 3;
 export const PAGE_BYTE_LIMIT = 1024 * 1024;
 export const TOTAL_TIMEOUT_MS = 12_000;

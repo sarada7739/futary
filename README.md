@@ -1,6 +1,6 @@
-# futary
+# Nisoine
 
-ふたり専用SNS。「ふたりの毎日を、もっと特別に。」
+ふたり専用SNS。「日々が、ふたりの記録になる。」旧名 futary（2026-09-15 に Nisoine に。パッケージ名・URL・バケット等の中の名前は旧名のまま）
 
 設計ドキュメントは [`docs/`](docs/) 以下（[`docs/state.md`](docs/state.md) が現在地）。
 

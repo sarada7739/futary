@@ -33,11 +33,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   downloadUrlMock.mockImplementation(async (ref: { photoId: string }) => ({
     url: `https://r2.example.com/${ref.photoId}`,
-    filename: `futary-20260816-${ref.photoId}.jpg`,
+    filename: `nisoine-20260816-${ref.photoId}.jpg`,
   }));
   vi.stubGlobal("fetch", vi.fn(async () => new Response(new Uint8Array([0xff, 0xd8, 0xff]), { status: 200 })));
   // jsdom に createObjectURL は無い。<a download> のクリックは記録だけ（遷移しない）
-  createObjectURL = vi.fn(() => "blob:futary/zip");
+  createObjectURL = vi.fn(() => "blob:nisoine/zip");
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
   clicked = [];
   const originalCreate = document.createElement.bind(document);
@@ -96,7 +96,7 @@ describe("ZipExportSheet", () => {
     expect(screen.getByTestId("zip-export-close")).toBeTruthy();
   });
 
-  it("「保存」→ 進捗「N / 3 枚を取得中…」→ ZIP を 1 つ保存して「保存しました」。名前は futary-京都旅行-{今日}.zip", async () => {
+  it("「保存」→ 進捗「N / 3 枚を取得中…」→ ZIP を 1 つ保存して「保存しました」。名前は nisoine-京都旅行-{今日}.zip", async () => {
     listPages(3);
     render(<ZipExportSheet source={ALBUM} onClose={vi.fn()} />);
     await screen.findByTestId("zip-export-confirm");
@@ -110,10 +110,10 @@ describe("ZipExportSheet", () => {
     expect(downloadUrlMock).toHaveBeenCalledTimes(3);
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(clicked).toHaveLength(1);
-    expect(clicked[0]).toMatch(/^futary-京都旅行-\d{8}\.zip$/);
+    expect(clicked[0]).toMatch(/^nisoine-京都旅行-\d{8}\.zip$/);
   });
 
-  it("全部（all）は album.list のアルバムを辿り、名前は futary-albums-{今日}.zip。題は「すべての写真を ZIP で保存」", async () => {
+  it("全部（all）は album.list のアルバムを辿り、名前は nisoine-albums-{今日}.zip。題は「すべての写真を ZIP で保存」", async () => {
     albumListMock.mockResolvedValue({
       timeline: { photoCount: 9, previews: [] },
       items: [{ id: "album-1", title: "京都旅行", photoCount: 2 }],
@@ -128,7 +128,7 @@ describe("ZipExportSheet", () => {
     });
 
     await screen.findByTestId("zip-export-done");
-    expect(clicked[0]).toMatch(/^futary-albums-\d{8}\.zip$/);
+    expect(clicked[0]).toMatch(/^nisoine-albums-\d{8}\.zip$/);
     // タイムライン（albumId 無し）は呼んでいない
     expect(photoListMock.mock.calls.every((c) => c[0].albumId === "album-1")).toBe(true);
   });

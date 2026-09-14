@@ -23,11 +23,11 @@ function resolveCallbackURL(): string {
   return "/";
 }
 
-// 035タスク定義4節「中央に大きなロゴ」。logoMarkの元画像は168x59（比率2.85）で、
+// 035タスク定義4節「中央に大きなロゴ」。logoMark は 051 で Nisoine のワードマーク（600x159。比率 3.77）になった。
 // ホーム上部の96x34より大きく出す。ラスター画像のため、これ以上大きくすると
 // 粗さが目立つ（`docs/sample/README.md`に元画像の出どころの記載あり）
-const LOGO_WIDTH = 224;
-const LOGO_HEIGHT = 79;
+const LOGO_WIDTH = 240;
+const LOGO_HEIGHT = 64;
 
 export default function SignInScreen() {
   const { colors } = useTheme();
@@ -81,7 +81,7 @@ export default function SignInScreen() {
             style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
             resizeMode="contain"
             accessibilityRole="image"
-            accessibilityLabel="futary"
+            accessibilityLabel="Nisoine"
           />
           {/* 035書体仕様: タグラインはweight400・字間0.15em（16pt×0.15=2.4）・
               行送り1.9（16pt×1.9=30.4）。共有Textはletterspacing/この

@@ -639,7 +639,7 @@ const photoDownloadUrl = implementer.photo.downloadUrl.use(readProcedure).handle
   const { db, coupleId, r2Sign } = context;
   const resolved = await resolvePhotoRef(db, coupleId, input);
   if (!resolved) throw errors.NOT_FOUND();
-  const filename = `futary-${formatJstDateCompact(resolved.takenAt)}-${imageIdOfKey(resolved.key)}.jpg`;
+  const filename = `nisoine-${formatJstDateCompact(resolved.takenAt)}-${imageIdOfKey(resolved.key)}.jpg`;
   const url = await createDownloadUrl(r2Sign, resolved.key, filename);
   return { url, filename };
 });

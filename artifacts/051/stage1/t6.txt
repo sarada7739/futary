@@ -1,0 +1,6 @@
+logo-mark.png (600, 159)
+corners alpha [np.uint8(0), np.uint8(0), np.uint8(0), np.uint8(0)]
+opaque pixels 14667
+semi-transparent (edge) pixels 11236
+edge/opaque 0.766
+alpha threshold 190..240 -> 0..255, rgb set to (60, 31, 13)

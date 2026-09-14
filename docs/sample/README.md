@@ -17,6 +17,10 @@
 
 | ファイル | 内容 | 出自 |
 |---|---|---|
+| `nisoine/icon-1024.jpg` | **Nisoine のアプリアイコン**（N とハート。1024×1024。051） | AI生成（人間の絵） |
+| `nisoine/wordmark-transparent.png` | **Nisoine のワードマーク**（透過 PNG。ぼかしの縁あり。051） | AI生成（人間の絵）。`artifacts/051/scripts/make-assets.py` がアルファの薄い画素を落として `logo-mark.png`・`logo.png` に |
+| `nisoine/wordmark-on-checkerboard.jpg` | 同じ絵の JPG（予備） | 同上 |
+| （`apps/landing/assets/ogp.png`） | Nisoine の OGP（1200×630。生成りの地 + ワードマーク + 「日々が、ふたりの記録になる。」+ 「ふたり専用SNS」） | **B が組んだ**（`make-assets.py`。日本語は Windows の游ゴシック） |
 | `sample.png` | 全画面のデザインモック | AI生成 |
 | `icon/futary-icon-source.png` | アプリアイコンの元画像（1254×1254。角丸・外側は白） | AI生成 |
 | `icon/futary-icon-square-1024.png` | **上の角の白を背景で埋めた正方形版**（1024×1024） | 上を加工 |

@@ -184,7 +184,7 @@ export default function ProfileScreen() {
   async function handleShareInvite() {
     if (!reissuedInvite) return;
     await Share.share({
-      message: `futaryでペアを作りました。招待コード: ${reissuedInvite.code}\nこのコードで参加してね（${inviteExpiresAtLabel} まで有効）`,
+      message: `Nisoineでペアを作りました。招待コード: ${reissuedInvite.code}\nこのコードで参加してね（${inviteExpiresAtLabel} まで有効）`,
     });
   }
 

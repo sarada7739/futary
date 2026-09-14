@@ -683,7 +683,7 @@ describe("T7: coverPhotoId の検査と album.update", () => {
 });
 
 describe("T9: photo.downloadUrl", () => {
-  it("kind の両方で response-content-disposition 付きの URL と futary-YYYYMMDD-{imageId}.jpg の filename が返る", async () => {
+  it("kind の両方で response-content-disposition 付きの URL と nisoine-YYYYMMDD-{imageId}.jpg の filename が返る", async () => {
     const { owner, coupleId } = await createPair();
     // 2026-08-16 00:00 JST = 2026-08-15 15:00 UTC
     const takenAt = Date.UTC(2026, 7, 15, 15, 0, 0) / 1000;
@@ -697,8 +697,8 @@ describe("T9: photo.downloadUrl", () => {
       .bind(postId)
       .first<{ key: string }>();
     const postImageId = postKey!.key.slice(postKey!.key.lastIndexOf("/") + 1, -".jpg".length);
-    expect(fromPost.filename).toBe(`futary-20260816-${postImageId}.jpg`);
-    expect(fromPost.filename).toMatch(/^futary-\d{8}-[0-9A-HJKMNPQRSTVWXYZ]{26}\.jpg$/);
+    expect(fromPost.filename).toBe(`nisoine-20260816-${postImageId}.jpg`);
+    expect(fromPost.filename).toMatch(/^nisoine-\d{8}-[0-9A-HJKMNPQRSTVWXYZ]{26}\.jpg$/);
     expect(fromPost.url).toContain(postKey!.key);
     expect(new URL(fromPost.url).searchParams.get("response-content-disposition")).toBe(
       `attachment; filename="${fromPost.filename}"`,
@@ -706,7 +706,7 @@ describe("T9: photo.downloadUrl", () => {
     expect(new URL(fromPost.url).searchParams.get("X-Amz-Expires")).toBe("300");
 
     const fromAlbum = await call(router.photo.downloadUrl, { kind: "album", photoId }, { context: contextFor(owner) });
-    expect(fromAlbum.filename).toBe(`futary-20260816-${photoId}.jpg`);
+    expect(fromAlbum.filename).toBe(`nisoine-20260816-${photoId}.jpg`);
     expect(new URL(fromAlbum.url).searchParams.get("response-content-disposition")).toBe(
       `attachment; filename="${fromAlbum.filename}"`,
     );
@@ -751,6 +751,6 @@ describe("T9: photo.downloadUrl", () => {
     const photos = await call(router.photo.list, {}, ctx);
     expect(photos.items).toHaveLength(1);
     const download = await call(router.photo.downloadUrl, { kind: "post", postId, position: 0 }, ctx);
-    expect(download.filename).toMatch(/^futary-\d{8}-/);
+    expect(download.filename).toMatch(/^nisoine-\d{8}-/);
   });
 });

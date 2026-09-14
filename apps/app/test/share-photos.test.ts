@@ -22,7 +22,7 @@ function urlOf(ref: Ref): string {
 }
 // filename の規則はサーバ（photo.downloadUrl）が決める。ここでは返ってきた値がそのまま File の名前になることを見る
 function filenameOf(ref: Ref): string {
-  return `futary-20260816-${idOf(ref)}.jpg`;
+  return `nisoine-20260816-${idOf(ref)}.jpg`;
 }
 
 type NavShare = { canShare?: (d: ShareData) => boolean; share?: (d: ShareData) => Promise<void> };

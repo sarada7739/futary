@@ -9,7 +9,7 @@ const { downloadPhoto, canShareFiles } = await import("../lib/photo-download");
 
 const REF = { kind: "album" as const, photoId: "01ARZ3NDEKTSV4RRFFQ69G5FAV" };
 const URL_ = "https://r2.example.com/x?response-content-disposition=attachment";
-const FILENAME = "futary-20260816-01ARZ3NDEKTSV4RRFFQ69G5FAV.jpg";
+const FILENAME = "nisoine-20260816-01ARZ3NDEKTSV4RRFFQ69G5FAV.jpg";
 
 type NavShare = { canShare?: (d: ShareData) => boolean; share?: (d: ShareData) => Promise<void> };
 const nav = navigator as Navigator & NavShare;

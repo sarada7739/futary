@@ -69,19 +69,22 @@ beforeEach(() => {
   statsGetMock.mockResolvedValue(makeStats());
 });
 
+// 051 T4: ロゴは両モードで同じワードマーク画像（039 段階2-a の white の文字ロゴ「futary」はやめた）
 describe("a: ホームのロゴ", () => {
-  it("white では文字の「futary」を描き、画像は描かない", async () => {
-    renderIn("white", <HomeScreen />);
-    const logo = await screen.findByTestId("home-logo-text");
-    expect(logo).toHaveTextContent("futary");
-    expect(logo.style.fontWeight).toBe("300");
-    expect(screen.queryByTestId("home-logo-image")).toBeNull();
-  });
-
-  it("pink では画像のロゴのまま", async () => {
-    renderIn("pink", <HomeScreen />);
-    expect(await screen.findByTestId("home-logo-image")).toBeInTheDocument();
+  it("white でも pink でも同じ画像のロゴで、文字ロゴ（home-logo-text）は無い", async () => {
+    const white = renderIn("white", <HomeScreen />);
+    const whiteLogo = await screen.findByTestId("home-logo-image");
+    expect(whiteLogo).toHaveAttribute("aria-label", "Nisoine");
     expect(screen.queryByTestId("home-logo-text")).toBeNull();
+    const whiteSrc = whiteLogo.querySelector("img")?.getAttribute("src") ?? whiteLogo.style.backgroundImage;
+    white.unmount();
+
+    renderIn("pink", <HomeScreen />);
+    const pinkLogo = await screen.findByTestId("home-logo-image");
+    expect(screen.queryByTestId("home-logo-text")).toBeNull();
+    const pinkSrc = pinkLogo.querySelector("img")?.getAttribute("src") ?? pinkLogo.style.backgroundImage;
+    expect(pinkSrc).toBe(whiteSrc);
+    expect(pinkSrc).toBeTruthy();
   });
 });
 
