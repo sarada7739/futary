@@ -1297,8 +1297,10 @@ CREATE UNIQUE INDEX events_meetup_unique
 - **R2 が `response-content-disposition` を実際に返すかは 041 の段階0で確かめる。**返さなければ
   表示用 URL を `fetch` → `Blob` → `<a download>` に倒す（R2 の CORS に GET とアプリのオリジンが要る。
   `r2-cors.json`）。どちらになったかは `artifacts/041/download.md`
-- **ZIP は作らない**（042 で一度決めて落とした。iPhone では「ファイル」に落ちるだけで写真ライブラリに入らない。
-  Worker で組む案も無料枠の CPU 10ms で CRC32 を全バイトに掛けられない）
+- **ZIP は持ち出し（046）にだけ使う**（写真ライブラリに入れるのは 042 の共有シート。ZIP はブラウザで無圧縮に組む。
+  Worker で組む案は無料枠の CPU 10ms で CRC32 を全バイトに掛けられない）
+- **プレミアムをやめて猶予が過ぎたペアの無料枠を超える写真は、署名付き URL を返さない**（047。鍵。`lib/plan.ts` の 1 箇所で判定。
+  画面でぼかすのではなく URL を出さない。実体は消さない）
 
 ### R2 バケットに CORS を設定する（設定しないとアップロードが動かない）
 
