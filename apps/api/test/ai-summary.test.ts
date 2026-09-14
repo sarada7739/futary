@@ -22,16 +22,21 @@ import type { RpcContext } from "../src/context";
 // 共有していることを利用する
 let fetchMock: ReturnType<typeof vi.fn>;
 
+// 044: プロバイダが返す本文。{{A}} {{B}} の置き換えを確かめるテストは、
+// これを差し替えてから generate を呼ぶ（beforeEach で既定に戻る）
+let mockedSummaryBody = "テストのAIまとめ本文";
+
 beforeEach(() => {
+  mockedSummaryBody = "テストのAIまとめ本文";
   fetchMock = vi.fn(async (url: string | URL) => {
     const href = url.toString();
     if (href.includes("openai.com")) {
-      return new Response(JSON.stringify({ choices: [{ message: { content: "テストのAIまとめ本文" } }] }), {
+      return new Response(JSON.stringify({ choices: [{ message: { content: mockedSummaryBody } }] }), {
         status: 200,
       });
     }
     if (href.includes("anthropic.com")) {
-      return new Response(JSON.stringify({ content: [{ text: "テストのAIまとめ本文" }] }), { status: 200 });
+      return new Response(JSON.stringify({ content: [{ text: mockedSummaryBody }] }), { status: 200 });
     }
     throw new Error(`想定外のURLへのfetch: ${href}`);
   });
@@ -166,7 +171,7 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
       { context: contextFor(owner) },
     );
     expect(result.provider).toBe("openai");
-    expect(result.model).toBe("gpt-5.6-terra");
+    expect(result.model).toBe("gpt-5.6-luna");
     expect(result.generatedCount).toBe(1);
     expect(result.body).toBe("テストのAIまとめ本文");
     // 実際にfetchが呼ばれたこと自体は確認する（差し替えが効いていることの検査。
@@ -469,6 +474,10 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     expect(sentBody).not.toContain(owner.email);
     expect(sentBody).not.toContain(partner.name);
     expect(sentBody).not.toContain(partner.id);
+    // 044 T1: 表示名を LLM に渡さないのは上のとおり。代わりに出力を {{A}} {{B}} で書く指示が
+    // system に入っている（置き換えはサーバが応答時にやる）
+    expect(sentBody).toContain("必ず {{A}} {{B}} とだけ書いてください");
+    expect(sentBody).not.toContain(partner.email);
   });
 
   // 【Rレビュー指摘・R-5】上のテストはownerの投稿しか作っておらず、
@@ -556,6 +565,118 @@ describe("aiSummary.get", () => {
         { context: contextFor(owner) },
       ),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+});
+
+// 044: まとめの中の {{A}} {{B}} を、応答を返すときにサーバが表示名へ置き換える。
+// 保存（ai_summaries.body）は印のまま。表示名は user.name（019 の 1 箇所）。
+// owner が couple.create で slot 1（A）、partner が invite.accept で slot 2（B）
+describe("044: 応答の {{A}} {{B}} を表示名に置き換える（保存は印のまま）", () => {
+  const SAMPLE_BODY =
+    "{{A}}と{{B}}は公園へ出かけた。{{A}}はAランチを食べ、{{B}}はB級グルメを楽しんだ。{{AB}}と{A}とAさんはそのまま。";
+
+  async function insertSummaryRow(coupleId: string, body: string) {
+    const now = Math.floor(Date.now() / 1000);
+    await db
+      .prepare(
+        `INSERT INTO ai_summaries (couple_id, period_kind, period_key, body, provider, model, generated_count, created_at, updated_at)
+         VALUES (?1, 'month', ?2, ?3, 'openai', 'gpt-5.6-luna', 1, ?4, ?4)`,
+      )
+      .bind(coupleId, PAST_MONTH, body, now)
+      .run();
+  }
+
+  it("T2: generate が保存する body は {{A}} {{B}} のまま（DB を直接読む）", async () => {
+    const { owner, couple } = await createCoupleOfTwo(true);
+    await createPosts(owner, 3, "month", PAST_MONTH);
+    mockedSummaryBody = SAMPLE_BODY;
+
+    await call(router.aiSummary.generate, { periodKind: "month", periodKey: PAST_MONTH }, { context: contextFor(owner) });
+
+    const row = await db
+      .prepare("SELECT body FROM ai_summaries WHERE couple_id = ?1 AND period_kind = 'month' AND period_key = ?2")
+      .bind(couple.id, PAST_MONTH)
+      .first<{ body: string }>();
+    expect(row?.body).toBe(SAMPLE_BODY);
+    expect(row?.body).not.toContain(owner.name);
+  });
+
+  it("T3: generate の応答で {{A}} {{B}} が表示名になる。{{AB}}・{A}・素の A は変わらない。複数回出ても全部", async () => {
+    const { owner, partner } = await createCoupleOfTwo(true);
+    await createPosts(owner, 3, "month", PAST_MONTH);
+    mockedSummaryBody = SAMPLE_BODY;
+
+    const result = await call(
+      router.aiSummary.generate,
+      { periodKind: "month", periodKey: PAST_MONTH },
+      { context: contextFor(owner) },
+    );
+
+    expect(result.body).toBe(
+      `${owner.name}と${partner.name}は公園へ出かけた。${owner.name}はAランチを食べ、${partner.name}はB級グルメを楽しんだ。{{AB}}と{A}とAさんはそのまま。`,
+    );
+    expect(result.body).not.toContain("{{A}}");
+    expect(result.body).not.toContain("{{B}}");
+  });
+
+  it("T3: get の応答でも同じ置き換えが効く。相手が呼んでも A/B の対応は slot で決まり変わらない", async () => {
+    const { owner, partner } = await createCoupleOfTwo(true);
+    await createPosts(owner, 3, "month", PAST_MONTH);
+    mockedSummaryBody = SAMPLE_BODY;
+    await call(router.aiSummary.generate, { periodKind: "month", periodKey: PAST_MONTH }, { context: contextFor(owner) });
+
+    const byOwner = await call(
+      router.aiSummary.get,
+      { periodKind: "month", periodKey: PAST_MONTH },
+      { context: contextFor(owner) },
+    );
+    const byPartner = await call(
+      router.aiSummary.get,
+      { periodKind: "month", periodKey: PAST_MONTH },
+      { context: contextFor(partner) },
+    );
+    expect(byOwner?.body).toContain(`${owner.name}と${partner.name}は公園へ出かけた`);
+    expect(byOwner?.body).toContain("{{AB}}と{A}とAさんはそのまま");
+    expect(byPartner?.body).toBe(byOwner?.body);
+  });
+
+  it("T3: 表示名を変えると、作り直さなくても次の get から新しい名前で出る（保存が印のままの効き目）", async () => {
+    const { owner, couple } = await createCoupleOfTwo(true);
+    await insertSummaryRow(couple.id, "{{A}}の一日。");
+
+    await call(router.me.update, { name: "あたらしい名前" }, { context: contextFor(owner) });
+
+    const after = await call(
+      router.aiSummary.get,
+      { periodKind: "month", periodKey: PAST_MONTH },
+      { context: contextFor(owner) },
+    );
+    expect(after?.body).toBe("あたらしい名前の一日。");
+  });
+
+  it("古い形（素の A/B）のまとめはそのまま出る（置き換えない）", async () => {
+    const { owner, couple } = await createCoupleOfTwo(true);
+    await insertSummaryRow(couple.id, "Aは散歩へ行き、Bは料理をした。");
+
+    const result = await call(
+      router.aiSummary.get,
+      { periodKind: "month", periodKey: PAST_MONTH },
+      { context: contextFor(owner) },
+    );
+    expect(result?.body).toBe("Aは散歩へ行き、Bは料理をした。");
+  });
+
+  it("T4: 1 人のペアでは {{B}} が「相手」になる（get。generate は 1 人では FORBIDDEN）", async () => {
+    const owner = await createUser();
+    const couple = await call(router.couple.create, {}, { context: contextFor(owner) });
+    await insertSummaryRow(couple.id, "{{A}}と{{B}}の一日。");
+
+    const result = await call(
+      router.aiSummary.get,
+      { periodKind: "month", periodKey: PAST_MONTH },
+      { context: contextFor(owner) },
+    );
+    expect(result?.body).toBe(`${owner.name}と相手の一日。`);
   });
 });
 

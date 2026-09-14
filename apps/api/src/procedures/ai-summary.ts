@@ -1,5 +1,5 @@
 import { currentMonthJst, currentWeekJst, jstMonthRangeMs, jstWeekRangeMs } from "@futary/date";
-import { generateSummary, type PostEntry } from "../lib/ai";
+import { generateSummary, substituteNames, type PostEntry, type SummaryNames } from "../lib/ai";
 import { implementer } from "../implementer";
 import { readProcedure, writeProcedure } from "./base";
 
@@ -37,9 +37,44 @@ interface AiSummaryRow {
   updated_at: number;
 }
 
-function toAiSummary(row: AiSummaryRow) {
+interface MemberRow {
+  user_id: string;
+  slot: number;
+  ai_opt_in: number;
+  name: string | null;
+}
+
+// 044: ペアのメンバーを slot 付きで読む。表示名は user.name（019。me.get・
+// post.list の authorName・stats.get のメンバー名と同じ出所。2 箇所に持たない）。
+// get と generate の両方がこれを使う（generate は同意の判定と A/B の記号にも使う）
+async function loadMembers(db: D1Database, coupleId: string): Promise<MemberRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT couple_members.user_id AS user_id, couple_members.slot AS slot,
+              couple_members.ai_opt_in AS ai_opt_in, user.name AS name
+         FROM couple_members
+         LEFT JOIN user ON user.id = couple_members.user_id
+        WHERE couple_members.couple_id = ?1`,
+    )
+    .bind(coupleId)
+    .all<MemberRow>();
+  return result.results;
+}
+
+// 044: 応答の body で {{A}} {{B}} に入れる表示名。slot 1 が A、slot 2 が B。
+// 相手が居ない（1 人のペア）なら B は「相手」（空文字にすると文が壊れる。タスク定義 0節 #5）。
+// user の行が無い（起こらない想定）ときも同じ言葉に寄せる
+const PARTNER_FALLBACK_NAME = "相手";
+
+function namesBySlot(members: MemberRow[]): SummaryNames {
+  const nameOf = (slot: number) => members.find((m) => m.slot === slot)?.name ?? PARTNER_FALLBACK_NAME;
+  return { A: nameOf(1), B: nameOf(2) };
+}
+
+function toAiSummary(row: AiSummaryRow, names: SummaryNames) {
   return {
-    body: row.body,
+    // 保存は {{A}} {{B}} のまま。返すときだけ表示名に置き換える（044）
+    body: substituteNames(row.body, names),
     // contractのz.enum(AI_PROVIDERS)と一致する値しかDBに書かない
     // （generateSummaryの戻り値のprovider由来。CHECK制約でも保証済み）
     provider: row.provider as "openai" | "anthropic",
@@ -64,7 +99,8 @@ const aiSummaryGet = implementer.aiSummary.get.use(readProcedure).handler(async 
     .bind(coupleId, input.periodKind, input.periodKey)
     .first<AiSummaryRow>();
 
-  return row ? toAiSummary(row) : null;
+  if (!row) return null;
+  return toAiSummary(row, namesBySlot(await loadMembers(db, coupleId)));
 });
 
 // security-auditor指摘: デモペアは他の経路（email_verified=0・
@@ -91,22 +127,17 @@ const aiSummaryGenerate = implementer.aiSummary.generate
 
     // ADR-013: 投稿はふたりのもの。2人とも同意していないと使えない
     // （1人のペアはpartnerが存在しないため、この判定で自動的にFORBIDDENになる）
-    const members = await db
-      .prepare(
-        "SELECT user_id AS user_id, slot AS slot, ai_opt_in AS ai_opt_in FROM couple_members WHERE couple_id = ?1",
-      )
-      .bind(coupleId)
-      .all<{ user_id: string; slot: number; ai_opt_in: number }>();
-    if (members.results.length < 2 || members.results.some((m) => !m.ai_opt_in)) {
+    const members = await loadMembers(db, coupleId);
+    if (members.length < 2 || members.some((m) => !m.ai_opt_in)) {
       throw errors.FORBIDDEN();
     }
 
     // 投稿者を実名ではなく「A」「B」という匿名の記号で区別する（人間の指摘。
     // ADR-013に追記済み）。slotから機械的に決まり、実名・user_idは外部へ
-    // 一切出ない（lib/ai.tsのSYSTEM_PROMPTでAIにも実名でないことを明示）
-    const labelByUserId = new Map<string, "A" | "B">(
-      members.results.map((m) => [m.user_id, m.slot === 1 ? "A" : "B"]),
-    );
+    // 一切出ない（lib/ai.tsのSYSTEM_PROMPTでAIにも実名でないことを明示）。
+    // 表示名（members[].name）は応答の置き換えにだけ使い、LLM には渡さない（044）
+    const labelByUserId = new Map<string, "A" | "B">(members.map((m) => [m.user_id, m.slot === 1 ? "A" : "B"]));
+    const names = namesBySlot(members);
 
     // 【security-auditor指摘・訂正】以前はSELECTで既存の回数を読んでから
     // 生成後にINSERTしていた（check-then-act）。同じ期間へ複数の
@@ -228,7 +259,8 @@ const aiSummaryGenerate = implementer.aiSummary.generate
         .run();
 
       return {
-        body: result.body,
+        // DB には印のまま書いた。返すときだけ表示名にする（044）
+        body: substituteNames(result.body, names),
         provider: result.provider,
         model: result.model,
         updatedAt: now,

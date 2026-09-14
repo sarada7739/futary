@@ -5,6 +5,7 @@ import {
   generateSummary,
   MAX_INPUT_CHARS,
   resolveAiConfig,
+  substituteNames,
   type PostEntry,
 } from "../src/lib/ai";
 
@@ -223,5 +224,64 @@ describe("buildPrompt", () => {
 
   it("空配列なら空文字を返す", () => {
     expect(buildPrompt([])).toBe("");
+  });
+});
+
+// 044 T5: OpenAI のモデルは gpt-5.6-luna（人間の指示。2026-09-14）。
+// 環境変数ではなくコードの既定値なので、実際に外へ出るリクエスト本文で確かめる
+describe("044: 既定モデル", () => {
+  it("openai の既定モデルは gpt-5.6-luna", () => {
+    const config = resolveAiConfig({ provider: "openai", openaiApiKey: "sk-openai" });
+    const request = buildProviderRequest(config, "テスト本文") as { body: { model: string } };
+    expect(request.body.model).toBe("gpt-5.6-luna");
+  });
+});
+
+// 044 T1（プロンプト側）: system プロンプトに {{A}} {{B}} で書く指示がある。
+// 表示名は入力のどこにも入らない（手続き側の確認は ai-summary.test.ts）
+describe("044: system プロンプトの {{A}} {{B}} の指示", () => {
+  it("openai・anthropic の両方で system に {{A}} {{B}} の指示が入る", () => {
+    const openaiConfig = resolveAiConfig({ provider: "openai", openaiApiKey: "sk-openai" });
+    const anthropicConfig = resolveAiConfig({ provider: "anthropic", anthropicApiKey: "sk-anthropic" });
+    const openaiRequest = buildProviderRequest(openaiConfig, "テスト本文") as {
+      body: { messages: { role: string; content: string }[] };
+    };
+    const anthropicRequest = buildProviderRequest(anthropicConfig, "テスト本文") as { body: { system: string } };
+
+    const openaiSystem = openaiRequest.body.messages.find((m) => m.role === "system")?.content ?? "";
+    expect(openaiSystem).toContain("必ず {{A}} {{B}} とだけ書いてください");
+    expect(anthropicRequest.body.system).toContain("必ず {{A}} {{B}} とだけ書いてください");
+  });
+});
+
+// 044 T3（関数側）: 置き換えは substituteNames の 1 関数に閉じる。
+// 完全一致の印（5 文字）だけを、何度出ても全部置き換える
+describe("044: substituteNames", () => {
+  const names = { A: "はな", B: "たろう" };
+
+  it("{{A}} {{B}} を表示名に置き換える。何度出ても全部", () => {
+    expect(substituteNames("{{A}}と{{B}}は公園へ。{{A}}は花を、{{B}}は写真を。", names)).toBe(
+      "はなとたろうは公園へ。はなは花を、たろうは写真を。",
+    );
+  });
+
+  it("{{AB}}・{A}・素の A・Aさん・Aランチは触らない", () => {
+    const body = "{{AB}}と{A}とAとAさんとAランチとB級と{{ A }}";
+    expect(substituteNames(body, names)).toBe(body);
+  });
+
+  it("印が無ければそのまま（古い形のまとめは変わらない）", () => {
+    const old = "Aは散歩へ行き、Bは料理をした。";
+    expect(substituteNames(old, names)).toBe(old);
+  });
+
+  it("表示名に印の文字が含まれていても連鎖しない（A の名前が {{B}} でも B の名前にならない）", () => {
+    // 置き換えを 2 回続ける実装だと、1 回目の結果が 2 回目に拾われる。
+    // 表示名は自由な文字列なので、こういう名前も理屈の上では作れる
+    expect(substituteNames("{{A}}", { A: "{{B}}", B: "たろう" })).toBe("{{B}}");
+  });
+
+  it("表示名の $& や $1 は文字のまま入る（置き換え文字列として解釈しない）", () => {
+    expect(substituteNames("{{A}}と{{B}}", { A: "$&", B: "$1" })).toBe("$&と$1");
   });
 });

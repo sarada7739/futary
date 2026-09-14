@@ -13081,3 +13081,13 @@ Session: B
 - `architecture.md` 5節に 2 行
 
 Session: A
+
+## 2026-09-14 セッションB: 044（AIまとめに名前を出す）を実装。PR #321
+
+- SYSTEM_PROMPT に {{A}} {{B}} の指示。substituteNames は lib/ai.ts（印の約束を決める SYSTEM_PROMPT と同じファイル）。1 回の走査・関数の置き換え（連鎖と $& を避ける。テストで固定）
+- get / generate の応答の body だけ置き換え。保存は印のまま。表示名は user.name（019）。loadMembers で同意判定・記号・表示名を 1 回の読みに
+- DEFAULT_MODELS.openai → gpt-5.6-luna。本物の API に 3 回: 200・3 回とも {{A}} {{B}} に従った（停止条件に当たらず）。luna は reasoning tokens 58〜79（terra は 0）
+- T1〜T5。api 604・app 451・型・lint 緑。報告は artifacts/044/stage1.md
+- A の起票ブランチ task/044-ai-names が残っていたので task/044-ai-names-impl で出した
+
+Session: B
