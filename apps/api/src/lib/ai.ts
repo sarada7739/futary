@@ -111,11 +111,11 @@ export function substituteNames(body: string, names: SummaryNames): string {
 // Use 'max_completion_tokens' instead."）を返す。gpt-4o-mini 向けに書いたまま
 // モデル名だけ変えたため、本番で AI まとめが全件失敗していた（人間の報告。
 // B が同じ body で再現）。gpt-5 系はこの上限を reasoning にも使うが、
-// 300字程度の要約（約 125 トークン）に対して reasoning は 0 だった（B が実測）ので
-// 1024 のままにする。
+// 300字程度の要約（本文 250 トークン前後。0.83 トークン/文字。2026-09-14 実測）に対して
+// terra は reasoning が 0 だった（B が実測）ので 1024 のままにした。
 // 044: luna は reasoning tokens が 58〜86 出る（2026-09-14 実測。terra は 0）。
 // 204 文字の出力で completion_tokens 255（本文約 170 + reasoning 86）だったので、
-// 300 字（本文 250 前後）+ reasoning でも 1024 に収まる。上限は変えない
+// 300 字 + reasoning でも 1024 に収まる。上限は変えない
 const MAX_OUTPUT_TOKENS = 1024;
 
 // プロバイダのエラー本文をサーバログに残す長さ。status だけでは原因を当てられ
