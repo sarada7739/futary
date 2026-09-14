@@ -1,0 +1,227 @@
+{
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "r2Requests": 118,
+  "single": {
+    "confirmText": "3 枚を ZIP で保存します（約 1MB）",
+    "doneText": "保存しました",
+    "failedText": "(無し)",
+    "files": [
+      {
+        "filename": "futary-京都旅行-20260914.zip",
+        "bytes": 664873,
+        "entries": 4,
+        "jpgs": 3,
+        "hasCaptions": true,
+        "captionLines": 3,
+        "captions": "futary-20260806-ZIPALBUMKYOTO00000000001.jpg\t夕暮れの伏見稲荷大社。二人で歩き切った達成感。\nfutary-20260806-ZIPALBUMKYOTO00000000002.jpg\t\nfutary-20260806-ZIPALBUMKYOTO00000000003.jpg\t抹茶パフェ 二人で半分こ\n",
+        "firstNames": [
+          "futary-20260806-ZIPALBUMKYOTO00000000001.jpg",
+          "futary-20260806-ZIPALBUMKYOTO00000000002.jpg",
+          "futary-20260806-ZIPALBUMKYOTO00000000003.jpg"
+        ],
+        "lastNames": [
+          "futary-20260806-ZIPALBUMKYOTO00000000003.jpg",
+          "captions.txt"
+        ],
+        "matches": [
+          {
+            "name": "futary-20260806-ZIPALBUMKYOTO00000000001.jpg",
+            "size": 267383,
+            "equal": true
+          },
+          {
+            "name": "futary-20260806-ZIPALBUMKYOTO00000000002.jpg",
+            "size": 127144,
+            "equal": true
+          },
+          {
+            "name": "futary-20260806-ZIPALBUMKYOTO00000000003.jpg",
+            "size": 269491,
+            "equal": true
+          }
+        ]
+      },
+      {
+        "filename": "futary-albums-20260914-1of2.zip",
+        "bytes": 23105672,
+        "entries": 101,
+        "jpgs": 100,
+        "hasCaptions": true,
+        "captionLines": 100,
+        "captions": "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000001.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000002.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000003.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000004.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000005.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000006.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000007.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000008.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000009.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000010.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000011.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000012.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000013.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000014.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000015.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000016.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000017.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000018.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000019.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000020.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000021.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000022.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000023.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000024.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000025.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000026.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000027.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000028.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000029.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000030.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000031.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000032.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000033.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000034.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000035.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000036.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000037.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000038.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000039.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000040.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000041.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000042.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000043.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000044.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000045.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000046.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000047.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000048.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000049.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000050.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000051.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000052.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000053.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000054.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000055.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000056.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000057.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000058.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000059.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000060.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000061.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000062.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000063.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000064.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000065.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000066.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000067.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000068.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000069.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000070.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000071.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000072.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000073.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000074.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000075.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000076.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000077.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000078.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000079.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000080.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000081.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000082.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000083.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000084.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000085.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000086.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000087.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000088.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000089.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000090.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000091.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000092.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000093.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000094.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000095.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000096.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000097.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000098.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000099.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000100.jpg\t\n",
+        "firstNames": [
+          "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000001.jpg",
+          "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000002.jpg",
+          "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000003.jpg"
+        ],
+        "lastNames": [
+          "沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000100.jpg",
+          "captions.txt"
+        ],
+        "matches": [
+          {
+            "name": "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000001.jpg",
+            "size": 267383,
+            "equal": true
+          },
+          {
+            "name": "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000002.jpg",
+            "size": 127144,
+            "equal": true
+          },
+          {
+            "name": "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000003.jpg",
+            "size": 269491,
+            "equal": true
+          }
+        ]
+      },
+      {
+        "filename": "futary-albums-20260914-2of2.zip",
+        "bytes": 932637,
+        "entries": 5,
+        "jpgs": 4,
+        "hasCaptions": true,
+        "captionLines": 4,
+        "captions": "沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000101.jpg\t\n京都旅行/futary-20260806-ZIPALBUMKYOTO00000000001.jpg\t夕暮れの伏見稲荷大社。二人で歩き切った達成感。\n京都旅行/futary-20260806-ZIPALBUMKYOTO00000000002.jpg\t\n京都旅行/futary-20260806-ZIPALBUMKYOTO00000000003.jpg\t抹茶パフェ 二人で半分こ\n",
+        "firstNames": [
+          "沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000101.jpg",
+          "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000001.jpg",
+          "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000002.jpg"
+        ],
+        "lastNames": [
+          "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000003.jpg",
+          "captions.txt"
+        ],
+        "matches": [
+          {
+            "name": "沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000101.jpg",
+            "size": 267383,
+            "equal": true
+          },
+          {
+            "name": "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000001.jpg",
+            "size": 267383,
+            "equal": true
+          },
+          {
+            "name": "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000002.jpg",
+            "size": 127144,
+            "equal": true
+          }
+        ]
+      }
+    ]
+  },
+  "all": {
+    "confirmText": "104 枚を ZIP で保存します（約 41MB）",
+    "partsText": "2 つのファイルに分けて保存します",
+    "progressText": "33 / 104 枚を取得中…",
+    "doneText": "保存しました",
+    "failedText": "(無し)",
+    "files": [
+      {
+        "filename": "futary-albums-20260914-1of2.zip",
+        "bytes": 23105672,
+        "entries": 101,
+        "jpgs": 100,
+        "hasCaptions": true,
+        "captionLines": 100,
+        "captions": "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000001.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000002.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000003.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000004.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000005.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000006.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000007.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000008.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000009.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000010.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000011.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000012.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000013.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000014.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000015.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000016.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000017.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000018.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000019.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000020.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000021.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000022.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000023.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000024.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000025.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000026.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000027.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000028.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000029.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000030.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000031.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000032.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000033.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000034.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000035.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000036.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000037.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000038.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000039.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000040.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000041.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000042.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000043.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000044.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000045.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000046.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000047.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000048.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000049.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000050.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000051.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000052.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000053.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000054.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000055.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000056.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000057.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000058.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000059.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000060.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000061.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000062.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000063.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000064.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000065.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000066.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000067.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000068.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000069.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000070.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000071.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000072.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000073.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000074.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000075.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000076.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000077.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000078.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000079.jpg\t\n沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000080.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000081.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000082.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000083.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000084.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000085.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000086.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000087.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000088.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000089.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000090.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000091.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000092.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000093.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000094.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000095.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000096.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000097.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000098.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000099.jpg\t\n沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000100.jpg\t\n",
+        "firstNames": [
+          "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000001.jpg",
+          "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000002.jpg",
+          "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000003.jpg"
+        ],
+        "lastNames": [
+          "沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000100.jpg",
+          "captions.txt"
+        ],
+        "matches": [
+          {
+            "name": "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000001.jpg",
+            "size": 267383,
+            "equal": true
+          },
+          {
+            "name": "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000002.jpg",
+            "size": 127144,
+            "equal": true
+          },
+          {
+            "name": "沖縄_夏 2026/futary-20260826-ZIPALBUMOKINAWA00000000003.jpg",
+            "size": 269491,
+            "equal": true
+          }
+        ]
+      },
+      {
+        "filename": "futary-albums-20260914-2of2.zip",
+        "bytes": 932637,
+        "entries": 5,
+        "jpgs": 4,
+        "hasCaptions": true,
+        "captionLines": 4,
+        "captions": "沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000101.jpg\t\n京都旅行/futary-20260806-ZIPALBUMKYOTO00000000001.jpg\t夕暮れの伏見稲荷大社。二人で歩き切った達成感。\n京都旅行/futary-20260806-ZIPALBUMKYOTO00000000002.jpg\t\n京都旅行/futary-20260806-ZIPALBUMKYOTO00000000003.jpg\t抹茶パフェ 二人で半分こ\n",
+        "firstNames": [
+          "沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000101.jpg",
+          "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000001.jpg",
+          "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000002.jpg"
+        ],
+        "lastNames": [
+          "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000003.jpg",
+          "captions.txt"
+        ],
+        "matches": [
+          {
+            "name": "沖縄_夏 2026/futary-20260827-ZIPALBUMOKINAWA00000000101.jpg",
+            "size": 267383,
+            "equal": true
+          },
+          {
+            "name": "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000001.jpg",
+            "size": 267383,
+            "equal": true
+          },
+          {
+            "name": "京都旅行/futary-20260806-ZIPALBUMKYOTO00000000002.jpg",
+            "size": 127144,
+            "equal": true
+          }
+        ]
+      }
+    ]
+  },
+  "profileConfirmText": "104 枚を ZIP で保存します（約 41MB）"
+}

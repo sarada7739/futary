@@ -16,6 +16,8 @@ const {
   coupleUpdateMock,
   statsGetMock,
   inviteIssueMock,
+  albumListMock,
+  photoListMock,
   signOutMock,
   pushMock,
 } = vi.hoisted(() => ({
@@ -27,6 +29,9 @@ const {
   coupleUpdateMock: vi.fn(),
   statsGetMock: vi.fn(),
   inviteIssueMock: vi.fn(),
+  // 048: 「アルバムの写真をまとめて保存」がアルバムを辿って数える
+  albumListMock: vi.fn(),
+  photoListMock: vi.fn(),
   signOutMock: vi.fn(),
   pushMock: vi.fn(),
 }));
@@ -76,6 +81,8 @@ vi.mock("../lib/orpc", async () => {
     invite: {
       issue: inviteIssueMock,
     },
+    album: { list: albumListMock },
+    photo: { list: photoListMock, downloadUrl: vi.fn() },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
@@ -607,5 +614,23 @@ describe("ProfileScreen: プラン（045）", () => {
   it("ゲストには出ない（マイページ自体がログイン案内）", () => {
     renderScreenAsGuest(() => {});
     expect(screen.queryByTestId("profile-plan")).toBeNull();
+    expect(screen.queryByTestId("profile-zip")).toBeNull();
+  });
+});
+
+// 048: プランの行の下に「アルバムの写真をまとめて保存 ›」→ 「すべての写真を ZIP で保存」のシート（一覧の ⋯ と同じ）
+describe("ProfileScreen: アルバムの写真をまとめて保存（048）", () => {
+  it("押すとシートが開き、作ったアルバムの枚数を出す（paid でも出る）", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ plan: "paid", albumQuota: null }));
+    albumListMock.mockResolvedValue({ timeline: { photoCount: 9, previews: [] }, items: [{ id: "album-1", title: "京都旅行", photoCount: 1 }] });
+    photoListMock.mockResolvedValue({ items: [{ ref: { kind: "album", photoId: "photo-1" }, caption: "" }], nextCursor: null });
+    renderScreen();
+    await waitForLoaded();
+
+    fireEvent.click(screen.getByTestId("profile-zip"));
+
+    expect(await screen.findByText("すべての写真を ZIP で保存")).toBeTruthy();
+    expect(await screen.findByTestId("zip-export-confirm")).toHaveTextContent("1 枚を ZIP で保存します");
+    expect(photoListMock.mock.calls.map((c) => c[0].albumId)).toEqual(["album-1"]);
   });
 });

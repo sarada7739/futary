@@ -11,7 +11,9 @@ import { AlbumForm, type AlbumFormValues } from "../../components/album-form";
 import { PlanLimitSheet } from "../../components/plan-limit-sheet";
 import { Sheet } from "../../components/sheet";
 import { UsageCard } from "../../components/usage-card";
+import { ZipExportSheet } from "../../components/zip-export-sheet";
 import { pickAlbumImages, uploadAlbumImages } from "../../lib/album-upload";
+import type { ZipSource } from "../../lib/album-zip";
 import { useGuestMode } from "../../lib/guest-mode";
 import type { SourceImage } from "../../lib/image";
 import { orpc } from "../../lib/orpc";
@@ -193,28 +195,46 @@ export default function AlbumScreen() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editing, setEditing] = useState<Album | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // 048: ヘッダーの ⋯ のメニューと、「すべての写真を ZIP で保存」のシート
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [zipSource, setZipSource] = useState<ZipSource | null>(null);
 
   const canWrite = !isGuestMode;
   const cardWidth = gridWidth > 0 ? (gridWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS : undefined;
 
-  // + はヘッダー右（モックの絵。FAB にしない。FAB は投稿のもの。タスク定義3節）。ゲストは出さない
+  // + はヘッダー右（モックの絵。FAB にしない。FAB は投稿のもの。タスク定義3節）。ゲストは出さない。
+  // 048: その隣に ⋯（すべての写真を ZIP で保存）。ゲストにも出す
   useEffect(() => {
     navigation.setOptions({
-      headerRight: canWrite
-        ? () => (
+      headerRight: () => (
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {canWrite && (
             <Pressable
               onPress={() => setIsCreating(true)}
               accessibilityRole="button"
               accessibilityLabel="アルバムを作る"
               hitSlop={space.sm}
-              style={{ paddingHorizontal: space.lg }}
+              style={{ paddingHorizontal: space.md }}
             >
               <Text size="xl" color="brand">
                 ＋
               </Text>
             </Pressable>
-          )
-        : undefined,
+          )}
+          <Pressable
+            onPress={() => setMenuOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="メニュー"
+            hitSlop={space.sm}
+            style={{ paddingHorizontal: space.md }}
+            testID="album-list-menu"
+          >
+            <Text size="xl" color="brand">
+              ⋯
+            </Text>
+          </Pressable>
+        </View>
+      ),
     });
   }, [navigation, canWrite]);
 
@@ -384,6 +404,27 @@ export default function AlbumScreen() {
           />
         )}
       </Sheet>
+
+      {/* 048: ヘッダーの ⋯ メニュー: すべての写真を ZIP で保存（作ったアルバム全部。タイムラインは含めない） */}
+      <Sheet visible={menuOpen} onClose={() => setMenuOpen(false)} title="アルバム">
+        <View style={{ gap: space.sm }}>
+          <Button
+            variant="secondary"
+            onPress={() => {
+              setMenuOpen(false);
+              setZipSource({ kind: "all" });
+            }}
+            testID="album-list-zip"
+          >
+            すべての写真を ZIP で保存
+          </Button>
+          <Button variant="ghost" onPress={() => setMenuOpen(false)}>
+            閉じる
+          </Button>
+        </View>
+      </Sheet>
+
+      <ZipExportSheet source={zipSource} onClose={() => setZipSource(null)} />
 
       {/* ⋯ メニュー: 編集・削除（確認を挟む） */}
       <Sheet visible={menuFor !== null} onClose={closeMenu} title={menuFor?.title ?? ""}>

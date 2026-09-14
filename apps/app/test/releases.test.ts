@@ -55,8 +55,8 @@ describe("RELEASES（043 T1）", () => {
     }
   });
 
-  it("最新は 2.0.0（アルバム。/album へ）で、初回は 1.0.0（🎉）", () => {
-    expect(LATEST_VERSION).toBe("2.0.0");
+  it("最新は 2.2.0（ZIP で持ち出し。/album へ）で、初回は 1.0.0（🎉）", () => {
+    expect(LATEST_VERSION).toBe("2.2.0");
     expect(LATEST_RELEASE.route).toBe("/album");
     const first = RELEASES[RELEASES.length - 1]!;
     expect(first.version).toBe("1.0.0");

@@ -18,7 +18,9 @@ import { ImageViewer, type ImageViewerImage } from "../../components/image-viewe
 import { PlanLimitSheet } from "../../components/plan-limit-sheet";
 import { QuotaWarningCard } from "../../components/quota-warning-card";
 import { Sheet } from "../../components/sheet";
+import { ZipExportSheet } from "../../components/zip-export-sheet";
 import { pickAlbumImages, uploadAlbumImages, type UploadProgress } from "../../lib/album-upload";
+import type { ZipSource } from "../../lib/album-zip";
 import { chunk } from "../../lib/chunk";
 import { albumQuotaHeadingLabel, albumQuotaOverLabel, albumQuotaRemaining, shouldWarnQuota } from "../../lib/plan";
 import { dismissQuotaWarning, isQuotaWarningDismissed } from "../../lib/quota-warning-dismissed";
@@ -90,6 +92,8 @@ export default function AlbumDetailScreen() {
   const canShare = useMemo(() => canShareFiles(), []);
   // 選択モードに入れるのは、写真を消せる（メンバーのアルバム）か、まとめて保存できる（共有シート）とき
   const canSelect = canWrite || canShare;
+  // 048: ⋯（ZIP で保存）はタイムライン以外の全員（ゲストも押せる。タイムラインの ZIP は作らない。タスク定義 5節）
+  const canExportZip = !isTimeline;
 
   // queryKey に viewerKey を含める理由は apps/app/lib/viewer-key.ts 参照（T10）
   const viewerKey = useViewerQueryKey();
@@ -144,6 +148,9 @@ export default function AlbumDetailScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   // 045: 無料枠の残りが 0 のとき（FAB を押した・サーバが PLAN_LIMIT を返した）に出すシート
   const [planLimitOpen, setPlanLimitOpen] = useState(false);
+  // 048: ヘッダーの ⋯ のメニューと、「ZIP で保存」のシート
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [zipSource, setZipSource] = useState<ZipSource | null>(null);
   // 045: 残りが 5 枚以下なら FAB の上に警告（3節。絵 01）。選択中は FAB と一緒に隠す。
   // × で消せる（人間の指示）。消した状態は sessionStorage に「消したときの残り枚数」で持ち、
   // 残りが変わればまた出す。描いたあと（useEffect）に読む理由は index.tsx のシートと同じ
@@ -170,7 +177,7 @@ export default function AlbumDetailScreen() {
     setConfirmingRemove(false);
   }
 
-  // ヘッダー: 題名と、編集・選択（メンバーのアルバムだけ）。選択モードでは「N 枚を選択中」「やめる」
+  // ヘッダー: 題名と、編集・選択（メンバーのアルバムだけ）・⋯（ZIP で保存。048）。選択モードでは「N 枚を選択中」「やめる」
   useEffect(() => {
     navigation.setOptions({
       title: isSelecting ? `${selected.size} 枚を選択中` : title,
@@ -179,17 +186,18 @@ export default function AlbumDetailScreen() {
       headerLeft: () => <HeaderTextButton label="‹ 戻る" onPress={() => router.push("/album")} testID="album-detail-back" />,
       headerRight: isSelecting
         ? () => <HeaderTextButton label="やめる" onPress={stopSelecting} testID="album-detail-stop-selecting" />
-        : canSelect
+        : canSelect || canExportZip
           ? () => (
               <View style={{ flexDirection: "row" }}>
                 {canWrite && <HeaderTextButton label="編集" onPress={() => setIsEditing(true)} testID="album-detail-edit" />}
-                <HeaderTextButton label="選択" onPress={() => setIsSelecting(true)} testID="album-detail-select" />
+                {canSelect && <HeaderTextButton label="選択" onPress={() => setIsSelecting(true)} testID="album-detail-select" />}
+                {canExportZip && <HeaderTextButton label="⋯" onPress={() => setMenuOpen(true)} testID="album-detail-menu" />}
               </View>
             )
           : undefined,
     });
     // stopSelecting・router は毎回同じ振る舞い。依存に入れると setOptions が描画のたびに走る
-  }, [navigation, title, canWrite, canSelect, isSelecting, selected.size]);
+  }, [navigation, title, canWrite, canSelect, canExportZip, isSelecting, selected.size]);
 
   // 選択に上限は掛けない（042 1節。選択モードは削除・カバーと共用で、選ぶ時点では何をするか分からない。
   // 100 枚を超える削除は分けて送る）。20 枚の上限は下のバーの「保存」に掛ける（tooManyToShare）
@@ -621,6 +629,27 @@ export default function AlbumDetailScreen() {
         onClose={() => setViewerIndex(null)}
         onEditCaption={canWrite ? openCaptionEditor : undefined}
       />
+
+      {/* 048: ⋯ メニュー: ZIP で保存（タイムライン以外。ゲストも） */}
+      <Sheet visible={menuOpen} onClose={() => setMenuOpen(false)} title={title}>
+        <View style={{ gap: space.sm }}>
+          <Button
+            variant="secondary"
+            onPress={() => {
+              setMenuOpen(false);
+              setZipSource({ kind: "album", albumId, title });
+            }}
+            testID="album-detail-zip"
+          >
+            ZIP で保存
+          </Button>
+          <Button variant="ghost" onPress={() => setMenuOpen(false)}>
+            閉じる
+          </Button>
+        </View>
+      </Sheet>
+
+      <ZipExportSheet source={zipSource} onClose={() => setZipSource(null)} />
 
       {/* 編集 */}
       <Sheet visible={isEditing} onClose={() => setIsEditing(false)} title="アルバムを編集">

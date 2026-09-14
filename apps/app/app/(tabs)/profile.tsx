@@ -21,6 +21,8 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { DateInput8 } from "../../components/date-input8";
+import { ZipExportSheet } from "../../components/zip-export-sheet";
+import type { ZipSource } from "../../lib/album-zip";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
@@ -122,6 +124,8 @@ export default function ProfileScreen() {
   // のように別画面へ渡す必要が無いため、PENDING_INVITE_QUERY_KEYは使わない）
   const [reissuedInvite, setReissuedInvite] = useState<{ code: string; expiresAt: number } | null>(null);
   const [inviteErrorMessage, setInviteErrorMessage] = useState<string | null>(null);
+  // 048: 「アルバムの写真をまとめて保存」（すべての写真を ZIP で）のシート
+  const [zipSource, setZipSource] = useState<ZipSource | null>(null);
 
   // サーバのデータが届いた最初の1回だけフォームへ反映する。以降は
   // 利用者の入力をサーバ再取得で上書きしない（event-form.tsxのvisible再初期化とは
@@ -515,6 +519,20 @@ export default function ProfileScreen() {
                 </Pressable>
               )}
             </View>
+            {/* 048: プランの行の下に「アルバムの写真をまとめて保存」（一覧の ⋯ と同じ「すべての写真を ZIP で保存」。
+                047 の猶予の案内から飛ぶ先） */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="アルバムの写真をまとめて保存"
+              onPress={() => setZipSource({ kind: "all" })}
+              hitSlop={space.sm}
+              testID="profile-zip"
+              style={{ marginTop: space.md }}
+            >
+              <Text size="sm" weight="medium" color="brand">
+                アルバムの写真をまとめて保存 ›
+              </Text>
+            </Pressable>
           </Card>
 
           <Button
@@ -533,6 +551,8 @@ export default function ProfileScreen() {
             アカウントを削除
           </Button>
       </ScrollView>
+
+      <ZipExportSheet source={zipSource} onClose={() => setZipSource(null)} />
     </Screen>
   );
 }

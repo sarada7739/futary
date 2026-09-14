@@ -190,17 +190,18 @@ describe("AlbumDetailScreen: 見え方（T11）", () => {
     expect(screen.queryByTestId("album-detail-period")).toBeNull();
   });
 
-  it("ゲストは +・編集・選択が無い（見られる）", async () => {
+  it("ゲストは +・編集・選択が無い（見られる）。048: ⋯（ZIP で保存）はある", async () => {
     renderScreen({ guest: true });
 
     expect(await screen.findByTestId("album-photo-photo-1")).toBeTruthy();
     expect(screen.queryByTestId("album-detail-add")).toBeNull();
-    expect(renderHeaderRight()).toBe(false);
+    expect(renderHeaderRight()).toBe(true);
     expect(screen.queryByTestId("album-detail-edit")).toBeNull();
     expect(screen.queryByTestId("album-detail-select")).toBeNull();
+    expect(screen.getByTestId("album-detail-menu")).toBeTruthy();
   });
 
-  it("タイムライン（id=timeline）は +・編集・選択が無く、題名は「タイムライン」で枚数は album.list から", async () => {
+  it("タイムライン（id=timeline）は +・編集・選択・⋯が無く、題名は「タイムライン」で枚数は album.list から", async () => {
     searchParams.id = "timeline";
     renderScreen();
 
@@ -211,6 +212,20 @@ describe("AlbumDetailScreen: 見え方（T11）", () => {
     expect(lastHeaderOptions().title).toBe("タイムライン");
     expect(getMock).not.toHaveBeenCalled();
     expect(photoListMock).toHaveBeenCalledWith({ albumId: undefined, cursor: undefined, limit: 60 }, expect.anything());
+  });
+
+  // 048: ヘッダーの ⋯ → 「ZIP で保存」→ シート（このアルバムの写真を photo.list で数える）。中身は zip-export-sheet.test.tsx
+  it("048: メンバーのアルバムの ⋯ → 「ZIP で保存」でシートが開き、このアルバムの枚数を出す", async () => {
+    renderScreen();
+    await screen.findByTestId("album-photo-photo-1");
+    expect(renderHeaderRight()).toBe(true);
+
+    fireEvent.click(screen.getByTestId("album-detail-menu"));
+    fireEvent.click(await screen.findByTestId("album-detail-zip"));
+
+    expect(await screen.findByTestId("zip-export-confirm")).toHaveTextContent("3 枚を ZIP で保存します（約 1MB）");
+    // 数えるのは photo.list をこのアルバムで（画面の一覧の読み込みとは別に、limit 60 で最後まで）
+    expect(photoListMock).toHaveBeenLastCalledWith({ albumId: "album-1", cursor: undefined, limit: 60 });
   });
 
   it("空のアルバムは「写真を追加しましょう」と +", async () => {

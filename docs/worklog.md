@@ -13196,3 +13196,14 @@ Session: A
 
 Session: A
 - 追記: 人間「決済はまだやらない」。048 段階2 は定義だけ残し、合図まで着手しない
+
+
+## 2026-09-14 セッションB: 048 段階1（ZIP で持ち出し）を実装
+
+- `fflate@0.8.2` を `apps/app` に足し（依存 0）、`lib/album-zip.ts`（集める・100 枚ずつ `zipSync` 無圧縮・`<a download>`・abort）と `components/zip-export-sheet.tsx`（確認 → 進捗 → 完了）を作った。入口は詳細の `⋯`・一覧の `⋯`・マイページの行
+- Z1〜Z5 は `unzipSync` で開いて見るテスト（`album-zip.test.ts` 17・`zip-export-sheet.test.tsx` 11）。Z6 は lockfile の目視
+- fflate が expo web のバンドルで動くかは Playwright で本物のバンドルを動かして確かめた（R2 の GET を route で見本の JPEG に差し替え。落ちた ZIP を Node で開いて中身が一致）。`artifacts/048/stage1.md`
+- 2.2.0 をリリース履歴に足した（`releases.test.ts` 等の固定値を更新）
+- 全部のときの ZIP はアルバムごとのフォルダに分けた（B の判断。A に知らせる）
+
+Session: B
