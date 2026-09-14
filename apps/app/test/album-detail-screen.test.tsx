@@ -610,3 +610,164 @@ describe("AlbumDetailScreen: 無料枠（045）", () => {
     expect(screen.queryByText("送れませんでした。もう一度お試しください")).toBeNull();
   });
 });
+
+// 049: + で一度に 100 枚。20 枚超は確認を 1 つ → 20 枚ずつ addPhotos。ロジック側は album-upload-batch.test.ts
+describe("AlbumDetailScreen: 一度に 100 枚（049）", () => {
+  function manySources(count: number) {
+    return Array.from({ length: count }, (_, i) => ({ uri: `file:///${i + 1}.jpg`, width: 10, height: 10, mimeType: "image/jpeg" }));
+  }
+  function stubUpload() {
+    compressMock.mockImplementation(async (s: { uri: string }) => ({ uri: s.uri, width: 10, height: 10 }));
+    uploadCompressedMock.mockImplementation(async (_req: unknown, c: { uri: string }) => ({
+      imageId: `id-${c.uri.replace(/\D/g, "")}`,
+      imageWidth: 10,
+      imageHeight: 10,
+    }));
+    addPhotosMock.mockResolvedValue(makeAlbum({ photoCount: 50 }));
+  }
+  async function pressAdd() {
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId("album-detail-add"));
+      await Promise.resolve();
+    });
+  }
+
+  it("T1: 45 枚選ぶと「45 枚を送ります。少し時間がかかります」→「送る」で addPhotos が 20・20・5 の 3 回（選んだ順）。選択画面の上限は 100", async () => {
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: manySources(45) });
+    stubUpload();
+    renderScreen();
+
+    await pressAdd();
+
+    expect(pickerLaunchMock).toHaveBeenCalledWith(expect.objectContaining({ selectionLimit: 100, allowsMultipleSelection: true }));
+    expect(await screen.findByTestId("album-detail-upload-confirm")).toHaveTextContent("45 枚を送ります。少し時間がかかります");
+    expect(uploadCompressedMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-upload-start"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(addPhotosMock).toHaveBeenCalledTimes(3));
+    const sizes = addPhotosMock.mock.calls.map((c) => (c[0] as { photos: unknown[] }).photos.length);
+    expect(sizes).toEqual([20, 20, 5]);
+    const ids = addPhotosMock.mock.calls.flatMap((c) => (c[0] as { photos: { imageId: string }[] }).photos.map((p) => p.imageId));
+    expect(ids).toEqual(Array.from({ length: 45 }, (_, i) => `id-${i + 1}`));
+    await waitFor(() => expect(screen.queryByTestId("album-detail-progress")).toBeNull());
+    expect(screen.queryByText(/入れられませんでした/)).toBeNull();
+  });
+
+  it("20 枚以下は確認無しで今までどおり送る", async () => {
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: manySources(20) });
+    stubUpload();
+    renderScreen();
+
+    await pressAdd();
+
+    expect(screen.queryByTestId("album-detail-upload-confirm")).toBeNull();
+    await waitFor(() => expect(addPhotosMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("T2: 2 つ目の塊で 1 枚失敗 → 1 つ目と 3 つ目は入り、「20 枚は入れられませんでした」", async () => {
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: manySources(45) });
+    stubUpload();
+    uploadCompressedMock.mockImplementation(async (_req: unknown, c: { uri: string }) => {
+      if (c.uri === "file:///25.jpg") throw new Error("画像のアップロードに失敗しました");
+      return { imageId: `id-${c.uri.replace(/\D/g, "")}`, imageWidth: 10, imageHeight: 10 };
+    });
+    renderScreen();
+    await pressAdd();
+    await screen.findByTestId("album-detail-upload-confirm");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-upload-start"));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText("20 枚は入れられませんでした")).toBeTruthy();
+    expect(addPhotosMock.mock.calls.map((c) => (c[0] as { photos: unknown[] }).photos.length)).toEqual([20, 5]);
+    expect(screen.queryByText("送れませんでした。もう一度お試しください")).toBeNull();
+  });
+
+  it("T3: 101 枚選ぶと「一度に入れられるのは 100 枚までです」で止まり、送らない（Web の選択画面には上限が無い）", async () => {
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: manySources(101) });
+    stubUpload();
+    renderScreen();
+
+    await pressAdd();
+
+    expect(await screen.findByText("一度に入れられるのは 100 枚までです")).toBeTruthy();
+    expect(screen.queryByTestId("album-detail-upload-confirm")).toBeNull();
+    expect(uploadCompressedMock).not.toHaveBeenCalled();
+    expect(addPhotosMock).not.toHaveBeenCalled();
+  });
+
+  it("T4: 送っている途中で「やめる」→ 以後の PUT を始めず、送り終えた塊は残って「20 枚まで入りました」", async () => {
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: manySources(45) });
+    stubUpload();
+    // 23 枚目の PUT を止めておく（やめるまで解決しない）
+    let release: (() => void) | null = null;
+    uploadCompressedMock.mockImplementation(
+      (_req: unknown, c: { uri: string }) =>
+        new Promise((resolve) => {
+          const done = () => resolve({ imageId: `id-${c.uri.replace(/\D/g, "")}`, imageWidth: 10, imageHeight: 10 });
+          if (c.uri === "file:///23.jpg") release = done;
+          else done();
+        }),
+    );
+    renderScreen();
+    await pressAdd();
+    await screen.findByTestId("album-detail-upload-confirm");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-upload-start"));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(uploadCompressedMock).toHaveBeenCalledTimes(23));
+    expect(screen.getByTestId("album-detail-progress")).toHaveTextContent("22 / 45 枚を送っています…");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-upload-abort"));
+      release?.();
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText("20 枚まで入りました")).toBeTruthy();
+    expect(uploadCompressedMock).toHaveBeenCalledTimes(23);
+    expect(addPhotosMock).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("album-detail-progress")).toBeNull();
+  });
+
+  it("20 枚以下のときは「やめる」を出さない", async () => {
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: manySources(3) });
+    stubUpload();
+    let release: (() => void) | null = null;
+    uploadCompressedMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ imageId: "id-1", imageWidth: 10, imageHeight: 10 });
+        }),
+    );
+    renderScreen();
+    await pressAdd();
+
+    expect(await screen.findByTestId("album-detail-progress")).toBeTruthy();
+    expect(screen.queryByTestId("album-detail-upload-abort")).toBeNull();
+    await act(async () => {
+      release?.();
+    });
+  });
+
+  it("T5: free で残り 30 のとき 31 枚選ぶと「あと 30 枚まで入れられます」で止まり、確認も出ない（045 のまま）", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 0 } });
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: manySources(31) });
+    stubUpload();
+    renderScreen();
+    await screen.findByTestId("album-detail-quota");
+
+    await pressAdd();
+
+    expect(await screen.findByText("あと 30 枚まで入れられます")).toBeTruthy();
+    expect(screen.queryByTestId("album-detail-upload-confirm")).toBeNull();
+    expect(uploadCompressedMock).not.toHaveBeenCalled();
+  });
+});

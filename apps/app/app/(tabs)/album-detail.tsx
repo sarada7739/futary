@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, ScrollView, TextInput, View } from "react-native";
 import type { Album, Photo } from "@futary/contract";
 import {
@@ -19,8 +19,9 @@ import { PlanLimitSheet } from "../../components/plan-limit-sheet";
 import { QuotaWarningCard } from "../../components/quota-warning-card";
 import { Sheet } from "../../components/sheet";
 import { ZipExportSheet } from "../../components/zip-export-sheet";
-import { pickAlbumImages, uploadAlbumImages, type UploadProgress } from "../../lib/album-upload";
+import { ALBUM_UPLOAD_BATCH_MAX, pickAlbumImages, uploadAlbumImagesInBatches, type UploadProgress } from "../../lib/album-upload";
 import type { ZipSource } from "../../lib/album-zip";
+import type { SourceImage } from "../../lib/image";
 import { chunk } from "../../lib/chunk";
 import { albumQuotaHeadingLabel, albumQuotaOverLabel, albumQuotaRemaining, shouldWarnQuota } from "../../lib/plan";
 import { dismissQuotaWarning, isQuotaWarningDismissed } from "../../lib/quota-warning-dismissed";
@@ -144,6 +145,10 @@ export default function AlbumDetailScreen() {
   const [captionFor, setCaptionFor] = useState<Photo | null>(null);
   const [captionDraft, setCaptionDraft] = useState("");
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  // 049: 20 枚超を選んだときの確認（送る前）。null なら閉じている
+  const [uploadConfirm, setUploadConfirm] = useState<SourceImage[] | null>(null);
+  // 049: 送っている途中で「やめる」（送り終えた塊は残る）
+  const uploadAbortRef = useRef<AbortController | null>(null);
   const [shareProgress, setShareProgress] = useState<ShareProgress | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   // 045: 無料枠の残りが 0 のとき（FAB を押した・サーバが PLAN_LIMIT を返した）に出すシート
@@ -233,8 +238,8 @@ export default function AlbumDetailScreen() {
     }
   }
 
-  // + FAB: 写真を追加（複数選択。1 回 20 枚まで）→ 圧縮 → 1 枚ずつ署名付き PUT → addPhotos（1 回）。
-  // 途中で 1 枚でも失敗したら addPhotos を呼ばない（T15）
+  // + FAB: 写真を追加（複数選択。049: 1 回 100 枚まで）→ 20 枚ずつ「1 枚ずつ圧縮 → 署名付き PUT → addPhotos」。
+  // 塊の中で 1 枚でも失敗したらその塊は入らず（T15）、残りの塊は続ける。20 枚超は送る前に確認を 1 つ
   async function handleAddPhotos() {
     if (!canWrite || uploadProgress) return;
     // 045: 残りが 0 なら選ぶ前にシート（写真を選ばせない。タスク定義 3節）
@@ -242,24 +247,54 @@ export default function AlbumDetailScreen() {
       setPlanLimitOpen(true);
       return;
     }
-    const sources = await pickAlbumImages(MAX_PHOTOS_PER_ADD);
+    const sources = await pickAlbumImages(ALBUM_UPLOAD_BATCH_MAX);
     if (sources.length === 0) return;
+    // 049 T3: Web の選択画面には上限が無いので、超えていたら 1 行で止める（送らない）
+    if (sources.length > ALBUM_UPLOAD_BATCH_MAX) {
+      setNotice(`一度に入れられるのは ${ALBUM_UPLOAD_BATCH_MAX} 枚までです`);
+      return;
+    }
     // 045: 残り n 枚で n+1 枚以上選んだ → 送る前に 1 行で止める（サーバでも拒む）
     if (albumQuota && sources.length > albumQuotaRemaining(albumQuota)) {
       setNotice(albumQuotaOverLabel(albumQuota));
       return;
     }
     setNotice(null);
+    // 049: 20 枚超は「N 枚を送ります。少し時間がかかります」→「送る」。20 枚以下は今までどおり確認無し
+    if (sources.length > MAX_PHOTOS_PER_ADD) {
+      setUploadConfirm(sources);
+      return;
+    }
+    await runUpload(sources);
+  }
+
+  async function runUpload(sources: SourceImage[]) {
+    setUploadConfirm(null);
+    const controller = new AbortController();
+    uploadAbortRef.current = controller;
     try {
-      const uploaded = await uploadAlbumImages(
+      const result = await uploadAlbumImagesInBatches(
         sources,
         (contentType) => requestUploadUrl.mutateAsync({ contentType }),
-        setUploadProgress,
+        (uploaded) =>
+          addPhotos.mutateAsync({
+            id: albumId,
+            photos: uploaded.map((u) => ({ imageId: u.imageId, width: u.imageWidth, height: u.imageHeight })),
+          }),
+        {
+          onProgress: setUploadProgress,
+          signal: controller.signal,
+          // 045: サーバが PLAN_LIMIT を返したら残りの塊は送らずシート（枠が無いので続けても同じ）
+          stopOn: (error) => error instanceof ORPCError && error.code === "PLAN_LIMIT",
+        },
       );
-      await addPhotos.mutateAsync({
-        id: albumId,
-        photos: uploaded.map((u) => ({ imageId: u.imageId, width: u.imageWidth, height: u.imageHeight })),
-      });
+      if (result.aborted) {
+        setNotice(`${result.added} 枚まで入りました`);
+      } else if (result.added === 0 && result.failed > 0) {
+        setNotice("送れませんでした。もう一度お試しください");
+      } else if (result.failed > 0) {
+        setNotice(`${result.failed} 枚は入れられませんでした`);
+      }
     } catch (error) {
       // 045: 相手が同時に足した等でサーバが PLAN_LIMIT を返したら同じシート（枠の表示も読み直す）
       if (error instanceof ORPCError && error.code === "PLAN_LIMIT") {
@@ -269,8 +304,13 @@ export default function AlbumDetailScreen() {
         setNotice("送れませんでした。もう一度お試しください");
       }
     } finally {
+      uploadAbortRef.current = null;
       setUploadProgress(null);
     }
+  }
+
+  function handleAbortUpload() {
+    uploadAbortRef.current?.abort();
   }
 
   async function handleSetCover() {
@@ -409,9 +449,17 @@ export default function AlbumDetailScreen() {
             </View>
 
             {uploadProgress && (
-              <Text color="muted" align="center" testID="album-detail-progress">
-                {`${uploadProgress.done} / ${uploadProgress.total} 枚を送っています…`}
-              </Text>
+              <View style={{ alignItems: "center", gap: space.xs }}>
+                <Text color="muted" align="center" testID="album-detail-progress">
+                  {`${uploadProgress.done} / ${uploadProgress.total} 枚を送っています…`}
+                </Text>
+                {/* 049: 20 枚超のときだけ「やめる」（送り終えた塊は残る。閉じたら「N 枚まで入りました」） */}
+                {uploadProgress.total > MAX_PHOTOS_PER_ADD && (
+                  <Button variant="ghost" onPress={handleAbortUpload} testID="album-detail-upload-abort">
+                    やめる
+                  </Button>
+                )}
+              </View>
             )}
             {shareProgress && (
               <Text color="muted" align="center" testID="album-detail-share-progress">
@@ -650,6 +698,29 @@ export default function AlbumDetailScreen() {
       </Sheet>
 
       <ZipExportSheet source={zipSource} onClose={() => setZipSource(null)} />
+
+      {/* 049: 20 枚超を選んだときの確認（送る前に 1 つ） */}
+      <Sheet visible={uploadConfirm !== null} onClose={() => setUploadConfirm(null)} title="写真を追加">
+        {uploadConfirm && (
+          <View style={{ gap: space.md }}>
+            <Text align="center" testID="album-detail-upload-confirm">
+              {`${uploadConfirm.length} 枚を送ります。少し時間がかかります`}
+            </Text>
+            <View style={{ flexDirection: "row", gap: space.sm }}>
+              <View style={{ flex: 1 }}>
+                <Button variant="ghost" onPress={() => setUploadConfirm(null)}>
+                  キャンセル
+                </Button>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button onPress={() => runUpload(uploadConfirm)} testID="album-detail-upload-start">
+                  送る
+                </Button>
+              </View>
+            </View>
+          </View>
+        )}
+      </Sheet>
 
       {/* 編集 */}
       <Sheet visible={isEditing} onClose={() => setIsEditing(false)} title="アルバムを編集">
