@@ -12,9 +12,14 @@ export type ButtonProps = Omit<PressableProps, "style" | "children" | "onPress">
   // 送信・認証・作成・削除など副作用のあるボタンは全て対象（conventions.md 4節）。
   // 戻り値が Promise なら、それが解決/拒否するまで再発火を防ぐ
   onPress?: () => void | Promise<void>;
+  // 050: 小さな押せる行（投稿カードのハート）。文字 14/20 に上下 12 の余白で当たり判定 44 を保ちつつ、
+  // 上下 -8 のマージンで並びの上では 28 しか取らない（react-native-web の Pressable は hitSlop を
+  // DOM に反映しない〈dist/exports に hitSlop を扱う箇所が Touchable にしか無い〉ので、余白で作る）。
+  // 二重発火のガードは同じ（conventions.md 4節: Button を通す）
+  compact?: boolean;
 };
 
-export function Button({ variant = "primary", disabled, onPress, children, ...rest }: ButtonProps) {
+export function Button({ variant = "primary", disabled, onPress, children, compact = false, ...rest }: ButtonProps) {
   const { colors } = useTheme();
   // react-native-web の Pressable は環境によって1クリックで onPress が2回発火する
   // （pointer系イベントと click イベントの両方が反応する既知の挙動。PR #22 で
@@ -68,7 +73,8 @@ export function Button({ variant = "primary", disabled, onPress, children, ...re
       style={({ pressed }) => {
         const base = {
           paddingVertical: space.md,
-          paddingHorizontal: space.xl,
+          paddingHorizontal: compact ? space.sm : space.xl,
+          ...(compact ? { marginVertical: -space.sm, marginLeft: -space.sm } : null),
           borderRadius: radius.pill,
           alignItems: "center" as const,
         };
@@ -114,10 +120,10 @@ export function Button({ variant = "primary", disabled, onPress, children, ...re
       <RNText
         style={{
           fontFamily: fontFamily.ja,
-          fontSize: 16,
-          lineHeight: 22,
+          fontSize: compact ? 14 : 16,
+          lineHeight: compact ? 20 : 22,
           fontWeight: "700",
-          letterSpacing: 0.64,
+          letterSpacing: compact ? 0.56 : 0.64,
           textAlign: "center",
           color: effectiveDisabled
             ? colors.textMuted

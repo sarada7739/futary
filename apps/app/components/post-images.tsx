@@ -20,6 +20,22 @@ export type PostImagesProps = {
 // 分からない」により仮置き。人間の実機確認で調整する）
 export const ROW_ITEM_WIDTH_RATIO = 0.88;
 
+// 050: 1 枚の画像の高さの上限（タスク定義 0節 #7）。幅いっぱいで収まればそのまま。収まらない縦長は
+// 高さをここまでにして幅を比率で縮め、左寄せ（X と同じ。中央に置かない）
+export const MAX_SINGLE_IMAGE_HEIGHT = 360;
+
+export type SingleImageLayout =
+  | { kind: "full"; width: "100%"; aspectRatio: number }
+  | { kind: "capped"; width: number; height: number; alignSelf: "flex-start" };
+
+// 1 枚の画像の置き方。コンテナ幅が分かる前（0）は幅いっぱい（今までどおり）
+export function singleImageLayout(containerWidth: number, aspectRatio: number): SingleImageLayout {
+  if (containerWidth > 0 && containerWidth / aspectRatio > MAX_SINGLE_IMAGE_HEIGHT) {
+    return { kind: "capped", width: Math.round(MAX_SINGLE_IMAGE_HEIGHT * aspectRatio), height: MAX_SINGLE_IMAGE_HEIGHT, alignSelf: "flex-start" };
+  }
+  return { kind: "full", width: "100%", aspectRatio };
+}
+
 // 031: 1投稿の画像表示（1〜4枚）。post-card.tsx・memory-card.tsxの両方から
 // 使う（1枚のときの見え方はどちらの画面でも変えない。031・033の2回とも
 // 守る）。
@@ -87,17 +103,31 @@ export function PostImages({ images, accessibilityLabel = "画像を全画面表
       );
     }
 
+    const layout = singleImageLayout(containerWidth, aspectRatio);
     return (
       <>
-        {/* 開く操作に副作用は無いため二重発火ガードは不要（conventions.md 4節。017の確認観点） */}
-        <Pressable onPress={() => openAt(0)} accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
-          <Image
-            source={{ uri: image.url }}
-            style={{ width: "100%", aspectRatio, borderRadius: radius.input }}
-            resizeMode="cover"
-            onError={() => markFailed(image.url)}
-          />
-        </Pressable>
+        {/* 050: 幅を測ってから高さの上限を当てる（onLayout は 2 枚以上と同じ外側の View で） */}
+        <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)} testID="post-images-single">
+          {/* 開く操作に副作用は無いため二重発火ガードは不要（conventions.md 4節。017の確認観点） */}
+          <Pressable
+            onPress={() => openAt(0)}
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel}
+            testID={`post-images-single-${layout.kind}`}
+            style={layout.kind === "capped" ? { alignSelf: layout.alignSelf } : undefined}
+          >
+            <Image
+              source={{ uri: image.url }}
+              style={
+                layout.kind === "capped"
+                  ? { width: layout.width, height: layout.height, borderRadius: radius.input }
+                  : { width: layout.width, aspectRatio: layout.aspectRatio, borderRadius: radius.input }
+              }
+              resizeMode="cover"
+              onError={() => markFailed(image.url)}
+            />
+          </Pressable>
+        </View>
         <ImageViewer visible={viewerOpen} images={viewerImages} initialIndex={viewerIndex} onClose={() => setViewerOpen(false)} />
       </>
     );

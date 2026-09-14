@@ -1,0 +1,133 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "modes": {
+    "pink": {
+      "cards": [
+        {
+          "text": "さき · 1時間前4 枚まとめて",
+          "top": 16,
+          "height": 395.9,
+          "heartHeight": 44,
+          "single": null,
+          "image": null
+        },
+        {
+          "text": "ゆう · 2時間前夕焼けがきれい",
+          "top": 419.9,
+          "height": 324.7,
+          "heartHeight": 44,
+          "single": "post-images-single-full",
+          "image": {
+            "width": 334,
+            "height": 223,
+            "left": 12
+          }
+        },
+        {
+          "text": "さき · 3時間前海に行ってきた",
+          "top": 752.6,
+          "height": 462,
+          "heartHeight": 44,
+          "single": "post-images-single-capped",
+          "image": {
+            "width": 240,
+            "height": 360,
+            "left": 12
+          }
+        },
+        {
+          "text": "ゆう · 4時間前今日はいい天気だったね",
+          "top": 1222.6,
+          "height": 94,
+          "heartHeight": 44,
+          "single": null,
+          "image": null
+        }
+      ],
+      "gaps": [
+        8,
+        8,
+        8
+      ],
+      "heartPadding": "12px / 12px",
+      "heartMargin": "-8px / -8px"
+    },
+    "white": {
+      "cards": [
+        {
+          "text": "さき · 1時間前4 枚まとめて",
+          "top": 16,
+          "height": 396.2,
+          "heartHeight": 44,
+          "single": null,
+          "image": null
+        },
+        {
+          "text": "ゆう · 2時間前夕焼けがきれい",
+          "top": 420.2,
+          "height": 325.3,
+          "heartHeight": 44,
+          "single": "post-images-single-full",
+          "image": {
+            "width": 332,
+            "height": 221,
+            "left": 13
+          }
+        },
+        {
+          "text": "さき · 3時間前海に行ってきた",
+          "top": 753.5,
+          "height": 464,
+          "heartHeight": 44,
+          "single": "post-images-single-capped",
+          "image": {
+            "width": 240,
+            "height": 360,
+            "left": 13
+          }
+        },
+        {
+          "text": "ゆう · 4時間前今日はいい天気だったね",
+          "top": 1225.5,
+          "height": 96,
+          "heartHeight": 44,
+          "single": null,
+          "image": null
+        }
+      ],
+      "gaps": [
+        8,
+        8,
+        8
+      ],
+      "heartPadding": "12px / 12px",
+      "heartMargin": "-8px / -8px"
+    }
+  }
+}

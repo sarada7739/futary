@@ -13249,3 +13249,12 @@ Session: A
 - 人間の実機（A 経由）: iPhone・PC で ZIP が落ちる。iPhone で 100 枚を 1 回で入れられ、その 100 枚の ZIP も落ちた。`ZIP_PART_SIZE`・`ALBUM_UPLOAD_BATCH_MAX` は 100 のまま。`artifacts/048/stage1.md`・`artifacts/049/stage1.md` に追記
 
 Session: B
+
+
+## 2026-09-15 セッションB: 050（タイムラインの 1 投稿を X くらいの高さに）を実装
+
+- `Card` に `padding` prop、`Button` に `compact`（当たり判定 44 を上下の余白で保ち、`marginVertical: -8` で並びの上は 28。RN-web の Pressable は hitSlop を DOM に反映しない）
+- 投稿カード: 「名前 · 時刻」の 1 行 + 直下に本文、余白 md、ハートは compact の Button。画像 1 枚は高さ 360 上限で幅を比率で縮め左寄せ（`singleImageLayout`）。一覧の間 8（`contentContainerStyle` の gap と ItemSeparator の二重を解消）
+- 実測: 文字 1 行の投稿 94（ピンク）/ 96（ホワイト）+ 間 8。`artifacts/050/stage1.md`。2.3.0
+
+Session: B

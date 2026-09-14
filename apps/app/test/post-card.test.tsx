@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Post } from "@futary/contract";
 import { PostCard } from "../components/post-card";
 import { ImageViewer } from "../components/image-viewer";
-import { ROW_ITEM_WIDTH_RATIO } from "../components/post-images";
+import { MAX_SINGLE_IMAGE_HEIGHT, ROW_ITEM_WIDTH_RATIO, singleImageLayout } from "../components/post-images";
 
 // 041: ビューアの保存ボタンは photo.downloadUrl を呼ぶ。画面テストでは差し替える
 const { downloadUrlMock } = vi.hoisted(() => ({ downloadUrlMock: vi.fn() }));
@@ -321,5 +321,82 @@ describe("ImageViewer の保存ボタン（041）", () => {
       await Promise.resolve();
     });
     expect(await screen.findByText("保存できませんでした")).toBeTruthy();
+  });
+});
+
+// 050: タイムラインの密度（T1〜T3）。高さの実測（T5）は artifacts/050/
+describe("PostCard: 密度（050）", () => {
+  it("T1: 名前と時刻が 1 行（同じ Text の中に「投稿者 · たった今」）で、本文はその直下", () => {
+    render(<PostCard post={makePost({ body: "本文です" })} isOwn={false} />);
+    const line = screen.getByTestId("post-card-header-line");
+    expect(line.textContent).toBe("投稿者 · たった今");
+    // 本文は名前の行と同じ列（右の列）にある = 名前の行の親の中に本文がある
+    expect(line.parentElement?.textContent).toBe("投稿者 · たった今本文です");
+  });
+
+  it("T2: ハートは小さな押せる行（Button の compact）。文字 14/20 + 上下の余白 12 で当たり判定 44、上下 -8 のマージンで並びの上では 28。押すと onToggleReaction（reaction.toggle）", () => {
+    const onToggle = vi.fn();
+    render(<PostCard post={makePost()} isOwn={false} onToggleReaction={onToggle} />);
+    const heart = screen.getByTestId("post-card-reaction-heart");
+    // 当たり判定: 12 + 20 + 12 = 44（react-native-web の Pressable は hitSlop を DOM に反映しないので余白で作る）
+    expect(heart.style.paddingTop).toBe("12px");
+    expect(heart.style.paddingBottom).toBe("12px");
+    // 並びの上の高さ: 44 - 8 - 8 = 28
+    expect(heart.style.marginTop).toBe("-8px");
+    expect(heart.style.marginBottom).toBe("-8px");
+    const text = heart.firstElementChild as HTMLElement;
+    expect(text.style.fontSize).toBe("14px");
+    expect(text.style.lineHeight).toBe("20px");
+    fireEvent.click(heart);
+    expect(onToggle).toHaveBeenCalledWith("heart");
+  });
+});
+
+// 050 T3: 画像 1 枚の高さの上限（singleImageLayout）。onLayout は jsdom で発火しないので、
+// react-native-web が要素に付ける layout ハンドラ（__reactLayoutHandler）を直接呼んで幅を渡す
+describe("PostImages: 画像 1 枚の高さの上限（050 T3）", () => {
+  function fireLayout(testId: string, width: number) {
+    const node = screen.getByTestId(testId) as HTMLElement & { __reactLayoutHandler?: (e: unknown) => void };
+    expect(typeof node.__reactLayoutHandler).toBe("function");
+    act(() => node.__reactLayoutHandler!({ nativeEvent: { layout: { x: 0, y: 0, width, height: 0 } } }));
+  }
+
+  it("singleImageLayout: 横長（幅いっぱいで高さ < 360）は幅 100%・aspectRatio。縦長（自然な高さ > 360）は高さ 360・幅は比率・左寄せ", () => {
+    expect(MAX_SINGLE_IMAGE_HEIGHT).toBe(360);
+    // 326 幅・4:3 → 自然な高さ 245 → そのまま
+    expect(singleImageLayout(326, 4 / 3)).toEqual({ kind: "full", width: "100%", aspectRatio: 4 / 3 });
+    // 326 幅・3:4 → 自然な高さ 435 → 360 に。幅 270・左寄せ
+    expect(singleImageLayout(326, 3 / 4)).toEqual({ kind: "capped", width: 270, height: 360, alignSelf: "flex-start" });
+    // 幅が分かる前（0）は幅いっぱい
+    expect(singleImageLayout(0, 3 / 4)).toEqual({ kind: "full", width: "100%", aspectRatio: 3 / 4 });
+    // ちょうど 360 は収まる
+    expect(singleImageLayout(360, 1)).toEqual({ kind: "full", width: "100%", aspectRatio: 1 });
+  });
+
+  it("横長 1 枚: 幅を測ったあとも幅 100% で aspectRatio のまま", () => {
+    render(<PostCard post={makePostWithImage({ images: [{ url: "https://example.com/w.jpg", width: 800, height: 600 }] })} isOwn={false} />);
+    fireLayout("post-images-single", 326);
+    const pressable = screen.getByTestId("post-images-single-full");
+    const img = pressable.firstElementChild as HTMLElement;
+    expect(img.style.width).toBe("100%");
+    expect(img.style.aspectRatio).toBe(`${800 / 600} / 1`);
+  });
+
+  it("縦長 1 枚: 幅を測ると高さ 360・幅は比率（270）・左寄せ（alignSelf flex-start）", () => {
+    render(<PostCard post={makePostWithImage({ images: [{ url: "https://example.com/t.jpg", width: 600, height: 800 }] })} isOwn={false} />);
+    // 測る前は幅いっぱい
+    expect(screen.getByTestId("post-images-single-full")).toBeTruthy();
+    fireLayout("post-images-single", 326);
+    const pressable = screen.getByTestId("post-images-single-capped");
+    expect(pressable.style.alignSelf).toBe("flex-start");
+    const img = pressable.firstElementChild as HTMLElement;
+    expect(img.style.height).toBe("360px");
+    expect(img.style.width).toBe("270px");
+  });
+
+  it("T4: 2〜4 枚は 033 のまま横一列（post-images-row）で、1 枚の上限は掛からない", () => {
+    render(<PostCard post={makePost({ images: makeImages(2) })} isOwn={false} />);
+    expect(screen.getByTestId("post-images-row")).toBeTruthy();
+    expect(screen.queryByTestId("post-images-single")).toBeNull();
   });
 });

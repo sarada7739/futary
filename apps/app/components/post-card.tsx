@@ -17,6 +17,11 @@ export type PostCardProps = {
   onToggleReaction?: (kind: ReactionKind) => void | Promise<void>;
 };
 
+// 050: タイムラインの密度（タスク定義 0節）。文字 1 行の投稿が 390pt 幅で 104pt 以下になる配分（B が決めた）:
+// カードの余白 md（12）× 2 + 名前の行（sm・20）+ 本文（md・22）+ ハートの行（並びの上で 28。当たり判定は 44。
+// Button の compact）= 94。一覧の gap 8 を足して 102。アバターは 36 で、右の列（名前の行 + 本文 = 42）より低い
+const AVATAR_SIZE = 36;
+
 const MINUTE = 60;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -72,36 +77,44 @@ export function PostCard({ post, isOwn, onDelete, onToggleReaction }: PostCardPr
   };
 
   return (
-    <Card>
-      <View style={{ gap: space.sm }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-          <Avatar name={authorName} imageUrl={post.authorImage ?? undefined} size={36} />
-          <View style={{ flex: 1 }}>
-            <Text weight="bold">{authorName}</Text>
-            <Text size="xs" color="muted">
-              {relativeTimeFrom(post.createdAt)}
+    <Card padding="md" testID="post-card">
+      {/* 050: X の 1 ポストの形。アバターの右に「名前 · 時刻」の 1 行、その直下に本文（gap 無し。行間で足りる）。
+          画像は幅いっぱい（アバターの下にも掛かる）。ハートは小さな押せる行 */}
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.sm }}>
+        <Avatar name={authorName} imageUrl={post.authorImage ?? undefined} size={AVATAR_SIZE} />
+        <View style={{ flex: 1 }}>
+          <Text size="sm" numberOfLines={1} testID="post-card-header-line">
+            <Text size="sm" weight="bold">
+              {authorName}
             </Text>
-          </View>
-          {isOwn && onDelete && <DeleteMenu onDelete={onDelete} />}
+            <Text size="sm" color="muted">
+              {` · ${relativeTimeFrom(post.createdAt)}`}
+            </Text>
+          </Text>
+          {hasBody && <Text>{post.body}</Text>}
         </View>
-
-        {hasBody && <Text>{post.body}</Text>}
-
-        {/* 041: postId を渡すとビューアに保存ボタンが出る（タイムラインの写真も保存できる） */}
-        <PostImages images={post.images} accessibilityLabel="画像を全画面表示" postId={post.id} />
-
-        {onToggleReaction && (
-          <View style={{ flexDirection: "row" }}>
-            <Button
-              variant="ghost"
-              onPress={() => onToggleReaction("heart")}
-              testID="post-card-reaction-heart"
-            >
-              {`${heart.reactedByMe ? "❤️" : "🤍"}${heart.count > 0 ? ` ${heart.count}` : ""}`}
-            </Button>
-          </View>
-        )}
+        {isOwn && onDelete && <DeleteMenu onDelete={onDelete} />}
       </View>
+
+      {/* 041: postId を渡すとビューアに保存ボタンが出る（タイムラインの写真も保存できる） */}
+      {post.images.length > 0 && (
+        <View style={{ marginTop: space.sm }}>
+          <PostImages images={post.images} accessibilityLabel="画像を全画面表示" postId={post.id} />
+        </View>
+      )}
+
+      {onToggleReaction && (
+        <View style={{ flexDirection: "row" }}>
+          <Button
+            variant="ghost"
+            compact
+            onPress={() => onToggleReaction("heart")}
+            testID="post-card-reaction-heart"
+          >
+            {`${heart.reactedByMe ? "❤️" : "🤍"}${heart.count > 0 ? ` ${heart.count}` : ""}`}
+          </Button>
+        </View>
+      )}
     </Card>
   );
 }

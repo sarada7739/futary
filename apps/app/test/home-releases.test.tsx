@@ -131,18 +131,18 @@ describe("ホームの「リリース履歴を見る」（043 T2）", () => {
 });
 
 describe("「新機能のお知らせ」のシート（043 T3）", () => {
-  it("未読なら出る。最新の 1 項目（ZIP で持ち出し。048）だけで、題名・先頭 2 行・「使ってみる」がある", async () => {
+  it("未読なら出る。最新の 1 項目（タイムラインの密度。050）だけで、題名・先頭 2 行・「使ってみる」がある", async () => {
     await renderHome();
     expect(screen.getByTestId("release-sheet")).toBeTruthy();
     expect(screen.getByText("新機能のお知らせ")).toBeTruthy();
     expect(screen.getByText("もっと便利に、もっと楽しく。")).toBeTruthy();
-    expect(screen.getByText("アルバムの写真をまとめて持ち出せます")).toBeTruthy();
-    expect(screen.getByText("アルバムの写真を ZIP でまとめて保存できます")).toBeTruthy();
-    expect(screen.getByText("説明文も一緒に入ります")).toBeTruthy();
+    expect(screen.getByText("タイムラインをすっきりさせました")).toBeTruthy();
+    expect(screen.getByText("投稿の余白を詰めて、一覧で多く見えるようにしました")).toBeTruthy();
+    expect(screen.getByText("縦長の写真は高さを揃えました")).toBeTruthy();
     expect(screen.getByTestId("release-sheet-try")).toBeTruthy();
     expect(screen.getByTestId("release-sheet-photo")).toBeTruthy();
     // 1 つ前の版は出ない（複数を溜めない）
-    expect(screen.queryByText("アルバム機能を追加")).toBeNull();
+    expect(screen.queryByText("アルバムの写真をまとめて持ち出せます")).toBeNull();
   });
 
   it("「閉じる ×」で消えて既読になる（NEW も消える）", async () => {
@@ -186,11 +186,11 @@ describe("「新機能のお知らせ」のシート（043 T3）", () => {
     expect(screen.getByTestId("release-sheet")).toBeTruthy();
   });
 
-  it("「使ってみる」で /album へ進み、既読になる", async () => {
+  it("「使ってみる」で /timeline へ進み、既読になる", async () => {
     await renderHome();
     fireEvent.click(screen.getByTestId("release-sheet-try"));
     await expectSheetClosed();
-    expect(pushMock).toHaveBeenCalledWith("/album");
+    expect(pushMock).toHaveBeenCalledWith("/timeline");
     expect(window.localStorage.getItem(RELEASE_SEEN_STORAGE_KEY)).toBe(LATEST_VERSION);
   });
 

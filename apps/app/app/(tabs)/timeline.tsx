@@ -117,8 +117,10 @@ export default function TimelineScreen() {
       <FlatList
       data={posts}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.md, flexGrow: 1 }}
-      ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
+      // 050: カードの間は sm（8）。左右は 035 の lg のまま。間は ItemSeparatorComponent だけで作る
+      // （contentContainerStyle の gap も足すと区切りの前後に二重に掛かり、実測 20 になった）
+      contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 }}
+      ItemSeparatorComponent={() => <View style={{ height: space.sm }} />}
       renderItem={({ item }) => {
         const isOwn = item.authorId === myId;
         return (
