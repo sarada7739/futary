@@ -13039,3 +13039,14 @@ Session: B
 - `conventions.md` 8節・`architecture.md` 3節に反映。042 の上限 50 は後回し
 
 Session: A
+
+## 2026-09-14 セッションB: 043（リリース履歴）を実装（PR #315）
+
+- データはコードの配列（`lib/releases.ts`。11 項目）、「見た」は端末（`lib/release-seen.ts`。localStorage + sessionStorage。例外なら既読扱い）。ホームの NEW は `useSyncExternalStore` で購読し、一覧を開いた瞬間に消える（Tabs の中の画面は mount されたままなので、フォーカスのフックに頼らない）
+- ホームのボタン・一覧（`(tabs)/releases.tsx`）・お知らせシート（`components/release-sheet.tsx`）。`Card` に `accent`、`Sheet` の `title` を省略可に。✦ の線画は B が描き、贈り物の絵は見本から切り出した（`docs/sample/README.md`）
+- 日付を git で確かめた: A の表のまま。1.3.0 の「メモ」（028。09-02）・1.2.0 の「付き合った日」（023。08-31）は別 PR の日付（A へ）
+- 詰まった点: jsdom には `AnimationEvent` が無く、React は `webkitAnimationEnd` を聞く。`fireEvent.animationEnd` では Modal が閉じないので、テストは両方の名前で発火する。Playwright の `scrollIntoViewIfNeeded` は absolute のタブバーを考慮しないので、いちばん下まで送ってから撮った
+- リモートに A の起票ブランチ `task/043-release-notes` が残っていたため、`task/043-release-notes-impl` で push した
+- テスト 36 件。app 451・api 591・型・lint 緑。証跡 `artifacts/043/`
+
+Session: B
