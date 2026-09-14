@@ -219,6 +219,9 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
         .prepare("DELETE FROM album_photos WHERE album_id IN (SELECT id FROM albums WHERE couple_id = ?1)")
         .bind(coupleId),
       db.prepare("DELETE FROM albums WHERE couple_id = ?1").bind(coupleId),
+      // 【045】couple_plans.couple_id も couples を参照する。couples より先に消す
+      // （architecture.md 4節「表を足したら、消す手順にも足す」。起票の時点でテスト項目（T6）に入れてある）
+      db.prepare("DELETE FROM couple_plans WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couples WHERE id = ?1").bind(coupleId),

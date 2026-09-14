@@ -1,0 +1,9 @@
+--- paid
+success: true changes: undefined
+[{"couple_id":"demo-couple","plan":"paid","source":"manual","expires_at":null,"updated_at":1789368261}]
+--- free
+success: true changes: undefined
+[{"couple_id":"demo-couple","plan":"free","source":"manual","expires_at":null,"updated_at":1789368263}]
+--- paid
+success: true changes: undefined
+[{"couple_id":"demo-couple","plan":"paid","source":"manual","expires_at":null,"updated_at":1789368266}]

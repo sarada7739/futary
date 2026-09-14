@@ -275,7 +275,7 @@ describe("buildDemoSeedSql", () => {
     expect(firstInsertIndex).toBeGreaterThan(lastDeleteIndex);
   });
 
-  it("外部キーの順で消す: reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> invites -> couple_members -> couples -> user", () => {
+  it("外部キーの順で消す: reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> couple_plans -> invites -> couple_members -> couples -> user", () => {
     const sql = buildDemoSeedSql(Date.UTC(2026, 7, 31));
     const order = [
       "reactions",
@@ -285,6 +285,8 @@ describe("buildDemoSeedSql", () => {
       "wishes",
       "moods",
       "ai_summaries",
+      // 045: couple_plans.couple_id が couples を参照する。couples より先に消す
+      "couple_plans",
       "invites",
       "couple_members",
       "couples",
@@ -295,6 +297,16 @@ describe("buildDemoSeedSql", () => {
     for (let i = 1; i < positions.length; i++) {
       expect(positions[i]).toBeGreaterThan(positions[i - 1] ?? -1);
     }
+  });
+
+  // 045: デモペアは paid の行を持つ（ゲストに「無料プランでは…」を出さない。タスク定義 0節 #9）
+  it("couple_plans の INSERT 文が 1 件あり、plan は 'paid'・expires_at は NULL", () => {
+    const sql = buildDemoSeedSql(Date.UTC(2026, 7, 31));
+    const matches = sql.match(/INSERT INTO couple_plans \(couple_id, plan, source, expires_at, updated_at\) VALUES \(([^;]*)\);/g) ?? [];
+    expect(matches).toHaveLength(1);
+    expect(matches[0]).toContain("'paid', 'manual', NULL,");
+    // couples の INSERT より後（FK）
+    expect(sql.indexOf("INSERT INTO couple_plans")).toBeGreaterThan(sql.indexOf("INSERT INTO couples"));
   });
 
   // 037: buildInsertSqlにai_summariesのINSERT文が実際に含まれることを確認する

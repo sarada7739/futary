@@ -588,8 +588,8 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
 }
 
 // 投入の前にデモペアの既存行を消す（014タスク定義）。外部キーの順:
-// reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> wants -> album_photos -> albums -> invites -> couple_members -> couples -> user。
-// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_images・037でai_summaries・040でwants・041でalbums/album_photosを追加）
+// reactions -> post_images -> posts -> events -> wishes -> moods -> ai_summaries -> wants -> album_photos -> albums -> couple_plans -> invites -> couple_members -> couples -> user。
+// 表が増えたときはここへ足す（027でwishes・029でmoods・031でpost_images・037でai_summaries・040でwants・041でalbums/album_photos・045でcouple_plansを追加）
 function buildDeleteSql(seed: DemoSeed): string[] {
   const userIds = seed.users.map((u) => sqlString(u.id)).join(", ");
   return [
@@ -603,6 +603,7 @@ function buildDeleteSql(seed: DemoSeed): string[] {
     `DELETE FROM wants WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM album_photos WHERE album_id IN (SELECT id FROM albums WHERE couple_id = ${sqlString(seed.coupleId)});`,
     `DELETE FROM albums WHERE couple_id = ${sqlString(seed.coupleId)};`,
+    `DELETE FROM couple_plans WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM invites WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couple_members WHERE couple_id = ${sqlString(seed.coupleId)};`,
     `DELETE FROM couples WHERE id = ${sqlString(seed.coupleId)};`,
@@ -618,6 +619,13 @@ function buildInsertSql(seed: DemoSeed, nowMs: number): string[] {
   statements.push(
     `INSERT INTO couples (id, dating_date, married_date, primary_date, is_demo, created_at) VALUES ` +
       `(${sqlString(seed.coupleId)}, ${sqlString(seed.datingDate)}, NULL, 'dating', 1, ${nowSeconds});`,
+  );
+
+  // 045: デモペアは paid（ゲストは書けないので制限は効かないが、「無料プランでは…」の表示を
+  // デモに出さない。タスク定義 0節 #9）。couples の直後（FK）
+  statements.push(
+    `INSERT INTO couple_plans (couple_id, plan, source, expires_at, updated_at) VALUES ` +
+      `(${sqlString(seed.coupleId)}, 'paid', 'manual', NULL, ${nowSeconds});`,
   );
 
   for (const [i, u] of seed.users.entries()) {

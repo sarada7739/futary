@@ -10,6 +10,7 @@ import {
   MAX_IMAGE_BYTES,
   type R2SignConfig,
 } from "../lib/r2-signed-url";
+import { exceedsFreeQuota } from "../lib/plan";
 import { generateImageId } from "../lib/ulid";
 import { isConstraintViolation } from "./couple";
 import { readProcedure, writeProcedure } from "./base";
@@ -330,6 +331,9 @@ const albumCreate = implementer.album.create.use(writeProcedure).handler(async (
     .prepare(`SELECT COUNT(*) AS count FROM albums WHERE couple_id = ?1 AND deleted_at IS NULL`)
     .bind(coupleId)
     .first<{ count: number }>();
+  // 045: free で無料枠を超えるなら PLAN_LIMIT（cover の 1 枚も入れない）。LIMIT_REACHED より先に見る
+  // （画面が「プランの話」と分かる必要がある。タスク定義 0節 #4）
+  if (input.cover && (await exceedsFreeQuota(db, coupleId, 1, nowSeconds()))) throw errors.PLAN_LIMIT();
   if ((countRow?.count ?? 0) >= MAX_ALBUMS_PER_COUPLE) throw errors.LIMIT_REACHED();
 
   // DB に 1 行も書く前に実体を確かめる（無ければ INVALID_INPUT でアルバムも作らない）
@@ -431,6 +435,8 @@ const albumAddPhotos = implementer.album.addPhotos.use(writeProcedure).handler(a
   const { db, bucket, coupleId, r2Sign } = context;
 
   const current = await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
+  // 045: free で used + 追加枚数 > 無料枠なら PLAN_LIMIT（1 枚も入れない）。LIMIT_REACHED より先に見る
+  if (await exceedsFreeQuota(db, coupleId, input.photos.length, nowSeconds())) throw errors.PLAN_LIMIT();
   if (current.photo_count + input.photos.length > MAX_PHOTOS_PER_ALBUM) throw errors.LIMIT_REACHED();
 
   const keys = await verifyUploadedImages(

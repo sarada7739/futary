@@ -4,14 +4,18 @@ import type { Album, Photo } from "@futary/contract";
 import { TIMELINE_ALBUM_ID, TIMELINE_PREVIEW_COUNT } from "@futary/contract";
 import { formatYearMonthSlash, todayJst } from "@futary/date";
 import { Badge, Button, radius, Screen, space, Text, useTheme } from "@futary/ui";
+import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigation, useRouter } from "expo-router";
 import { AlbumForm, type AlbumFormValues } from "../../components/album-form";
+import { PlanLimitSheet } from "../../components/plan-limit-sheet";
 import { Sheet } from "../../components/sheet";
+import { UsageCard } from "../../components/usage-card";
 import { pickAlbumImages, uploadAlbumImages } from "../../lib/album-upload";
 import { useGuestMode } from "../../lib/guest-mode";
 import type { SourceImage } from "../../lib/image";
 import { orpc } from "../../lib/orpc";
+import { albumQuotaRemaining } from "../../lib/plan";
 import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
@@ -164,8 +168,19 @@ export default function AlbumScreen() {
   const viewerKey = useViewerQueryKey();
   const listOptions = orpc.album.list.queryOptions({ input: {} });
   const query = useQuery({ ...listOptions, queryKey: [...listOptions.queryKey, viewerKey] });
+  // 045: 作成モーダルの「カバー写真を選択」で無料枠を見る（枠は couple.get から。一覧には出さない）
+  const coupleOptions = orpc.couple.get.queryOptions();
+  const coupleQuery = useQuery({ ...coupleOptions, queryKey: [...coupleOptions.queryKey, viewerKey], enabled: !isGuestMode });
+  const albumQuota = coupleQuery.data?.albumQuota ?? null;
+  const quotaRemaining = albumQuota ? albumQuotaRemaining(albumQuota) : null;
+  const [planLimitOpen, setPlanLimitOpen] = useState(false);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: orpc.album.list.key() });
+  const invalidate = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: orpc.album.list.key() }),
+      // 045: cover 付きで作ると枠の used が変わる
+      queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() }),
+    ]);
   const requestUploadUrl = useMutation(orpc.album.uploadUrl.mutationOptions());
   const createAlbum = useMutation(orpc.album.create.mutationOptions({ onSuccess: invalidate }));
   const updateAlbum = useMutation(orpc.album.update.mutationOptions({ onSuccess: invalidate }));
@@ -216,13 +231,25 @@ export default function AlbumScreen() {
       const [uploaded] = await uploadAlbumImages([pickedCover], (contentType) => requestUploadUrl.mutateAsync({ contentType }));
       if (uploaded) cover = { imageId: uploaded.imageId, width: uploaded.imageWidth, height: uploaded.imageHeight };
     }
-    const created = await createAlbum.mutateAsync({
-      title: values.title,
-      note: values.note === "" ? undefined : values.note,
-      startDate: values.startDate === "" ? undefined : values.startDate,
-      endDate: values.endDate === "" ? undefined : values.endDate,
-      cover,
-    });
+    let created;
+    try {
+      created = await createAlbum.mutateAsync({
+        title: values.title,
+        note: values.note === "" ? undefined : values.note,
+        startDate: values.startDate === "" ? undefined : values.startDate,
+        endDate: values.endDate === "" ? undefined : values.endDate,
+        cover,
+      });
+    } catch (error) {
+      // 045: 相手が同時に足した等でサーバが PLAN_LIMIT を返したら、モーダルを閉じて同じシート
+      if (error instanceof ORPCError && error.code === "PLAN_LIMIT") {
+        closeCreate();
+        setPlanLimitOpen(true);
+        void queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() });
+        return;
+      }
+      throw error;
+    }
     closeCreate();
     router.push(albumDetailHref(created.id));
   }
@@ -285,6 +312,9 @@ export default function AlbumScreen() {
               onPress={() => router.push(albumDetailHref(TIMELINE_ALBUM_ID))}
             />
 
+            {/* 045: 写真の使用量（絵 05）。free のときだけ（paid は null。ゲストは couple.get を読まない） */}
+            {canWrite && albumQuota && <UsageCard quota={albumQuota} onPremium={() => router.push("/premium")} />}
+
             {albums.length === 0 ? (
               <View style={{ alignItems: "center", padding: space.xl }}>
                 <Text color="muted">イベントごとに写真をまとめられます</Text>
@@ -319,6 +349,12 @@ export default function AlbumScreen() {
             onCancel={closeCreate}
             pickedCover={pickedCover}
             onPickCover={async () => {
+              // 045: 残りが 0 なら選ばせず、作成モーダルを閉じてシート（写真を選ばせない）
+              if (quotaRemaining === 0) {
+                closeCreate();
+                setPlanLimitOpen(true);
+                return;
+              }
               const [source] = await pickAlbumImages(1);
               if (source) setPickedCover(source);
             }}
@@ -326,6 +362,15 @@ export default function AlbumScreen() {
           />
         )}
       </Sheet>
+
+      <PlanLimitSheet
+        visible={planLimitOpen}
+        onClose={() => setPlanLimitOpen(false)}
+        onPremium={() => {
+          setPlanLimitOpen(false);
+          router.push("/premium");
+        }}
+      />
 
       {/* 編集 */}
       <Sheet visible={editing !== null} onClose={() => setEditing(null)} title="アルバムを編集">

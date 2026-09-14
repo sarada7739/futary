@@ -75,6 +75,17 @@
 `simpleMode/リリース履歴/`（ホワイト 4 枚。A が格納）と `simpleMode/リリース履歴/pink/`（ピンク 4 枚。人間が B に渡し、B が格納）は画面の見本。
 上の 2 つ以外は切り出していない。**絵にある「カラータグ」「予算や優先度」「Pinterest 風」は存在しない機能なので文言には書かない**（`docs/tasks/043-release-notes.md` 0節 #10）。
 
+### 045 で作ったもの
+
+| ファイル | 元 | 加工 |
+|---|---|---|
+| `packages/ui/assets/icon-lock.png` | **原本無し。B が新規に描き起こした**（鍵。見本 `simpleMode/プレミアム/04-limit-sheet.jpg` の形） | 既存の `panel-*.png` と同じ規格: 96×96・RGBA・単色 #4A3733・線幅 6px・塗りなし。PIL で 8 倍で描いて縮小。部品側で `tintColor` を primary にする。再現は `artifacts/045/scripts/make-assets.py` |
+| `packages/ui/assets/icon-warning.png` | **原本無し。B が新規に描き起こした**（⚠。見本 `simpleMode/プレミアム/01-remaining-warning.jpg` の形） | 同上 |
+
+`simpleMode/プレミアム/`（ピンク 5 枚。A が格納）と `simpleMode/プレミアム/white/`（ホワイト 5 枚。人間が B に渡し、B が格納）は画面の見本。
+プレミアムの画面の上の絵は新しく作らず、既存の `panel-want.png`（ピンク: ハート）と `panel-releases.png`（ホワイト: ✦）を primary で塗って使う。
+**絵にある「月 30 枚/月」「アルバムグループ 3 つまで」「高画質保存」「優先サポート」「動画」「無料トライアル」「価格」は採らない**（`docs/tasks/045-plan-and-album-quota.md` 0節・3節）。
+
 **`風景/` というフォルダ名だが、6枚中4枚は男女2人が写っている。**
 名前を実態に合わせて変えるより、この記録で足りると判断した（原本は加工しない方針のため）。
 

@@ -1,6 +1,7 @@
 import { implementer } from "../implementer";
 import { generateInviteCode } from "../lib/invite-code";
 import { hashAccountId } from "../lib/account-hash";
+import { albumQuotaFor, loadPlan } from "../lib/plan";
 import { authedProcedure, readProcedure, writeProcedure } from "./base";
 
 const INVITE_TTL_SECONDS = 24 * 60 * 60;
@@ -93,7 +94,10 @@ const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ con
   // readProcedure が couple_id を確定させた時点で存在は保証されている想定
   // （005時点でデモペアは未作成のため DEMO_COUPLE_ID は空文字＝ここには来ない）
   if (!row) throw new Error("couple_id に対応するペアが見つかりません");
-  return toCouple(row);
+  // 045: プランと無料枠。判定は lib/plan.ts の 1 箇所。ゲスト（デモペア）にも返す（シードで paid）
+  const plan = await loadPlan(context.db, context.coupleId, nowSeconds());
+  const albumQuota = await albumQuotaFor(context.db, context.coupleId, plan);
+  return { ...toCouple(row), plan, albumQuota };
 });
 
 // primary_date='married'なのにmarried_dateがNULL、という状態はDBのTRIGGERで

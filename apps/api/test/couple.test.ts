@@ -112,7 +112,9 @@ describe("couple.get", () => {
 
     const fetched = await call(router.couple.get, undefined, { context: contextFor(user) });
 
-    expect(fetched).toEqual(created);
+    // 045: couple.get だけが plan と albumQuota を足して返す（create は変えない）。
+    // 行なし = free。まだ写真が無いので used は 0
+    expect(fetched).toEqual({ ...created, plan: "free", albumQuota: { limit: 30, used: 0 } });
   });
 });
 

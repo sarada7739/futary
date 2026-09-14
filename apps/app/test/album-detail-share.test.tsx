@@ -48,6 +48,8 @@ vi.mock("../lib/orpc", async () => {
       uploadUrl: vi.fn(),
     },
     photo: { list: photoListMock, downloadUrl: downloadUrlMock },
+    // 045: 詳細は couple.get から無料枠を読む。このテストは保存の話なので paid（枠の行なし）に固定
+    couple: { get: vi.fn(async () => ({ id: "couple-1", plan: "paid", albumQuota: null })) },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });

@@ -4,6 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ORPCError } from "@orpc/client";
 import { formatJstDateTime } from "@futary/date";
 import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
+import { planLabel } from "../../lib/plan";
 import {
   APPEARANCE_VALUES,
   Avatar,
@@ -490,6 +491,29 @@ export default function ProfileScreen() {
               <Text size="xs" color="muted">
                 相手: {meQuery.data?.partnerAiOptIn ? "同意済み" : "未同意"}
               </Text>
+            </View>
+          </Card>
+
+          {/* 045: 「プラン: 無料／プレミアム」の 1 行。無料のときだけ右に「プレミアムについて ›」（→ /premium）。
+              プレミアムは押せない（設定項目ではなく表示だけ）。couple.get の plan から。「お試し」は使わない */}
+          <Card>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+              <Text weight="bold">
+                プラン: <Text weight="bold" testID="profile-plan">{coupleQuery.data ? planLabel(coupleQuery.data.plan) : ""}</Text>
+              </Text>
+              {coupleQuery.data?.plan === "free" && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="プレミアムについて"
+                  onPress={() => router.push("/premium")}
+                  hitSlop={space.sm}
+                  testID="profile-premium"
+                >
+                  <Text size="sm" weight="medium" color="brand">
+                    プレミアムについて ›
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </Card>
 

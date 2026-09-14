@@ -55,6 +55,29 @@ export const coupleSchema = z.object({
 
 export type Couple = z.infer<typeof coupleSchema>;
 
+// 045: ペアのプラン。行が無ければ free。判定はサーバの 1 箇所（apps/api/src/lib/plan.ts）
+export const PLAN_VALUES = ["free", "paid"] as const;
+export type Plan = (typeof PLAN_VALUES)[number];
+
+// 045: 無料枠。ペア全体で、作ったアルバムに入れた写真の合計枚数（タイムラインは数えない）。
+// 環境変数にしない。変えるのはこの定数 1 つ。文言にこの数を直書きしない
+export const FREE_ALBUM_PHOTO_LIMIT = 30;
+
+// 045: 無料枠の残り。paid なら null（制限しない）。used は未削除のアルバムの写真の合計
+export const albumQuotaSchema = z.object({
+  limit: z.number().int(),
+  used: z.number().int(),
+});
+export type AlbumQuota = z.infer<typeof albumQuotaSchema>;
+
+// 045: couple.get だけが plan と albumQuota を返す（create / update は変えない。
+// 枠は couple.get から取り、album.list / album.get には持たない。2 箇所に持たない）
+export const coupleWithPlanSchema = coupleSchema.extend({
+  plan: z.enum(PLAN_VALUES),
+  albumQuota: albumQuotaSchema.nullable(),
+});
+export type CoupleWithPlan = z.infer<typeof coupleWithPlanSchema>;
+
 // couple.create: 認証済みユーザーがペアを作り、自分をスロット1で参加させる。
 // 日付を一切受け取らない（023。「答えられない質問を必須にしない」。
 // 付き合った日はマイページであとから設定する。marriedDate/primaryDateは
@@ -64,8 +87,8 @@ export const coupleCreateContract = oc.input(z.object({})).output(coupleSchema).
   FORBIDDEN: {},
 });
 
-// couple.get: 自分が所属するペアを返す
-export const coupleGetContract = oc.output(coupleSchema).errors({
+// couple.get: 自分が所属するペアを返す。045: plan と albumQuota も（ゲストにも返す。デモは paid）
+export const coupleGetContract = oc.output(coupleWithPlanSchema).errors({
   FORBIDDEN: {},
   // 認証済みだがどのペアにも所属していない
   NEEDS_ONBOARDING: { status: 409 },
