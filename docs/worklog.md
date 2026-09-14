@@ -13266,3 +13266,5 @@ Session: B
 - 版の衝突: 048 段階2 は 2.4.0 に。ハートは Button の compact（conventions 4節）で定義を合わせた。長い名前で時刻が切れる → B が fix。4 枚の横一列の初期スクロール（033 から）は人間の実機で見る
 
 Session: A
+
+- 追記: R の記録 3（長い名前で時刻が切れる）を fix #352 で直した（名前と時刻を別の Text で row に。名前側 flexShrink 1・minWidth 0、時刻側 flexShrink 0。全角 30 文字で実測）。R 受け入れ → squash merge（main 1c12f4e）。次は人間のデプロイ承認・実機
