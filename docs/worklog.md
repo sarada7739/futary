@@ -13135,3 +13135,11 @@ Session: B
 - 次は人間の手番: デプロイの承認 → free で止まるのを 1 度見る → 人間の許可を取って人間のペアを paid に（artifacts/045/plan-switch.md）
 
 Session: B
+
+## 2026-09-14 セッションA: 045 の使用量カードは一覧の一番下（人間の指示）。checks の規約。044 の置き場
+
+- 人間が B に直接「使用量のメーターはアルバムの一番下」。B が fix #328。045 の 3節を合わせた
+- `conventions.md` 7節に「`gh pr checks` が全部 pass のときだけ merge。`--watch` だけで進めない」（B の報告）
+- 044 の 1節: `substituteNames` の置き場を `lib/ai.ts` に（実装どおり）
+
+Session: A
