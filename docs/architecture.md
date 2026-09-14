@@ -828,12 +828,13 @@ photo.downloadUrl   PhotoRef -> { url, filename }（041。6節「保存用の署
                     Content-Disposition: attachment 付きの署名付き GET。有効5分。filename はサーバが組み立てる
                     他ペアの ref は NOT_FOUND
 aiSummary.get       { periodKind, periodKey } -> { body, provider, model, updatedAt, generatedCount } | null
+                    body の {{A}} {{B}} は応答時に表示名へ置き換える（044。保存は記号のまま。相手が居なければ「相手」）
                     periodKind は 'month' | 'week'。週は ISO 8601（月曜始まり・JST）
 aiSummary.generate  { periodKind, periodKey } -> 生成して保存し、同じ形を返す（037）
                     2人とも同意していなければ FORBIDDEN
                     投稿3件未満は INVALID_INPUT
                     その期間の4回目・その暦月の11回目は LIMIT_REACHED
-                    入力は本文と匿名の記号（A/B。slot 由来）だけ。
+                    入力は本文と匿名の記号（A/B。slot 由来）だけ。出力の人の印は {{A}} {{B}} に固定（044）
                     画像・利用者名・ID を入れない
 me.setAiOptIn       { optIn } -> { aiOptIn }。自分の分だけ（user_id を引数に取らない）
 mood.setToday       { level } -> { date, level }   029。自分の今日の分。upsert
