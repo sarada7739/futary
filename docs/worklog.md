@@ -13116,3 +13116,14 @@ Session: A
 - `architecture.md` 6節を直した
 
 Session: A
+
+## 2026-09-14 セッションB: 045（プランの印とアルバムの無料枠）を実装。PR #325
+
+- couple_plans（0023。行が無ければ free。判定は lib/plan.ts の resolvePlan の 1 箇所）。couple.get に plan と albumQuota。album.create（cover あり）・addPhotos で PLAN_LIMIT（LIMIT_REACHED より先）。me.delete に DELETE couple_plans。デモペアは paid のシード
+- 画面は A の 3節の書き直し（7acd737）に合わせた: 一覧の使用量のカード・詳細の「27 / 30 枚」と残り 5 枚以下の警告（FAB の上に固定）・残り 0 のシート・/premium（href: null）・マイページの「プラン」。「トライアル」の文言は出さない
+- 鍵と ⚠ の線画を新規に描いた（make-assets.py）。/premium の絵は既存の線画（ピンク: ハート、ホワイト: ✦）を primary で塗った。人間のホワイトの見本 5 枚を docs/sample/simpleMode/プレミアム/white/ に格納
+- T1〜T9。api 625・app 473・db 32・型・lint 緑。停止条件はどれにも当たらず（既存の画面テストは赤 0・FK は当たらず・索引は不要）
+- 切り替えの SQL をローカルで通した（artifacts/045/plan-switch.md）。スクリーンショットは 3 状態（free26 / free30 / paid）× 両モード × 2 幅（写真のタイルは 041 と同じ理由で空）
+- 次は人間の手番: デプロイ → free で止まるのを 1 度見る → 人間の許可を取って人間のペアを paid に
+
+Session: B

@@ -100,6 +100,26 @@ export const coupleMembers = sqliteTable(
   ],
 );
 
+// 045: ペアのプラン（free / paid）。ペアごとに 0〜1 行。**行が無ければ free**
+// （SELECT して無ければ free。JOIN は LEFT JOIN）。couples に列を足さない: 決済が来たとき
+// 購読 ID・期限・出どころを同じ行に足せる（couples は子表を持つので CHECK もあとから
+// 足せない。architecture.md 4節）。CHECK は持たない（027・040・041 と同じ）。
+// 判定は apps/api/src/lib/plan.ts の resolvePlan の 1 箇所:
+// plan = 'paid' AND (expires_at IS NULL OR expires_at > now) だけが paid。それ以外は全部 free。
+// 当面は運営が D1 に手で書く（タスク定義 1節の SQL）。me.delete は couples の行より先にこれを消す
+export const couplePlans = sqliteTable("couple_plans", {
+  coupleId: text("couple_id")
+    .primaryKey()
+    .references(() => couples.id),
+  // 'free' | 'paid'。未知の値は free として扱う（サーバ）
+  plan: text("plan").notNull(),
+  // 'manual'（運営が手で）| 将来 'stripe'
+  source: text("source").notNull().default("manual"),
+  // NULL = 無期限。非 NULL で過ぎていれば free として扱う
+  expiresAt: integer("expires_at", { mode: "timestamp" }),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
 export const invites = sqliteTable("invites", {
   // 6桁。紛らわしい文字を除いた英数（apps/api/src/lib/invite-code.ts）
   code: text("code").primaryKey(),

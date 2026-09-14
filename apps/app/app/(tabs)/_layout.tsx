@@ -169,6 +169,9 @@ export default function TabsLayout() {
       <Tabs.Screen name="album-detail" options={{ href: null, headerShown: true, title: "アルバム" }} />
       {/* 043: ホームの「リリース履歴を見る」の行き先。上と同じ理由で href: null。戻るは画面が setOptions で置く */}
       <Tabs.Screen name="releases" options={{ href: null, headerShown: true, title: "リリース履歴" }} />
+      {/* 045: 一覧の使用量のカード・詳細の警告と上限のシート・マイページの「プレミアムについて」の行き先。
+          上と同じ理由で href: null。戻るは画面が setOptions で置く */}
+      <Tabs.Screen name="premium" options={{ href: null, headerShown: true, title: "プレミアム" }} />
     </Tabs>
   );
 }

@@ -10,13 +10,17 @@ import {
 } from "@futary/contract";
 import { formatDateRangeJa, formatJstDateSlash, inclusiveDays } from "@futary/date";
 import { Button, type Colors, FabIcon, radius, Screen, space, Text, useTheme } from "@futary/ui";
+import { ORPCError } from "@orpc/client";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { AlbumForm, type AlbumFormValues } from "../../components/album-form";
 import { ImageViewer, type ImageViewerImage } from "../../components/image-viewer";
+import { PlanLimitSheet } from "../../components/plan-limit-sheet";
+import { QuotaWarningCard } from "../../components/quota-warning-card";
 import { Sheet } from "../../components/sheet";
 import { pickAlbumImages, uploadAlbumImages, type UploadProgress } from "../../lib/album-upload";
 import { chunk } from "../../lib/chunk";
+import { albumQuotaHeadingLabel, albumQuotaOverLabel, albumQuotaRemaining, shouldWarnQuota } from "../../lib/plan";
 import { canShareFiles, MAX_SHARE_FILES, sharePhotos, type ShareProgress } from "../../lib/photo-download";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
@@ -33,6 +37,8 @@ import { useViewerQueryKey } from "../../lib/viewer-key";
 const GRID_COLUMNS = 3;
 const GRID_GAP = space.xs;
 const FAB_SIZE = 56;
+// 045: FAB の上に固定で乗る警告のカードの高さぶん（B が決めた）
+const QUOTA_WARNING_CLEARANCE = 120;
 const TIMELINE_TITLE = "タイムライン";
 
 function inputStyleOf(colors: Colors) {
@@ -97,12 +103,21 @@ export default function AlbumDetailScreen() {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
   const photosQuery = useInfiniteQuery({ ...photosOptions, queryKey: [...photosOptions.queryKey, viewerKey] });
+  // 045: 無料枠は couple.get から取る（album.get には持たない。2 箇所に持たない）。
+  // 書けるときだけ読む（ゲスト・タイムラインには枠の表示が無い）
+  const coupleOptions = orpc.couple.get.queryOptions();
+  const coupleQuery = useQuery({ ...coupleOptions, queryKey: [...coupleOptions.queryKey, viewerKey], enabled: canWrite });
+  // paid なら null（制限しない）。届く前も null（枠の行を出さず、FAB は普通に動く。サーバが最終防御）
+  const albumQuota = coupleQuery.data?.albumQuota ?? null;
+  const quotaRemaining = albumQuota ? albumQuotaRemaining(albumQuota) : null;
 
   const invalidateAll = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: orpc.album.get.key() }),
       queryClient.invalidateQueries({ queryKey: orpc.album.list.key() }),
       queryClient.invalidateQueries({ queryKey: orpc.photo.list.key() }),
+      // 045: 枠の used も変わる
+      queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() }),
     ]);
   const requestUploadUrl = useMutation(orpc.album.uploadUrl.mutationOptions());
   const addPhotos = useMutation(orpc.album.addPhotos.mutationOptions({ onSuccess: invalidateAll }));
@@ -126,6 +141,10 @@ export default function AlbumDetailScreen() {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [shareProgress, setShareProgress] = useState<ShareProgress | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 045: 無料枠の残りが 0 のとき（FAB を押した・サーバが PLAN_LIMIT を返した）に出すシート
+  const [planLimitOpen, setPlanLimitOpen] = useState(false);
+  // 045: 残りが 5 枚以下なら FAB の上に警告（3節。絵 01）。選択中は FAB と一緒に隠す
+  const showQuotaWarning = canWrite && !isSelecting && albumQuota !== null && shouldWarnQuota(albumQuota);
 
   const tileSize = gridWidth > 0 ? (gridWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS : undefined;
   const selectedIds = [...selected];
@@ -197,8 +216,18 @@ export default function AlbumDetailScreen() {
   // 途中で 1 枚でも失敗したら addPhotos を呼ばない（T15）
   async function handleAddPhotos() {
     if (!canWrite || uploadProgress) return;
+    // 045: 残りが 0 なら選ぶ前にシート（写真を選ばせない。タスク定義 3節）
+    if (quotaRemaining === 0) {
+      setPlanLimitOpen(true);
+      return;
+    }
     const sources = await pickAlbumImages(MAX_PHOTOS_PER_ADD);
     if (sources.length === 0) return;
+    // 045: 残り n 枚で n+1 枚以上選んだ → 送る前に 1 行で止める（サーバでも拒む）
+    if (albumQuota && sources.length > albumQuotaRemaining(albumQuota)) {
+      setNotice(albumQuotaOverLabel(albumQuota));
+      return;
+    }
     setNotice(null);
     try {
       const uploaded = await uploadAlbumImages(
@@ -210,8 +239,14 @@ export default function AlbumDetailScreen() {
         id: albumId,
         photos: uploaded.map((u) => ({ imageId: u.imageId, width: u.imageWidth, height: u.imageHeight })),
       });
-    } catch {
-      setNotice("送れませんでした。もう一度お試しください");
+    } catch (error) {
+      // 045: 相手が同時に足した等でサーバが PLAN_LIMIT を返したら同じシート（枠の表示も読み直す）
+      if (error instanceof ORPCError && error.code === "PLAN_LIMIT") {
+        setPlanLimitOpen(true);
+        void queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() });
+      } else {
+        setNotice("送れませんでした。もう一度お試しください");
+      }
     } finally {
       setUploadProgress(null);
     }
@@ -294,7 +329,14 @@ export default function AlbumDetailScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE + FAB_SIZE, gap: space.md }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: space.lg,
+          // 045: 警告のカードが FAB の上に固定で乗るときは、その分も空ける（B が決めた: 120）
+          paddingBottom: TAB_BAR_CLEARANCE + FAB_SIZE + (showQuotaWarning ? QUOTA_WARNING_CLEARANCE : 0),
+          gap: space.md,
+        }}
+      >
         {isLoading ? (
           <View style={{ alignItems: "center", padding: space.xl }}>
             <Text color="muted">読み込み中…</Text>
@@ -331,6 +373,13 @@ export default function AlbumDetailScreen() {
               <Text color="muted" testID="album-detail-summary">
                 {heading.summary}
               </Text>
+              {/* 045: 無料枠「27 / 30 枚」。上限なら「30 / 30 枚 - 上限に達しています」（絵 03 の上の行）。
+                  free のときだけ（paid・ゲスト・タイムラインには無い） */}
+              {canWrite && albumQuota && (
+                <Text size="sm" color="brand" testID="album-detail-quota">
+                  {albumQuotaHeadingLabel(albumQuota)}
+                </Text>
+              )}
               {album && album.note.length > 0 && (
                 <Text size="sm" color="muted" align="center">
                   {album.note}
@@ -507,6 +556,21 @@ export default function AlbumDetailScreen() {
         </View>
       )}
 
+      {/* 045: 残りの警告（絵 01）。free で残りが 5 枚以下のとき、FAB の上に固定で出す
+          （アルバムの写真は FAB から入れるので FAB の上。paid・ゲスト・タイムライン・選択中には出さない） */}
+      {showQuotaWarning && albumQuota && (
+        <View
+          style={{
+            position: "absolute",
+            left: space.lg,
+            right: space.lg,
+            bottom: TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_MARGIN + space.md + FAB_SIZE + space.md,
+          }}
+        >
+          <QuotaWarningCard quota={albumQuota} onPremium={() => router.push("/premium")} />
+        </View>
+      )}
+
       {/* + FAB: 写真を追加（アップロード）。このタスクではここだけ FAB を使う。タイムライン・ゲストには無い */}
       {canWrite && !isSelecting && (
         <Pressable
@@ -527,6 +591,15 @@ export default function AlbumDetailScreen() {
           <FabIcon size={FAB_SIZE} />
         </Pressable>
       )}
+
+      <PlanLimitSheet
+        visible={planLimitOpen}
+        onClose={() => setPlanLimitOpen(false)}
+        onPremium={() => {
+          setPlanLimitOpen(false);
+          router.push("/premium");
+        }}
+      />
 
       <ImageViewer
         visible={viewerIndex !== null}

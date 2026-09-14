@@ -177,6 +177,8 @@ export const albumCreateContract = oc
     FORBIDDEN: {},
     NEEDS_ONBOARDING: { status: 409 },
     LIMIT_REACHED: { status: 409 },
+    // 045: free で無料枠（FREE_ALBUM_PHOTO_LIMIT）を超える。1 枚も入れない。LIMIT_REACHED より先に見る
+    PLAN_LIMIT: { status: 409 },
     // cover の imageId に対応する R2 の実体が無い・型やサイズが違う・既に別の行で使われている
     INVALID_INPUT: { status: 400 },
   });
@@ -229,6 +231,8 @@ export const albumAddPhotosContract = oc
     NEEDS_ONBOARDING: { status: 409 },
     NOT_FOUND: {},
     LIMIT_REACHED: { status: 409 },
+    // 045: free で無料枠を超える。1 枚も入れない。LIMIT_REACHED より先に見る
+    PLAN_LIMIT: { status: 409 },
     INVALID_INPUT: { status: 400 },
   });
 

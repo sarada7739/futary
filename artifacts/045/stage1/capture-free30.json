@@ -1,0 +1,177 @@
+{
+  "state": "free30",
+  "withSheet": true,
+  "paid": false,
+  "usage": {
+    "pink": {
+      "count": "30 / 30 枚",
+      "remaining": "上限に達しています"
+    },
+    "white": {
+      "count": "30 / 30 枚",
+      "remaining": "上限に達しています"
+    },
+    "pink-pc": {
+      "count": "30 / 30 枚",
+      "remaining": "上限に達しています"
+    },
+    "white-pc": {
+      "count": "30 / 30 枚",
+      "remaining": "上限に達しています"
+    }
+  },
+  "quota": {
+    "pink": "30 / 30 枚 - 上限に達しています",
+    "white": "30 / 30 枚 - 上限に達しています",
+    "pink-pc": "30 / 30 枚 - 上限に達しています",
+    "white-pc": "30 / 30 枚 - 上限に達しています"
+  },
+  "warning": {
+    "pink": "残り 0 枚です",
+    "white": "残り 0 枚です",
+    "pink-pc": "残り 0 枚です",
+    "white-pc": "残り 0 枚です"
+  },
+  "sheet": {
+    "pink": {
+      "title": "写真の上限に達しました",
+      "free": "30 枚まで保存可能",
+      "premium": "写真枚数 無制限"
+    },
+    "white": {
+      "title": "写真の上限に達しました",
+      "free": "30 枚まで保存可能",
+      "premium": "写真枚数 無制限"
+    },
+    "pink-pc": {
+      "title": "写真の上限に達しました",
+      "free": "30 枚まで保存可能",
+      "premium": "写真枚数 無制限"
+    },
+    "white-pc": {
+      "title": "写真の上限に達しました",
+      "free": "30 枚まで保存可能",
+      "premium": "写真枚数 無制限"
+    }
+  },
+  "premium": {
+    "pink": {
+      "title": "プレミアムプラン",
+      "comingSoon": "お申し込みは準備中です",
+      "hasTrialWord": false
+    },
+    "white": {
+      "title": "プレミアムプラン",
+      "comingSoon": "お申し込みは準備中です",
+      "hasTrialWord": false
+    },
+    "pink-pc": {
+      "title": "プレミアムプラン",
+      "comingSoon": "お申し込みは準備中です",
+      "hasTrialWord": false
+    },
+    "white-pc": {
+      "title": "プレミアムプラン",
+      "comingSoon": "お申し込みは準備中です",
+      "hasTrialWord": false
+    }
+  },
+  "plan": {
+    "pink": {
+      "plan": "無料",
+      "premiumLink": "プレミアムについて ›"
+    },
+    "white": {
+      "plan": "無料",
+      "premiumLink": "プレミアムについて ›"
+    },
+    "pink-pc": {
+      "plan": "無料",
+      "premiumLink": "プレミアムについて ›"
+    },
+    "white-pc": {
+      "plan": "無料",
+      "premiumLink": "プレミアムについて ›"
+    }
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

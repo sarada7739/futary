@@ -14,12 +14,15 @@ const {
   updatePhotoMock,
   uploadUrlMock,
   downloadUrlMock,
+  coupleGetMock,
+  pushMock,
   setOptionsMock,
   searchParams,
   pickerLaunchMock,
   compressMock,
   uploadCompressedMock,
 } = vi.hoisted(() => ({
+  pushMock: vi.fn(),
   getMock: vi.fn(),
   listMock: vi.fn(),
   photoListMock: vi.fn(),
@@ -29,6 +32,7 @@ const {
   updatePhotoMock: vi.fn(),
   uploadUrlMock: vi.fn(),
   downloadUrlMock: vi.fn(),
+  coupleGetMock: vi.fn(),
   setOptionsMock: vi.fn(),
   searchParams: { id: "album-1" as string | undefined },
   pickerLaunchMock: vi.fn(),
@@ -37,7 +41,7 @@ const {
 }));
 
 vi.mock("expo-router", () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
+  useRouter: () => ({ push: pushMock, back: vi.fn() }),
   useNavigation: () => ({ setOptions: setOptionsMock }),
   useLocalSearchParams: () => searchParams,
 }));
@@ -73,6 +77,8 @@ vi.mock("../lib/orpc", async () => {
       uploadUrl: uploadUrlMock,
     },
     photo: { list: photoListMock, downloadUrl: downloadUrlMock },
+    // 045: 詳細は couple.get から無料枠を読む（既定は paid = 枠なし。T7 のテストで free に上書きする）
+    couple: { get: coupleGetMock },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
@@ -123,6 +129,7 @@ beforeEach(() => {
   queryClient.clear();
   searchParams.id = "album-1";
   getMock.mockResolvedValue(makeAlbum());
+  coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "paid", albumQuota: null });
   listMock.mockResolvedValue({ timeline: { photoCount: 2, previews: [] }, items: [] });
   photoListMock.mockImplementation(async (input: { albumId?: string }) =>
     input.albumId
@@ -382,6 +389,175 @@ describe("AlbumDetailScreen: アップロード（T15）", () => {
       },
       expect.anything(),
     );
+    expect(screen.queryByText("送れませんでした。もう一度お試しください")).toBeNull();
+  });
+});
+
+// react-native-web の Modal（animationType="fade"）は閉じるとき animationend を待ってから DOM から消す。
+// jsdom はアニメーションを実行しないので手で発火する（home-releases.test.tsx と同じ）
+function finishModalAnimations() {
+  for (const node of Array.from(document.body.querySelectorAll("*"))) {
+    node.dispatchEvent(new Event("webkitAnimationEnd", { bubbles: true }));
+    node.dispatchEvent(new Event("animationend", { bubbles: true }));
+  }
+}
+
+// 045・T7: 無料枠。枠は couple.get の albumQuota から。paid（null）なら枠の行が無く、FAB は今までどおり
+describe("AlbumDetailScreen: 無料枠（045）", () => {
+  const sources = [
+    { uri: "file:///1.jpg", width: 10, height: 10, mimeType: "image/jpeg" },
+    { uri: "file:///2.jpg", width: 10, height: 10, mimeType: "image/jpeg" },
+    { uri: "file:///3.jpg", width: 10, height: 10, mimeType: "image/jpeg" },
+  ];
+
+  it("free のとき見出しの下に「26 / 30 枚」。上限なら「30 / 30 枚 - 上限に達しています」", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 26 } });
+    const first = renderScreen();
+    expect(await screen.findByTestId("album-detail-quota")).toHaveTextContent("26 / 30 枚");
+    expect(screen.getByTestId("album-detail-quota")).not.toHaveTextContent("上限");
+    first.unmount();
+
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 30 } });
+    queryClient.clear();
+    renderScreen();
+    expect(await screen.findByTestId("album-detail-quota")).toHaveTextContent("30 / 30 枚 - 上限に達しています");
+  });
+
+  it("残り 5 で FAB の上に警告のカード（「残り 5 枚です」「あと 5 枚で上限（無料プラン 30 枚）に達します」）。残り 6 では出ない", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 25 } });
+    const first = renderScreen();
+    expect(await screen.findByTestId("album-quota-warning")).toBeTruthy();
+    expect(screen.getByTestId("album-quota-warning-title")).toHaveTextContent("残り 5 枚です");
+    expect(screen.getByTestId("album-quota-warning-body")).toHaveTextContent("あと 5 枚で上限（無料プラン 30 枚）に達します");
+    fireEvent.click(screen.getByTestId("album-quota-warning-premium"));
+    expect(pushMock).toHaveBeenCalledWith("/premium");
+    first.unmount();
+
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 24 } });
+    queryClient.clear();
+    renderScreen();
+    expect(await screen.findByTestId("album-detail-quota")).toHaveTextContent("24 / 30 枚");
+    expect(screen.queryByTestId("album-quota-warning")).toBeNull();
+  });
+
+  it("paid のとき枠の行は無い。ゲスト・タイムラインにも無い", async () => {
+    const first = renderScreen();
+    await screen.findByTestId("album-detail-add");
+    expect(screen.queryByTestId("album-detail-quota")).toBeNull();
+    first.unmount();
+
+    coupleGetMock.mockClear();
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 0 } });
+    queryClient.clear();
+    renderScreen({ guest: true });
+    await screen.findByTestId("album-detail-cover");
+    expect(screen.queryByTestId("album-detail-quota")).toBeNull();
+    // ゲストは couple.get を読まない（書けないので枠が要らない）
+    expect(coupleGetMock).not.toHaveBeenCalled();
+  });
+
+  it("残り 0 のとき FAB を押すとシートが出て、写真を選ばない", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 30 } });
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: sources });
+    renderScreen();
+    expect(await screen.findByTestId("album-detail-quota")).toHaveTextContent("上限に達しています");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-add"));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByTestId("plan-limit-sheet")).toBeTruthy();
+    expect(screen.getByTestId("plan-limit-title")).toHaveTextContent("写真の上限に達しました");
+    expect(screen.getByTestId("plan-limit-message")).toHaveTextContent("大切な思い出をもっと残すために、プレミアムプランへ。");
+    expect(screen.getByTestId("plan-limit-free-line")).toHaveTextContent("30 枚まで保存可能");
+    expect(screen.getByTestId("plan-limit-premium-line")).toHaveTextContent("写真枚数 無制限");
+    // 価格・トライアル・存在しない機能は書かない
+    expect(screen.queryByText(/トライアル/)).toBeNull();
+    expect(screen.queryByText(/¥/)).toBeNull();
+    expect(screen.queryByText(/アルバムグループ/)).toBeNull();
+    expect(pickerLaunchMock).not.toHaveBeenCalled();
+    expect(addPhotosMock).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("plan-limit-close"));
+    act(() => finishModalAnimations());
+    await waitFor(() => expect(screen.queryByTestId("plan-limit-sheet")).toBeNull());
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("上限のシートの「プレミアムプランを見る ›」で /premium へ進む（シートは閉じる）", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 30 } });
+    renderScreen();
+    await screen.findByTestId("album-detail-quota");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-add"));
+      await Promise.resolve();
+    });
+    fireEvent.click(await screen.findByTestId("plan-limit-premium"));
+    expect(pushMock).toHaveBeenCalledWith("/premium");
+    act(() => finishModalAnimations());
+    await waitFor(() => expect(screen.queryByTestId("plan-limit-sheet")).toBeNull());
+  });
+
+  it("残り 2 で 3 枚選ぶと「あと 2 枚まで入れられます」で止まり、送らない", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 28 } });
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: sources });
+    renderScreen();
+    expect(await screen.findByTestId("album-detail-quota")).toHaveTextContent("28 / 30 枚");
+    expect(screen.getByTestId("album-quota-warning-title")).toHaveTextContent("残り 2 枚です");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-add"));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText("あと 2 枚まで入れられます")).toBeTruthy();
+    expect(uploadCompressedMock).not.toHaveBeenCalled();
+    expect(addPhotosMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("plan-limit-message")).toBeNull();
+  });
+
+  it("残り 3 で 3 枚選ぶと送る（ちょうど枠いっぱいは入る）", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 27 } });
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: sources });
+    compressMock.mockImplementation(async (s: { uri: string }) => ({ uri: s.uri, width: 10, height: 10 }));
+    uploadCompressedMock.mockImplementation(async (_req: unknown, c: { uri: string }) => ({
+      imageId: `01ARZ3NDEKTSV4RRFFQ69G5FA${c.uri.slice(-5, -4)}`,
+      imageWidth: 10,
+      imageHeight: 10,
+    }));
+    addPhotosMock.mockResolvedValue(makeAlbum({ photoCount: 6 }));
+    renderScreen();
+    await screen.findByTestId("album-detail-quota");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-add"));
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(addPhotosMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("サーバが PLAN_LIMIT を返したら（相手が同時に足した等）同じシート", async () => {
+    const { ORPCError } = await import("@orpc/client");
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 27 } });
+    pickerLaunchMock.mockResolvedValue({ canceled: false, assets: sources });
+    compressMock.mockImplementation(async (s: { uri: string }) => ({ uri: s.uri, width: 10, height: 10 }));
+    uploadCompressedMock.mockImplementation(async (_req: unknown, c: { uri: string }) => ({
+      imageId: `01ARZ3NDEKTSV4RRFFQ69G5FA${c.uri.slice(-5, -4)}`,
+      imageWidth: 10,
+      imageHeight: 10,
+    }));
+    addPhotosMock.mockRejectedValue(new ORPCError("PLAN_LIMIT", { status: 409 }));
+    renderScreen();
+    await screen.findByTestId("album-detail-quota");
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("album-detail-add"));
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByTestId("plan-limit-message")).toBeTruthy();
     expect(screen.queryByText("送れませんでした。もう一度お試しください")).toBeNull();
   });
 });

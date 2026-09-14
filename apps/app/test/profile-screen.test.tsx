@@ -103,6 +103,9 @@ function makeCouple(overrides: Partial<Record<string, unknown>> = {}) {
     marriedDate: null,
     primaryDate: "dating",
     createdAt: 0,
+    // 045: couple.get は plan と albumQuota も返す。既定は free（行なし）
+    plan: "free",
+    albumQuota: { limit: 30, used: 0 },
     ...overrides,
   };
 }
@@ -577,5 +580,32 @@ describe("039: 見た目（ピンク/ホワイト）の切り替え（T6）", ()
     // DOM の前後関係で並び順を見る（compareDocumentPosition: 4 = 後続）
     expect(profile.compareDocumentPosition(appearance) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(appearance.compareDocumentPosition(anniversary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+// 045・T8: マイページに「プラン: 無料／プレミアム」の 1 行（couple.get の plan から）。
+// 無料のときだけ「プレミアムについて ›」（→ /premium）
+describe("ProfileScreen: プラン（045）", () => {
+  it("free なら「プラン: 無料」と「プレミアムについて ›」（→ /premium）", async () => {
+    renderScreen();
+    await waitForLoaded();
+    // 「プラン: 」は入れ子の Text で描くため、外側の自前の文字だけで見る（末尾の空白は正規化で消える）
+    expect(screen.getByText(/^プラン:/)).toBeTruthy();
+    expect(screen.getByTestId("profile-plan")).toHaveTextContent("無料");
+    fireEvent.click(screen.getByTestId("profile-premium"));
+    expect(pushMock).toHaveBeenCalledWith("/premium");
+  });
+
+  it("paid なら「プラン: プレミアム」。「プレミアムについて」は無い", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ plan: "paid", albumQuota: null }));
+    renderScreen();
+    await waitForLoaded();
+    expect(screen.getByTestId("profile-plan")).toHaveTextContent("プレミアム");
+    expect(screen.queryByTestId("profile-premium")).toBeNull();
+  });
+
+  it("ゲストには出ない（マイページ自体がログイン案内）", () => {
+    renderScreenAsGuest(() => {});
+    expect(screen.queryByTestId("profile-plan")).toBeNull();
   });
 });

@@ -7,8 +7,8 @@ import {
   meUploadImageUrlContract,
 } from "./me";
 import { coupleCreateContract, coupleGetContract, coupleUpdateContract } from "./couple";
-export { PRIMARY_DATE_VALUES } from "./couple";
-export type { Couple } from "./couple";
+export { FREE_ALBUM_PHOTO_LIMIT, PLAN_VALUES, PRIMARY_DATE_VALUES } from "./couple";
+export type { AlbumQuota, Couple, CoupleWithPlan, Plan } from "./couple";
 import { inviteAcceptContract, inviteIssueContract } from "./invite";
 import { postCreateContract, postDeleteContract, postListContract, postUploadUrlContract } from "./post";
 import { reactionToggleContract } from "./reaction";

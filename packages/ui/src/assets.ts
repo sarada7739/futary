@@ -74,3 +74,9 @@ export { default as iconReleases } from "../assets/panel-releases.png";
 // docs/sample/simpleMode/リリース履歴/04-new-feature-sheet.jpg の贈り物とリボンの部分を切り出し、
 // 地を白に寄せた（出自は docs/sample/README.md）。ピンクは既存の sparkle.png を使う（部品の中で分岐）
 export { default as releaseGift } from "../assets/release-gift.jpg";
+// 045: 写真の上限のシートの鍵と、残りの警告カードの ⚠。素材に該当する図案が無いため、panel-want.png と
+// 同じ規格（96×96・単色 #4A3733・単線・塗りなし）で B が新規に描き起こした（見本
+// docs/sample/simpleMode/プレミアム/04・01 の形）。部品側で tintColor を primary にする。
+// 再現は artifacts/045/scripts/make-assets.py。出自は docs/sample/README.md
+export { default as iconLock } from "../assets/icon-lock.png";
+export { default as iconWarning } from "../assets/icon-warning.png";

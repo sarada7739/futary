@@ -558,6 +558,12 @@ describe("T4 / T5: photo.list の並びとカーソル", () => {
 describe("T6: 上限", () => {
   it("499 枚のアルバムに 2 枚入れると LIMIT_REACHED で 1 枚も入らない。1 枚なら入る", async () => {
     const { owner, coupleId } = await createPair();
+    // 045: 物理上限（500 枚）の検査は無料枠（30 枚）より後ろにあるため、paid にしてから確かめる
+    // （free のままだと PLAN_LIMIT が先に出る。plan.test.ts の T1 が固定している）
+    await db
+      .prepare("INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES (?1, 'paid', 'manual', unixepoch())")
+      .bind(coupleId)
+      .run();
     const album = await call(router.album.create, { title: "いっぱい" }, { context: contextFor(owner) });
     const statements = [];
     for (let i = 0; i < 499; i++) {

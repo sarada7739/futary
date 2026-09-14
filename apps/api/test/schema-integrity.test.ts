@@ -94,6 +94,25 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     ]);
   });
 
+  // 045・T9: couple_plans は索引・TRIGGER・名前付き CHECK を持たない（PK の自動索引は sqlite_% で
+  // 除かれる）ため、上の一覧では拾えない。表の実体（列）を sqlite_master の CREATE TABLE 文から
+  // 確かめる。列が 1 つ消えても・型が変わっても赤になる
+  it("couple_plans の表が実体にあり、列が定義どおり（couple_id PK・plan・source DEFAULT 'manual'・expires_at・updated_at）", async () => {
+    const row = await db
+      .prepare(`SELECT sql AS sql FROM sqlite_master WHERE type = 'table' AND name = 'couple_plans'`)
+      .first<{ sql: string }>();
+    expect(row, "couple_plans が実体に無い（0023_couple_plans が当たっていない）").not.toBeNull();
+    const sql = row?.sql ?? "";
+    expect(sql).toContain("`couple_id` text PRIMARY KEY NOT NULL");
+    expect(sql).toContain("`plan` text NOT NULL");
+    expect(sql).toContain("`source` text DEFAULT 'manual' NOT NULL");
+    expect(sql).toContain("`expires_at` integer");
+    expect(sql).toContain("`updated_at` integer NOT NULL");
+    expect(sql).toContain("FOREIGN KEY (`couple_id`) REFERENCES `couples`(`id`)");
+    // CHECK は持たない（027・040・041 と同じ。判定は lib/plan.ts の 1 箇所）
+    expect(extractNamedChecks(sql)).toEqual([]);
+  });
+
   // events_couple_date_idxはこの一覧テストが固有に守る唯一の対象（Rレビュー指摘）。
   // 振る舞いのテストからは捕まえられない: 列順が(date, couple_id)に変わっても
   // 名前は変わらず、event.list等の振る舞いは（性能が落ちるだけで）通り続ける

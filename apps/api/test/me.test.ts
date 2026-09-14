@@ -609,6 +609,13 @@ describe("me.delete", () => {
     await call(router.album.create, { title: "アルバム" }, { context: contextFor(owner) });
     // 029: moodsもcouple_idを持つ表として、この機械的走査に自動的に拾われる
     await call(router.mood.setToday, { level: 3 }, { context: contextFor(owner) });
+    // 045・T6: couple_plans.couple_id も couples を参照する。運営の切り替え SQL と同じ文で行を作る
+    await db
+      .prepare(
+        "INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES (?1, 'paid', 'manual', unixepoch()) ON CONFLICT(couple_id) DO UPDATE SET plan = 'paid', updated_at = unixepoch()",
+      )
+      .bind(couple.id)
+      .run();
     // 037: ai_summariesも同じ理由でこの機械的走査に自動的に拾われる。
     // aiSummary.generateは本物のAPIを呼ぶため使わず、行を直接作る
     await db
@@ -636,7 +643,7 @@ describe("me.delete", () => {
     // 検出ロジック自体の健全性: 既知の表が最低限含まれていることを保証する
     // （0件だと下のループが何もチェックせず成功してしまう）
     expect(coupleIdTables).toEqual(
-      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes", "moods", "ai_summaries", "wants", "albums"]),
+      expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes", "moods", "ai_summaries", "wants", "albums", "couple_plans"]),
     );
 
     // 【Rレビュー指摘R-1】削除前チェックが無いと、将来「couple_idを持つ新しい表」
@@ -782,6 +789,13 @@ describe("me.delete", () => {
          VALUES (?1, 'month', '2026-01', 'テストのまとめ', 'openai', 'gpt-4o-mini', 1, ?2, ?2)`,
       )
       .bind(couple.id, now)
+      .run();
+    // 045・T6: couple_plans（couple_id で couples を参照する側）。運営の切り替え SQL と同じ文
+    await db
+      .prepare(
+        "INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES (?1, 'paid', 'manual', unixepoch()) ON CONFLICT(couple_id) DO UPDATE SET plan = 'paid', updated_at = unixepoch()",
+      )
+      .bind(couple.id)
       .run();
 
     // 免除は「表」ではなく「残ってよい行の条件」で登録する（Rレビュー指摘。
