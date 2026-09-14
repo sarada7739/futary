@@ -44,10 +44,12 @@ function filenameOf(ref: Ref): string {
 function entries(count: number, folder: string | null = null): Entry[] {
   return Array.from({ length: count }, (_, i) => ({ ref: albumRef(i + 1), caption: i % 2 === 0 ? `説明 ${i + 1}` : "", folder }));
 }
-// 中身は写真ごとに長さを変える（順序と対応を size で見る）
+// 中身は写真ごとに長さを変える（順序と対応を size で見る）。同じバイトの繰り返し（4KB + n）なので
+// 圧縮すれば数十バイトに縮む。Z1 の「無圧縮」はこれで見る（R の段階1レビュー記録 1: 1〜3 バイトでは縮まず緑のままだった）
+const COMPRESSIBLE_BYTES = 4096;
 function bytesOf(ref: Ref): Uint8Array<ArrayBuffer> {
   const n = Number(idOf(ref).replace(/\D/g, "")) || 1;
-  return new Uint8Array(n).fill(0xff);
+  return new Uint8Array(COMPRESSIBLE_BYTES + n).fill(0xff);
 }
 
 // 2026-09-14 12:00 JST
@@ -117,6 +119,19 @@ describe("名前（タスク定義 2節）", () => {
     expect(safeZipName('京都/旅行:2026*夏?"<秋>|\\冬')).toBe("京都_旅行_2026_夏___秋___冬");
     expect(safeZipName("  ")).toBe("album");
     expect(safeZipName("京都旅行")).toBe("京都旅行");
+  });
+
+  it("Z1b: `.` だけの名前は album に倒す。TAB・改行・制御文字も _ に（R の段階1レビュー記録 2）", () => {
+    expect(safeZipName("..")).toBe("album");
+    expect(safeZipName(".")).toBe("album");
+    expect(safeZipName("  ..  ")).toBe("album");
+    expect(safeZipName("...")).toBe("album");
+    expect(safeZipName("..a")).toBe("..a");
+    expect(safeZipName("京都\t旅行\n2026\u0000")).toBe("京都_旅行_2026_");
+  });
+
+  it("Z1b: 説明文の TAB も空白にする（captions.txt の区切りを壊さない）", () => {
+    expect(captionsText([{ name: "a.jpg", caption: "海\tの日" }])).toBe("a.jpg\t海 の日\n");
   });
 
   it("futary-{名前}-{YYYYMMDD}.zip。分けるときは -1of3", () => {
@@ -202,9 +217,10 @@ describe("exportZip", () => {
     expect(strFromU8(files[CAPTIONS_FILENAME]!)).toBe(
       `${filenameOf(albumRef(1))}\t説明 1\n${filenameOf(albumRef(2))}\t\n${filenameOf(albumRef(3))}\t説明 3\n`,
     );
-    // ZIP は無圧縮（中身の合計より小さくならない）
+    // ZIP は無圧縮（縮む中身でも、中身の合計より小さくならない。level: 0 を外すと 12KB が数十バイトになって赤）
     const payload = photos.reduce((sum, p) => sum + bytesOf(p.ref).byteLength, 0);
-    expect(saved[0]!.bytes.byteLength).toBeGreaterThan(payload);
+    expect(payload).toBeGreaterThan(3 * COMPRESSIBLE_BYTES);
+    expect(saved[0]!.bytes.byteLength).toBeGreaterThanOrEqual(payload);
     expect(downloadUrlMock.mock.calls.map((c) => c[0])).toEqual(photos.map((p) => p.ref));
     expect(progress).toEqual([
       { done: 0, total: 3 },
@@ -212,6 +228,32 @@ describe("exportZip", () => {
       { done: 2, total: 3 },
       { done: 3, total: 3 },
     ]);
+  });
+
+  it("Z1b: 題が `..`・TAB 入りのアルバムでも ZIP 内のパスに ../ が無く、captions.txt の区切りが壊れない", async () => {
+    albumListMock.mockResolvedValue({
+      timeline: { photoCount: 0, previews: [] },
+      items: [
+        { id: "album-1", title: "..", photoCount: 1 },
+        { id: "album-2", title: "海\tの日", photoCount: 1 },
+      ],
+    });
+    photoListMock.mockImplementation(async ({ albumId }: { albumId?: string }) => ({
+      items: [{ ref: albumRef(albumId === "album-1" ? 1 : 2), caption: albumId === "album-1" ? "a\tb" : "" }],
+      nextCursor: null,
+    }));
+    const photos = await collectZipPhotos({ kind: "all" });
+
+    await exportZip(photos, "albums", { signal: new AbortController().signal, save, nowMs: NOW_MS });
+
+    const files = unzip();
+    const names = Object.keys(files);
+    expect(names).toEqual([`album/${filenameOf(albumRef(1))}`, `海_の日/${filenameOf(albumRef(2))}`, CAPTIONS_FILENAME]);
+    expect(names.some((n) => n.includes(".."))).toBe(false);
+    // 各行は TAB が 1 つだけ（パスに TAB が無く、説明文の TAB も空白になっている）
+    const lines = strFromU8(files[CAPTIONS_FILENAME]!).split("\n").filter(Boolean);
+    expect(lines.map((l) => l.split("\t").length)).toEqual([2, 2]);
+    expect(lines[0]).toBe(`album/${filenameOf(albumRef(1))}\ta b`);
   });
 
   it("全部のときはアルバムごとのフォルダの下に入り、captions.txt もそのパスで書く", async () => {
