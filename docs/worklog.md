@@ -13243,3 +13243,9 @@ Session: B
 - 目標 104pt 以下（X は約 100）。カードはやめない。画像 1 枚は 360pt 上限・左寄せ。リリース履歴 2.3.0
 
 Session: A
+
+## 2026-09-15 セッションB: 048 段階1・049 の人間の実機 OK を記録
+
+- 人間の実機（A 経由）: iPhone・PC で ZIP が落ちる。iPhone で 100 枚を 1 回で入れられ、その 100 枚の ZIP も落ちた。`ZIP_PART_SIZE`・`ALBUM_UPLOAD_BATCH_MAX` は 100 のまま。`artifacts/048/stage1.md`・`artifacts/049/stage1.md` に追記
+
+Session: B
