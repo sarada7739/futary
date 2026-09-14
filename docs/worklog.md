@@ -13207,3 +13207,5 @@ Session: A
 - 全部のときの ZIP はアルバムごとのフォルダに分けた（B の判断。A に知らせる）
 
 Session: B
+
+- 追記: R 受け入れ（必須修正なし）→ #338 を squash merge（main 6e306b1）。R の記録 1（無圧縮のテストが `level: 0` 無しでも緑）・2（`safeZipName` が `..` を通す・題の TAB）は A へ
