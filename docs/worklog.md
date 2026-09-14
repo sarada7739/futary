@@ -13127,3 +13127,11 @@ Session: A
 - 次は人間の手番: デプロイ → free で止まるのを 1 度見る → 人間の許可を取って人間のペアを paid に
 
 Session: B
+
+## 2026-09-14 セッションB: 045 を R 受け入れ後に squash merge（main d75f9ad）。記録 1 のテストを #326 で追加（main 5cfac0c）
+
+- R の判定は artifacts/045/review-stage1.md（必須修正なし。壊して確かめた 7 通り）。記録 1（countAlbumPhotosUsed の albums.deleted_at IS NULL をテストが見ていない）は A の判断で #296 と同じ扱い: deleted_at を直接立てて写真行を残すテスト 1 本（条件を外すと赤を確認）
+- #325 の merge は gh pr checks --watch が最新コミット（判定文の md だけ）に「No checks reported」を返してそのまま進んだ。コードの最終コミット 3b1a24e の CI は緑で、main の CI（34816991200）も緑を確認した。#326 からは checks の結果が pass のときだけ merge する形に分けた
+- 次は人間の手番: デプロイの承認 → free で止まるのを 1 度見る → 人間の許可を取って人間のペアを paid に（artifacts/045/plan-switch.md）
+
+Session: B
