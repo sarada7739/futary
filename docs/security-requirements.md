@@ -35,7 +35,10 @@ T1〜T9 は全て「他の利用者」と「攻撃者」の話で、**運営は�
 
 ## 2. 認証
 
-- Google OAuth のみ（ADR-004）。パスワードを保存しない
+- Google OAuth のみ（ADR-004）。パスワードを保存しない。iOS を出すときに Sign in with Apple を足す（App Store の規約 4.8）
+- **利用者の一意は `account` の (providerId, accountId)。メールは鍵にしない**（人間の決定。2026-09-15）。
+  同じ人が Google と Apple の両方で入れば**別の人として扱う**（Apple の「メールを隠す」は中継アドレスで、同じでも別でも束ねない）。
+  **メールが同じだから自動で束ねる、はしない**（他人のメールを名乗るだけで乗っ取れる穴になる）。連携の機能も持たない
 - セッションは Cookie。属性は `HttpOnly` / `Secure` / `SameSite=Lax`
 - ネイティブアプリではトークンを Expo SecureStore に保存する。`AsyncStorage` に置かない
 - `BETTER_AUTH_SECRET` は 32 バイト以上のランダム値。リポジトリに含めない
