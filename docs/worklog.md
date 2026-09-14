@@ -13287,3 +13287,5 @@ Session: A
 - 中の名前（@futary/*・URL・鍵・バケット・slug/scheme）と過去の記録は触っていない
 
 Session: B
+
+- 追記: R 受け入れ（必須修正なし）→ #357 を squash merge（main 5263af7）。R の記録（コメントの futary・poppins-300.woff2 の参照無し）は A へ。次は人間のデプロイ承認・OAuth の名前・アイコン入れ直し・OGP
