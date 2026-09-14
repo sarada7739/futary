@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-15 / セッションB。**051（Nisoine への改名。ドメイン以外）: 実装完了。PR #357（`task/051-rename-nisoine`）。R の手番。**受け入れ → squash merge → デプロイ（人間の承認）→ 人間: Google OAuth の同意画面の名前・iPhone でアイコンの入れ直し・X に URL を貼って OGP
+**最終更新**: 2026-09-15 / セッションB。**051（Nisoine への改名）: R 受け入れ → #357 を squash merge（main 5263af7）。次は人間の手番: デプロイの承認 → Google OAuth の同意画面のアプリ名を Nisoine に → iPhone のホーム画面アイコンを入れ直す → X に URL を貼って OGP の絵。**
+- 判定は `artifacts/051/review-stage1.md`（必須修正なし。T1・T6 を R が自分で測って一致）。報告は `artifacts/051/stage1.md`
+- R の記録（A へ。急がない）: (1) コメント中の `futary`（style.css 1 行目・api の数ファイル）は 2節どおり残っている。(2) `apps/app/public/fonts/poppins-300.woff2`（約 8KB）は参照が無くなった。消すかは A の判断
+- 048 段階2（決済。3.1.0）は合図待ち。047（鍵）は段階2の後。042 の上限 50 は後回し
+
+---
+
+**最終更新（旧）**: 2026-09-15 / セッションB。**051（Nisoine への改名。ドメイン以外）: 実装完了。PR #357（`task/051-rename-nisoine`）。R の手番。**受け入れ → squash merge → デプロイ（人間の承認）→ 人間: Google OAuth の同意画面の名前・iPhone でアイコンの入れ直し・X に URL を貼って OGP
 - 報告は `artifacts/051/stage1.md`（絵の作り方 `scripts/make-assets.py`・T1〜T6・スクリーンショット・B が決めたこと）。全パッケージのテスト・型・lint 緑。3.0.0
 - **A へ**: ワードマークのアルファは 190〜240 で落とし RGB を芯の色に揃えた。ロゴの大きさはホーム 120×32・サインイン 240×64・ランディング 200×53。Poppins 300 の preload/@font-face は外した（ファイルは残す）。定義の `apps/app/assets/apple-touch-icon.png` は実際は `apps/app/public/`（PWA の icon-192/512・manifest の name も変えた）
 - 048 段階2（決済。3.1.0）は合図待ち。047（鍵）は段階2の後。042 の上限 50 は後回し
