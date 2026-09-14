@@ -6,9 +6,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // 041: アルバム一覧の画面結合テスト（T11 の一覧側）。want-screen.test.tsx と同じ形で oRPC を
 // モックする。ヘッダーの + は expo-router の navigation.setOptions で置くため、setOptions に
 // 渡された headerRight を描画して確かめる
-const { listMock, createMock, updateMock, deleteMock, uploadUrlMock, coupleGetMock, pushMock, setOptionsMock } = vi.hoisted(
+const { listMock, createMock, updateMock, deleteMock, uploadUrlMock, coupleGetMock, photoListMock, pushMock, setOptionsMock } = vi.hoisted(
   () => ({
     listMock: vi.fn(),
+    // 048: 「すべての写真を ZIP で保存」がアルバムごとに photo.list で数える
+    photoListMock: vi.fn(),
     createMock: vi.fn(),
     updateMock: vi.fn(),
     deleteMock: vi.fn(),
@@ -47,7 +49,7 @@ vi.mock("../lib/orpc", async () => {
   const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
   const client = {
     album: { list: listMock, create: createMock, update: updateMock, delete: deleteMock, uploadUrl: uploadUrlMock },
-    photo: { downloadUrl: vi.fn() },
+    photo: { downloadUrl: vi.fn(), list: photoListMock },
     couple: { get: coupleGetMock },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
@@ -161,14 +163,31 @@ describe("AlbumScreen: 一覧（T11）", () => {
     expect(screen.getByText("イベントごとに写真をまとめられます")).toBeTruthy();
   });
 
-  it("ゲストは ⋯ もヘッダーの + も無い", async () => {
+  it("ゲストはカードの ⋯ もヘッダーの + も無い。048: ヘッダーの ⋯（すべての写真を ZIP で保存）はある", async () => {
     stubList([makeAlbum()]);
     renderScreen({ guest: true });
 
     expect(await screen.findByText("京都旅行")).toBeTruthy();
     expect(screen.queryByLabelText("京都旅行 のメニュー")).toBeNull();
-    expect(renderHeaderRight()).toBeNull();
+    expect(renderHeaderRight()).not.toBeNull();
     expect(screen.queryByLabelText("アルバムを作る")).toBeNull();
+    expect(screen.getByTestId("album-list-menu")).toBeTruthy();
+  });
+
+  // 048: ヘッダーの ⋯ → 「すべての写真を ZIP で保存」→ シート（album.list のアルバムを辿って数える）。中身は zip-export-sheet.test.tsx
+  it("048: ヘッダーの ⋯ → 「すべての写真を ZIP で保存」でシートが開き、作ったアルバムの枚数を出す（タイムラインは含めない）", async () => {
+    stubList([makeAlbum({ photoCount: 2 })], { photoCount: 125, previews: [makePhoto(1)] });
+    photoListMock.mockResolvedValue({ items: [makePhoto(1), makePhoto(2)], nextCursor: null });
+    renderScreen();
+    await screen.findByText("京都旅行");
+    expect(renderHeaderRight()).not.toBeNull();
+
+    fireEvent.click(screen.getByTestId("album-list-menu"));
+    fireEvent.click(await screen.findByTestId("album-list-zip"));
+
+    expect(await screen.findByTestId("zip-export-sheet")).toBeTruthy();
+    expect(await screen.findByTestId("zip-export-confirm")).toHaveTextContent("2 枚を ZIP で保存します");
+    expect(photoListMock.mock.calls.map((c) => c[0].albumId)).toEqual(["album-1"]);
   });
 });
 
