@@ -5,7 +5,8 @@ import { radius, space, Text, useTheme } from "@futary/ui";
 export type SheetProps = {
   visible: boolean;
   onClose: () => void;
-  title: string;
+  // 043: 省略すると題を描かない（「新機能のお知らせ」は絵 → NEW → 題の順で中身が組む）
+  title?: string;
   children: ReactNode;
 };
 
@@ -34,7 +35,7 @@ export function Sheet({ visible, onClose, children, title }: SheetProps) {
               gap: space.md,
             }}
           >
-            <Text weight="bold">{title}</Text>
+            {title !== undefined && <Text weight="bold">{title}</Text>}
             {children}
           </View>
         </Pressable>

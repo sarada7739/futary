@@ -65,6 +65,16 @@
 
 `simpleMode/アルバム機能/モック画面/` の 4 枚（一覧・詳細・作成・ビューア）は画面の見本で、切り出していない。
 
+### 043 で作ったもの
+
+| ファイル | 元 | 加工 |
+|---|---|---|
+| `packages/ui/assets/panel-releases.png` | **原本無し。B が新規に描き起こした**（4 方向の星 1 つ。見本 `simpleMode/リリース履歴/pink/01-home-button-states.jpg` の ✦ の形） | 既存の `panel-*.png` と同じ規格: 96×96・RGBA・単色 #4A3733・線幅 6px・塗りなし。PIL で 8 倍で描いて縮小。再現は `artifacts/043/scripts/make-assets.py` |
+| `packages/ui/assets/release-gift.jpg` | `simpleMode/リリース履歴/04-new-feature-sheet.jpg`（人間の絵。ホワイト）の贈り物とリボンの部分（x 200〜568・y 655〜800） | 736×290 の JPEG（品質 85）。見本の地（(255,250,246) 前後）を白へ寄せた（シートの面 #FFFFFF に置くと薄い四角が見えるため）。ピンクのシートは既存の `sparkle.png` を使う |
+
+`simpleMode/リリース履歴/`（ホワイト 4 枚。A が格納）と `simpleMode/リリース履歴/pink/`（ピンク 4 枚。人間が B に渡し、B が格納）は画面の見本。
+上の 2 つ以外は切り出していない。**絵にある「カラータグ」「予算や優先度」「Pinterest 風」は存在しない機能なので文言には書かない**（`docs/tasks/043-release-notes.md` 0節 #10）。
+
 **`風景/` というフォルダ名だが、6枚中4枚は男女2人が写っている。**
 名前を実態に合わせて変えるより、この記録で足りると判断した（原本は加工しない方針のため）。
 

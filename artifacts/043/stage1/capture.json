@@ -1,0 +1,98 @@
+{
+  "pink": {
+    "afterOpen": {
+      "seen": null,
+      "later": null
+    },
+    "afterLater": {
+      "seen": null,
+      "later": "2.0.0"
+    },
+    "afterList": {
+      "seen": "2.0.0",
+      "later": "2.0.0"
+    },
+    "afterBack": {
+      "newBadge": 0,
+      "sheet": 0,
+      "seen": "2.0.0",
+      "later": "2.0.0"
+    },
+    "afterReload": {
+      "newBadge": 0,
+      "sheet": 0
+    }
+  },
+  "pink-pc": {
+    "afterOpen": {
+      "seen": null,
+      "later": null
+    },
+    "afterLater": {
+      "seen": null,
+      "later": "2.0.0"
+    },
+    "afterList": {
+      "seen": "2.0.0",
+      "later": "2.0.0"
+    },
+    "afterBack": {
+      "newBadge": 0,
+      "sheet": 0,
+      "seen": "2.0.0",
+      "later": "2.0.0"
+    },
+    "afterReload": {
+      "newBadge": 0,
+      "sheet": 0
+    }
+  },
+  "white": {
+    "afterOpen": {
+      "seen": null,
+      "later": null
+    },
+    "afterLater": {
+      "seen": null,
+      "later": "2.0.0"
+    },
+    "afterList": {
+      "seen": "2.0.0",
+      "later": "2.0.0"
+    },
+    "afterBack": {
+      "newBadge": 0,
+      "sheet": 0,
+      "seen": "2.0.0",
+      "later": "2.0.0"
+    },
+    "afterReload": {
+      "newBadge": 0,
+      "sheet": 0
+    }
+  },
+  "white-pc": {
+    "afterOpen": {
+      "seen": null,
+      "later": null
+    },
+    "afterLater": {
+      "seen": null,
+      "later": "2.0.0"
+    },
+    "afterList": {
+      "seen": "2.0.0",
+      "later": "2.0.0"
+    },
+    "afterBack": {
+      "newBadge": 0,
+      "sheet": 0,
+      "seen": "2.0.0",
+      "later": "2.0.0"
+    },
+    "afterReload": {
+      "newBadge": 0,
+      "sheet": 0
+    }
+  }
+}

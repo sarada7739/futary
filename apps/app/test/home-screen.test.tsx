@@ -75,8 +75,12 @@ describe("HomeScreen: 機能パネル", () => {
     renderScreen();
     await screen.findByTestId("stats-card-meetup-pill");
 
+    // 043: 3×3 の下に「リリース履歴を見る」（全幅 1 本。パネルではない）が加わった。並びの末尾
     const labels = screen.getAllByRole("button").map((el) => el.getAttribute("aria-label")).filter((l) => l !== null);
-    expect(labels).toEqual(["タイムライン", "カレンダー", "思い出", "統計", "アルバム", "リスト", "ほしいもの", "気分の記録", "AIまとめ"]);
+    expect(labels).toEqual([
+      "タイムライン", "カレンダー", "思い出", "統計", "アルバム", "リスト", "ほしいもの", "気分の記録", "AIまとめ",
+      "リリース履歴を見る",
+    ]);
     expect(screen.queryByText("今日どうだった？")).toBeNull();
   });
 
