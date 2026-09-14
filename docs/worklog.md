@@ -13091,3 +13091,11 @@ Session: A
 - A の起票ブランチ task/044-ai-names が残っていたので task/044-ai-names-impl で出した
 
 Session: B
+
+## 2026-09-14 セッションB: 044 を R 受け入れ後に squash merge（main b580774）
+
+- R の判定は artifacts/044/review-stage1.md（必須修正なし。壊して確かめた 5 通り。9b1d097 で確定）
+- A の依頼で MAX_OUTPUT_TOKENS のコメントを実測に揃えた（本文 250 トークン前後・0.83 トークン/文字。luna の reasoning 58〜86）。A の文案の 450 と旧い 125 はどちらも実測と合わなかったので実測値にした
+- 次は人間の手番: デプロイの承認 → 実機で 1 回作り直して名前で呼ばれるか
+
+Session: B
