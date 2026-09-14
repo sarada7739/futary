@@ -13171,3 +13171,11 @@ Session: B
 - 残るのは人間の手番: free で止まるのを 1 度見る → 人間のペアを paid にする許可
 
 Session: B
+
+## 2026-09-14 セッションB: 人間の指示「paid にして」で本番の人間のペアを paid にした
+
+- 本番の is_demo=0 のペアは 1 つ（2 人）。人間のメールがメンバーであることを確かめてから、artifacts/045/plan-switch.md の paid の文を wrangler d1 execute DB --remote で実行。読み返して plan='paid'・expires_at=NULL を確認
+- wrangler の第 1 引数はバインディング名 DB（database_name は futary-db）。定義 1節の futary では見つからないので、plan-switch.md を直し A に知らせた
+- 045 の人間の手番は済み。次は 046
+
+Session: B
