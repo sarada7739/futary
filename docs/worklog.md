@@ -13099,3 +13099,11 @@ Session: B
 - 次は人間の手番: デプロイの承認 → 実機で 1 回作り直して名前で呼ばれるか
 
 Session: B
+
+## 2026-09-14 セッションA: 045（プランの印とアルバムの無料枠）を起票
+
+- 人間の指示: アルバムは無料で枚数制限、有料に解放。決済はあとで、まず印だけ。制限はペア全体の合計枚数。人間のペアは制限なし
+- `couple_plans`（行が無ければ free。source/expires_at で決済があとから書ける形）・30 枚（定数）・`PLAN_LIMIT`・`couple.get` に plan と枠。運営のペアはデプロイ後すぐ paid
+- `architecture.md` 4・5節、`requirements.md` 5節を更新
+
+Session: A

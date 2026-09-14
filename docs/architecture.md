@@ -275,6 +275,15 @@ album_photos                                    -- 041。アルバムに直接�
                                                  -- 論理削除を持たない（外す = 行の物理削除 → R2 の物理削除）。
                                                  -- 1アルバム500枚・1ペア100アルバム
 
+couple_plans                                    -- 045。ペアのプラン。行が無ければ free
+  couple_id   TEXT    PK -> couples.id
+  plan        TEXT    NOT NULL                  -- 'free' | 'paid'。未知の値は free として扱う
+  source      TEXT    NOT NULL DEFAULT 'manual' -- 'manual'（運営が手で）| 将来 'stripe'
+  expires_at  INTEGER                           -- NULL = 無期限。過ぎていれば free
+  updated_at  INTEGER NOT NULL
+                                                -- 判定は lib/plan.ts の resolvePlan の 1 箇所。
+                                                -- 無料枠: 作ったアルバムの写真の合計 30 枚（FREE_ALBUM_PHOTO_LIMIT）
+
 ai_summaries                                    -- 037。月ごとのAIまとめ
   couple_id       TEXT    NOT NULL
   period_kind     TEXT    NOT NULL            -- 'month' | 'week'
@@ -731,7 +740,8 @@ SQLite は範囲条件を索引で使えない。繰り返す記念日は登録�
 ```
 me.get              現在のユーザーと所属ペア。未認証ならデモ閲覧モードを返す
 couple.create       {}                        付き合った日を受け取らない（023。マイページであとから設定する）
-couple.get          -> { datingDate: string | null, ... }
+couple.get          -> { datingDate: string | null, ..., plan: "free"|"paid", albumQuota: { limit, used } | null }
+                    plan・albumQuota は 045。paid なら albumQuota は null。デモペアは paid
 couple.update       { datingDate: string | null, marriedDate, primaryDate }
 invite.issue        -> { code, expiresAt }
 invite.accept       { code }
@@ -814,6 +824,7 @@ album.update        { id, title?, note?, startDate?, endDate?, coverPhotoId?: st
                     coverPhotoId はアルバム内の写真だけ（他は INVALID_INPUT）。null で自動
                     startDate を null にすると endDate も外れる。endDate だけ渡して開始日が無い・前なら INVALID_INPUT
 album.addPhotos     { id, photos: [{ imageId, width, height, caption? }]（1〜20） } -> Album
+                    free のペアで合計が FREE_ALBUM_PHOTO_LIMIT を超えるなら PLAN_LIMIT（409。1 枚も入れない。045）。album.create の cover も同じ
                     全部の実体が R2 にあることを確認してから書く（1枚でも無ければ INVALID_INPUT。部分的に入れない。post.create と同じ）
                     合計500超は LIMIT_REACHED
 album.updatePhoto   { id, photoId, caption } -> Photo。説明文だけ
