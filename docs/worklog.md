@@ -13289,3 +13289,5 @@ Session: A
 Session: B
 
 - 追記: R 受け入れ（必須修正なし）→ #357 を squash merge（main 5263af7）。R の記録（コメントの futary・poppins-300.woff2 の参照無し）は A へ。次は人間のデプロイ承認・OAuth の名前・アイコン入れ直し・OGP
+
+- 追記: R の記録 2（poppins-300.woff2）を A の判断で fix #359（参照が無いことを grep で確かめて削除）。R 受け入れ → squash merge（main fd06660）。次は人間のデプロイ承認・OAuth の名前・アイコン・OGP
