@@ -13268,3 +13268,5 @@ Session: B
 Session: A
 
 - 追記: R の記録 3（長い名前で時刻が切れる）を fix #352 で直した（名前と時刻を別の Text で row に。名前側 flexShrink 1・minWidth 0、時刻側 flexShrink 0。全角 30 文字で実測）。R 受け入れ → squash merge（main 1c12f4e）。次は人間のデプロイ承認・実機
+
+- 追記: 人間の実機 OK（B へ直接「確認OK」）。050 完了。`artifacts/050/stage1.md` に追記
