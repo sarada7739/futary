@@ -83,14 +83,22 @@ export function PostCard({ post, isOwn, onDelete, onToggleReaction }: PostCardPr
       <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.sm }}>
         <Avatar name={authorName} imageUrl={post.authorImage ?? undefined} size={AVATAR_SIZE} />
         <View style={{ flex: 1 }}>
-          <Text size="sm" numberOfLines={1} testID="post-card-header-line">
-            <Text size="sm" weight="bold">
-              {authorName}
-            </Text>
-            <Text size="sm" color="muted">
-              {` · ${relativeTimeFrom(post.createdAt)}`}
-            </Text>
-          </Text>
+          {/* 名前と時刻は別の Text を row に並べる（1 つの Text に numberOfLines を掛けると末尾の時刻から
+              省略される。R の 050 レビュー記録 3）。名前だけ縮んで省略され、時刻は常に描かれる。
+              共有 Text は style を受けないので、縮む側は View で包む（minWidth 0 が無いと flex の子は
+              中身の幅より縮まない） */}
+          <View style={{ flexDirection: "row", alignItems: "baseline" }} testID="post-card-header-line">
+            <View style={{ flexShrink: 1, minWidth: 0 }}>
+              <Text size="sm" weight="bold" numberOfLines={1} testID="post-card-author">
+                {authorName}
+              </Text>
+            </View>
+            <View style={{ flexShrink: 0 }}>
+              <Text size="sm" color="muted" testID="post-card-time">
+                {` · ${relativeTimeFrom(post.createdAt)}`}
+              </Text>
+            </View>
+          </View>
           {hasBody && <Text>{post.body}</Text>}
         </View>
         {isOwn && onDelete && <DeleteMenu onDelete={onDelete} />}

@@ -326,12 +326,30 @@ describe("ImageViewer の保存ボタン（041）", () => {
 
 // 050: タイムラインの密度（T1〜T3）。高さの実測（T5）は artifacts/050/
 describe("PostCard: 密度（050）", () => {
-  it("T1: 名前と時刻が 1 行（同じ Text の中に「投稿者 · たった今」）で、本文はその直下", () => {
+  it("T1: 名前と時刻が 1 行（同じ row の中に「投稿者 · たった今」）で、本文はその直下", () => {
     render(<PostCard post={makePost({ body: "本文です" })} isOwn={false} />);
     const line = screen.getByTestId("post-card-header-line");
     expect(line.textContent).toBe("投稿者 · たった今");
+    expect(line.style.flexDirection).toBe("row");
     // 本文は名前の行と同じ列（右の列）にある = 名前の行の親の中に本文がある
     expect(line.parentElement?.textContent).toBe("投稿者 · たった今本文です");
+  });
+
+  it("T1: 全角 30 文字の名前でも時刻が描画される（名前だけが縮んで省略され、時刻は縮まない）", () => {
+    const longName = "あ".repeat(30);
+    render(<PostCard post={makePost({ authorName: longName })} isOwn={false} />);
+    const author = screen.getByTestId("post-card-author");
+    const time = screen.getByTestId("post-card-time");
+    expect(author.textContent).toBe(longName);
+    expect(time.textContent).toBe(" · たった今");
+    // 名前は 1 行で省略（numberOfLines 1。react-native-web は class で textOverflow / whiteSpace を当てる）。
+    // 包む View が縮む側（flexShrink 1・minWidth 0）
+    expect(author.className).toMatch(/r-textOverflow-/);
+    expect(author.className).toMatch(/r-whiteSpace-/);
+    expect(author.parentElement?.style.flexShrink).toBe("1");
+    expect(author.parentElement?.style.minWidth).toBe("0px");
+    // 時刻は縮まない側
+    expect(time.parentElement?.style.flexShrink).toBe("0");
   });
 
   it("T2: ハートは小さな押せる行（Button の compact）。文字 14/20 + 上下の余白 12 で当たり判定 44、上下 -8 のマージンで並びの上では 28。押すと onToggleReaction（reaction.toggle）", () => {
