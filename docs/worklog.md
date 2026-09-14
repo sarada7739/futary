@@ -13209,3 +13209,10 @@ Session: A
 Session: B
 
 - 追記: R 受け入れ（必須修正なし）→ #338 を squash merge（main 6e306b1）。R の記録 1（無圧縮のテストが `level: 0` 無しでも緑）・2（`safeZipName` が `..` を通す・題の TAB）は A へ
+
+## 2026-09-14 セッションA: 048 段階1 マージ。R の記録 2 件を定義に
+
+- R の記録: Z1 の無圧縮のテストが level を外しても緑（縮まない中身）・`safeZipName` が `..` を通し `../` のパスを ZIP に入れうる、TAB が captions.txt の区切りと衝突。両方とも定義に足し、B が fix で直す
+- B の判断（アルバムごとのフォルダ・captions.txt の形）を定義に写した
+
+Session: A
