@@ -5,14 +5,14 @@
 ## paid にする
 
 ```bash
-pnpm --filter @futary/api exec wrangler d1 execute futary --remote \
+pnpm --filter @futary/api exec wrangler d1 execute DB --remote \
   --command "INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES ('<coupleId>', 'paid', 'manual', unixepoch()) ON CONFLICT(couple_id) DO UPDATE SET plan = 'paid', updated_at = unixepoch()"
 ```
 
 ## free に戻す
 
 ```bash
-pnpm --filter @futary/api exec wrangler d1 execute futary --remote \
+pnpm --filter @futary/api exec wrangler d1 execute DB --remote \
   --command "INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES ('<coupleId>', 'free', 'manual', unixepoch()) ON CONFLICT(couple_id) DO UPDATE SET plan = 'free', updated_at = unixepoch()"
 ```
 
@@ -21,7 +21,7 @@ pnpm --filter @futary/api exec wrangler d1 execute futary --remote \
 ## 確かめる
 
 ```bash
-pnpm --filter @futary/api exec wrangler d1 execute futary --remote \
+pnpm --filter @futary/api exec wrangler d1 execute DB --remote \
   --command "SELECT couple_id, plan, source, expires_at, updated_at FROM couple_plans WHERE couple_id = '<coupleId>'"
 ```
 
@@ -44,3 +44,9 @@ success: true
 ```
 
 撮影（`stage1/`）でも `shot-couple` を同じ文で paid にし、使用量のカード・枠の行・警告が消えることを確かめた（`capture-paid.json`）。
+
+## 本番で実行した記録（2026-09-14）
+
+人間の指示「paid にして」。`is_demo = 0` のペアは本番に 1 つ（2 人）で、人間のメールがそのメンバーであることを確かめてから上の paid の文を実行した（`success: true`）。読み返し: `plan = 'paid'`・`source = 'manual'`・`expires_at = NULL`。
+
+注: `wrangler d1 execute` の第 1 引数は wrangler.toml のバインディング名 `DB`（database_name は `futary-db`）。タスク定義 1節の `futary` では見つからない。
