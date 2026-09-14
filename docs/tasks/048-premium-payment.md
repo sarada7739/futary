@@ -46,8 +46,8 @@
 | ライブラリ | **`fflate`** を `apps/app` に足す（依存 0・約 8KB）。Expo Web のバンドルで動くことを先に確かめる |
 | 1 つの ZIP の上限 | **100 枚**。超えるアルバムは 100 枚ずつ複数（`…-1of3.zip`）。iPhone の Safari で 100 枚（30〜60MB）が落ちないかは人間の iPhone で。落ちるなら 50 |
 | 前提 | R2 の CORS（GET・アプリのオリジン）は 042 で確認済み。CSP の `connect-src` も済み |
-| 中のファイル名 | 041 の `filename`（`futary-YYYYMMDD-{imageId}.jpg`）。**説明文は `captions.txt` に 1 行 1 枚で同梱** |
-| ZIP の名前 | `futary-{アルバム名を安全な文字に}-{YYYYMMDD}.zip`。全部は `futary-albums-{YYYYMMDD}-1of3.zip`。`/ \ : * ? " < > |` を `_` に |
+| 中のファイル名 | 041 の `filename`（`futary-YYYYMMDD-{imageId}.jpg`）。**全部のときはアルバムごとのフォルダ**（アルバム名を安全な文字にしたもの）に分け、1 アルバムのときは直下。**説明文は `captions.txt` に 1 行 1 枚**（`{ZIP 内のパス}<TAB>{説明文}`。空でも行はある。説明文の改行・TAB は空白に。UTF-8） |
+| ZIP の名前 | `futary-{アルバム名を安全な文字に}-{YYYYMMDD}.zip`。全部は `futary-albums-{YYYYMMDD}-1of3.zip`。**安全な文字**: `/ \ : * ? " < > |` と制御文字・TAB・改行を `_` に。**`.` だけの名前（`.` `..`）は `album` に倒す**（`../` のパスを ZIP に入れない）。空になったら `album` |
 | iPhone | 「ファイル」に落ちる。**それでよい**（持ち出しが目的。写真ライブラリは 042 の共有シート） |
 
 ### 画面
@@ -68,7 +68,8 @@
 
 | # | 何を | どこで |
 |---|---|---|
-| Z1 | ZIP の中身: 枚数・ファイル名・`captions.txt` の行数と対応（`unzipSync` で開く） | `apps/app` |
+| Z1 | ZIP の中身: 枚数・ファイル名・`captions.txt` の行数と対応（`unzipSync` で開く）。**無圧縮**: 縮む中身（同じバイトの繰り返し）でも ZIP の大きさ ≥ 中身の合計 | `apps/app` |
+| Z1b | 題が `..`・`.`・TAB 入りのアルバムでも ZIP 内のパスに `../` が無く、`captions.txt` の区切りが壊れない | `apps/app` |
 | Z2 | 101 枚 → 2 つ（100 + 1）。`-1of2` `-2of2` | `apps/app` |
 | Z3 | 1 枚の `fetch` が失敗しても残りが入り、失敗数が出る | `apps/app` |
 | Z4 | 途中で閉じると `fetch` が中断される | `apps/app` |
@@ -186,3 +187,7 @@ ALTER TABLE couple_plans ADD COLUMN stripe_subscription_id TEXT;   -- sub_…。
 ## 順序
 
 **045 の後。段階1（ZIP）は今。段階2（決済）は人間の合図まで止める。**047（鍵）は段階2の後。042 の上限 50 は後回しのまま。
+
+## 進捗
+
+- 2026-09-14 段階1（ZIP）実装 #338（main 6e306b1）。R 受け入れ（`artifacts/048/review-stage1.md`）。R の記録 2 件（無圧縮のテスト・`..` と TAB の名前）は定義に足し、B が fix で直す。人間の実機（iPhone・PC。100 枚）待ち。段階2 は合図待ち
