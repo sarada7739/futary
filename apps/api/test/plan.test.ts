@@ -315,6 +315,28 @@ describe("T4: used の数え方", () => {
     expect(album.photoCount).toBe(1);
   });
 
+  // 【R の記録・A の判断】album.delete は album_photos を物理削除するため、上のテストは
+  // `albums.deleted_at IS NULL` の条件を外しても緑のまま（到達不能）。041 の posts.deleted_at と同じ
+  // 扱い（#296）で、deleted_at を SQL で直接立てて写真行を残し、条件が効くことを見る（外すと赤）
+  it("albums.deleted_at が立っていて写真行が残っていても、その写真は数えない（条件を外すと赤）", async () => {
+    const { owner, coupleId } = await createPair();
+    const doomed = await createAlbum(owner, "論理削除だけ");
+    await fillAlbum(coupleId, doomed, 5);
+    const alive = await createAlbum(owner, "生きている");
+    await fillAlbum(coupleId, alive, 2);
+
+    await db
+      .prepare("UPDATE albums SET deleted_at = ?1 WHERE id = ?2")
+      .bind(Math.floor(Date.now() / 1000), doomed)
+      .run();
+    // 写真行は残っている（物理削除していない）
+    expect(await countPhotos(doomed)).toBe(5);
+
+    expect(await countAlbumPhotosUsed(db, coupleId)).toBe(2);
+    const couple = await call(router.couple.get, undefined, { context: contextFor(owner) });
+    expect(couple.albumQuota).toEqual({ limit: LIMIT, used: 2 });
+  });
+
   it("タイムライン（post_images）は数えない", async () => {
     const { owner, coupleId } = await createPair();
     const postId = crypto.randomUUID();
