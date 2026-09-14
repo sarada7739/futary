@@ -127,6 +127,8 @@ function makePostPhoto(i: number) {
 beforeEach(() => {
   vi.clearAllMocks();
   queryClient.clear();
+  // 045: 警告の × の「消した」は sessionStorage。テスト間で持ち越さない
+  window.sessionStorage.clear();
   searchParams.id = "album-1";
   getMock.mockResolvedValue(makeAlbum());
   coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "paid", albumQuota: null });
@@ -438,6 +440,38 @@ describe("AlbumDetailScreen: 無料枠（045）", () => {
     renderScreen();
     expect(await screen.findByTestId("album-detail-quota")).toHaveTextContent("24 / 30 枚");
     expect(screen.queryByTestId("album-quota-warning")).toBeNull();
+  });
+
+  // 人間の指示（2026-09-14）: 警告のカードは × で消せる。消した状態はこの起動の間（sessionStorage）。
+  // 残り枚数が変われば（写真を足したら）もう一度出す
+  it("警告の × で消える。開き直しても同じ残り枚数なら出ない。残りが減ればまた出る", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 26 } });
+    const first = renderScreen();
+    expect(await screen.findByTestId("album-quota-warning")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("album-quota-warning-close"));
+    await waitFor(() => expect(screen.queryByTestId("album-quota-warning")).toBeNull());
+    // 「27 / 30 枚」の行と FAB はそのまま（消えるのは警告のカードだけ）
+    expect(screen.getByTestId("album-detail-quota")).toHaveTextContent("26 / 30 枚");
+    expect(screen.getByTestId("album-detail-add")).toBeTruthy();
+    first.unmount();
+
+    // 開き直し（同じ残り 4 枚）: 出ない
+    queryClient.clear();
+    const second = renderScreen();
+    expect(await screen.findByTestId("album-detail-quota")).toHaveTextContent("26 / 30 枚");
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId("album-quota-warning")).toBeNull();
+    second.unmount();
+
+    // 写真を足して残り 3 枚: また出る
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 27 } });
+    queryClient.clear();
+    renderScreen();
+    expect(await screen.findByTestId("album-quota-warning")).toBeTruthy();
+    expect(screen.getByTestId("album-quota-warning-title")).toHaveTextContent("残り 3 枚です");
   });
 
   it("paid のとき枠の行は無い。ゲスト・タイムラインにも無い", async () => {
