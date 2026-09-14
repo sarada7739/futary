@@ -38,7 +38,7 @@ function hex(color: string): string {
 }
 
 describe("ReleasesScreen（043 T5）", () => {
-  it("12 項目が新しい順に全部出る（日付は YYYY.MM.DD・版のチップ・題名・箇条書き）", () => {
+  it("13 項目が新しい順に全部出る（日付は YYYY.MM.DD・版のチップ・題名・箇条書き）", () => {
     renderIn(<ReleasesScreen />);
     expect(screen.getByText("これまでのアップデートをご紹介。")).toBeTruthy();
     for (const release of RELEASES) {
@@ -85,8 +85,8 @@ describe("ReleasesScreen（043 T5）", () => {
       if (release.route) expect(button, release.version).toBeTruthy();
       else expect(button, release.version).toBeNull();
     }
-    fireEvent.click(screen.getByTestId("release-open-2.2.0"));
-    expect(pushMock).toHaveBeenCalledWith("/album");
+    fireEvent.click(screen.getByTestId("release-open-2.3.0"));
+    expect(pushMock).toHaveBeenCalledWith("/timeline");
     fireEvent.click(screen.getByTestId("release-open-1.1.0"));
     expect(pushMock).toHaveBeenCalledWith("/calendar");
   });
