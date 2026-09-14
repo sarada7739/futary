@@ -45,9 +45,10 @@ CREATE TABLE couple_plans (
 - `me.delete` は `couple_plans` の行を消す（`architecture.md` 4節「表を足したら、消す手順にも足す」）。`couples` の行より先
 - **切り替え（運営）**:
   ```bash
-  pnpm --filter @futary/api exec wrangler d1 execute futary --remote \
+  pnpm --filter @futary/api exec wrangler d1 execute DB --remote \
     --command "INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES ('<coupleId>', 'paid', 'manual', unixepoch()) ON CONFLICT(couple_id) DO UPDATE SET plan = 'paid', updated_at = unixepoch()"
   ```
+  第 1 引数は wrangler.toml の**バインディング名 `DB`**（`database_name` の `futary-db` でも `futary` でもない）。
   free に戻すのは `plan = 'free'` で同じ文。**人間の許可を取ってから**（本番の D1 に書く）。B はこの文を `artifacts/045/` に置いて、ローカルで通ることを確かめる
 
 ## 2. 契約
@@ -152,3 +153,7 @@ CREATE TABLE couple_plans (
 ## 順序
 
 044 の後。042 の上限 50 は後回しのまま。**046（ZIP で持ち出し）→ 047（鍵）→ 048（決済）の順。**
+
+## 進捗
+
+- 2026-09-14 実装 #325・#326（テスト）・#328（使用量カードは一番下）・#331（× で消せる）。R 受け入れ。デプロイ後、人間の実機 OK。人間の指示で本番のペアを paid にした（#335）。**完了。**次は 046
