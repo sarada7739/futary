@@ -13293,3 +13293,5 @@ Session: B
 - 追記: R の記録 2（poppins-300.woff2）を A の判断で fix #359（参照が無いことを grep で確かめて削除）。R 受け入れ → squash merge（main fd06660）。次は人間のデプロイ承認・OAuth の名前・アイコン・OGP
 
 - 追記: 人間が Google OAuth の同意画面のアプリ名を Nisoine に変えた（2026-09-15。A 経由）。`artifacts/051/stage1.md` に追記。アイコン入れ直し・OGP は未確認
+
+- 追記: 人間が X で OGP のカード（Nisoine）を確認（2026-09-15。A 経由）。051 完了。次は 048 段階2 の合図待ち
