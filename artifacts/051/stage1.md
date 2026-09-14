@@ -66,3 +66,8 @@
 1. Google OAuth の同意画面のアプリ名を Nisoine に（Google Cloud Console。0節 #8）
 2. デプロイ後、iPhone のホーム画面にアイコンを入れ直す（apple-touch-icon）
 3. X に URL を貼って OGP の絵が出るか
+
+## 人間の手番（2026-09-15。A 経由）
+
+1. **Google OAuth の同意画面のアプリ名を Nisoine に変えた（済）。**
+2. iPhone のアイコン入れ直し・3. X で OGP: 未（聞いていない）
