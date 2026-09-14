@@ -13302,3 +13302,9 @@ Session: B
 - iOS を出すには Sign in with Apple が要る（規約 4.8）。メール認証（マジックリンク）は独自ドメインの後
 
 Session: A
+
+## 2026-09-15 セッションA: プライバシーポリシーの草案
+
+- 人間の求め。`docs/legal/privacy-policy-draft.md`。実際の作り（Google ログイン・Cloudflare・AI まとめの同意と外部送信・URL 取得・退会で全削除・ログに本文を出さない）に合わせて書いた。「運営者は中身を見ない」を 2節に。空欄は人間が埋める。公開は 048 段階0 で
+
+Session: A
