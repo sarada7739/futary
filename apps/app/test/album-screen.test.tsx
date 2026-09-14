@@ -335,11 +335,16 @@ describe("AlbumScreen: 無料枠（045）", () => {
   });
 
   // 3節: 一覧の「写真の使用量」のカード（絵 05）。free のときだけ
-  it("free のとき「写真の使用量」のカード: 27 / 30 枚・あと 3 枚・プレミアムで無制限に（→ /premium）", async () => {
+  it("free のとき「写真の使用量」のカード: 27 / 30 枚・あと 3 枚・プレミアムで無制限に（→ /premium）。一覧の一番下（アルバムのカードより後）", async () => {
     coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 27 } });
-    stubList([]);
+    stubList([makeAlbum()]);
     renderScreen();
-    expect(await screen.findByTestId("album-usage-card")).toBeTruthy();
+    const usage = await screen.findByTestId("album-usage-card");
+    // 人間の指示（2026-09-14）: メーターは一覧の一番下。タイムラインのカードにもアルバムのカードにも後続する
+    const timeline = screen.getByTestId("album-timeline-card");
+    const albumCard = screen.getByTestId("album-card-album-1");
+    expect(timeline.compareDocumentPosition(usage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(albumCard.compareDocumentPosition(usage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("album-usage-count")).toHaveTextContent("27 / 30 枚");
     expect(screen.getByTestId("album-usage-remaining")).toHaveTextContent("あと 3 枚");
     // バーの塗りは used / limit の割合（27 / 30 = 90%）

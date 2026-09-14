@@ -312,9 +312,6 @@ export default function AlbumScreen() {
               onPress={() => router.push(albumDetailHref(TIMELINE_ALBUM_ID))}
             />
 
-            {/* 045: 写真の使用量（絵 05）。free のときだけ（paid は null。ゲストは couple.get を読まない） */}
-            {canWrite && albumQuota && <UsageCard quota={albumQuota} onPremium={() => router.push("/premium")} />}
-
             {albums.length === 0 ? (
               <View style={{ alignItems: "center", padding: space.xl }}>
                 <Text color="muted">イベントごとに写真をまとめられます</Text>
@@ -335,6 +332,10 @@ export default function AlbumScreen() {
                 ))}
               </View>
             )}
+
+            {/* 045: 写真の使用量（絵 05）。一覧の一番下（人間の指示。2026-09-14）。
+                free のときだけ（paid は null。ゲストは couple.get を読まない） */}
+            {canWrite && albumQuota && <UsageCard quota={albumQuota} onPremium={() => router.push("/premium")} />}
           </>
         )}
       </ScrollView>
