@@ -38,7 +38,7 @@ function hex(color: string): string {
 }
 
 describe("ReleasesScreen（043 T5）", () => {
-  it("13 項目が新しい順に全部出る（日付は YYYY.MM.DD・版のチップ・題名・箇条書き）", () => {
+  it("14 項目が新しい順に全部出る（日付は YYYY.MM.DD・版のチップ・題名・箇条書き）", () => {
     renderIn(<ReleasesScreen />);
     expect(screen.getByText("これまでのアップデートをご紹介。")).toBeTruthy();
     for (const release of RELEASES) {
@@ -50,6 +50,7 @@ describe("ReleasesScreen（043 T5）", () => {
     expect(screen.getAllByText("2026.09.14")).toHaveLength(2);
     expect(screen.getByText("アルバム機能を追加")).toBeTruthy();
     expect(screen.getByText("アルバムの写真をまとめて持ち出せます")).toBeTruthy();
+    expect(screen.getByText("Nisoine になりました")).toBeTruthy();
     expect(screen.getByText("futary リリース 🎉")).toBeTruthy();
     // 並びは配列の順（DOM の順で比べる）
     const cards = RELEASES.map((r) => screen.getByTestId(`release-card-${r.version}`));
@@ -85,6 +86,8 @@ describe("ReleasesScreen（043 T5）", () => {
       if (release.route) expect(button, release.version).toBeTruthy();
       else expect(button, release.version).toBeNull();
     }
+    // 3.0.0（Nisoine）は route 無しなのでボタンが無い。2.3.0 で見る
+    expect(screen.queryByTestId("release-open-3.0.0")).toBeNull();
     fireEvent.click(screen.getByTestId("release-open-2.3.0"));
     expect(pushMock).toHaveBeenCalledWith("/timeline");
     fireEvent.click(screen.getByTestId("release-open-1.1.0"));

@@ -272,7 +272,7 @@ describe("fetchLinkPreview: 画像の制限（T3。失敗しても例外にし�
     return { preview, calls };
   }
 
-  it("正常: jpeg を取って返す。Cookie・認証ヘッダを送らず、User-Agent は futary を名乗る", async () => {
+  it("正常: jpeg を取って返す。Cookie・認証ヘッダを送らず、User-Agent は nisoine を名乗る", async () => {
     const { preview, calls } = await run({ headers: { "content-type": "image/jpeg" }, body: bytesOf(JPEG_HEAD, 1000) });
     expect(preview.title).toBe("商品");
     expect(preview.image?.contentType).toBe("image/jpeg");
@@ -281,6 +281,8 @@ describe("fetchLinkPreview: 画像の制限（T3。失敗しても例外にし�
     for (const call of calls) {
       const headers = call.init.headers as Record<string, string>;
       expect(headers["user-agent"]).toBe(LINK_PREVIEW_USER_AGENT);
+      // 051 T3: 名乗りは nisoine（URL は Worker のまま = 旧名のドメイン）
+      expect(LINK_PREVIEW_USER_AGENT).toMatch(/^nisoine-link-preview\/1 \(\+https:\/\//);
       expect(Object.keys(headers).map((k) => k.toLowerCase())).not.toContain("cookie");
       expect(Object.keys(headers).map((k) => k.toLowerCase())).not.toContain("authorization");
       expect(call.init.redirect).toBe("manual");

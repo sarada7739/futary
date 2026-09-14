@@ -28,6 +28,19 @@ vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
 
+// 051: 最新（3.0.0「Nisoine になりました」）は route 無しなので「使ってみる」が出ない。
+// 「使ってみる」の配線（既読 + その画面へ）は最新を route 付きに差し替えて見る（実体の配列は触らない）
+const releasesState = vi.hoisted(() => ({ latestOverride: null as null | { version: string; date: string; title: string; items: string[]; route?: string } }));
+vi.mock("../lib/releases", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/releases")>();
+  return {
+    ...actual,
+    get LATEST_RELEASE() {
+      return releasesState.latestOverride ?? actual.LATEST_RELEASE;
+    },
+  };
+});
+
 const { default: HomeScreen } = await import("../app/(tabs)/index");
 const { default: ReleasesScreen } = await import("../app/(tabs)/releases");
 const { default: OnboardingChoiceScreen } = await import("../app/(onboarding)/index");
@@ -50,6 +63,7 @@ beforeEach(() => {
   queryClient.clear();
   window.localStorage.clear();
   window.sessionStorage.clear();
+  releasesState.latestOverride = null;
   statsGetMock.mockResolvedValue(makeStats());
 });
 
@@ -131,18 +145,35 @@ describe("ホームの「リリース履歴を見る」（043 T2）", () => {
 });
 
 describe("「新機能のお知らせ」のシート（043 T3）", () => {
-  it("未読なら出る。最新の 1 項目（タイムラインの密度。050）だけで、題名・先頭 2 行・「使ってみる」がある", async () => {
+  it("未読なら出る。最新の 1 項目（Nisoine になりました。051）だけで、題名・2 行。route 無しなので「使ってみる」と絵は無い", async () => {
     await renderHome();
     expect(screen.getByTestId("release-sheet")).toBeTruthy();
     expect(screen.getByText("新機能のお知らせ")).toBeTruthy();
     expect(screen.getByText("もっと便利に、もっと楽しく。")).toBeTruthy();
+    expect(screen.getByText("Nisoine になりました")).toBeTruthy();
+    expect(screen.getByText("アプリの名前が Nisoine になりました")).toBeTruthy();
+    expect(screen.getByText("見た目と機能はそのままです")).toBeTruthy();
+    expect(screen.queryByTestId("release-sheet-try")).toBeNull();
+    expect(screen.queryByTestId("release-sheet-photo")).toBeNull();
+    // 1 つ前の版は出ない（複数を溜めない）
+    expect(screen.queryByText("タイムラインをすっきりさせました")).toBeNull();
+  });
+
+  it("route のある版（2.3.0 の形）なら題名・先頭 2 行・「使ってみる」・絵がある", async () => {
+    releasesState.latestOverride = {
+      version: "9.9.9",
+      date: "2026-09-15",
+      title: "タイムラインをすっきりさせました",
+      items: ["投稿の余白を詰めて、一覧で多く見えるようにしました", "縦長の写真は高さを揃えました", "3 行目"],
+      route: "/timeline",
+    };
+    await renderHome();
     expect(screen.getByText("タイムラインをすっきりさせました")).toBeTruthy();
     expect(screen.getByText("投稿の余白を詰めて、一覧で多く見えるようにしました")).toBeTruthy();
     expect(screen.getByText("縦長の写真は高さを揃えました")).toBeTruthy();
+    expect(screen.queryByText("3 行目")).toBeNull();
     expect(screen.getByTestId("release-sheet-try")).toBeTruthy();
     expect(screen.getByTestId("release-sheet-photo")).toBeTruthy();
-    // 1 つ前の版は出ない（複数を溜めない）
-    expect(screen.queryByText("アルバムの写真をまとめて持ち出せます")).toBeNull();
   });
 
   it("「閉じる ×」で消えて既読になる（NEW も消える）", async () => {
@@ -186,7 +217,8 @@ describe("「新機能のお知らせ」のシート（043 T3）", () => {
     expect(screen.getByTestId("release-sheet")).toBeTruthy();
   });
 
-  it("「使ってみる」で /timeline へ進み、既読になる", async () => {
+  it("「使ってみる」で route へ進み、既読になる（最新を route 付きに差し替えて）", async () => {
+    releasesState.latestOverride = { version: LATEST_VERSION, date: "2026-09-15", title: "x", items: ["a"], route: "/timeline" };
     await renderHome();
     fireEvent.click(screen.getByTestId("release-sheet-try"));
     await expectSheetClosed();

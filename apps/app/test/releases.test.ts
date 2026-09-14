@@ -55,9 +55,10 @@ describe("RELEASES（043 T1）", () => {
     }
   });
 
-  it("最新は 2.3.0（タイムラインの密度。/timeline へ）で、初回は 1.0.0（🎉）", () => {
-    expect(LATEST_VERSION).toBe("2.3.0");
-    expect(LATEST_RELEASE.route).toBe("/timeline");
+  it("最新は 3.0.0（Nisoine になりました。route 無し。051 T5）で、初回は 1.0.0（🎉）", () => {
+    expect(LATEST_VERSION).toBe("3.0.0");
+    expect(LATEST_RELEASE.title).toBe("Nisoine になりました");
+    expect(LATEST_RELEASE.route).toBeUndefined();
     const first = RELEASES[RELEASES.length - 1]!;
     expect(first.version).toBe("1.0.0");
     expect(first.emoji).toBe("🎉");

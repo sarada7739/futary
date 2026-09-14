@@ -1,0 +1,8 @@
+apps/app/app.json:4:    "slug": "futary",
+apps/app/app.json:5:    "scheme": "futary",
+apps/app/app/(tabs)/index.tsx:36:// 039 の文字ロゴ（ホワイトだけ Poppins 300 の「futary」）はやめた
+apps/app/app/+html.tsx:42:            APPEARANCE_STORAGE_KEY と同じ "futary.appearance"）を同期で読み、ホワイト
+apps/app/app/+html.tsx:53:              'try{if(localStorage.getItem("futary.appearance")==="white"){document.documentElement.setAttribute("data-appearance","white")}}catch(e){}',
+apps/app/lib/releases.ts:114:    title: "futary リリース",
+apps/landing/index.html:82:        いくつかの設計判断を紹介します（詳細は <a href="https://github.com/sarada7739/futary/blob/main/docs/decisions.md">docs/decisions.md</a>）。
+apps/landing/index.html:126:      <a class="repo-link" href="https://github.com/sarada7739/futary">GitHubリポジトリを見る</a>

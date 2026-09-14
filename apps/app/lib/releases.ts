@@ -15,6 +15,12 @@ export type Release = {
 // 新しい順。先頭が最新。LATEST_VERSION は先頭から取る（2 箇所に持たない）
 export const RELEASES: readonly Release[] = [
   {
+    version: "3.0.0",
+    date: "2026-09-15",
+    title: "Nisoine になりました",
+    items: ["アプリの名前が Nisoine になりました", "見た目と機能はそのままです"],
+  },
+  {
     version: "2.3.0",
     date: "2026-09-15",
     title: "タイムラインをすっきりさせました",

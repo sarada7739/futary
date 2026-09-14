@@ -103,7 +103,7 @@ function urlOf(ref: Ref): string {
   return `https://r2.example.com/${idOf(ref)}?response-content-disposition=attachment`;
 }
 function filenameOf(ref: Ref): string {
-  return `futary-20260816-${idOf(ref)}.jpg`;
+  return `nisoine-20260816-${idOf(ref)}.jpg`;
 }
 
 type NavShare = { canShare?: (d: ShareData) => boolean; share?: (d: ShareData) => Promise<void> };
@@ -256,7 +256,7 @@ describe("AlbumDetailScreen: 保存を押す（042 T3・T4・T5）", () => {
       { kind: "album", photoId: "photo-3" },
     ]);
     const files = share.mock.calls[0]![0].files!;
-    expect(files.map((f) => f.name)).toEqual(["futary-20260816-photo-1.jpg", "futary-20260816-photo-3.jpg"]);
+    expect(files.map((f) => f.name)).toEqual(["nisoine-20260816-photo-1.jpg", "nisoine-20260816-photo-3.jpg"]);
     expect(files.map((f) => f.type)).toEqual(["image/jpeg", "image/jpeg"]);
     expect(files.map((f) => f.size)).toEqual([3, 3]);
     await waitFor(() => expect(screen.queryByTestId("album-detail-selection-bar")).toBeNull());
@@ -281,7 +281,7 @@ describe("AlbumDetailScreen: 保存を押す（042 T3・T4・T5）", () => {
     await pressShare();
 
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
-    expect(sharedFileNames(share)).toEqual(["futary-20260816-photo-1.jpg", "futary-20260816-photo-3.jpg"]);
+    expect(sharedFileNames(share)).toEqual(["nisoine-20260816-photo-1.jpg", "nisoine-20260816-photo-3.jpg"]);
     expect(await screen.findByText("1 枚は取得できませんでした")).toBeTruthy();
     await waitFor(() => expect(screen.queryByTestId("album-detail-selection-bar")).toBeNull());
   });
@@ -365,7 +365,7 @@ describe("AlbumDetailScreen: タイムライン・ゲストの選択モード（
       { kind: "post", postId: "post-1", position: 0 },
       { kind: "post", postId: "post-2", position: 0 },
     ]);
-    expect(sharedFileNames(share)).toEqual(["futary-20260816-post-1-0.jpg", "futary-20260816-post-2-0.jpg"]);
+    expect(sharedFileNames(share)).toEqual(["nisoine-20260816-post-1-0.jpg", "nisoine-20260816-post-2-0.jpg"]);
   });
 
   it("ゲストのアルバムも「保存」だけ（編集・カバー・削除・+ が無い）", async () => {

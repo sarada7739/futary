@@ -52,7 +52,7 @@ export default function InviteCodeScreen() {
   async function handleShare() {
     if (!invite) return;
     await Share.share({
-      message: `futaryでペアを作りました。招待コード: ${invite.code}\nこのコードで参加してね（${expiresAtLabel} まで有効）`,
+      message: `Nisoineでペアを作りました。招待コード: ${invite.code}\nこのコードで参加してね（${expiresAtLabel} まで有効）`,
     });
   }
 

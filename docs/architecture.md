@@ -1,4 +1,6 @@
-# アーキテクチャ: futary
+# アーキテクチャ: Nisoine
+
+> 旧名 futary。2026-09-15 に Nisoine に（051）。パッケージ名 `@futary/*`・Worker 名・URL・バケット・`localStorage` の鍵は旧名のまま。
 
 ## 1. 技術構成
 

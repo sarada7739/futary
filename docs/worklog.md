@@ -13277,3 +13277,13 @@ Session: A
 - 見える名前と絵だけ変える。中の名前・鍵・バケット・URL・過去の記録は触らない。ワードマークは JPG（市松焼き込み）なので B が透過に。3.0.0
 
 Session: A
+
+
+## 2026-09-15 セッションB: 051（Nisoine への改名。ドメイン以外）を実装
+
+- 絵: `artifacts/051/scripts/make-assets.py`（PIL）でワードマークの透過（アルファ 190〜240・RGB を芯の色に）・アイコン一式（app/landing/PWA/Android）・OGP（游ゴシック）を作った
+- 文字: ランディング（title/OGP/タグライン/フッター）・`+html.tsx`・`app.json` の name・manifest・ダウンロードと ZIP の名前（nisoine-）・User-Agent・画面の文言・テストの期待値・CLAUDE.md/README/requirements/architecture の冒頭
+- ホームのロゴは両モード同じ画像（文字ロゴと Poppins 300 の preload をやめた）。3.0.0「Nisoine になりました」
+- 中の名前（@futary/*・URL・鍵・バケット・slug/scheme）と過去の記録は触っていない
+
+Session: B

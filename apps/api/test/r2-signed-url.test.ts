@@ -54,8 +54,8 @@ describe("createDownloadUrl", () => {
   it("response-content-disposition=attachment; filename=... と 5 分の期限がクエリに入り、署名される", async () => {
     const imageId = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
     const key = albumImageKeyFor("couple-1", imageId);
-    // filename はサーバが組み立てる形（futary-YYYYMMDD-{imageId}.jpg）。変数から組む
-    const filename = `futary-20260816-${imageId}.jpg`;
+    // filename はサーバが組み立てる形（nisoine-YYYYMMDD-{imageId}.jpg）。変数から組む
+    const filename = `nisoine-20260816-${imageId}.jpg`;
     const url = new URL(await createDownloadUrl(r2Sign, key, filename));
 
     expect(url.pathname).toBe(`/test-bucket/${key}`);

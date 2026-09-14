@@ -53,10 +53,10 @@ export function zipBaseName(source: ZipSource): string {
   return source.kind === "album" ? safeZipName(source.title) : "albums";
 }
 
-// `futary-{base}-{YYYYMMDD}.zip`。分けるときは `futary-{base}-{YYYYMMDD}-1of3.zip`
+// `nisoine-{base}-{YYYYMMDD}.zip`。分けるときは `nisoine-{base}-{YYYYMMDD}-1of3.zip`（051 で futary- から）
 export function zipFileName(base: string, ymd: string, part: { index: number; total: number } | null): string {
   const suffix = part ? `-${part.index}of${part.total}` : "";
-  return `futary-${base}-${ymd}${suffix}.zip`;
+  return `nisoine-${base}-${ymd}${suffix}.zip`;
 }
 
 export function zipPartCount(photoCount: number): number {

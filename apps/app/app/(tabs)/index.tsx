@@ -1,5 +1,4 @@
 import {
-  fontFamily,
   iconPanelAi,
   iconPanelAlbum,
   iconPanelList,
@@ -21,11 +20,10 @@ import {
   panelPhotoWant,
   Screen,
   space,
-  useTheme,
 } from "@futary/ui";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { Image, ScrollView, Text as RNText, View } from "react-native";
+import { Image, ScrollView, View } from "react-native";
 import { FeaturePanel } from "../../components/feature-panel";
 import { ReleaseButton } from "../../components/release-button";
 import { ReleaseSheet } from "../../components/release-sheet";
@@ -34,17 +32,10 @@ import { deferRelease, hasUnseenRelease, isReleaseDeferred, markReleaseSeen, use
 import { LATEST_RELEASE } from "../../lib/releases";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 
-const LOGO_WIDTH = 96;
-const LOGO_HEIGHT = 34;
-
-// 039 段階2-a: ホワイトのロゴは画像ではなく文字（モックの細いジオメトリック欧文）。
-// Poppins 300。大きさ・字間は B がモックと並べて決めた: モックのロゴは画面幅の約 27%
-// （853px 中 230px）で、390pt の画面なら幅 105pt。Poppins 300 の "futary" 6文字が
-// 幅 105 になるのは 40pt 前後。字間はモックどおりわずかに開ける（0.5）。
-// 行の高さ 48 は画像ロゴ（34）より 14 高いが、モックでもロゴ行は大きい
-const LOGO_TEXT_SIZE = 40;
-const LOGO_TEXT_LINE_HEIGHT = 48;
-const LOGO_TEXT_LETTER_SPACING = 0.5;
+// 051: ロゴは両モードで同じワードマーク画像（600x159。比率 3.77。濃い茶はどちらの地でも読める）。
+// 039 の文字ロゴ（ホワイトだけ Poppins 300 の「futary」）はやめた
+const LOGO_WIDTH = 120;
+const LOGO_HEIGHT = 32;
 
 // 040: 9 枚目（ほしいもの）が入り 4 列では 4+4+1 で崩れるため 3 列 × 3 行に
 // （タスク定義5節。039 で凍結したピンクも変わる。機能が増えれば入口は変わる）
@@ -57,9 +48,8 @@ const PANEL_COLUMN_GAP = 10;
 // 014のデモで最初に出る画面でもある
 export default function HomeScreen() {
   const router = useRouter();
-  // 039 段階2-a: 画面ファイルで appearance を読んでよい2箇所のうちの1つ（ホームのロゴ。
-  // もう1つは統計のヒーロー）。タスク定義 5-2「分岐は部品の中に閉じる」
-  const { appearance, colors } = useTheme();
+  // 039 段階2-a でここは appearance を読んでよい 2 箇所の 1 つ（ホームのロゴ）だったが、
+  // 051 でロゴが両モード同じ画像になり読まなくなった（残るは統計のヒーローだけ）
   // react-native-webはcolumnGapと"25%"のようなパーセント幅を併用しても
   // 幅を自動で詰め直さない（4列×25%+3個ぶんのgapがコンテナ幅を超え、
   // 4列目が折り返して3列になる不具合を実測で発見した。035）。実測した幅から
@@ -105,29 +95,14 @@ export default function HomeScreen() {
           gap: space.md,
         }}
       >
-        {appearance === "white" ? (
-          <RNText
-            testID="home-logo-text"
-            accessibilityRole="header"
-            style={{
-              fontFamily: fontFamily.numeric,
-              fontSize: LOGO_TEXT_SIZE,
-              lineHeight: LOGO_TEXT_LINE_HEIGHT,
-              fontWeight: "300",
-              letterSpacing: LOGO_TEXT_LETTER_SPACING,
-              color: colors.text,
-            }}
-          >
-            futary
-          </RNText>
-        ) : (
-          <Image
-            testID="home-logo-image"
-            source={logoMark}
-            style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
-            resizeMode="contain"
-          />
-        )}
+        <Image
+          testID="home-logo-image"
+          source={logoMark}
+          style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel="Nisoine"
+        />
 
         <StatsCard />
 

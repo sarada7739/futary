@@ -1,0 +1,59 @@
+{
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "home": {
+    "pink": {
+      "logo": {
+        "x": 20,
+        "y": 16,
+        "width": 120,
+        "height": 32
+      },
+      "hasTextLogo": false,
+      "title": ""
+    },
+    "white": {
+      "logo": {
+        "x": 20,
+        "y": 16,
+        "width": 120,
+        "height": 32
+      },
+      "hasTextLogo": false,
+      "title": ""
+    }
+  },
+  "landing": {
+    "title": "Nisoine - ふたり専用SNS",
+    "meta": {
+      "description": "Nisoineは、ふたりだけの日々を残すための専用SNS。投稿・カレンダー・アルバム・思い出しで、日々が、ふたりの記録になる。ログイン不要のデモをその場で試せます。",
+      "og:type": "website",
+      "og:site_name": "Nisoine",
+      "og:title": "Nisoine - ふたり専用SNS",
+      "og:description": "ふたりだけの日々を残す専用SNS。ログイン不要のデモをその場で試せます。",
+      "og:image": "/assets/ogp.png",
+      "og:image:width": "1200",
+      "og:image:height": "630",
+      "og:locale": "ja_JP",
+      "twitter:card": "summary_large_image",
+      "twitter:title": "Nisoine - ふたり専用SNS",
+      "twitter:description": "ふたりだけの日々を残す専用SNS。ログイン不要のデモをその場で試せます。",
+      "twitter:image": "/assets/ogp.png"
+    },
+    "tagline": "日々が、ふたりの記録になる。",
+    "footer": "Nisoine — 日々が、ふたりの記録になる。",
+    "logoAlt": "Nisoine"
+  },
+  "signIn": {
+    "title": "",
+    "logoLabel": 1
+  }
+}

@@ -39,7 +39,7 @@ function urlOf(ref: Ref): string {
 }
 // filename の規則はサーバ（photo.downloadUrl）が決める。返ってきた値がそのまま ZIP の中の名前になることを見る
 function filenameOf(ref: Ref): string {
-  return `futary-20260816-${idOf(ref)}.jpg`;
+  return `nisoine-20260816-${idOf(ref)}.jpg`;
 }
 function entries(count: number, folder: string | null = null): Entry[] {
   return Array.from({ length: count }, (_, i) => ({ ref: albumRef(i + 1), caption: i % 2 === 0 ? `説明 ${i + 1}` : "", folder }));
@@ -86,7 +86,7 @@ afterEach(() => {
 describe("saveZipFile", () => {
   it("Blob URL を作って <a download> を押し、少し置いてから URL を捨てる（jsdom に createObjectURL は無いので生やす）", () => {
     vi.useFakeTimers();
-    const createObjectURL = vi.fn(() => "blob:futary/zip-1");
+    const createObjectURL = vi.fn(() => "blob:nisoine/zip-1");
     const revokeObjectURL = vi.fn();
     vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL }));
     const clicked: string[] = [];
@@ -102,14 +102,14 @@ describe("saveZipFile", () => {
       return el;
     });
 
-    saveZipFile(new Uint8Array([0x50, 0x4b]), "futary-albums-20260914.zip");
+    saveZipFile(new Uint8Array([0x50, 0x4b]), "nisoine-albums-20260914.zip");
 
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect((createObjectURL.mock.calls[0] as unknown[])[0]).toBeInstanceOf(Blob);
-    expect(clicked).toEqual(["futary-albums-20260914.zip|blob:futary/zip-1"]);
+    expect(clicked).toEqual(["nisoine-albums-20260914.zip|blob:nisoine/zip-1"]);
     expect(revokeObjectURL).not.toHaveBeenCalled();
     vi.runAllTimers();
-    expect(revokeObjectURL).toHaveBeenCalledWith("blob:futary/zip-1");
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:nisoine/zip-1");
     vi.useRealTimers();
   });
 });
@@ -134,9 +134,9 @@ describe("名前（タスク定義 2節）", () => {
     expect(captionsText([{ name: "a.jpg", caption: "海\tの日" }])).toBe("a.jpg\t海 の日\n");
   });
 
-  it("futary-{名前}-{YYYYMMDD}.zip。分けるときは -1of3", () => {
-    expect(zipFileName("京都旅行", "20260914", null)).toBe("futary-京都旅行-20260914.zip");
-    expect(zipFileName("albums", "20260914", { index: 2, total: 3 })).toBe("futary-albums-20260914-2of3.zip");
+  it("nisoine-{名前}-{YYYYMMDD}.zip。分けるときは -1of3", () => {
+    expect(zipFileName("京都旅行", "20260914", null)).toBe("nisoine-京都旅行-20260914.zip");
+    expect(zipFileName("albums", "20260914", { index: 2, total: 3 })).toBe("nisoine-albums-20260914-2of3.zip");
   });
 
   it("1 つの ZIP は 100 枚まで。101 枚は 2 つ", () => {
@@ -203,14 +203,14 @@ describe("collectZipPhotos", () => {
 });
 
 describe("exportZip", () => {
-  it("Z1: 枚数・ファイル名・中身が揃い、captions.txt が 1 行 1 枚で対応する。無圧縮。名前は futary-{名前}-{YYYYMMDD}.zip", async () => {
+  it("Z1: 枚数・ファイル名・中身が揃い、captions.txt が 1 行 1 枚で対応する。無圧縮。名前は nisoine-{名前}-{YYYYMMDD}.zip", async () => {
     const photos = entries(3);
     const progress: { done: number; total: number }[] = [];
 
     const result = await exportZip(photos, "京都旅行", { signal: new AbortController().signal, onProgress: (p) => progress.push(p), save, nowMs: NOW_MS });
 
     expect(result).toEqual({ outcome: "saved", failed: 0, parts: 1 });
-    expect(saved.map((s) => s.filename)).toEqual(["futary-京都旅行-20260914.zip"]);
+    expect(saved.map((s) => s.filename)).toEqual(["nisoine-京都旅行-20260914.zip"]);
     const files = unzip();
     expect(Object.keys(files)).toEqual([filenameOf(albumRef(1)), filenameOf(albumRef(2)), filenameOf(albumRef(3)), CAPTIONS_FILENAME]);
     for (const photo of photos) expect(files[filenameOf(photo.ref)]).toEqual(bytesOf(photo.ref));
@@ -276,7 +276,7 @@ describe("exportZip", () => {
     const result = await exportZip(photos, "albums", { signal: new AbortController().signal, onProgress: (p) => progress.push(p.done), save, nowMs: NOW_MS });
 
     expect(result).toEqual({ outcome: "saved", failed: 0, parts: 2 });
-    expect(saved.map((s) => s.filename)).toEqual(["futary-albums-20260914-1of2.zip", "futary-albums-20260914-2of2.zip"]);
+    expect(saved.map((s) => s.filename)).toEqual(["nisoine-albums-20260914-1of2.zip", "nisoine-albums-20260914-2of2.zip"]);
     const first = unzip(0);
     const second = unzip(1);
     expect(Object.keys(first)).toHaveLength(100 + 1);
@@ -364,7 +364,7 @@ describe("exportZip", () => {
     const result = await exportZip(entries(102), "albums", { signal: controller.signal, save, nowMs: NOW_MS });
 
     expect(result).toEqual({ outcome: "aborted", failed: 0, parts: 1 });
-    expect(saved.map((s) => s.filename)).toEqual(["futary-albums-20260914-1of2.zip"]);
+    expect(saved.map((s) => s.filename)).toEqual(["nisoine-albums-20260914-1of2.zip"]);
   });
 
   it("写真が 0 枚なら何も呼ばず nothing", async () => {
