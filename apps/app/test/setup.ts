@@ -16,8 +16,10 @@ afterEach(() => {
 // 上書きしないため、`window.localStorage` もこの空のオブジェクトを指す。
 // jsdom が本来提供する Storage 相当を、メソッドが無いときだけ補う
 // （ブラウザ・jsdom が正しく提供する環境では触らない）
-function installMemoryStorage() {
-  const existing = (globalThis as { localStorage?: Partial<Storage> }).localStorage;
+// 043: sessionStorage も同じ形で補う（Node 25.2 では sessionStorage はメソッドを持つが、
+// 環境で変わりうる。無いときだけ補う）
+function installMemoryStorage(name: "localStorage" | "sessionStorage") {
+  const existing = (globalThis as unknown as Record<string, Partial<Storage> | undefined>)[name];
   if (existing && typeof existing.setItem === "function") return;
   const store = new Map<string, string>();
   const memoryStorage: Storage = {
@@ -36,7 +38,8 @@ function installMemoryStorage() {
       store.clear();
     },
   };
-  Object.defineProperty(globalThis, "localStorage", { value: memoryStorage, configurable: true, writable: true });
+  Object.defineProperty(globalThis, name, { value: memoryStorage, configurable: true, writable: true });
 }
 
-installMemoryStorage();
+installMemoryStorage("localStorage");
+installMemoryStorage("sessionStorage");

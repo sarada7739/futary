@@ -167,6 +167,8 @@ export default function TabsLayout() {
           詳細の題名は画面が setOptions で上書きする。上と同じ理由で href: null */}
       <Tabs.Screen name="album" options={{ href: null, headerShown: true, title: "アルバム" }} />
       <Tabs.Screen name="album-detail" options={{ href: null, headerShown: true, title: "アルバム" }} />
+      {/* 043: ホームの「リリース履歴を見る」の行き先。上と同じ理由で href: null。戻るは画面が setOptions で置く */}
+      <Tabs.Screen name="releases" options={{ href: null, headerShown: true, title: "リリース履歴" }} />
     </Tabs>
   );
 }

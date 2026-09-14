@@ -66,3 +66,11 @@ export { default as panelPhotoAlbum } from "../assets/panel-white-album.jpg";
 // 無いため、docs/sample/風景/RcmUGlPg.jpg（夕暮れの海辺に立つ男女。後ろ姿。AI 生成）を
 // 中央で 4:3（1280×960）に切り出して仮に置いている。本物が来たらここを差し替える
 export { default as statsHeroPlaceholder } from "../assets/stats-hero-placeholder.jpg";
+// 043: ホームの「リリース履歴を見る」の ✦。素材に該当する図案が無いため、panel-want.png と同じ規格
+// （96×96・単色 #4A3733・単線・塗りなし）で B が新規に描き起こした（4 方向の星 1 つ。見本
+// docs/sample/simpleMode/リリース履歴/pink/01 の形）。再現は artifacts/043/scripts/make-assets.py
+export { default as iconReleases } from "../assets/panel-releases.png";
+// 043: 「新機能のお知らせ」のシートの上の贈り物の絵（ホワイト）。人間が置いた見本
+// docs/sample/simpleMode/リリース履歴/04-new-feature-sheet.jpg の贈り物とリボンの部分を切り出し、
+// 地を白に寄せた（出自は docs/sample/README.md）。ピンクは既存の sparkle.png を使う（部品の中で分岐）
+export { default as releaseGift } from "../assets/release-gift.jpg";

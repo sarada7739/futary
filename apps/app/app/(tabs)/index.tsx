@@ -24,10 +24,14 @@ import {
   useTheme,
 } from "@futary/ui";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Image, ScrollView, Text as RNText, View } from "react-native";
 import { FeaturePanel } from "../../components/feature-panel";
+import { ReleaseButton } from "../../components/release-button";
+import { ReleaseSheet } from "../../components/release-sheet";
 import { StatsCard } from "../../components/stats-card";
+import { deferRelease, hasUnseenRelease, isReleaseDeferred, markReleaseSeen, useHasUnseenRelease } from "../../lib/release-seen";
+import { LATEST_RELEASE } from "../../lib/releases";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 
 const LOGO_WIDTH = 96;
@@ -65,6 +69,30 @@ export default function HomeScreen() {
     panelGridWidth > 0
       ? (panelGridWidth - PANEL_COLUMN_GAP * (PANEL_COLUMNS - 1)) / PANEL_COLUMNS
       : undefined;
+
+  // 043: リリース履歴の未読（ホームのボタンの NEW）。一覧の画面が markReleaseSeen() を呼ぶと消える
+  const hasUnseen = useHasUnseenRelease();
+  // 043: 「新機能のお知らせ」。ホームを開いたときに 1 度（未読で、この起動で「後で」を押していないとき）。
+  // 描いたあとに開く（静的書き出しのサーバ側の描画では window が無く、初期値で開くと hydrate と食い違う）
+  const [isReleaseSheetOpen, setIsReleaseSheetOpen] = useState(false);
+  useEffect(() => {
+    if (hasUnseenRelease() && !isReleaseDeferred()) setIsReleaseSheetOpen(true);
+  }, []);
+
+  // 「閉じる ×」・シートの外 = 見た（0節 #5）。「使ってみる」= 見た + その画面へ（#6）。
+  // 「後で通知する」= 閉じるだけ。見たことにしない。同じ起動では出し直さない（#4）
+  function closeReleaseSheet() {
+    markReleaseSeen();
+    setIsReleaseSheetOpen(false);
+  }
+  function tryRelease(route: string) {
+    closeReleaseSheet();
+    router.push(route);
+  }
+  function deferReleaseSheet() {
+    deferRelease();
+    setIsReleaseSheetOpen(false);
+  }
 
   return (
     <Screen>
@@ -169,7 +197,19 @@ export default function HomeScreen() {
             width={panelWidth}
           />
         </View>
+
+        {/* 043: 3×3 の下に全幅 1 本。未読なら NEW */}
+        <ReleaseButton hasNew={hasUnseen} onPress={() => router.push("/releases")} />
       </ScrollView>
+
+      {/* 043: 最新の 1 項目だけ。ゲストにも出す。オンボーディングにはこの画面が無いので出ない */}
+      <ReleaseSheet
+        visible={isReleaseSheetOpen}
+        release={LATEST_RELEASE}
+        onTry={tryRelease}
+        onLater={deferReleaseSheet}
+        onClose={closeReleaseSheet}
+      />
     </Screen>
   );
 }
