@@ -21,6 +21,7 @@ import { Sheet } from "../../components/sheet";
 import { pickAlbumImages, uploadAlbumImages, type UploadProgress } from "../../lib/album-upload";
 import { chunk } from "../../lib/chunk";
 import { albumQuotaHeadingLabel, albumQuotaOverLabel, albumQuotaRemaining, shouldWarnQuota } from "../../lib/plan";
+import { dismissQuotaWarning, isQuotaWarningDismissed } from "../../lib/quota-warning-dismissed";
 import { canShareFiles, MAX_SHARE_FILES, sharePhotos, type ShareProgress } from "../../lib/photo-download";
 import { useGuestMode } from "../../lib/guest-mode";
 import { orpc } from "../../lib/orpc";
@@ -143,8 +144,20 @@ export default function AlbumDetailScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   // 045: 無料枠の残りが 0 のとき（FAB を押した・サーバが PLAN_LIMIT を返した）に出すシート
   const [planLimitOpen, setPlanLimitOpen] = useState(false);
-  // 045: 残りが 5 枚以下なら FAB の上に警告（3節。絵 01）。選択中は FAB と一緒に隠す
-  const showQuotaWarning = canWrite && !isSelecting && albumQuota !== null && shouldWarnQuota(albumQuota);
+  // 045: 残りが 5 枚以下なら FAB の上に警告（3節。絵 01）。選択中は FAB と一緒に隠す。
+  // × で消せる（人間の指示）。消した状態は sessionStorage に「消したときの残り枚数」で持ち、
+  // 残りが変わればまた出す。描いたあと（useEffect）に読む理由は index.tsx のシートと同じ
+  // （静的書き出しでは window が無い）
+  const [warningDismissed, setWarningDismissed] = useState(false);
+  useEffect(() => {
+    setWarningDismissed(quotaRemaining !== null && isQuotaWarningDismissed(quotaRemaining));
+  }, [quotaRemaining]);
+  function handleDismissWarning() {
+    if (quotaRemaining !== null) dismissQuotaWarning(quotaRemaining);
+    setWarningDismissed(true);
+  }
+  const showQuotaWarning =
+    canWrite && !isSelecting && !warningDismissed && albumQuota !== null && shouldWarnQuota(albumQuota);
 
   const tileSize = gridWidth > 0 ? (gridWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS : undefined;
   const selectedIds = [...selected];
@@ -567,7 +580,7 @@ export default function AlbumDetailScreen() {
             bottom: TAB_BAR_HEIGHT + TAB_BAR_BOTTOM_MARGIN + space.md + FAB_SIZE + space.md,
           }}
         >
-          <QuotaWarningCard quota={albumQuota} onPremium={() => router.push("/premium")} />
+          <QuotaWarningCard quota={albumQuota} onPremium={() => router.push("/premium")} onDismiss={handleDismissWarning} />
         </View>
       )}
 
