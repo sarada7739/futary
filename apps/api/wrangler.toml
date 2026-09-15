@@ -55,3 +55,9 @@ DEMO_COUPLE_ID = "demo-couple"
 # （OPENAI_API_KEY/ANTHROPIC_API_KEY）は機密情報のため.dev.vars/
 # `wrangler secret put`で別途設定する
 AI_PROVIDER = "openai"
+# 048 段階2: Stripe の Price ID（price_… は秘密ではない。金額は Stripe から読む）。
+# 価格を変えるときは Stripe で新しい Price を作ってここを差し替える（Price の金額は編集できない）。
+# 今はテストモード（サンドボックス）の ID。本番の鍵に替えるとき本番の Price ID に差し替える（人間の手番）。
+# 鍵（STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET）は .dev.vars / wrangler secret
+STRIPE_PRICE_MONTHLY = "price_1UFvQA3ceREnadkKze57j8LK"
+STRIPE_PRICE_YEARLY = "price_1UFvRG3ceREnadkKJCEsZ1LB"

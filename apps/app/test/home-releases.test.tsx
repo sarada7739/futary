@@ -28,8 +28,8 @@ vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
 
-// 051: 最新（3.0.0「Nisoine になりました」）は route 無しなので「使ってみる」が出ない。
-// 「使ってみる」の配線（既読 + その画面へ）は最新を route 付きに差し替えて見る（実体の配列は触らない）
+// 048 段階2: 最新は 3.1.0「プレミアムプランを始めました」（route /premium）。route 無しの形（3.0.0）は
+// 最新を差し替えて見る（実体の配列は触らない）
 const releasesState = vi.hoisted(() => ({ latestOverride: null as null | { version: string; date: string; title: string; items: string[]; route?: string } }));
 vi.mock("../lib/releases", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/releases")>();
@@ -145,18 +145,31 @@ describe("ホームの「リリース履歴を見る」（043 T2）", () => {
 });
 
 describe("「新機能のお知らせ」のシート（043 T3）", () => {
-  it("未読なら出る。最新の 1 項目（Nisoine になりました。051）だけで、題名・2 行。route 無しなので「使ってみる」と絵は無い", async () => {
+  it("未読なら出る。最新の 1 項目（プレミアムプランを始めました。048 段階2）だけで、題名・2 行・「使ってみる」（/premium）。/premium はパネルの写真が無いので絵は無い", async () => {
     await renderHome();
     expect(screen.getByTestId("release-sheet")).toBeTruthy();
     expect(screen.getByText("新機能のお知らせ")).toBeTruthy();
     expect(screen.getByText("もっと便利に、もっと楽しく。")).toBeTruthy();
-    expect(screen.getByText("Nisoine になりました")).toBeTruthy();
-    expect(screen.getByText("アプリの名前が Nisoine になりました")).toBeTruthy();
-    expect(screen.getByText("見た目と機能はそのままです")).toBeTruthy();
-    expect(screen.queryByTestId("release-sheet-try")).toBeNull();
+    expect(screen.getByText("プレミアムプランを始めました")).toBeTruthy();
+    expect(screen.getByText("写真を 5 万枚まで保存できます")).toBeTruthy();
+    expect(screen.getByText("月額と年額から選べます")).toBeTruthy();
+    expect(screen.getByTestId("release-sheet-try")).toBeTruthy();
     expect(screen.queryByTestId("release-sheet-photo")).toBeNull();
     // 1 つ前の版は出ない（複数を溜めない）
-    expect(screen.queryByText("タイムラインをすっきりさせました")).toBeNull();
+    expect(screen.queryByText("Nisoine になりました")).toBeNull();
+  });
+
+  it("route 無しの版（3.0.0 の形）なら「使ってみる」と絵は無い（最新を差し替えて）", async () => {
+    releasesState.latestOverride = {
+      version: "9.9.8",
+      date: "2026-09-15",
+      title: "Nisoine になりました",
+      items: ["アプリの名前が Nisoine になりました", "見た目と機能はそのままです"],
+    };
+    await renderHome();
+    expect(screen.getByText("Nisoine になりました")).toBeTruthy();
+    expect(screen.queryByTestId("release-sheet-try")).toBeNull();
+    expect(screen.queryByTestId("release-sheet-photo")).toBeNull();
   });
 
   it("route のある版（2.3.0 の形）なら題名・先頭 2 行・「使ってみる」・絵がある", async () => {

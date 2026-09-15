@@ -36,3 +36,9 @@ R2_SECRET_ACCESS_KEY=
 # 利用者には入れさせない（ADR-013）
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
+
+# 048 段階2: Stripe（テストモードの鍵。ダッシュボード「開発者」→「API キー」の sk_test_…）。
+# Webhook の署名の秘密はローカルでは `stripe listen --forward-to localhost:8787/api/stripe/webhook` が出す whsec_…
+# （本番の Webhook の whsec_ とは別）。Price ID は wrangler.toml の [vars]
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=

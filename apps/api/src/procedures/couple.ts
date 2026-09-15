@@ -1,7 +1,8 @@
 import { implementer } from "../implementer";
 import { generateInviteCode } from "../lib/invite-code";
 import { hashAccountId } from "../lib/account-hash";
-import { albumQuotaFor, loadPlan } from "../lib/plan";
+import { albumQuotaFor, loadPlanRow, resolvePlan } from "../lib/plan";
+import { PLAN_SOURCES, type PlanSource } from "@futary/contract";
 import { authedProcedure, readProcedure, writeProcedure } from "./base";
 
 const INVITE_TTL_SECONDS = 24 * 60 * 60;
@@ -95,9 +96,21 @@ const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ con
   // （005時点でデモペアは未作成のため DEMO_COUPLE_ID は空文字＝ここには来ない）
   if (!row) throw new Error("couple_id に対応するペアが見つかりません");
   // 045: プランと無料枠。判定は lib/plan.ts の 1 箇所。ゲスト（デモペア）にも返す（シードで paid）
-  const plan = await loadPlan(context.db, context.coupleId, nowSeconds());
+  const planRow = await loadPlanRow(context.db, context.coupleId);
+  const plan = resolvePlan(planRow, nowSeconds());
   const albumQuota = await albumQuotaFor(context.db, context.coupleId, plan);
-  return { ...toCouple(row), plan, albumQuota };
+  // 048 段階2: 出どころと期限も返す（マイページの「〇月〇日に更新」「プランを管理」の出し分け）。
+  // 未知の source は null にする（画面が Portal のボタンを出さない向きに倒す）
+  const planSource: PlanSource | null =
+    planRow && (PLAN_SOURCES as readonly string[]).includes(planRow.source) ? (planRow.source as PlanSource) : null;
+  return {
+    ...toCouple(row),
+    plan,
+    albumQuota,
+    planSource,
+    planExpiresAt: planRow?.expires_at ?? null,
+    planCancelAt: planRow?.stripe_cancel_at ?? null,
+  };
 });
 
 // primary_date='married'なのにmarried_dateがNULL、という状態はDBのTRIGGERで

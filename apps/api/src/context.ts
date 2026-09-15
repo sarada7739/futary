@@ -1,5 +1,6 @@
 import type { R2SignConfig } from "./lib/r2-signed-url";
 import type { AiEnv } from "./lib/ai";
+import type { BillingContext } from "./lib/billing";
 
 export interface RpcContext {
   db: D1Database;
@@ -11,6 +12,10 @@ export interface RpcContext {
   // これをそのままlib/ai.tsのgenerateSummaryへ渡すだけで、中身を見ない
   // （タスク定義3節「手続きからプロバイダが見えない形にする」）
   aiEnv: AiEnv;
+  // 048 段階2: Stripe の窓口と Price ID（lib/billing.ts）。index.ts が c.env から組む。
+  // optional なのは、Stripe を使わない手続きのテストが context を手で組んでいる（16 箇所）ため。
+  // 無いまま billing.* を呼ぶと INTERNAL（500）で落ちる（黙って free にしない）
+  billing?: BillingContext;
   user: { id: string; name: string; email: string; image: string | null } | null;
   // me.delete の再認証チェック（024・Aの決定）に使う、実際にサインインした
   // 時刻。Better Auth の session.createdAt は createSession() 時に一度だけ

@@ -276,6 +276,13 @@ export function formatJstDateCompact(unixSeconds: number): string {
   return todayJst(unixSeconds * 1000).replaceAll("-", "");
 }
 
+// 048 段階2: Unix 秒 → JST の暦日を "9月15日"（マイページの「プレミアム（9月15日に更新）」。年は出さない。
+// ゼロ埋めしない）
+export function formatJstMonthDayJa(unixSeconds: number): string {
+  const { month, day } = parseDate(todayJst(unixSeconds * 1000));
+  return `${month}月${day}日`;
+}
+
 // 期間の日数（両端を含む）。"2026-08-15"〜"2026-08-17" は 3。終わりが無ければ 1
 export function inclusiveDays(start: string, end: string | null): number {
   if (end === null) return 1;

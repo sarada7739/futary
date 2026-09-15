@@ -13398,6 +13398,22 @@ Session: A
 
 Session: B
 
+## 2026-09-15 セッションB: 048 段階2（決済。Stripe）を実装。サンドボックスで一周まで通した。PR を出して R の手番
+
+- API: `lib/stripe.ts`（gateway。SDK の窓口）・`lib/billing.ts`（状態 → upsert・価格キャッシュ）・`procedures/billing.ts`（prices / createCheckoutSession / createPortalSession）・`stripe-webhook.ts`（Hono 直。署名 → Stripe に読み直し → upsert）・`me.delete` は購読を先に解約。`couple.get` に planSource / planExpiresAt / planCancelAt
+- 実測で 2 つ: (1) Stripe の新アカウントは Managed Payments が既定オンで、税コードの無い Checkout を 400 で拒む → `managed_payments.enabled=false` を明示。(2) Portal の「期間の終わりで解約」は `cancel_at` で表され status は active のまま → `stripe_cancel_at` の列を足し「〇月〇日まで」を出す（定義に無い。A へ）
+- 画面: /premium（月額・年額・Checkout・Portal・?status=success）・マイページの行。ランディング: /tokushoho・規約 8 節（8〜11）・sitemap。3.1.0
+- 一周（`artifacts/048/stage2/local-loop.txt`）: Stripe CLI を入れず `artifacts/048/scripts/relay-webhook.mjs` が署名した event を localhost に届けた。申し込み → paid → Portal 解約 → まで → 即時解約で free → 年額の再申し込み
+- P1〜P9 + P7b + マイページ。lint・型・全テスト緑（api 687・app 551）
+
+Session: B
+
+## 2026-09-15 セッションB: 048 段階2 — R の差し戻し（0節 #9 の後半）を直して #378 に積んだ
+
+- 行に付いた購読と違う購読の snapshot: paid なら 2 本目（古い方を Stripe で解約して差し替え）、paid でなければ書かない（古い購読の deleted が遅れて届いても新しい paid を free に落とさない。R が再現した経路）。`applySubscriptionSnapshot` に gateway を渡す形。P2b 5 件
+- R の記録 2（退会しても Stripe の customer が残る）は A の判断待ち
+
+Session: B
 ## 2026-09-15 セッションA: 048 段階2 の B の判断 4 点を受け入れ、設計文書に写した
 
 - couple_plans に stripe_customer_id / stripe_subscription_id / stripe_cancel_at、couple.get に planSource / planExpiresAt / planCancelAt、billing.* と Webhook を architecture.md 4・5節に
@@ -13411,3 +13427,10 @@ Session: A
 - R の記録 2（退会で Stripe の customer が残る）: me.delete で解約のあと customers.del。失敗は退会を止めない。決済の記録は法令上残るので、プライバシーポリシー 4 節に一文足した（公開ページも B が合わせる）
 
 Session: A
+
+## 2026-09-15 セッションB: 048 段階2 — A の判断で退会時に Stripe の customer も消す（R の記録 2）。プライバシーポリシー 4 節の一文を privacy.html に
+
+- `me.delete`: 購読の解約のあと `customers.del`（失敗は退会を止めずログだけ。A の判断）。P8 に 2 件。R の記録（差し替えのログの文言）も直した
+- R は d1fdb23 を受け入れ（`artifacts/048/review-stage2.md` 末尾）。この追加分だけ R に見てもらう
+
+Session: B

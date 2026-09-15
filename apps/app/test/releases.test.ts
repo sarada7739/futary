@@ -55,10 +55,14 @@ describe("RELEASES（043 T1）", () => {
     }
   });
 
-  it("最新は 3.0.0（Nisoine になりました。route 無し。051 T5）で、初回は 1.0.0（🎉）", () => {
-    expect(LATEST_VERSION).toBe("3.0.0");
-    expect(LATEST_RELEASE.title).toBe("Nisoine になりました");
-    expect(LATEST_RELEASE.route).toBeUndefined();
+  it("最新は 3.1.0（プレミアムプランを始めました。route /premium。048 段階2）で、初回は 1.0.0（🎉）", () => {
+    expect(LATEST_VERSION).toBe("3.1.0");
+    expect(LATEST_RELEASE.title).toBe("プレミアムプランを始めました");
+    expect(LATEST_RELEASE.items).toEqual(["写真を 5 万枚まで保存できます", "月額と年額から選べます"]);
+    expect(LATEST_RELEASE.route).toBe("/premium");
+    // 3.0.0（Nisoine。route 無し）はその次
+    expect(RELEASES[1]?.version).toBe("3.0.0");
+    expect(RELEASES[1]?.route).toBeUndefined();
     const first = RELEASES[RELEASES.length - 1]!;
     expect(first.version).toBe("1.0.0");
     expect(first.emoji).toBe("🎉");

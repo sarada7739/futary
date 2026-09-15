@@ -214,6 +214,8 @@ function main() {
   // `/privacy` -> `privacy.html` を解決するため、ファイル名は URL に合わせる
   cpSync(path.join(landingDir, "privacy.html"), path.join(publicDir, "privacy.html"));
   cpSync(path.join(landingDir, "terms.html"), path.join(publicDir, "terms.html"));
+  // 048 段階2: 特定商取引法に基づく表記
+  cpSync(path.join(landingDir, "tokushoho.html"), path.join(publicDir, "tokushoho.html"));
   // 053: 検索向け。robots.txt は /api/ と /app/ を Disallow、sitemap.xml は / /privacy /terms
   cpSync(path.join(landingDir, "robots.txt"), path.join(publicDir, "robots.txt"));
   cpSync(path.join(landingDir, "sitemap.xml"), path.join(publicDir, "sitemap.xml"));

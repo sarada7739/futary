@@ -20,12 +20,30 @@ export function resolvePlan(row: CouplePlanRow | null | undefined, nowSeconds: n
   return "paid";
 }
 
-export async function loadPlan(db: D1Database, coupleId: string, nowSeconds: number): Promise<Plan> {
+// 048 段階2: couple_plans の行そのもの（couple.get の planSource/planExpiresAt と、
+// billing.* が customer / subscription を引くのに使う）
+export interface CouplePlanFullRow extends CouplePlanRow {
+  source: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  stripe_cancel_at: number | null;
+}
+
+export async function loadPlanRow(db: D1Database, coupleId: string): Promise<CouplePlanFullRow | null> {
   const row = await db
-    .prepare("SELECT plan AS plan, expires_at AS expires_at FROM couple_plans WHERE couple_id = ?1")
+    .prepare(
+      `SELECT plan AS plan, source AS source, expires_at AS expires_at,
+              stripe_customer_id AS stripe_customer_id, stripe_subscription_id AS stripe_subscription_id,
+              stripe_cancel_at AS stripe_cancel_at
+         FROM couple_plans WHERE couple_id = ?1`,
+    )
     .bind(coupleId)
-    .first<CouplePlanRow>();
-  return resolvePlan(row, nowSeconds);
+    .first<CouplePlanFullRow>();
+  return row ?? null;
+}
+
+export async function loadPlan(db: D1Database, coupleId: string, nowSeconds: number): Promise<Plan> {
+  return resolvePlan(await loadPlanRow(db, coupleId), nowSeconds);
 }
 
 // 無料枠の使用量: ペアの未削除のアルバムに入っている album_photos の行数を 1 文で数える

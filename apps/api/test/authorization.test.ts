@@ -998,8 +998,10 @@ describe("8. 更新の結果、この行を編集できなくなる側が生ま�
 
 // health.get / me.get は couple_id を必要としない手続きなので、認可の基底
 // （readProcedure/writeProcedure/authedProcedure）を経由しない。これは意図的な
-// 例外であり、それ以外の全手続きは必ずいずれかの基底を経由していなければならない
-const ALLOWED_WITHOUT_BASE = new Set(["health.get", "me.get"]);
+// 例外であり、それ以外の全手続きは必ずいずれかの基底を経由していなければならない。
+// 048 段階2: billing.prices も同じ（価格は誰が見ても同じ。Stripe の Price を読むだけで
+// couple_id もユーザーも見ない。ゲストも読める）
+const ALLOWED_WITHOUT_BASE = new Set(["health.get", "me.get", "billing.prices"]);
 
 // router を再帰的に辿り、leaf（procedure）を "couple.get" のようなパス付きで集める
 function collectProcedures(node: unknown, path: string[] = []): Array<{ path: string; procedure: unknown }> {
@@ -1075,6 +1077,10 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     "album.delete",
     "photo.list",
     "photo.downloadUrl",
+    // 048 段階2
+    "billing.prices",
+    "billing.createCheckoutSession",
+    "billing.createPortalSession",
   ].sort();
 
   it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {

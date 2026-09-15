@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Share, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, Share, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { ORPCError } from "@orpc/client";
 import { formatJstDateTime } from "@futary/date";
 import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
-import { planLabel } from "../../lib/plan";
+import { paidPlanLabel, planLabel } from "../../lib/plan";
 import {
   APPEARANCE_VALUES,
   Avatar,
@@ -149,6 +149,14 @@ export default function ProfileScreen() {
   const setAiOptIn = useMutation(
     orpc.me.setAiOptIn.mutationOptions({
       onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.me.get.key() }),
+    }),
+  );
+  // 048 段階2: 「プランを管理 ›」→ Stripe の Billing Portal（解約・カード変更）。同じタブで移動する
+  const portal = useMutation(
+    orpc.billing.createPortalSession.mutationOptions({
+      onSuccess: ({ url }) => {
+        if (Platform.OS === "web" && typeof window !== "undefined") window.location.assign(url);
+      },
     }),
   );
   const isSubmitting = requestUploadUrl.isPending || updateMe.isPending || updateCouple.isPending;
@@ -502,12 +510,35 @@ export default function ProfileScreen() {
           </Card>
 
           {/* 045: 「プラン: 無料／プレミアム」の 1 行。無料のときだけ右に「プレミアムについて ›」（→ /premium）。
-              プレミアムは押せない（設定項目ではなく表示だけ）。couple.get の plan から。「お試し」は使わない */}
+              couple.get の plan から。「お試し」は使わない。
+              048 段階2: paid は「プレミアム（9月15日に更新）」（planExpiresAt。無期限なら日付無し）。
+              stripe の行なら右に「プランを管理 ›」（Billing Portal）。manual は表示だけ */}
           <Card>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
               <Text weight="bold">
-                プラン: <Text weight="bold" testID="profile-plan">{coupleQuery.data ? planLabel(coupleQuery.data.plan) : ""}</Text>
+                プラン:{" "}
+                <Text weight="bold" testID="profile-plan">
+                  {coupleQuery.data
+                    ? coupleQuery.data.plan === "paid"
+                      ? paidPlanLabel(coupleQuery.data.planExpiresAt, coupleQuery.data.planCancelAt)
+                      : planLabel(coupleQuery.data.plan)
+                    : ""}
+                </Text>
               </Text>
+              {coupleQuery.data?.plan === "paid" && coupleQuery.data.planSource === "stripe" && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="プランを管理"
+                  onPress={() => portal.mutate({})}
+                  disabled={portal.isPending}
+                  hitSlop={space.sm}
+                  testID="profile-manage-plan"
+                >
+                  <Text size="sm" weight="medium" color="brand">
+                    プランを管理 ›
+                  </Text>
+                </Pressable>
+              )}
               {coupleQuery.data?.plan === "free" && (
                 <Pressable
                   accessibilityRole="button"

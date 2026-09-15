@@ -169,6 +169,13 @@
       "when": 1789367366812,
       "tag": "0023_couple_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1789477855394,
+      "tag": "0024_couple_plans_stripe",
+      "breakpoints": true
     }
   ]
 }

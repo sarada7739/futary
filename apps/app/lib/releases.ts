@@ -15,6 +15,13 @@ export type Release = {
 // 新しい順。先頭が最新。LATEST_VERSION は先頭から取る（2 箇所に持たない）
 export const RELEASES: readonly Release[] = [
   {
+    version: "3.1.0",
+    date: "2026-09-16",
+    title: "プレミアムプランを始めました",
+    items: ["写真を 5 万枚まで保存できます", "月額と年額から選べます"],
+    route: "/premium",
+  },
+  {
     version: "3.0.0",
     date: "2026-09-15",
     title: "Nisoine になりました",

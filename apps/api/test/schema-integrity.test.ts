@@ -113,6 +113,20 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(extractNamedChecks(sql)).toEqual([]);
   });
 
+  // 048 段階2・P9: 0024_couple_plans_stripe（ALTER TABLE ADD COLUMN × 2）が当たっている。
+  // sqlite_master の sql は CREATE 文に ADD COLUMN が追記された形になる
+  it("couple_plans に stripe_customer_id・stripe_subscription_id（text）・stripe_cancel_at（integer）がある。NULL 可・UNIQUE 無し", async () => {
+    const columns = await db.prepare("PRAGMA table_info(couple_plans)").all<{ name: string; type: string; notnull: number }>();
+    const byName = new Map(columns.results.map((c) => [c.name, c]));
+    expect(byName.get("stripe_customer_id"), "0024_couple_plans_stripe が当たっていない").toMatchObject({ type: "TEXT", notnull: 0 });
+    expect(byName.get("stripe_subscription_id")).toMatchObject({ type: "TEXT", notnull: 0 });
+    expect(byName.get("stripe_cancel_at")).toMatchObject({ type: "INTEGER", notnull: 0 });
+    const indexes = await db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'couple_plans' AND name NOT LIKE 'sqlite_%'")
+      .all<{ name: string }>();
+    expect(indexes.results).toEqual([]);
+  });
+
   // events_couple_date_idxはこの一覧テストが固有に守る唯一の対象（Rレビュー指摘）。
   // 振る舞いのテストからは捕まえられない: 列順が(date, couple_id)に変わっても
   // 名前は変わらず、event.list等の振る舞いは（性能が落ちるだけで）通り続ける

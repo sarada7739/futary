@@ -8,6 +8,9 @@ import { createAuth, parseTrustedOrigins } from "./auth";
 import { canonicalUrlFor, isLegacyHost, LEGACY_ORIGIN_MESSAGE } from "./lib/canonical-host";
 import { withErrorId } from "./lib/error-id";
 import { applyStaticSecurityHeaders, withContentSecurityPolicy } from "./lib/security-headers";
+import { createStripeGateway } from "./lib/stripe";
+import type { BillingContext } from "./lib/billing";
+import { handleStripeWebhook } from "./stripe-webhook";
 
 export interface Bindings {
   DB: D1Database;
@@ -37,6 +40,27 @@ export interface Bindings {
   AI_PROVIDER?: string;
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
+  // 048 段階2: Stripe。鍵 2 つは secret、Price ID は [vars]（秘密ではない）
+  STRIPE_SECRET_KEY?: string;
+  STRIPE_WEBHOOK_SECRET?: string;
+  STRIPE_PRICE_MONTHLY?: string;
+  STRIPE_PRICE_YEARLY?: string;
+}
+
+// 048 段階2: Stripe の窓口。鍵か Price ID が無ければ undefined（billing.* を呼ぶと 500。
+// 他の手続きは影響を受けない）。gateway はリクエストごとに作る（SDK のクライアントは軽い。
+// secret の更新がデプロイ無しで効く）
+function buildBilling(env: Bindings): BillingContext | undefined {
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PRICE_MONTHLY || !env.STRIPE_PRICE_YEARLY || !env.BETTER_AUTH_URL) {
+    return undefined;
+  }
+  return {
+    gateway: createStripeGateway({ secretKey: env.STRIPE_SECRET_KEY, webhookSecret: env.STRIPE_WEBHOOK_SECRET }),
+    priceMonthly: env.STRIPE_PRICE_MONTHLY,
+    priceYearly: env.STRIPE_PRICE_YEARLY,
+    // 末尾の / は付けない（`${appOrigin}/app/premium` と繋ぐ）
+    appOrigin: env.BETTER_AUTH_URL.replace(/\/+$/, ""),
+  };
 }
 
 // wrangler.toml の [[r2_buckets]] bucket_name と一致させる
@@ -104,6 +128,19 @@ app.use("/api/*", (c, next) => {
 // （security-auditor 003監査 Medium指摘）
 app.get("/api/auth/expo-authorization-proxy", (c) => c.notFound());
 
+// 048 段階2: Stripe の Webhook。CORS・セッションの前に置く（Stripe からの POST に Cookie は無い。
+// 署名だけで認証する。stripe-webhook.ts）。Stripe が設定されていなければ 404
+app.post("/api/stripe/webhook", async (c) => {
+  const billing = buildBilling(c.env);
+  if (!billing) return c.notFound();
+  return handleStripeWebhook(c.req.raw, {
+    db: c.env.DB,
+    billing,
+    nowSeconds: () => Math.floor(Date.now() / 1000),
+    log: (line) => console.log(line),
+  });
+});
+
 // Better Auth のルート（/api/auth/sign-in/social, /api/auth/callback/google 等）
 app.on(["GET", "POST"], "/api/auth/*", (c) => {
   const auth = createAuth(c.env);
@@ -152,6 +189,7 @@ app.use("/api/*", async (c, next) => {
     bucket: c.env.BUCKET,
     r2Sign,
     aiEnv,
+    billing: buildBilling(c.env),
     user,
     ip,
     demoCoupleId,
