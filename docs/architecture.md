@@ -45,15 +45,20 @@ futary/
 > **ナビゲーションを指していたのは2箇所だけで、残りは本当にトークンだった。**
 > **間借りしていたのはナビゲーションの方である。**
 
-Worker は1つ。ドメインも1つ。ビルド時に `apps/landing` の出力と
+Worker は1つ。ドメインは **`https://nisoine.com`**（053。Workers の Custom Domain）。ビルド時に `apps/landing` の出力と
 `apps/app` の Web エクスポート結果を1つの公開ディレクトリに合成する。
 
 | パス | 中身 |
 |---|---|
 | `/` | ランディングページ（静的） |
+| `/privacy` `/terms` | プライバシーポリシー・利用規約（静的。052） |
+| `/robots.txt` `/sitemap.xml` | 検索向け（053） |
 | `/app/*` | アプリ本体（Expo Web エクスポート・SPA フォールバック） |
 | `/api/*` | Hono + oRPC |
 | `/api/openapi.json` | oRPC が生成する API 仕様 |
+
+**旧 URL `https://futary-api.sarada7739.workers.dev` と `www.nisoine.com` は `nisoine.com` へ 301**（`/api/*` だけは 403）。
+Worker は `run_worker_first = true` で全リクエストを先に受け、静的なものは最後に `env.ASSETS` へ渡す（301 とセキュリティヘッダのため。`security-requirements.md` 7節）。
 
 ### ナビゲーション
 
