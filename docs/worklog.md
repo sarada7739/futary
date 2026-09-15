@@ -13434,3 +13434,11 @@ Session: A
 - R は d1fdb23 を受け入れ（`artifacts/048/review-stage2.md` 末尾）。この追加分だけ R に見てもらう
 
 Session: B
+
+## 2026-09-16 セッションB: 048 段階2 — R 受け入れ（3da2e7e → d1fdb23 → 2d7bdc2）→ 人間が secret 2 つ（Webhook・サンドボックスの鍵）を入れた → #378 を squash merge（main 3c5397f）。デプロイの承認は人間
+
+- 判定 `artifacts/048/review-stage2.md`。3.1.0 の日付は 2026-09-16
+- デプロイで 0024 がリモート D1 に当たる。デプロイ後の人間: 本番でサンドボックスの鍵のまま 1 回申し込む（本番の Webhook が届く確認）→ 特商法のページ公開後に本番の鍵と Price（B の PR）
+- 人間の手番で分かったこと: Stripe の新しい Webhook の画面は「イベントの宛先」。checkout.session.completed が見つからず 5 つで作った（購読の 3 つで動作は同じ）
+
+Session: B
