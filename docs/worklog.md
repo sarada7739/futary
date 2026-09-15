@@ -13397,3 +13397,10 @@ Session: A
 - 053 の残り（OAuth の URL・OpenAI データ共有オフ・Search Console・Always Use HTTPS）は人間に念押し
 
 Session: B
+
+## 2026-09-15 セッションA: 048 段階2 の B の判断 4 点を受け入れ、設計文書に写した
+
+- couple_plans に stripe_customer_id / stripe_subscription_id / stripe_cancel_at、couple.get に planSource / planExpiresAt / planCancelAt、billing.* と Webhook を architecture.md 4・5節に
+- Managed Payments を使わない（明示オフ）・cancel_at で「まで」を出す、を 048 の 3節に
+
+Session: A

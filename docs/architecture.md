@@ -286,8 +286,13 @@ couple_plans                                    -- 045。ペアのプラン。�
   couple_id   TEXT    PK -> couples.id
   plan        TEXT    NOT NULL                  -- 'free' | 'paid'。未知の値は free として扱う
   source      TEXT    NOT NULL DEFAULT 'manual' -- 'manual'（運営が手で）| 将来 'stripe'
-  expires_at  INTEGER                           -- NULL = 無期限。過ぎていれば free
+  expires_at  INTEGER                           -- NULL = 無期限。過ぎていれば free。stripe なら current_period_end
   updated_at  INTEGER NOT NULL
+  stripe_customer_id     TEXT                   -- 048。cus_…
+  stripe_subscription_id TEXT                   -- 048。sub_…
+  stripe_cancel_at       INTEGER                -- 048。Portal で「期間の終わりで解約」を選ぶと入る（status は active のまま）。
+                                                --   画面は「〇月〇日まで」を出す。paid の判定は expires_at のまま
+                                                -- Webhook だけが stripe の行を書く。manual の行は触らない
                                                 -- 判定は lib/plan.ts の resolvePlan の 1 箇所。
                                                 -- 無料枠: 作ったアルバムの写真の合計 30 枚（FREE_ALBUM_PHOTO_LIMIT）
 
@@ -747,8 +752,14 @@ SQLite は範囲条件を索引で使えない。繰り返す記念日は登録�
 ```
 me.get              現在のユーザーと所属ペア。未認証ならデモ閲覧モードを返す
 couple.create       {}                        付き合った日を受け取らない（023。マイページであとから設定する）
-couple.get          -> { datingDate: string | null, ..., plan: "free"|"paid", albumQuota: { limit, used } | null }
+couple.get          -> { datingDate: string | null, ..., plan: "free"|"paid", albumQuota: { limit, used } | null,
+                         planSource: "manual"|"stripe"|null, planExpiresAt: number|null, planCancelAt: number|null }
                     plan・albumQuota は 045。paid なら albumQuota は null。デモペアは paid
+                    planSource・planExpiresAt・planCancelAt は 048（マイページの「〇月〇日に更新／まで」と「プランを管理」の出し分け）
+billing.prices      {} -> { monthly: { amount, currency, priceId }, yearly: {...} }（048。Stripe から。1 時間キャッシュ）
+billing.createCheckoutSession { interval: "month"|"year" } -> { url }（048。paid なら CONFLICT。managed_payments は使わない）
+billing.createPortalSession   {} -> { url }（048。stripe_customer_id が無ければ NOT_FOUND）
+POST /api/stripe/webhook      oRPC の外。署名を確かめ、購読を読み直して couple_plans を upsert（048）
 couple.update       { datingDate: string | null, marriedDate, primaryDate }
 invite.issue        -> { code, expiresAt }
 invite.accept       { code }
