@@ -90,6 +90,8 @@ ALTER TABLE couple_plans ADD COLUMN stripe_subscription_id TEXT;   -- sub_…。
 ```
 
 `source = 'stripe'` の行を Webhook が書く。`manual` の行（運営のペア）は Webhook が触らない（`source` を見る）。
+**`stripe_cancel_at INTEGER`** も持つ: Portal の「期間の終わりで解約」は今の Stripe では `subscription.cancel_at` で表され、`status` は `active` のまま・`cancel_at_period_end` は `false`。paid の判定は `expires_at` のまま（期限まで paid が正しい）。画面は `cancel_at` があれば「〇月〇日まで」、無ければ「〇月〇日に更新」。
+**Checkout は `managed_payments.enabled = false` を明示する。**新しい Stripe アカウントは Managed Payments（Stripe が販売者として税務を代行）が既定でオンで、税コードの無い商品の Checkout を 400 で拒む。日本の個人が日本向けに税込で売るだけなので使わない。
 
 ### 契約
 
