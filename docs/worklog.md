@@ -13450,3 +13450,9 @@ Session: B
 - Stripe の新しい Webhook 画面では `checkout.session.completed` が見つからず 5 event で登録（購読の event で同じ処理になるので支障なし）
 
 Session: B
+
+## 2026-09-16 セッションA: 048 段階2 の本番（サンドボックス鍵）を人間が確認 OK。現在地を整理
+
+- 次は本番の鍵への差し替え（人間の Stripe 準備が先）→ 047。B はクリアしてよい状態
+
+Session: A

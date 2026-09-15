@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-16 / セッションB。**048 段階2（決済）: 本番デプロイ済み（main 3c5397f）。本番でサンドボックスの鍵のまま申し込み → 「プレミアムになりました」（Stripe の Webhook が本番に届いた）。次は人間: Portal で解約の確認 → Stripe の本人確認 → 本番モードで商品・価格を作り直し → 本番の Price ID 2 つを B へ（差し替え PR）→ `sk_live_` と本番の Webhook の `whsec_` を `wrangler secret put`。**
+**最終更新**: 2026-09-16 / セッションA。**048 段階2（決済）: 本番でサンドボックスの一周を人間が確認 OK（2026-09-16）。次は本番の鍵への差し替え（人間の Stripe 本番モードの準備が先）→ 047（鍵）。B は待機。**
+- 人間の手番: Stripe の本人確認 → 本番モードで Price 2 つ → 本番の Webhook（`https://nisoine.com/api/stripe/webhook`）→ Price ID・`whsec_`・`sk_live_` を B に → B の PR（Price ID の差し替え。`wrangler.toml`）→ secret の許可 → デプロイ → 本番で 1 回申し込み
+- そのあと A が 047（やめたあとの鍵）を起票し直す（規約 8 節・特商法の「解約後のデータ」を草案の文面に戻すのも 047）
+- 未着手のもの: iOS 段階0（Opus で）・メール認証（マジックリンク）・042 の上限 50
+- 開いている PR: Dependabot の fflate 0.8.3（#340・#382。B が通常の手順で）
+
+---
+
+**最終更新（旧）: 2026-09-16 / セッションB。**048 段階2（決済）: 本番デプロイ済み（main 3c5397f）。本番でサンドボックスの鍵のまま申し込み → 「プレミアムになりました」（Stripe の Webhook が本番に届いた）。次は人間: Portal で解約の確認 → Stripe の本人確認 → 本番モードで商品・価格を作り直し → 本番の Price ID 2 つを B へ（差し替え PR）→ `sk_live_` と本番の Webhook の `whsec_` を `wrangler secret put`。**
 - 直したこと: デプロイ直後の `billing.prices` 500 は本番の `STRIPE_SECRET_KEY` の貼り間違い（次の行が混入）。入れ直しで解決
 - Stripe の Webhook は 5 event で登録（`checkout.session.completed` は新 UI で見つからず。購読の event で同じ処理）
 - 判定 `artifacts/048/review-stage2.md`。報告 `artifacts/048/stage2.md`。一周 `stage2/local-loop.txt`
