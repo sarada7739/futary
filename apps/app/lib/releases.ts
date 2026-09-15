@@ -16,7 +16,7 @@ export type Release = {
 export const RELEASES: readonly Release[] = [
   {
     version: "3.1.0",
-    date: "2026-09-15",
+    date: "2026-09-16",
     title: "プレミアムプランを始めました",
     items: ["写真を 5 万枚まで保存できます", "月額と年額から選べます"],
     route: "/premium",

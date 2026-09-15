@@ -21,7 +21,7 @@
 | `apps/app/app/(tabs)/premium.tsx` | 月額／年額・価格（Stripe から）・「プレミアムを始める →」（`window.location.assign`）・「いつでも解約できます・自動更新」・特商法/規約のリンク。paid: 「プレミアムです」+「プランを管理」（stripe のときだけ）+ 解約済みなら「（10月15日まで）」。ゲスト: 「ログインして始める」。`?status=success`: 3 秒ごと最大 30 秒 |
 | `apps/app/app/(tabs)/profile.tsx` | 「プラン: プレミアム（10月15日に更新）」/ 解約済み「（10月15日まで）」+「プランを管理 ›」 |
 | `apps/app/lib/plan.ts`・`components/legal-links.tsx`・`packages/date`（`formatJstMonthDayJa`） | 文言の補助。法務リンクに `/tokushoho` |
-| `apps/app/lib/releases.ts` | 3.1.0「プレミアムプランを始めました」（`/premium`。日付は仮に 09-15。マージ日に直す） |
+| `apps/app/lib/releases.ts` | 3.1.0「プレミアムプランを始めました」（`/premium`。日付はマージ日 2026-09-16） |
 | `apps/landing/tokushoho.html`（新規）・`terms.html`・`index/privacy` のフッター・`sitemap.xml`・`build-public.mjs` | 特商法の表記。規約に 8 節を挿して 8〜11。**「解約後のデータ」は 047 まで「新しく追加できなくなります」**（A 受け入れ。`stage2/p7b-text.txt` で草案との差が その 2 箇所だけと確認） |
 
 ## 実測で見つけて直したこと
@@ -41,7 +41,6 @@
 - `RpcContext.billing` は optional（無ければ billing.* が 500。他の手続きは影響なし）
 - 旧ホスト（`*.workers.dev`）への Webhook は 053 の 403 になる。Stripe には `https://nisoine.com/api/stripe/webhook` だけを登録する
 - 価格の 1 時間キャッシュは isolate ごと。Price ID を差し替えたデプロイで自然に消える
-- 3.1.0 の日付はマージ日に合わせて直す
 
 ## テスト
 
