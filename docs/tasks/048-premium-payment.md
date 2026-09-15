@@ -21,7 +21,7 @@
 | 6 | 価格の置き場 | 月額・年額の **Price ID を `wrangler.toml` の `[vars]`**（秘密ではない）。**金額は Stripe が真実**。画面の「¥420」は `billing.prices` で Stripe から取って出す（コードに書かない） | 値段を変えるのが Stripe のダッシュボードだけで済む |
 | 7 | 事業者の表示 | 利用規約・プライバシーポリシーは 052 で公開済み（`/terms` `/privacy`）。**「特定商取引法に基づく表記」を `/tokushoho` に足す**（草案 `docs/legal/tokushoho-draft.md`。人間が確認）。**利用規約 8 節（プレミアム）を足して HTML を 8〜11 に振り直す**（草案は済み） | 無いと売れない（法律。Stripe の審査でも見られる） |
 | 8 | 領収書・請求書 | Stripe のメール（Checkout の設定）に任せる | 自前で作らない |
-| 9 | 二重の申し込み | Checkout を作る前に `resolvePlan` が paid なら **`CONFLICT`**。Webhook で 2 本目の購読が来たら**古い方を Stripe で解約**（`subscriptions.cancel`）してログ | 同時に 2 人が押す形はある |
+| 9 | 二重の申し込み | Checkout を作る前に `resolvePlan` が paid なら **`CONFLICT`**。Webhook で**行の購読 id と違う購読**の snapshot が来たら: paid なら 2 本目 → 行の購読が生きていれば Stripe で解約（`subscriptions.cancel`）してログし、新しい方を書く。paid でなければ別の購読が終わっただけ → **書かない**（古い購読の event が遅れて届いても新しい paid の行を落とさない。R の指摘） | 同時に 2 人が押す形はある。event の順序に依存しない |
 | 10 | Stripe の本番・テスト | **テストモードで全部通してから本番の鍵に替える**。鍵は `wrangler secret`（`.dev.vars` はテスト用） | 秘密の扱いは今までどおり |
 | 11 | リリース履歴 | **入れる**（段階1: 2.2.0「アルバムの写真をまとめて持ち出せます」、段階2: **3.1.0**「プレミアムプランを始めました」。3.0.0 は 051（改名））。文言は 4節 | 利用者に見える |
 
@@ -143,7 +143,8 @@ ALTER TABLE couple_plans ADD COLUMN stripe_subscription_id TEXT;   -- sub_…。
 | P6 | 画面: free で価格とボタン・paid で「プランを管理」・ゲストで「ログインして始める」・`?status=success` の読み直し | `apps/app` |
 | P7 | `/premium` に「トライアル」「無制限」の文字が無い。「特定商取引法に基づく表記」「利用規約」へのリンクがある | `apps/app` |
 | P7b | `/tokushoho` が 200。`terms.html` に「8. プレミアム」があり節番号が 8〜11 | `apps/api` |
-| P8 | `me.delete`: Stripe の購読が生きていれば**先に解約してから**行を消す（退会で課金が続かない）。解約に失敗したら退会を止めて `INTERNAL`（課金だけ残る形を作らない） | `apps/api` |
+| P8 | `me.delete`: Stripe の購読が生きていれば**先に解約してから**行を消す（退会で課金が続かない）。解約に失敗したら退会を止めて `INTERNAL`（課金だけ残る形を作らない）。**そのあと `customers.del`**（Checkout で入れたメールを Stripe に残さない。プライバシーポリシー 4 節）。`customers.del` の失敗は退会を止めない（ログだけ。請求書・決済の記録は Stripe が法令上の保存のため残す） | `apps/api` |
+| P8b | Webhook: 行の購読 id と違う購読の `canceled` が来ても paid の行を落とさない。違う購読の `active` が来たら古い方を `cancel` して新しい方を書く | `apps/api` |
 | P9 | マイグレーションの実体とファイル | `packages/db` |
 
 **テストモードで人間が 1 回申し込む → paid になる → Portal で解約 → 期限で free**、まで通してから本番の鍵に替える（人間の手番）。
