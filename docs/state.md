@@ -3,7 +3,16 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-16 / セッションB。**048 段階2（決済）: R 受け入れ → 人間が secret 2 つ → #378 を squash merge（main 3c5397f）。次は人間の手番: GitHub の Deploy（`production`）の承認（最新だけ） → 本番 `https://nisoine.com/app/premium` でサンドボックスの鍵のまま 1 回申し込み → paid → Portal で解約（本番の Webhook が届く確認）。**
+**最終更新**: 2026-09-16 / セッションB。**048 段階2（決済）: 本番デプロイ済み（main 3c5397f）。本番でサンドボックスの鍵のまま申し込み → 「プレミアムになりました」（Stripe の Webhook が本番に届いた）。次は人間: Portal で解約の確認 → Stripe の本人確認 → 本番モードで商品・価格を作り直し → 本番の Price ID 2 つを B へ（差し替え PR）→ `sk_live_` と本番の Webhook の `whsec_` を `wrangler secret put`。**
+- 直したこと: デプロイ直後の `billing.prices` 500 は本番の `STRIPE_SECRET_KEY` の貼り間違い（次の行が混入）。入れ直しで解決
+- Stripe の Webhook は 5 event で登録（`checkout.session.completed` は新 UI で見つからず。購読の event で同じ処理）
+- 判定 `artifacts/048/review-stage2.md`。報告 `artifacts/048/stage2.md`。一周 `stage2/local-loop.txt`
+- 053 の人間の残り（OAuth の URI・同意画面・OpenAI オフ・Search Console・Always Use HTTPS・1 週間後の旧 URI 削除）はそのまま
+- 047（鍵）が次のタスク（A の起票待ち）。規約 8 節・特商法の「解約後のデータ」は 047 で草案の文面に戻す。042 の上限 50 は後回し
+
+---
+
+**最終更新（旧）**: 2026-09-16 / セッションB。**048 段階2（決済）: R 受け入れ → 人間が secret 2 つ → #378 を squash merge（main 3c5397f）。次は人間の手番: GitHub の Deploy（`production`）の承認（最新だけ） → 本番 `https://nisoine.com/app/premium` でサンドボックスの鍵のまま 1 回申し込み → paid → Portal で解約（本番の Webhook が届く確認）。**
 - 本番の鍵と Price への差し替えは特商法のページ公開後（このデプロイで `/tokushoho` は公開される）。本番モードで商品・価格を作り直し、`wrangler.toml` の Price ID を差し替える PR（B）+ `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` を本番のものに + 本番の Webhook エンドポイント + Stripe の本人確認
 - 判定 `artifacts/048/review-stage2.md`（必須修正 1 → 閉じた。追加 2 コミットも受け入れ）。報告 `artifacts/048/stage2.md`。一周 `artifacts/048/stage2/local-loop.txt`
 - 053 の人間の残り（OAuth の URI・同意画面・OpenAI オフ・Search Console・Always Use HTTPS・1 週間後の旧 URI 削除）はそのまま

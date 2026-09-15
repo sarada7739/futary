@@ -13442,3 +13442,11 @@ Session: B
 - 人間の手番で分かったこと: Stripe の新しい Webhook の画面は「イベントの宛先」。checkout.session.completed が見つからず 5 つで作った（購読の 3 つで動作は同じ）
 
 Session: B
+
+## 2026-09-16 セッションB: 048 段階2 — 本番でサンドボックスの申し込みが反映された（Stripe の Webhook が本番に届いた）
+
+- デプロイ直後の `billing.prices` は 500: 本番の `STRIPE_SECRET_KEY` の値に次の行が混ざっていた（人間の貼り付け）。入れ直しで解決（`wrangler tail` で「Invalid API Key」を確認）
+- 本番 `/app/premium` → Checkout → 「プレミアムになりました」。Portal の解約はこれから
+- Stripe の新しい Webhook 画面では `checkout.session.completed` が見つからず 5 event で登録（購読の event で同じ処理になるので支障なし）
+
+Session: B
