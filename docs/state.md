@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-15 / セッションB。**052（プライバシーポリシーと利用規約のページ）: R 受け入れ（dd4db9c + 追加 03cc90a）→ #367 を squash merge（main c67b45f）。次は人間の手番: デプロイの承認 → Google の OAuth 同意画面に `https://…/privacy`（とアプリのホームページの URL）を登録 → OpenAI のダッシュボードでデータ共有（入力・出力の共有）をオフ。**
+**最終更新**: 2026-09-15 / セッションA。**053（独自ドメイン `nisoine.com` へ移す）を起票した。Cloudflare のゾーンが Active になったら B が着手。**
+- 人間が `nisoine.com` を買い（お名前.com）、Cloudflare にゾーンを作ってネームサーバーを向けた。反映待ち
+- 053: Custom Domain（`routes`）・旧 URL と `www` は 301・API は旧ホストで 403・HSTS・`TRUSTED_ORIGINS`/R2 CORS は新オリジンだけ・robots/sitemap/canonical。人間: secret の許可・Google OAuth の URI と同意画面・Search Console・実機
+- 052 完了（法務ページ）。人間の手番: OAuth 同意画面の URL（053 で `nisoine.com` に差し替えるので、そのときでもよい）・OpenAI のデータ共有オフ
+- 048 段階2（決済）・iOS は合図待ち。iOS は Opus で回す（人間の意向）
+
+---
+
+**最終更新（旧）: 2026-09-15 / セッションB。**052（プライバシーポリシーと利用規約のページ）: R 受け入れ（dd4db9c + 追加 03cc90a）→ #367 を squash merge（main c67b45f）。次は人間の手番: デプロイの承認 → Google の OAuth 同意画面に `https://…/privacy`（とアプリのホームページの URL）を登録 → OpenAI のダッシュボードでデータ共有（入力・出力の共有）をオフ。**
 - 判定は `artifacts/052/review-stage1.md`（どちらも必須修正なし）。報告は `artifacts/052/stage1.md`
 - 草案 `terms-draft.md` も 8〜10（main 52be760。HTML と一致）。048 段階2 で「8. プレミアム」を挿して以降を振り直す手順は草案の冒頭にある（A）
 - 048 段階2（決済。3.1.0）は合図待ち。047（鍵）は段階2の後。042 の上限 50 は後回し
