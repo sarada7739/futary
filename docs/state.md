@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-15 / セッションB。**053（独自ドメイン nisoine.com）: 実装完了。PR #373（`task/053-custom-domain`）。R の手番。マージは人間から「ゾーン Active」を聞いてから（Active 前は `wrangler deploy` が失敗する）。**マージ前に人間: `wrangler secret put BETTER_AUTH_URL`=`https://nisoine.com`・`TRUSTED_ORIGINS`=`https://nisoine.com`（旧オリジン無し）と `pnpm r2:cors:apply` の許可
+**最終更新**: 2026-09-15 / セッションB。**053（独自ドメイン nisoine.com）: R 受け入れ → 人間の許可で secret（`BETTER_AUTH_URL`・`TRUSTED_ORIGINS` = `https://nisoine.com`）と R2 CORS を本番に適用 → #373 を squash merge（main 0505471）。次は人間の手番: GitHub の Deploy（`production`）の承認。**
+- **承認は最新の 0505471 だけ**。c67b45f・2ee7768・5e52130・e8cfbc3・e82622a の Deploy が待ちのまま残っている（052 以降の docs のマージ分）。古いものは reject する（後から承認すると Worker が巻き戻る）
+- デプロイ後の人間: (1) `curl -I https://futary-api.sarada7739.workers.dev/` と `https://www.nisoine.com/` が 301 → `https://nisoine.com/`。(2) Google Cloud Console: リダイレクト URI `https://nisoine.com/api/auth/callback/google`・JavaScript 生成元 `https://nisoine.com`・同意画面（承認済みドメイン `nisoine.com`、ホームページ `/`、プライバシー `/privacy`、規約 `/terms`。052 の分もここで）。(3) OpenAI のデータ共有オフ（052）。(4) `https://nisoine.com/` でログイン → 投稿 → 写真 → 保存、iPhone のアイコン入れ直し。(5) Search Console に `sitemap.xml`。(6) Cloudflare ゾーンの SSL/TLS →「Always Use HTTPS」をオン（R の記録 1。初回の http を 301 に）。(7) 1 週間後に旧リダイレクト URI を消す
+- 判定は `artifacts/053/review-stage1.md`（必須修正なし）。報告 `artifacts/053/stage1.md`。secret 更新以降、デプロイまでは旧 URL でログインできない（承認を急ぐ理由）
+- 048 段階2（決済。3.1.0）は合図待ち。047（鍵）は段階2の後。042 の上限 50 は後回し
+
+---
+
+**最終更新（旧）**: 2026-09-15 / セッションB。**053（独自ドメイン nisoine.com）: 実装完了。PR #373（`task/053-custom-domain`）。R の手番。マージは人間から「ゾーン Active」を聞いてから（Active 前は `wrangler deploy` が失敗する）。**マージ前に人間: `wrangler secret put BETTER_AUTH_URL`=`https://nisoine.com`・`TRUSTED_ORIGINS`=`https://nisoine.com`（旧オリジン無し）と `pnpm r2:cors:apply` の許可
 - 報告は `artifacts/053/stage1.md`（人間の手番の表に値を書いた。052 の OAuth 同意画面の URL と OpenAI のデータ共有オフは 053 のデプロイ後にまとめる）。lint・型・全テスト緑
 - 設計の変更（A 受け入れ e8cfbc3）: `run_worker_first = true`・セキュリティヘッダは Worker（`security-headers.ts`。CSP のハッシュは配信する HTML から計算。パス+ETag で 1 度）・`_headers` の生成は消した
 - **A へ**: `/` `/privacy` の CSP は移行前より狭い（app のハッシュ 2 本が付かない）。`architecture.md` 3節・`security-requirements.md` 7節の書き換えは A。`deploy.yml` の `R2_ACCOUNT_ID` は build が読まなくなった（消すかは A）
