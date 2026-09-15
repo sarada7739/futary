@@ -52,6 +52,8 @@ Worker は1つ。ドメインは **`https://nisoine.com`**（053。Workers の C
 |---|---|
 | `/` | ランディングページ（静的） |
 | `/privacy` `/terms` | プライバシーポリシー・利用規約（静的。052） |
+| `/tokushoho` | 特定商取引法に基づく表記（静的。048） |
+| `/tech` | 技術構成（静的。054。LP から移した面接官向けの節。`sitemap.xml` には載せない） |
 | `/robots.txt` `/sitemap.xml` | 検索向け（053） |
 | `/app/*` | アプリ本体（Expo Web エクスポート・SPA フォールバック） |
 | `/api/*` | Hono + oRPC |
@@ -831,7 +833,7 @@ want.setObtained    { id, obtained } -> 更新後の1件。本人のみ
 want.delete         { id } -> { id }。論理削除 + R2 は物理削除。本人のみ
 want.uploadUrl      { contentType: "image/jpeg" } -> { imageId, url }。post.uploadUrl と同じ形
                     他ペアの id は NOT_FOUND（FORBIDDEN にしない。存在を教えない）
-album.list          {} -> { timeline: { photoCount, previews: Photo[]（最新4枚） }, items: Album[] }（041。新しい順。100件上限。T9 対象）
+album.list          {} -> { timeline: { photoCount, previews: Photo[]（最新4枚） }, items: Album[] }（041。新しい順。ページング無し。件数の上限は 1 ペア 1,000 件〈055。041 では 100〉。T9 対象）
                     Album = { id, title, note, startDate, endDate, photoCount, cover: { url, width, height } | null, createdAt }
                     created_by を返さない。canEdit も返さない（wishes と同じ。両方が触れる）
 album.get           { id } -> Album。他ペア・削除済み・無い id は NOT_FOUND
