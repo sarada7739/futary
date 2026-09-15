@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-15 / セッションA。**053（独自ドメイン `nisoine.com` へ移す）を起票した。Cloudflare のゾーンが Active になったら B が着手。**
+**最終更新**: 2026-09-15 / セッションB。**053（独自ドメイン nisoine.com）: 実装完了。PR #373（`task/053-custom-domain`）。R の手番。マージは人間から「ゾーン Active」を聞いてから（Active 前は `wrangler deploy` が失敗する）。**マージ前に人間: `wrangler secret put BETTER_AUTH_URL`=`https://nisoine.com`・`TRUSTED_ORIGINS`=`https://nisoine.com`（旧オリジン無し）と `pnpm r2:cors:apply` の許可
+- 報告は `artifacts/053/stage1.md`（人間の手番の表に値を書いた。052 の OAuth 同意画面の URL と OpenAI のデータ共有オフは 053 のデプロイ後にまとめる）。lint・型・全テスト緑
+- 設計の変更（A 受け入れ e8cfbc3）: `run_worker_first = true`・セキュリティヘッダは Worker（`security-headers.ts`。CSP のハッシュは配信する HTML から計算。パス+ETag で 1 度）・`_headers` の生成は消した
+- **A へ**: `/` `/privacy` の CSP は移行前より狭い（app のハッシュ 2 本が付かない）。`architecture.md` 3節・`security-requirements.md` 7節の書き換えは A。`deploy.yml` の `R2_ACCOUNT_ID` は build が読まなくなった（消すかは A）
+- 048 段階2（決済。3.1.0）は合図待ち。047（鍵）は段階2の後。042 の上限 50 は後回し
+
+---
+
+**最終更新（旧）**: 2026-09-15 / セッションA。**053（独自ドメイン `nisoine.com` へ移す）を起票した。Cloudflare のゾーンが Active になったら B が着手。**
 - 人間が `nisoine.com` を買い（お名前.com）、Cloudflare にゾーンを作ってネームサーバーを向けた。反映待ち
 - 053: Custom Domain（`routes`）・旧 URL と `www` は 301・API は旧ホストで 403・HSTS・`TRUSTED_ORIGINS`/R2 CORS は新オリジンだけ・robots/sitemap/canonical。人間: secret の許可・Google OAuth の URI と同意画面・Search Console・実機
 - 052 完了（法務ページ）。人間の手番: OAuth 同意画面の URL（053 で `nisoine.com` に差し替えるので、そのときでもよい）・OpenAI のデータ共有オフ
