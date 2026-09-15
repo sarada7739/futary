@@ -13427,3 +13427,10 @@ Session: A
 - R の記録 2（退会で Stripe の customer が残る）: me.delete で解約のあと customers.del。失敗は退会を止めない。決済の記録は法令上残るので、プライバシーポリシー 4 節に一文足した（公開ページも B が合わせる）
 
 Session: A
+
+## 2026-09-15 セッションB: 048 段階2 — A の判断で退会時に Stripe の customer も消す（R の記録 2）。プライバシーポリシー 4 節の一文を privacy.html に
+
+- `me.delete`: 購読の解約のあと `customers.del`（失敗は退会を止めずログだけ。A の判断）。P8 に 2 件。R の記録（差し替えのログの文言）も直した
+- R は d1fdb23 を受け入れ（`artifacts/048/review-stage2.md` 末尾）。この追加分だけ R に見てもらう
+
+Session: B

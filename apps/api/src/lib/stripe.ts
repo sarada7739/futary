@@ -58,6 +58,8 @@ export interface StripeGateway {
   latestSubscriptionOf(customerId: string): Promise<SubscriptionSnapshot | null>;
   // 退会時。既に解約済みなら何もしない（冪等）
   cancelSubscription(subscriptionId: string): Promise<void>;
+  // 退会時（解約のあと）。Checkout で利用者が入れたメールを Stripe に残さない。既に無ければ何もしない
+  deleteCustomer(customerId: string): Promise<void>;
   // 署名が違えば投げる（呼び出し側が 400 にする）
   constructWebhookEvent(rawBody: string, signature: string): Promise<WebhookEventSummary>;
 }
@@ -146,6 +148,16 @@ export function createStripeGateway(env: StripeEnv): StripeGateway {
       const sub = await stripe.subscriptions.retrieve(subscriptionId);
       if (sub.status === "canceled") return;
       await stripe.subscriptions.cancel(subscriptionId);
+    },
+
+    async deleteCustomer(customerId) {
+      try {
+        await stripe.customers.del(customerId);
+      } catch (e) {
+        // 既に消えている（resource_missing）は冪等に成功扱い。それ以外は投げる
+        if (e instanceof Stripe.errors.StripeInvalidRequestError && e.code === "resource_missing") return;
+        throw e;
+      }
     },
 
     async constructWebhookEvent(rawBody, signature) {

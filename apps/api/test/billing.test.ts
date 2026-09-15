@@ -36,7 +36,9 @@ class FakeStripe implements StripeGateway {
   checkoutCalls: Parameters<StripeGateway["createCheckoutSession"]>[0][] = [];
   portalCalls: Parameters<StripeGateway["createPortalSession"]>[0][] = [];
   canceled: string[] = [];
+  deletedCustomers: string[] = [];
   cancelShouldFail = false;
+  deleteCustomerShouldFail = false;
   seq = 0;
 
   async retrievePrice(priceId: string) {
@@ -69,6 +71,11 @@ class FakeStripe implements StripeGateway {
     this.canceled.push(subscriptionId);
     const sub = this.subscriptions.get(subscriptionId);
     if (sub) this.subscriptions.set(subscriptionId, { ...sub, status: "canceled" });
+  }
+  async deleteCustomer(customerId: string) {
+    if (this.deleteCustomerShouldFail) throw new Error("stripe down (customer)");
+    this.deletedCustomers.push(customerId);
+    this.customers.delete(customerId);
   }
   async constructWebhookEvent(rawBody: string, signature: string) {
     const event = await Stripe.webhooks.constructEventAsync(
@@ -663,9 +670,36 @@ describe("P8: me.delete は Stripe の購読を先に解約する", () => {
 
     await call(router.me.delete, undefined, { context: contextFor(owner) });
     expect(fake.canceled).toEqual(["sub_1"]);
+    // 解約のあと customer も消す（順序: 解約 → customer）
+    expect(fake.deletedCustomers).toEqual([cus]);
     expect(await planRow(coupleId)).toBeNull();
     const user = await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first();
     expect(user).toBeNull();
+  });
+
+  it("customer の削除に失敗しても退会は止めない（購読の解約は済んでいる）", async () => {
+    const { owner, coupleId } = await createPair();
+    const cus = await fake.createCustomer(coupleId);
+    fake.putSubscription("sub_1", cus, "active", PERIOD_END);
+    const body = subscriptionEvent("customer.subscription.created", "sub_1", cus);
+    await postWebhook(body, await sign(body));
+
+    fake.deleteCustomerShouldFail = true;
+    await call(router.me.delete, undefined, { context: contextFor(owner) });
+    expect(fake.canceled).toEqual(["sub_1"]);
+    expect(fake.deletedCustomers).toEqual([]);
+    expect(await planRow(coupleId)).toBeNull();
+    expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
+  });
+
+  it("購読は無いが customer はある（Checkout の途中でやめた）: customer だけ消して退会", async () => {
+    const { owner, coupleId } = await createPair();
+    await call(router.billing.createCheckoutSession, { interval: "month" }, { context: contextFor(owner) });
+    const cus = (await planRow(coupleId))!.stripe_customer_id!;
+    await call(router.me.delete, undefined, { context: contextFor(owner) });
+    expect(fake.canceled).toEqual([]);
+    expect(fake.deletedCustomers).toEqual([cus]);
+    expect(await planRow(coupleId)).toBeNull();
   });
 
   it("解約に失敗したら退会を止める（行もユーザーも残る）", async () => {

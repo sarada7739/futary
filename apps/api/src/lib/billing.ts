@@ -64,7 +64,8 @@ export async function applySubscriptionSnapshot(
     // 2 本目が生きている: 古い方（行の購読）を Stripe で解約する。二重に課金が続く形を作らない。
     // 解約に失敗したら例外 → Webhook は 500 → Stripe が再送する（行はまだ古い方のまま）
     await gateway.cancelSubscription(current);
-    log?.(`stripe: second subscription for couple=${coupleId.slice(0, 8)}: canceled ${current.slice(0, 12)}, now ${snapshot.id.slice(0, 12)}`);
+    // 文言: 既に canceled だった（再申し込み）なら cancelSubscription は no-op なので「解約した」とは書かない（R の記録）
+    log?.(`stripe: second subscription for couple=${coupleId.slice(0, 8)}: replaced ${current.slice(0, 12)} (cancel requested; no-op if already ended) with ${snapshot.id.slice(0, 12)}`);
     result = "written_replaced_subscription";
   }
   // paid のときは期限を必ず持つ。取れなければ既存の値を保つ（COALESCE）

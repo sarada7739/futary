@@ -173,6 +173,17 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       }
       await context.billing.gateway.cancelSubscription(planRow.stripe_subscription_id);
     }
+    // 解約のあと、Stripe の customer も消す（Checkout で利用者が入れたメールを残さない。
+    // プライバシーポリシー 4 節。請求書・決済の記録は Stripe が法令上の保存のため残す）。
+    // **失敗しても退会は止めない**（ログだけ。A の判断。課金は上で止まっているので実害は
+    // customer の残骸だけ）。customer があるのに Stripe 未設定なら、購読の有無に関わらず上と同じ矛盾
+    if (planRow?.stripe_customer_id && context.billing) {
+      try {
+        await context.billing.gateway.deleteCustomer(planRow.stripe_customer_id);
+      } catch (e) {
+        console.log(`me.delete: stripe customer ${planRow.stripe_customer_id.slice(0, 12)} の削除に失敗: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
 
     // R2の削除は行の並びから独立している（上のdeleteAllByPrefixのコメント
     // 参照）ため、D1の削除より前でも後でも構わない。ここでは先に済ませ、

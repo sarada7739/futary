@@ -61,3 +61,17 @@ sub_1（canceled, 期限 NOW-5）を apply → **free / sub_1**   ← 払って�
 
 - 本番の Webhook が届くこと（人間の手番 #4）・Portal の解約許可・本番の鍵への切り替え
 - 画面（`premium-screen.test.tsx` 15・`profile-screen.test.tsx` 3 は緑を見た。スクリーンショットは無い）
+
+## 追加コミット d1fdb23（必須修正 1）— R の判定
+
+futary-R で d1fdb23 を checkout して実行した。api 692 緑・`tsc --noEmit` 緑・`eslint .` 緑。差分は `lib/billing.ts`（`applySubscriptionSnapshot` に gateway と log）・`stripe-webhook.ts`（引数）・P2b 5 本・証跡・worklog（追記のみ）。
+
+**受け入れ。必須修正 1 は閉じた。**
+
+- 段階1の判定で再現に使った使い捨てのテストを直した版で再実行: sub_2 active のあとに sub_1 canceled が遅れて来ても **paid / sub_2 のまま**（`skipped_other_subscription`。解約は呼ばない）。続けて sub_3 active が来ると **sub_2 を解約して差し替え**（`written_replaced_subscription`。0節 #9 の後半）。削除済み
+- 壊して確かめた: 古い方を解約しない → 3 本赤、paid でなくても書く → 1 本赤、解約の失敗を握りつぶす → 1 本赤（P2b の (a)(b)(d) が拾う）
+- 読んで: 2 本目の解約で Stripe が出す古い方の `customer.subscription.deleted` は、行が新しい方なので `skipped_other_subscription` で落ちる（自分の解約で自分を free にしない）。再申し込み（`local-loop.txt` #9 の形。行の購読が既に canceled）は本物の gateway の `cancelSubscription` が「既に canceled なら何もしない」ので no-op で差し替わる。購読の無い行（Checkout 直後の free/stripe）は `current` が null なのでそのまま書く（(e)）。manual の skip は先に見る（順序は変わっていない）
+
+### 記録（判定に使わない）
+
+- 再申し込みの差し替えでも log は「canceled sub_1」と出る（実際は既に canceled で no-op）。読む人が「ここで解約した」と誤読しうる。文言だけ。任意
