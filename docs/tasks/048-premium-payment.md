@@ -2,7 +2,7 @@
 
 ## 目的
 
-**人間の指示。プレミアムを売る。ZIP での持ち出しと決済を 1 つのタスクで。ただし決済（段階2）は人間が「やる」と言うまで着手しない（2026-09-14）。**
+**人間の指示。プレミアムを売る。ZIP での持ち出しと決済を 1 つのタスクで。段階2（決済）は人間の合図（2026-09-15「ドメイン登録したから決済機能つけていい？」）で着手。**
 
 - **段階1: アルバムの写真を ZIP で持ち出す**（046 の中身をここに畳んだ。Stripe の準備を待つ間に進められる）
 - **段階2: Stripe で申し込み・解約。`couple_plans` に行を書く**
@@ -19,7 +19,7 @@
 | 4 | `expires_at` | Stripe の **`current_period_end`**。更新のたびに Webhook で伸びる。解約は「期間の終わりまで有効」（Stripe の `cancel_at_period_end`）で、期限が来れば free（045 の判定そのまま） | 047 の猶予 30 日はこの期限のあとに乗る |
 | 5 | 解約・カード変更 | **Stripe の Billing Portal に任せる**（マイページの「プランを管理」で飛ぶ） | 自前で作らない |
 | 6 | 価格の置き場 | 月額・年額の **Price ID を `wrangler.toml` の `[vars]`**（秘密ではない）。**金額は Stripe が真実**。画面の「¥420」は `billing.prices` で Stripe から取って出す（コードに書かない） | 値段を変えるのが Stripe のダッシュボードだけで済む |
-| 7 | 事業者の表示 | **「特定商取引法に基づく表記」「利用規約」「プライバシーポリシー」の 3 ページをランディングに置く。**中身は人間が書く（氏名・住所・連絡先が要る）。**無いと売れない**（法律。Stripe の審査でも見られる） | 段階0の人間の手番 |
+| 7 | 事業者の表示 | 利用規約・プライバシーポリシーは 052 で公開済み（`/terms` `/privacy`）。**「特定商取引法に基づく表記」を `/tokushoho` に足す**（草案 `docs/legal/tokushoho-draft.md`。人間が確認）。**利用規約 8 節（プレミアム）を足して HTML を 8〜11 に振り直す**（草案は済み） | 無いと売れない（法律。Stripe の審査でも見られる） |
 | 8 | 領収書・請求書 | Stripe のメール（Checkout の設定）に任せる | 自前で作らない |
 | 9 | 二重の申し込み | Checkout を作る前に `resolvePlan` が paid なら **`CONFLICT`**。Webhook で 2 本目の購読が来たら**古い方を Stripe で解約**（`subscriptions.cancel`）してログ | 同時に 2 人が押す形はある |
 | 10 | Stripe の本番・テスト | **テストモードで全部通してから本番の鍵に替える**。鍵は `wrangler secret`（`.dev.vars` はテスト用） | 秘密の扱いは今までどおり |
@@ -30,7 +30,7 @@
 | # | 何 | 備考 |
 |---|---|---|
 | 1 | Stripe のアカウント（個人事業でよい）。**テストモード**で商品「futary プレミアム」と価格 2 つ（月 ¥420・年 ¥4,200。JPY・recurring） | Price ID（`price_…`）2 つを B に渡す |
-| 2 | **特商法の表記・利用規約・プライバシーポリシーの文面** | 氏名（屋号）・住所・連絡先・支払方法・解約の条件・返金（デジタルの購読は返金しない、等）。**A が雛形を書く**（別 PR）。人間が埋める |
+| 2 | **特商法の表記の草案を確認**（`docs/legal/tokushoho-draft.md`。所在地・電話は「請求があれば開示」の形。屋号や住所を書くならそのとき） | 利用規約 8 節・プライバシーポリシーは A が済ませた |
 | 3 | Webhook の署名の秘密（`whsec_…`）と API の秘密鍵（`sk_test_…`） | `wrangler secret put` は B が人間の許可を取って。ローカルは `.dev.vars` |
 | 4 | Billing Portal を Stripe の設定で有効にする（解約・カード変更を許可） | ダッシュボードの操作 |
 
@@ -96,8 +96,8 @@ ALTER TABLE couple_plans ADD COLUMN stripe_subscription_id TEXT;   -- sub_…。
 | 手続き | 種別 | 入力 | 出力 | 備考 |
 |---|---|---|---|---|
 | `billing.prices` | read | `{}` | `{ monthly: { amount, currency, priceId }, yearly: {...} }` | Stripe から取る（1 時間キャッシュ。Worker のメモリ）。ゲストも読める |
-| `billing.createCheckoutSession` | write | `{ interval: "month" \| "year" }` | `{ url }` | 既に paid なら `CONFLICT`。`customer` はペアに 1 つ（`stripe_customer_id` が無ければ作って**先に `couple_plans` に `plan='free', source='stripe'` の行で保存**）。`metadata.couple_id`。`success_url` = `/app/premium?status=success`、`cancel_url` = `/app/premium` |
-| `billing.createPortalSession` | write | `{}` | `{ url }` | `stripe_customer_id` が無ければ `NOT_FOUND`。`return_url` = `/app/profile` |
+| `billing.createCheckoutSession` | write | `{ interval: "month" \| "year" }` | `{ url }` | 既に paid なら `CONFLICT`。`customer` はペアに 1 つ（`stripe_customer_id` が無ければ作って**先に `couple_plans` に `plan='free', source='stripe'` の行で保存**）。`metadata.couple_id`。`success_url` = `https://nisoine.com/app/premium?status=success`、`cancel_url` = `https://nisoine.com/app/premium`（`BETTER_AUTH_URL` から組む。直書きしない） |
+| `billing.createPortalSession` | write | `{}` | `{ url }` | `stripe_customer_id` が無ければ `NOT_FOUND`。`return_url` = `https://nisoine.com/app/profile`（同上） |
 
 - **どちらも `writeProcedure`**（ゲスト不可）。`couple_id` は ctx から。**Stripe に送るのは `couple_id` だけ**（名前・メールは送らない。領収書のメールは Checkout で利用者が入力する）
 
@@ -127,7 +127,7 @@ ALTER TABLE couple_plans ADD COLUMN stripe_subscription_id TEXT;   -- sub_…。
 - **`?status=success` で戻ったとき**: 「反映しています…」を出して `couple.get` を 3 秒ごとに読み直す（最大 30 秒）。paid になったら「プレミアムになりました」。ならなければ「少し時間がかかることがあります。マイページで確かめてください」（Webhook が遅れることはある）
 - **マイページ**: 「プラン: プレミアム（〇月〇日に更新）」+ 「プランを管理 ›」（Portal）。free は 045 のまま
 - **045 の上限シート**: 「プレミアムプランを見る ›」の先が本物になる。文言は変えない
-- ランディング（`apps/landing`）: **`/terms`・`/privacy`・`/tokushoho` の 3 ページ**（静的 HTML。A の雛形に人間が埋める）。フッターにリンク
+- ランディング（`apps/landing`）: **`/tokushoho` を足す**（`tokushoho-draft.md` から。052 と同じ作り）。**`terms.html` に 8 節を足して 8〜11 に振り直す**（`terms-draft.md` どおり）。フッターと `/premium` にリンク。`sitemap.xml` に `/tokushoho`
 
 ### テスト（段階2）
 
@@ -139,7 +139,8 @@ ALTER TABLE couple_plans ADD COLUMN stripe_subscription_id TEXT;   -- sub_…。
 | P4 | `createCheckoutSession`: paid なら `CONFLICT`。ゲストは不可。Stripe に渡す `metadata` に `couple_id` 以外の個人情報が無い | `apps/api` |
 | P5 | `createPortalSession`: `stripe_customer_id` 無しは `NOT_FOUND`。他ペアの customer で作れない | `apps/api` |
 | P6 | 画面: free で価格とボタン・paid で「プランを管理」・ゲストで「ログインして始める」・`?status=success` の読み直し | `apps/app` |
-| P7 | `/premium` に「トライアル」「無制限」の文字が無い | `apps/app` |
+| P7 | `/premium` に「トライアル」「無制限」の文字が無い。「特定商取引法に基づく表記」「利用規約」へのリンクがある | `apps/app` |
+| P7b | `/tokushoho` が 200。`terms.html` に「8. プレミアム」があり節番号が 8〜11 | `apps/api` |
 | P8 | `me.delete`: Stripe の購読が生きていれば**先に解約してから**行を消す（退会で課金が続かない）。解約に失敗したら退会を止めて `INTERNAL`（課金だけ残る形を作らない） | `apps/api` |
 | P9 | マイグレーションの実体とファイル | `packages/db` |
 
@@ -174,7 +175,7 @@ ALTER TABLE couple_plans ADD COLUMN stripe_subscription_id TEXT;   -- sub_…。
 ## 完了条件
 
 - 段階1: Z1〜Z6 緑・人間の実機・2.2.0
-- 段階2: P1〜P9 緑・テストモードで一周・特商法/規約/プライバシーの 3 ページ・2.3.0・本番の鍵に替えて人間が 1 回申し込む（自分のペアは manual なので**別のテスト用ペア**か、manual の行を一度消してから）
+- 段階2: P1〜P9 緑・テストモードで一周・`/tokushoho` と規約 8 節・3.1.0・本番の鍵に替えて人間が 1 回申し込む（自分のペアは manual なので**別のテスト用ペア**か、manual の行を一度消してから）
 - `state.md` / `worklog.md`
 
 ## 停止条件
@@ -186,7 +187,7 @@ ALTER TABLE couple_plans ADD COLUMN stripe_subscription_id TEXT;   -- sub_…。
 
 ## 順序
 
-**045 の後。段階1（ZIP）は今。段階2（決済）は人間の合図まで止める。**047（鍵）は段階2の後。042 の上限 50 は後回しのまま。
+**段階1（ZIP）は済み。段階2（決済）は 2026-09-15 に着手。**047（鍵）は段階2の後。042 の上限 50 は後回しのまま。
 
 ## 進捗
 

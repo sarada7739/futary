@@ -13384,3 +13384,9 @@ Session: A
 - 残りは人間: GitHub の Deploy（`production`）の承認は **最新の 0505471 だけ**（c67b45f〜e82622a の古い待ちは reject。古いのを後から承認すると巻き戻る）→ Google OAuth の URI・同意画面 → OpenAI のデータ共有オフ → 実機 → Search Console。R の記録 1: ゾーンの「Always Use HTTPS」をオン（初回の http を 301 に）
 
 Session: B
+
+## 2026-09-15 セッションA: 048 段階2（決済）の A の分
+
+- 人間の合図（B 経由）。定義を nisoine.com・3.1.0・/tokushoho に合わせた。特商法の表記の草案（個人なので所在地・電話は請求があれば開示の形）。利用規約 8 節（自動更新・返金なし・解約後の写真は猶予 30 日のち閲覧不可）
+
+Session: A

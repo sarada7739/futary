@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-15 / セッションB。**053（独自ドメイン nisoine.com）: R 受け入れ → 人間の許可で secret（`BETTER_AUTH_URL`・`TRUSTED_ORIGINS` = `https://nisoine.com`）と R2 CORS を本番に適用 → #373 を squash merge（main 0505471）。次は人間の手番: GitHub の Deploy（`production`）の承認。**
+**最終更新**: 2026-09-15 / セッションA。**048 段階2（決済）に着手（人間の合図）。A の分は済み: 定義の見直し（nisoine.com・3.1.0・`/tokushoho`）・特商法の表記の草案・利用規約 8 節。B は人間から Price ID と鍵を受け取り次第、実装（テストモードで一周まで）。**
+- 草案: `docs/legal/tokushoho-draft.md`（所在地・電話は「請求があれば開示」の形）。人間が確認。`terms-draft.md` に 8 節（プレミアム）を足し 8〜11 に
+- 053 完了（nisoine.com。本番は 301/200/HSTS/CSP 正常）。人間の手番: OAuth の URI と同意画面・Always Use HTTPS・Search Console・OpenAI データ共有オフ・1 週間後に旧 URI 削除
+- 047（鍵）は 048 段階2 の後。iOS・上限 50 は合図待ち
+
+---
+
+**最終更新（旧）: 2026-09-15 / セッションB。**053（独自ドメイン nisoine.com）: R 受け入れ → 人間の許可で secret（`BETTER_AUTH_URL`・`TRUSTED_ORIGINS` = `https://nisoine.com`）と R2 CORS を本番に適用 → #373 を squash merge（main 0505471）。次は人間の手番: GitHub の Deploy（`production`）の承認。**
 - **承認は最新の 0505471 だけ**。c67b45f・2ee7768・5e52130・e8cfbc3・e82622a の Deploy が待ちのまま残っている（052 以降の docs のマージ分）。古いものは reject する（後から承認すると Worker が巻き戻る）
 - デプロイ後の人間: (1) `curl -I https://futary-api.sarada7739.workers.dev/` と `https://www.nisoine.com/` が 301 → `https://nisoine.com/`。(2) Google Cloud Console: リダイレクト URI `https://nisoine.com/api/auth/callback/google`・JavaScript 生成元 `https://nisoine.com`・同意画面（承認済みドメイン `nisoine.com`、ホームページ `/`、プライバシー `/privacy`、規約 `/terms`。052 の分もここで）。(3) OpenAI のデータ共有オフ（052）。(4) `https://nisoine.com/` でログイン → 投稿 → 写真 → 保存、iPhone のアイコン入れ直し。(5) Search Console に `sitemap.xml`。(6) Cloudflare ゾーンの SSL/TLS →「Always Use HTTPS」をオン（R の記録 1。初回の http を 301 に）。(7) 1 週間後に旧リダイレクト URI を消す
 - 判定は `artifacts/053/review-stage1.md`（必須修正なし）。報告 `artifacts/053/stage1.md`。secret 更新以降、デプロイまでは旧 URL でログインできない（承認を急ぐ理由）
