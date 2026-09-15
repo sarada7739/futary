@@ -114,7 +114,8 @@ describe("couple.get", () => {
 
     // 045: couple.get だけが plan と albumQuota を足して返す（create は変えない）。
     // 行なし = free。まだ写真が無いので used は 0
-    expect(fetched).toEqual({ ...created, plan: "free", albumQuota: { limit: 30, used: 0 } });
+    // 048 段階2: 行なしなら planSource / planExpiresAt も null
+    expect(fetched).toEqual({ ...created, plan: "free", albumQuota: { limit: 30, used: 0 }, planSource: null, planExpiresAt: null, planCancelAt: null });
   });
 });
 

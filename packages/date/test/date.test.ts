@@ -10,6 +10,7 @@ import {
   formatDateRangeJa,
   formatJstDate,
   formatJstDateCompact,
+  formatJstMonthDayJa,
   formatJstDateSlash,
   formatJstDateTime,
   formatYearMonthSlash,
@@ -410,6 +411,15 @@ describe("formatDateJa / formatDateRangeJa", () => {
     expect(formatDateRangeJa("2026-12-30", "2027-01-02")).toBe("2026年12月30日 - 2027年1月2日");
     expect(formatDateRangeJa("2026-08-15", null)).toBe("2026年8月15日");
     expect(formatDateRangeJa("2026-08-15", "2026-08-15")).toBe("2026年8月15日");
+  });
+});
+
+// 048 段階2: マイページの「プレミアム（9月15日に更新）」
+describe("formatJstMonthDayJa", () => {
+  it("JST の暦日の月日をゼロ埋め無しで。UTC 15:00 は JST 翌日", () => {
+    expect(formatJstMonthDayJa(Date.UTC(2026, 8, 5, 14, 59, 59) / 1000)).toBe("9月5日");
+    expect(formatJstMonthDayJa(Date.UTC(2026, 8, 5, 15, 0, 0) / 1000)).toBe("9月6日");
+    expect(formatJstMonthDayJa(Date.UTC(2026, 11, 31, 15, 0, 0) / 1000)).toBe("1月1日");
   });
 });
 

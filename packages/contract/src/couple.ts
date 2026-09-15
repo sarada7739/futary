@@ -63,6 +63,10 @@ export type Plan = (typeof PLAN_VALUES)[number];
 // 環境変数にしない。変えるのはこの定数 1 つ。文言にこの数を直書きしない
 export const FREE_ALBUM_PHOTO_LIMIT = 30;
 
+// 048 段階2: プレミアムの「写真 5 万枚まで」（/premium・リリース履歴の文言）。文言用の定数で、
+// サーバはこの数で止めていない（paid は albumQuota が null = 制限しない。物理上限の扱いは 042）
+export const PAID_ALBUM_PHOTO_LIMIT = 50_000;
+
 // 045: 無料枠の残り。paid なら null（制限しない）。used は未削除のアルバムの写真の合計
 export const albumQuotaSchema = z.object({
   limit: z.number().int(),
@@ -72,9 +76,20 @@ export type AlbumQuota = z.infer<typeof albumQuotaSchema>;
 
 // 045: couple.get だけが plan と albumQuota を返す（create / update は変えない。
 // 枠は couple.get から取り、album.list / album.get には持たない。2 箇所に持たない）
+// 048 段階2: 行の出どころ。manual（運営が手で）| stripe（Webhook が書く）。行が無ければ null
+export const PLAN_SOURCES = ["manual", "stripe"] as const;
+export type PlanSource = (typeof PLAN_SOURCES)[number];
+
 export const coupleWithPlanSchema = coupleSchema.extend({
   plan: z.enum(PLAN_VALUES),
   albumQuota: albumQuotaSchema.nullable(),
+  // 048 段階2: マイページの「プレミアム（〇月〇日に更新）」と「プランを管理」の出し分けに使う。
+  // planExpiresAt は秒（couple_plans.expires_at。stripe なら current_period_end）。無期限・行無しは null。
+  // 判定（paid かどうか）はサーバの plan だけを見る（画面で期限を計算し直さない）
+  planSource: z.enum(PLAN_SOURCES).nullable(),
+  planExpiresAt: z.number().int().nullable(),
+  // 「期間の終わりで解約」済みならその終了日時（秒）。画面は「〇月〇日に更新」ではなく「〇月〇日まで」と出す
+  planCancelAt: z.number().int().nullable(),
 });
 export type CoupleWithPlan = z.infer<typeof coupleWithPlanSchema>;
 

@@ -16,16 +16,22 @@ import { getApiOrigin } from "../lib/api-origin";
 export const LEGAL_PAGES = [
   { path: "/privacy", label: "プライバシーポリシー", testID: "legal-privacy" },
   { path: "/terms", label: "利用規約", testID: "legal-terms" },
+  // 048 段階2: 特定商取引法に基づく表記（/premium の下にだけ出す。既定の 2 つには含めない）
+  { path: "/tokushoho", label: "特定商取引法に基づく表記", testID: "legal-tokushoho" },
 ] as const;
 
-export function legalPageUrl(path: (typeof LEGAL_PAGES)[number]["path"]): string {
+export type LegalPagePath = (typeof LEGAL_PAGES)[number]["path"];
+
+export function legalPageUrl(path: LegalPagePath): string {
   return `${getApiOrigin()}${path}`;
 }
 
-export function LegalLinks() {
+const DEFAULT_PAGES: readonly LegalPagePath[] = ["/privacy", "/terms"];
+
+export function LegalLinks({ pages = DEFAULT_PAGES }: { pages?: readonly LegalPagePath[] }) {
   return (
-    <View style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: space.lg }}>
-      {LEGAL_PAGES.map((page) => (
+    <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: space.lg }}>
+      {LEGAL_PAGES.filter((page) => pages.includes(page.path)).map((page) => (
         <Pressable
           key={page.path}
           accessibilityRole="link"

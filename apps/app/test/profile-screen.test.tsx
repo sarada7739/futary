@@ -20,6 +20,7 @@ const {
   photoListMock,
   signOutMock,
   pushMock,
+  billingPortalMock,
 } = vi.hoisted(() => ({
   meGetMock: vi.fn(),
   meUpdateMock: vi.fn(),
@@ -34,6 +35,8 @@ const {
   photoListMock: vi.fn(),
   signOutMock: vi.fn(),
   pushMock: vi.fn(),
+  // 048 段階2: 「プランを管理 ›」
+  billingPortalMock: vi.fn(),
 }));
 
 // 024: 「アカウントを削除」導線がuseRouterを使うようになったため、
@@ -83,6 +86,7 @@ vi.mock("../lib/orpc", async () => {
     },
     album: { list: albumListMock },
     photo: { list: photoListMock, downloadUrl: vi.fn() },
+    billing: { createPortalSession: billingPortalMock },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
@@ -113,6 +117,10 @@ function makeCouple(overrides: Partial<Record<string, unknown>> = {}) {
     // 045: couple.get は plan と albumQuota も返す。既定は free（行なし）
     plan: "free",
     albumQuota: { limit: 30, used: 0 },
+    // 048 段階2
+    planSource: null,
+    planExpiresAt: null,
+    planCancelAt: null,
     ...overrides,
   };
 }
@@ -137,6 +145,7 @@ beforeEach(() => {
   meSetAiOptInMock.mockResolvedValue({ aiOptIn: true });
   coupleGetMock.mockResolvedValue(makeCouple());
   statsGetMock.mockResolvedValue(makeStats());
+  billingPortalMock.mockResolvedValue({ url: "https://billing.stripe.com/p/session/x" });
 });
 
 function renderScreen() {
@@ -603,12 +612,50 @@ describe("ProfileScreen: プラン（045）", () => {
     expect(pushMock).toHaveBeenCalledWith("/premium");
   });
 
-  it("paid なら「プラン: プレミアム」。「プレミアムについて」は無い", async () => {
-    coupleGetMock.mockResolvedValue(makeCouple({ plan: "paid", albumQuota: null }));
+  it("paid（manual・無期限）なら「プラン: プレミアム」。「プレミアムについて」も「プランを管理」も無い", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ plan: "paid", albumQuota: null, planSource: "manual", planExpiresAt: null }));
     renderScreen();
     await waitForLoaded();
     expect(screen.getByTestId("profile-plan")).toHaveTextContent("プレミアム");
+    expect(screen.getByTestId("profile-plan")).not.toHaveTextContent("更新");
     expect(screen.queryByTestId("profile-premium")).toBeNull();
+    expect(screen.queryByTestId("profile-manage-plan")).toBeNull();
+  });
+
+  // 048 段階2: stripe の paid は「プレミアム（9月15日に更新）」と「プランを管理 ›」（→ Billing Portal）
+  it("paid（stripe）なら「プレミアム（〇月〇日に更新）」と「プランを管理 ›」。押すと Portal の URL へ", async () => {
+    // 2026-09-15 00:00 JST = 2026-09-14 15:00 UTC
+    const expiresAt = Date.UTC(2026, 8, 14, 15, 0, 0) / 1000;
+    coupleGetMock.mockResolvedValue(makeCouple({ plan: "paid", albumQuota: null, planSource: "stripe", planExpiresAt: expiresAt }));
+    const assigned: string[] = [];
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, assign: (url: string) => assigned.push(url), origin: "http://localhost" },
+    });
+    try {
+      renderScreen();
+      await waitForLoaded();
+      expect(screen.getByTestId("profile-plan")).toHaveTextContent("プレミアム（9月15日に更新）");
+      expect(screen.queryByTestId("profile-premium")).toBeNull();
+      fireEvent.click(screen.getByTestId("profile-manage-plan"));
+      await waitFor(() => expect(billingPortalMock).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(assigned).toEqual(["https://billing.stripe.com/p/session/x"]));
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    }
+  });
+
+  it("期間の終わりで解約済み（planCancelAt）なら「プレミアム（〇月〇日まで）」。「プランを管理 ›」は残る（取り消せる）", async () => {
+    const end = Date.UTC(2026, 9, 14, 15, 0, 0) / 1000; // 2026-10-15 JST
+    coupleGetMock.mockResolvedValue(
+      makeCouple({ plan: "paid", albumQuota: null, planSource: "stripe", planExpiresAt: end, planCancelAt: end }),
+    );
+    renderScreen();
+    await waitForLoaded();
+    expect(screen.getByTestId("profile-plan")).toHaveTextContent("プレミアム（10月15日まで）");
+    expect(screen.getByTestId("profile-plan")).not.toHaveTextContent("更新");
+    expect(screen.getByTestId("profile-manage-plan")).toBeTruthy();
   });
 
   it("ゲストには出ない（マイページ自体がログイン案内）", () => {

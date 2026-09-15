@@ -113,11 +113,19 @@ export const couplePlans = sqliteTable("couple_plans", {
     .references(() => couples.id),
   // 'free' | 'paid'。未知の値は free として扱う（サーバ）
   plan: text("plan").notNull(),
-  // 'manual'（運営が手で）| 将来 'stripe'
+  // 'manual'（運営が手で）| 'stripe'（048 段階2。Webhook が書く。manual の行は Webhook が触らない）
   source: text("source").notNull().default("manual"),
-  // NULL = 無期限。非 NULL で過ぎていれば free として扱う
+  // NULL = 無期限。非 NULL で過ぎていれば free として扱う。stripe なら current_period_end
   expiresAt: integer("expires_at", { mode: "timestamp" }),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  // 048 段階2: Stripe の customer（cus_…）と subscription（sub_…）。ペアに customer は 1 つ。
+  // subscription は解約後も残す（Portal を開ける・退会時の解約の対象）。UNIQUE は張らない
+  // （同じ購読が 2 ペアに付く経路は無い。metadata.couple_id で結ぶ）
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  // 「期間の終わりで解約」の終了日時（Stripe の subscription.cancel_at）。NULL = 解約していない。
+  // 画面の「〇月〇日に更新」と「〇月〇日まで」の出し分けにだけ使う（paid かどうかの判定には使わない）
+  stripeCancelAt: integer("stripe_cancel_at", { mode: "timestamp" }),
 });
 
 export const invites = sqliteTable("invites", {

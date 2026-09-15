@@ -7,7 +7,16 @@ import {
   meUploadImageUrlContract,
 } from "./me";
 import { coupleCreateContract, coupleGetContract, coupleUpdateContract } from "./couple";
-export { FREE_ALBUM_PHOTO_LIMIT, PLAN_VALUES, PRIMARY_DATE_VALUES } from "./couple";
+import {
+  billingCreateCheckoutSessionContract,
+  billingCreatePortalSessionContract,
+  billingPricesContract,
+} from "./billing";
+export { BILLING_INTERVALS } from "./billing";
+export type { BillingInterval, BillingPrice, BillingPrices } from "./billing";
+export { PLAN_SOURCES } from "./couple";
+export type { PlanSource } from "./couple";
+export { FREE_ALBUM_PHOTO_LIMIT, PAID_ALBUM_PHOTO_LIMIT, PLAN_VALUES, PRIMARY_DATE_VALUES } from "./couple";
 export type { AlbumQuota, Couple, CoupleWithPlan, Plan } from "./couple";
 import { inviteAcceptContract, inviteIssueContract } from "./invite";
 import { postCreateContract, postDeleteContract, postListContract, postUploadUrlContract } from "./post";
@@ -95,6 +104,12 @@ export const contract = {
     create: coupleCreateContract,
     get: coupleGetContract,
     update: coupleUpdateContract,
+  },
+  // 048 段階2: 決済
+  billing: {
+    prices: billingPricesContract,
+    createCheckoutSession: billingCreateCheckoutSessionContract,
+    createPortalSession: billingCreatePortalSessionContract,
   },
   invite: {
     issue: inviteIssueContract,

@@ -9,6 +9,7 @@ import {
   wantImagePrefixFor,
 } from "../lib/r2-signed-url";
 import { isSessionFresh } from "../lib/reauth";
+import { loadPlanRow } from "../lib/plan";
 import { authedProcedure, writeProcedure } from "./base";
 
 // postUploadUrlContract（apps/api/src/procedures/upload.ts）と同じ値
@@ -160,6 +161,18 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       .all<{ user_id: string }>();
     const memberUserIds = members.results.map((row) => row.user_id);
     const partnerIds = memberUserIds.filter((id) => id !== userId);
+
+    // 【048 段階2・P8】Stripe の購読が付いていれば**先に解約**する（退会で課金が続かない）。
+    // 解約に失敗したら退会を止める（例外 → INTERNAL。課金だけ残る形を作らない）。
+    // 何も消していない時点なので、再実行できる。manual の行（購読無し）は素通り。
+    // Stripe が設定されていない環境で購読の行があるのは矛盾なので、これも止める
+    const planRow = await loadPlanRow(db, coupleId);
+    if (planRow?.stripe_subscription_id) {
+      if (!context.billing) {
+        throw new Error("Stripe の購読が付いたペアの退会には STRIPE_SECRET_KEY が要ります");
+      }
+      await context.billing.gateway.cancelSubscription(planRow.stripe_subscription_id);
+    }
 
     // R2の削除は行の並びから独立している（上のdeleteAllByPrefixのコメント
     // 参照）ため、D1の削除より前でも後でも構わない。ここでは先に済ませ、

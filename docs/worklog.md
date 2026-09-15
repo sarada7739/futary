@@ -13397,3 +13397,13 @@ Session: A
 - 053 の残り（OAuth の URL・OpenAI データ共有オフ・Search Console・Always Use HTTPS）は人間に念押し
 
 Session: B
+
+## 2026-09-15 セッションB: 048 段階2（決済。Stripe）を実装。サンドボックスで一周まで通した。PR を出して R の手番
+
+- API: `lib/stripe.ts`（gateway。SDK の窓口）・`lib/billing.ts`（状態 → upsert・価格キャッシュ）・`procedures/billing.ts`（prices / createCheckoutSession / createPortalSession）・`stripe-webhook.ts`（Hono 直。署名 → Stripe に読み直し → upsert）・`me.delete` は購読を先に解約。`couple.get` に planSource / planExpiresAt / planCancelAt
+- 実測で 2 つ: (1) Stripe の新アカウントは Managed Payments が既定オンで、税コードの無い Checkout を 400 で拒む → `managed_payments.enabled=false` を明示。(2) Portal の「期間の終わりで解約」は `cancel_at` で表され status は active のまま → `stripe_cancel_at` の列を足し「〇月〇日まで」を出す（定義に無い。A へ）
+- 画面: /premium（月額・年額・Checkout・Portal・?status=success）・マイページの行。ランディング: /tokushoho・規約 8 節（8〜11）・sitemap。3.1.0
+- 一周（`artifacts/048/stage2/local-loop.txt`）: Stripe CLI を入れず `artifacts/048/scripts/relay-webhook.mjs` が署名した event を localhost に届けた。申し込み → paid → Portal 解約 → まで → 即時解約で free → 年額の再申し込み
+- P1〜P9 + P7b + マイページ。lint・型・全テスト緑（api 687・app 551）
+
+Session: B

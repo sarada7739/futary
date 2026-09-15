@@ -13,6 +13,8 @@ import robotsTxt from "../../landing/robots.txt?raw";
 import sitemapXml from "../../landing/sitemap.xml?raw";
 import landingIndexHtml from "../../landing/index.html?raw";
 import landingPrivacyHtml from "../../landing/privacy.html?raw";
+import landingTermsHtml from "../../landing/terms.html?raw";
+import landingTokushohoHtml from "../../landing/tokushoho.html?raw";
 // 053 T4b: 移行前（052 時点）の `pnpm build:public` が書き出した apps/api/public/app/index.html
 // （Expo Web エクスポート。inline script 2 本 = Expo Router の hydrate フラグ + +html.tsx の
 // 外観の先読み）。`_headers` の CSP のハッシュはこの 2 本から計算されていた
@@ -43,6 +45,8 @@ function fakeAssets(): Fetcher {
     "/sitemap.xml": [sitemapXml, "application/xml", '"sitemap"'],
     "/": [landingIndexHtml, "text/html; charset=utf-8", '"landing-index"'],
     "/privacy": [landingPrivacyHtml, "text/html; charset=utf-8", '"landing-privacy"'],
+    "/terms": [landingTermsHtml, "text/html; charset=utf-8", '"landing-terms"'],
+    "/tokushoho": [landingTokushohoHtml, "text/html; charset=utf-8", '"landing-tokushoho"'],
     "/app/": [appIndexHtml, "text/html; charset=utf-8", '"app-index"'],
     "/app/index.html": [FAKE_HTML, "text/html; charset=utf-8", '"fake"'],
     "/app/x.js": ["console.log(1)", "text/javascript", '"x-js"'],
@@ -171,11 +175,11 @@ describe("053 T5: robots.txt / sitemap.xml（apps/landing の実ファイル）"
     expect(text).toContain("Sitemap: https://nisoine.com/sitemap.xml");
   });
 
-  it("sitemap.xml は 200 で / /privacy /terms を nisoine.com で並べる", async () => {
+  it("sitemap.xml は 200 で / /privacy /terms /tokushoho を nisoine.com で並べる", async () => {
     const res = await app.fetch(new Request(`${CANONICAL}/sitemap.xml`), { ...bindings, ASSETS: fakeAssets() });
     expect(res.status).toBe(200);
     const text = await res.text();
-    for (const loc of ["https://nisoine.com/", "https://nisoine.com/privacy", "https://nisoine.com/terms"]) {
+    for (const loc of ["https://nisoine.com/", "https://nisoine.com/privacy", "https://nisoine.com/terms", "https://nisoine.com/tokushoho"]) {
       expect(text).toContain(`<loc>${loc}</loc>`);
     }
     // 旧ホストは無い
@@ -324,5 +328,35 @@ describe("053: CSP は Worker が配信する HTML から inline script のハ�
       "<script>if (1 < 2) { x() }</script>" +
       '<script data-x="y">y()</script>';
     expect(extractInlineScripts(html)).toEqual(["if (1 < 2) { x() }", "y()"]);
+  });
+});
+
+// 048 段階2・P7b: /tokushoho が 200。terms.html に「8. プレミアム」があり節番号が 8〜11。
+// 「【」（空欄の埋め忘れ）が無い。特商法の価格は Stripe の設定と同じ（月 420・年 4,200）
+describe("048 P7b: /tokushoho と利用規約 8 節", () => {
+  it("/tokushoho は 200 の HTML で、販売業者・価格・支払方法・解約・返金の行がある", async () => {
+    const res = await app.fetch(new Request(`${CANONICAL}/tokushoho`), { ...bindings, ASSETS: fakeAssets() });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    const html = await res.text();
+    expect(html).toContain("<title>特定商取引法に基づく表記 - Nisoine</title>");
+    for (const label of ["販売業者", "販売価格", "支払方法", "解約について", "返品・返金について"]) {
+      expect(html).toContain(`<td>${label}</td>`);
+    }
+    expect(html).toContain("月額 420 円（税込）／年額 4,200 円（税込）");
+    expect(html).not.toContain("【");
+    expect(html).toContain('href="/terms"');
+  });
+
+  it("terms.html: 「8. プレミアム（有料プラン）」があり、見出しは 1〜11 で欠番無し", () => {
+    const headings = [...landingTermsHtml.matchAll(/<h3>(\d+)\. ([^<]+)<\/h3>/g)].map((m) => [Number(m[1]), m[2]] as const);
+    expect(headings.map(([n]) => n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    expect(headings[7]).toEqual([8, "プレミアム（有料プラン）"]);
+    expect(headings[8]).toEqual([9, "規約の変更"]);
+    expect(headings[10]).toEqual([11, "連絡先"]);
+    expect(landingTermsHtml).toContain('href="/tokushoho"');
+    expect(landingTermsHtml).not.toContain("【");
+    // 文中の相互参照「プライバシーポリシー 2 節」「4 節」は詰めた範囲より前（053 の R の記録）
+    expect(landingTermsHtml).toContain("プライバシーポリシー 2 節");
   });
 });

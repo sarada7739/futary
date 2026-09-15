@@ -1,6 +1,7 @@
 // 045: プランと無料枠の画面側の計算と文言。数字は契約の定数から出す（文言に 30 を直書きしない）。
 // 「無料プラン」「プレミアム」と書く。「トライアル」「お試し」は使わない（期限が無い。タスク定義 3節）
-import type { AlbumQuota, Plan } from "@futary/contract";
+import { PAID_ALBUM_PHOTO_LIMIT, type AlbumQuota, type BillingInterval, type BillingPrice, type Plan } from "@futary/contract";
+import { formatJstMonthDayJa } from "@futary/date";
 
 // 残りがこの枚数以下になったら、詳細の FAB の上に警告のカードを出す（B が決めた: 3節「残りが 5 枚以下」）
 export const QUOTA_WARNING_THRESHOLD = 5;
@@ -61,4 +62,22 @@ export function freePlanLimitLabel(limit: number): string {
 // マイページの 1 行: 「無料」「プレミアム」
 export function planLabel(plan: Plan): string {
   return plan === "paid" ? "プレミアム" : "無料";
+}
+
+// 048 段階2: /premium の「できること」の 1 行目「写真 5 万枚まで」（数字は契約の定数から。万単位で出す）
+export function paidPhotoLimitLabel(): string {
+  return `写真 ${PAID_ALBUM_PHOTO_LIMIT / 10_000} 万枚まで`;
+}
+
+// 価格の表示: 「¥420 / 月」「¥4,200 / 年」（JPY。他の通貨は Stripe の設定が JPY なので来ない）
+export function priceLabel(price: BillingPrice, interval: BillingInterval): string {
+  const amount = price.currency.toLowerCase() === "jpy" ? `¥${price.amount.toLocaleString("ja-JP")}` : `${price.amount} ${price.currency}`;
+  return `${amount} / ${interval === "month" ? "月" : "年"}`;
+}
+
+// マイページの 1 行（paid のとき）: 「プレミアム（10月15日に更新）」。「期間の終わりで解約」済みなら
+// 「プレミアム（10月15日まで）」。期限が無ければ「プレミアム」
+export function paidPlanLabel(planExpiresAt: number | null, planCancelAt: number | null = null): string {
+  if (planCancelAt !== null) return `プレミアム（${formatJstMonthDayJa(planCancelAt)}まで）`;
+  return planExpiresAt === null ? "プレミアム" : `プレミアム（${formatJstMonthDayJa(planExpiresAt)}に更新）`;
 }

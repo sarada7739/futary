@@ -1,0 +1,22 @@
+# 048 段階2: テストモードの一周（ローカル。2026-09-15 22:00〜22:20 JST）
+
+環境: apps/api を wrangler dev（build:public 済み。http://localhost:8787/app/）。Stripe はサンドボックス（人間の sk_test を .dev.vars に）。
+Webhook は Stripe CLI を入れず、artifacts/048/scripts/relay-webhook.mjs が署名した event を localhost の Webhook へ届けた
+（Worker は event の中身を信じず Stripe に読み直すので、届ける event は種類と購読 id だけ）。人間の操作はブラウザ。
+
+| # | 操作（人間） | 結果 |
+|---|---|---|
+| 1 | /app/premium で「プレミアムを始める →」 | 1 回目は Stripe が 400「product tax code is missing（Managed Payments が既定オン）」→ 画面「始められませんでした」。Checkout の作成に managed_payments.enabled=false を足して解決 |
+| 2 | 同上（修正後） | checkout.stripe.com に移った。ローカル D1 に free/stripe/cus_VGSr… の行（customer を先に保存） |
+| 3 | テストカード 4242 で支払い | /app/premium?status=success に戻り「反映しています…」 |
+| 4 | B が relay（checkout.session.completed・customer.subscription.created） | 200 written。D1: paid / stripe / expires_at 2026-10-15 / sub_1UFw39… |
+| 5 | 再読み込み | 「プレミアムです」「プランを管理」。マイページ「プラン: プレミアム（10月15日に更新）」「プランを管理 ›」 |
+| 6 | 「プランを管理」→ Portal で「プランをキャンセル」 | Portal「10/15 に終了します」。Stripe の購読は status=active のまま cancel_at=2026-10-15（cancel_at_period_end は false。今の Stripe はこの形）→ stripe_cancel_at の列を足して「（10月15日まで）」を出すようにした |
+| 7 | B が relay（customer.subscription.updated） | D1: paid / stripe_cancel_at 2026-10-15。画面「プレミアム（10月15日まで）」 |
+| 8 | B が Stripe で即時解約 → relay（customer.subscription.deleted）（期限が来た状態の代わり） | D1: free / expires_at は残る（047 の猶予の起点）/ stripe_cancel_at NULL。マイページ「プラン: 無料」 |
+
+Stripe に送った個人情報: customer の metadata.couple_id だけ（名前・メール無し。ダッシュボードの顧客に「名前またはメールアドレスが入力されていません」と出る = 送っていない）。
+領収書のメールは Checkout で人間が自分で入れた。
+| 9 | 再申し込み（年額）→ 4242 で支払い | checkout.stripe.com に移り、戻った。B が relay（checkout.session.completed）→ D1: paid / expires_at 2027-09-15 / sub_1UFwGM…（同じ customer に 2 本目の購読。1 本目は canceled のまま Stripe に残る） |
+
+ローカルで「反映されない」のは Stripe が localhost に Webhook を届けられないため（本番は https://nisoine.com/api/stripe/webhook に直接届く）。
