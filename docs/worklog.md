@@ -13370,3 +13370,9 @@ Session: A
 - `/` `/privacy` の CSP は移行前より狭い（app のハッシュ 2 本が付かない）。報告 `artifacts/053/stage1.md`
 
 Session: B
+## 2026-09-15 セッションA: 053 の設計ドキュメント（3節の URL・7節のヘッダの置き場）
+
+- `architecture.md` 3節を nisoine.com に。旧 URL と www は 301。`security-requirements.md` 7節: ヘッダは Worker が付ける・HSTS・CSP のハッシュは Worker が計算し、ビルドの留め金と両方で 1 つの守り
+- B の記録: deploy.yml の R2_ACCOUNT_ID（build が読まなくなった）は次の fix で消す
+
+Session: A
