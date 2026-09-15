@@ -13322,3 +13322,13 @@ Session: A
 - 住所は書かない（規約は裁判所だけで足りる。特商法の表記のときに）
 
 Session: A
+
+## 2026-09-15 セッションB: 052（プライバシーポリシーと利用規約のページ）を実装。PR を出して R の手番
+
+- `apps/landing/privacy.html`・`terms.html`（草案を文面を変えずに HTML に。`style.css` の既存クラスだけ。規約 8 節は見出しごと省いた → 節番号は 7 → 9 に飛ぶ）。`index.html` のフッター・`build-public.mjs`（2 行）
+- `apps/app/components/legal-links.tsx`（`Linking.openURL(getApiOrigin() + "/privacy")`。`/app/*` の外なので expo-router の Link ではない）→ サインイン画面の下・マイページの下（ログイン後・ゲスト両方）
+- `ai.ts` のコメントを「OpenAI のデータ共有はオフ（052。人間が）」に
+- T1: `build:public` → `wrangler dev` に curl で `/privacy` `/terms` 200。T2: 「【」0 + 草案との文面一致を `artifacts/052/scripts/check-text.py` で機械確認。T3: vitest 4 件 + Playwright で新しいタブに `/privacy` `/terms` が開く。報告 `artifacts/052/stage1.md`
+- 撮影で踏んだこと: ゲストのマイページは 3.0.0 の「新機能のお知らせ」のシートがリンクを覆う（閉じてから押した）。Expo の開発サーバは Playwright の `networkidle` にならない
+
+Session: B

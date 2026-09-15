@@ -1,0 +1,14 @@
+# T3: マイページ・サインイン画面のリンク。2026-09-15
+
+## vitest（apps/app）
+- test/sign-in-screen.test.tsx（新規）: 2 件。legal-privacy / legal-terms を押すと Linking.openURL(`${getApiOrigin()}/privacy` / /terms)。サインインは巻き込まれない
+- test/profile-screen.test.tsx: 「052」の describe 2 件（ログイン後・ゲスト）
+- 実行: 2 files / 31 tests passed（sign-in 2 + profile 29）。全体: apps/app 47 files / 538 tests passed
+
+## 実ブラウザ（artifacts/052/scripts/shots.cjs。Playwright。app-web 8081 + api-dev 8787）
+sign-in → legal-privacy → 新しいタブ: http://localhost:8787/privacy
+profile(guest) → legal-terms → 新しいタブ: http://localhost:8787/terms
+（3.0.0 の「新機能のお知らせ」のシートが開いているとリンクが隠れて押せない。閉じてから押した。ゲストで /app に入るたびに出るのは 3.0.0 の既存の挙動）
+
+## 横スクロール（390px）
+landing-privacy / landing-terms / landing-footer: scrollWidth=390（横スクロール無し）

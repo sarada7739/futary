@@ -634,3 +634,36 @@ describe("ProfileScreen: アルバムの写真をまとめて保存（048）", (
     expect(photoListMock.mock.calls.map((c) => c[0].albumId)).toEqual(["album-1"]);
   });
 });
+
+// 052: マイページの一番下にプライバシーポリシー・利用規約のリンク（T3）。
+// ログイン後・ゲストの両方に出す。押すとサイトのルートの /privacy・/terms を
+// Linking.openURL で開く（sign-in-screen.test.tsx と同じ形。apps/app/components/legal-links.tsx）
+describe("ProfileScreen: プライバシーポリシー・利用規約（052）", () => {
+  it("ログイン後: リンクがあり、押すと /privacy・/terms を開く", async () => {
+    const { getApiOrigin } = await import("../lib/api-origin");
+    const { Linking } = await import("react-native");
+    const openUrl = vi.spyOn(Linking, "openURL").mockResolvedValue(true);
+
+    renderScreen();
+    await waitForLoaded();
+
+    fireEvent.click(screen.getByTestId("legal-privacy"));
+    expect(openUrl).toHaveBeenCalledWith(`${getApiOrigin()}/privacy`);
+    fireEvent.click(screen.getByTestId("legal-terms"));
+    expect(openUrl).toHaveBeenCalledWith(`${getApiOrigin()}/terms`);
+    // 「アカウントを削除」等の遷移は巻き込まれない
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("ゲスト: ログイン案内の下にも同じリンクがある", async () => {
+    const { getApiOrigin } = await import("../lib/api-origin");
+    const { Linking } = await import("react-native");
+    const openUrl = vi.spyOn(Linking, "openURL").mockResolvedValue(true);
+
+    renderScreenAsGuest(() => {});
+
+    expect(await screen.findByText("マイページはログインすると使えます")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("legal-terms"));
+    expect(openUrl).toHaveBeenCalledWith(`${getApiOrigin()}/terms`);
+  });
+});

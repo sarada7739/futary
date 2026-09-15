@@ -261,6 +261,11 @@ function main() {
 
   console.log("apps/landing をコピーします...");
   cpSync(path.join(landingDir, "index.html"), path.join(publicDir, "index.html"));
+  // 052: プライバシーポリシー・利用規約。index.html と同じ扱いで写す。
+  // Cloudflare の静的アセット配信（html_handling=auto-trailing-slash）が
+  // `/privacy` -> `privacy.html` を解決するため、ファイル名は URL に合わせる
+  cpSync(path.join(landingDir, "privacy.html"), path.join(publicDir, "privacy.html"));
+  cpSync(path.join(landingDir, "terms.html"), path.join(publicDir, "terms.html"));
   cpSync(path.join(landingDir, "style.css"), path.join(publicDir, "style.css"));
   cpSync(path.join(landingDir, "assets"), path.join(publicDir, "assets"), { recursive: true });
 
