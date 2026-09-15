@@ -75,3 +75,19 @@ futary-R で d1fdb23 を checkout して実行した。api 692 緑・`tsc --noEm
 ### 記録（判定に使わない）
 
 - 再申し込みの差し替えでも log は「canceled sub_1」と出る（実際は既に canceled で no-op）。読む人が「ここで解約した」と誤読しうる。文言だけ。任意
+
+## 追加コミット 2d7bdc2（A の判断で記録 2 を直したもの）— R の判定
+
+futary-R で 2d7bdc2 を checkout して実行した。api 694（`billing.test.ts` 38）緑・`tsc --noEmit` 緑・`eslint .` 緑。差分は `lib/stripe.ts` の `deleteCustomer`・`me.ts`・P8 の 2 本・`privacy.html` 4 節の 1 行・A の定義（P8 に追記）。
+
+**受け入れ。必須修正なし。**
+
+- 順序: `cancelSubscription`（失敗で退会を止める）→ `deleteCustomer`（失敗はログだけ）→ R2 → D1。A が P8 に足した形と一致。再実行しても `resource_missing` を冪等に成功扱いにするので、途中で止まった退会をやり直せる
+- 壊して確かめた: customer を消さない → 2 本赤、削除の失敗で退会を止める → 1 本赤
+- `privacy.html` は `052/scripts/check-text.py` で草案と 74 行一致（同スクリプトの terms 側の不一致は 052 時点で 8 節を除く作りのため。048 の `check-text.py` が terms を見る。前回どおり）
+- ログは customer id の先頭 12 文字と Stripe の例外の message だけ（個人情報は含まない）
+- 差し替えのログの文言（前回の記録）は直っている
+
+### 記録（判定に使わない）
+
+- 無し
