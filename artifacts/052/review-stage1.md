@@ -26,3 +26,17 @@ futary-R で dd4db9c を checkout して実行した。app 538 緑・`tsc --noEm
 
 - 人間の手番 2 つ（Google の OAuth 同意画面に `/privacy` を登録・OpenAI のデータ共有をオフ）
 - `landing-privacy.png`・`app-sign-in.png`・`app-profile-guest.png`・`landing-footer.png` は見ていない（`landing-terms.png` を見た）
+
+## 追加コミット 03cc90a（A の判断で記録 1・2 を直したもの）— R の判定
+
+futary-R で 03cc90a を checkout した。差分は `terms.html` の見出し 3 つ・`privacy.html` の `<div class="table-wrap">` 2 箇所・`style.css` の 3 規則・`check-text.py`・証跡・docs。
+
+**受け入れ。必須修正なし。**
+
+- 節番号: 1〜10 で欠番無し（`<h3>` を並べて見た）。**文中の相互参照は「プライバシーポリシー 2 節」「4 節」の 2 つだけで、どちらも詰めた範囲（8〜10）より前**なので古い番号は残っていない。`check-text.py` は見出しの先頭の `N.` だけを比べない形（本文の行は数字で始まっても `N.` の形ではない）で、自分で走らせて exit 0。「【」は 0 のまま
+- 表の包み: `.table-wrap { overflow-x: auto }` + `.table-wrap table { min-width: 560px }` + `.decision { min-width: 0 }`。3 つ目が要る理由（grid の子の `min-width: auto` でカードが 608px に広がる）は CSS の仕様どおりで、B の実測（`t3.txt`: 包み 294 の中で表 560 がスクロール、ページの scrollWidth 390）と整合。`index.html` の `.decision` は中身が折り返せるので `min-width: 0` で見た目は変わらない
+- `worklog.md` は追記のみ
+
+### 記録（判定に使わない。A へ）
+
+- `docs/legal/terms-draft.md` は 9〜11 のまま（8 節の置き場を残しているため）で、HTML は 8〜10。`check-text.py` が番号を比べないので今は通るが、**048 段階2 で 8 節を入れるとき HTML の 8〜10 を 9〜11 に戻す**手順が要る。草案の側に 1 行書いておくと忘れない。`docs/tasks/052-legal-pages.md` 1節の「裁判所の地（利用規約 10 節）」も HTML では 9 節（草案の番号なので誤りではない）
