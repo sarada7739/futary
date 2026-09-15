@@ -263,14 +263,15 @@ T4（デモ経路からの本番データ漏洩）そのものであり、
 | CORS（Worker） | 自ドメインのみ許可。`*` を設定しない |
 | CORS（**R2 バケット**） | **別の設定である。**署名付きURLへのブラウザ直PUTに必要。許可は `PUT`/`GET` と実際のオリジンだけ。`*` を設定しない（`architecture.md` 6節） |
 | CSRF | `SameSite=Lax` + oRPC の POST 経由。状態変更を GET で行わない |
-| CSP | ランディングページと Web アプリに設定する。**Web アプリの `script-src` は `'self'` + inline script の sha256 ハッシュ。`'unsafe-inline'` にしない**（下記） |
-| HTTPS | Cloudflare により常時。HTTP へのフォールバックを作らない |
+| CSP | ランディングページと Web アプリに設定する。**Web アプリの `script-src` は `'self'` + inline script の sha256 ハッシュ。`'unsafe-inline'` にしない**（下記）。ランディング・法務ページには inline script が無いので、ハッシュを付けない（アプリより狭い） |
+| HTTPS | Cloudflare により常時。HTTP へのフォールバックを作らない。**HSTS `max-age=31536000; includeSubDomains`**（053。独自ドメインは preload されていないので自分で付ける） |
+| セキュリティヘッダの置き場 | **Worker が付ける**（`apps/api/src/lib/security-headers.ts`。053）。`run_worker_first = true` のとき `_headers` は Worker の応答に効かないため。固定のもの（`nosniff`・`Referrer-Policy`・`frame-ancestors`・HSTS）は全応答に、CSP は HTML にだけ。CSP の inline script のハッシュは**配信する HTML から Worker が計算**（アセットのパスと ETag で 1 度だけ）。**移行前の `_headers` と同じ値であることをテストで固定**（黙って弱くならない） |
 
 ### inline script は本数を固定し、ハッシュで許可する（039）
 
-`scripts/build-public.mjs` が書き出した HTML から inline script を全部集め、**それぞれの sha256 を
-`script-src` に並べる。**本数は `EXPECTED_INLINE_SCRIPT_COUNT` で固定し、**増えるとビルドが止まる**
-（意図しない inline script が静かに許可されない）。
+`scripts/build-public.mjs` が書き出した HTML から inline script を全部集め、本数を `EXPECTED_INLINE_SCRIPT_COUNT` で固定し、**増えるとビルドが止まる**
+（意図しない inline script が静かに許可されない）。**ハッシュを `script-src` に並べるのは Worker**（053。上の表）。
+Worker は配信する HTML に何があっても許してしまうので、**想定外の inline script を止めるのはビルドの留め金の役目**。両方で 1 つの守り。
 
 | # | 何 | 誰が入れる |
 |---|---|---|
