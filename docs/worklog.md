@@ -13348,3 +13348,9 @@ Session: B
 - 残りは人間: デプロイの承認・OAuth 同意画面に `/privacy` の URL・OpenAI のデータ共有をオフ
 
 Session: B
+
+## 2026-09-15 セッションB: 052 — state.md の R の記録（草案の節番号）を main に合わせて直した
+
+- 草案 `terms-draft.md` は 52be760 で 8〜10 に詰まっていた（HTML と一致）。B が古い記録を確かめずに写していた。振り直しの手順は草案の冒頭にある（A）
+
+Session: B
