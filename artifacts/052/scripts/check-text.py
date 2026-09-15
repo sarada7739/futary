@@ -34,7 +34,13 @@ def md_lines(path):
         s = re.sub(r"^#{2,4} ", "", s)
         s = re.sub(r"^- ", "", s)
         out.append(s)
-    return [re.sub(r"\s+", "", x) for x in out]
+    return [norm(x) for x in out]
+
+# 見出しの節番号は比べない（規約 8 節を省いた分、HTML 側は番号を詰めてある。A の判断。
+# 番号以外の文面はそのまま比べる）
+def norm(x):
+    x = re.sub(r"\s+", "", x)
+    return re.sub(r"^\d+\.", "", x)
 
 def html_lines(path):
     src = open(path, encoding="utf-8").read()
@@ -44,7 +50,7 @@ def html_lines(path):
     body = re.sub(r"</?strong>", "", body)
     text = re.sub(r"<[^>]+>", "\n", body)
     text = htmlmod.unescape(text)
-    return [re.sub(r"\s+", "", x) for x in text.splitlines() if x.strip()]
+    return [norm(x) for x in text.splitlines() if x.strip()]
 
 ok = True
 for md, page in [("docs/legal/privacy-policy-draft.md", "apps/landing/privacy.html"), ("docs/legal/terms-draft.md", "apps/landing/terms.html")]:

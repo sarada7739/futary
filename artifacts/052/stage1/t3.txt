@@ -1,14 +1,20 @@
-# T3: マイページ・サインイン画面のリンク。2026-09-15
+# T3: マイページ・サインイン画面のリンク。2026-09-15（A の判断〈節番号・表の包み〉の後に取り直し）
 
 ## vitest（apps/app）
 - test/sign-in-screen.test.tsx（新規）: 2 件。legal-privacy / legal-terms を押すと Linking.openURL(`${getApiOrigin()}/privacy` / /terms)。サインインは巻き込まれない
 - test/profile-screen.test.tsx: 「052」の describe 2 件（ログイン後・ゲスト）
 - 実行: 2 files / 31 tests passed（sign-in 2 + profile 29）。全体: apps/app 47 files / 538 tests passed
 
-## 実ブラウザ（artifacts/052/scripts/shots.cjs。Playwright。app-web 8081 + api-dev 8787）
+## 実ブラウザ（artifacts/052/scripts/shots.cjs。Playwright。app-web 8081 + api-dev 8787。390px）
+landing-privacy: scrollWidth=390 (viewport 390)
+  .table-wrap: clientWidth=294 scrollWidth=560 table=560
+  .table-wrap: clientWidth=294 scrollWidth=560 table=560
+landing-terms: scrollWidth=390 (viewport 390)
+landing-footer: scrollWidth=390 (viewport 390)
 sign-in → legal-privacy → 新しいタブ: http://localhost:8787/privacy
 profile(guest) → legal-terms → 新しいタブ: http://localhost:8787/terms
 （3.0.0 の「新機能のお知らせ」のシートが開いているとリンクが隠れて押せない。閉じてから押した。ゲストで /app に入るたびに出るのは 3.0.0 の既存の挙動）
 
-## 横スクロール（390px）
-landing-privacy / landing-terms / landing-footer: scrollWidth=390（横スクロール無し）
+## 表の包み（.table-wrap）
+clientWidth=294（カードの中の幅）・scrollWidth=560（表の最小幅）→ 表だけが包みの中で横にスクロールする。ページ自体の scrollWidth は 390（横スクロール無し）。
+包みだけ（.decision の min-width: 0 が無い）だと、grid の子の min-width: auto でカードが 608px に広がって画面の外へ出ていた（overflow-x: hidden で隠れる）。実測して直した

@@ -13332,3 +13332,12 @@ Session: A
 - 撮影で踏んだこと: ゲストのマイページは 3.0.0 の「新機能のお知らせ」のシートがリンクを覆う（閉じてから押した）。Expo の開発サーバは Playwright の `networkidle` にならない
 
 Session: B
+
+## 2026-09-15 セッションB: 052 — R 受け入れ（dd4db9c）の後、A の判断で節番号と表の CSS を直して 2 コミット目。R に追加分だけ見てもらう
+
+- R の判定は `artifacts/052/review-stage1.md`（必須修正なし。記録 1〈節番号の飛び〉→ A が「詰める」と決めた）
+- 規約の節番号 9→8・10→9・11→10（文面は変えない）。`check-text.py` は節番号を比べない
+- 表の包み `.table-wrap { overflow-x: auto }`。包みだけでは列が狭いまま（日本語は 1 文字ずつ折り返せる）ので `table { min-width: 560px }`。さらに grid の子（`.decision`）が `min-width: auto` で 608px に広がって画面の外へ出ていたのを実測して `min-width: 0`。結果: 包み 294 の中で表 560 が横スクロール、ページの scrollWidth は 390
+- T1〜T3 を取り直した（`stage1/t1.txt`・`t2.txt`・`t3.txt`・png）
+
+Session: B

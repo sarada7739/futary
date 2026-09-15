@@ -22,6 +22,11 @@ async function main() {
       await page.goto(url, { waitUntil: "networkidle" });
       const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
       console.log(`${name}: scrollWidth=${scrollWidth} (viewport 390)`);
+      // 表の包み（.table-wrap）: 表は最小幅 560 を保ち、包みの中だけ横にスクロールする
+      const wraps = await page.$$eval(".table-wrap", (els) =>
+        els.map((el) => ({ client: el.clientWidth, scroll: el.scrollWidth, table: el.querySelector("table").offsetWidth })),
+      );
+      for (const w of wraps) console.log(`  .table-wrap: clientWidth=${w.client} scrollWidth=${w.scroll} table=${w.table}`);
       if (name === "landing-footer") {
         await page.locator("footer").scrollIntoViewIfNeeded();
         await page.screenshot({ path: path.join(OUT, `${name}.png`) });

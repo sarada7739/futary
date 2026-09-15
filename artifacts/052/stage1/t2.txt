@@ -1,10 +1,10 @@
-# T2: 「【」の残り（空欄の埋め忘れ）と、草案との文面の一致。2026-09-15
+# T2: 「【」の残り（空欄の埋め忘れ）と、草案との文面の一致。2026-09-15（A の判断で規約の節番号を詰めた後に取り直し）
 
 ## grep -c '【' （0 = 残っていない）
 apps/landing/privacy.html:0
 apps/landing/terms.html:0
 
-## 草案（md）と HTML の文面の一致（artifacts/052/scripts/check-text.py。強調・表・箇条書きを剥がして空白を潰し、行ごとに比較。md 側は引用・A のメモ・8 節を除く）
+## 草案（md）と HTML の文面の一致（artifacts/052/scripts/check-text.py。強調・表・箇条書きを剥がして空白を潰し、行ごとに比較。md 側は引用・A のメモ・8 節を除く。見出しの節番号は比べない〈規約は 8 を省いた分を詰めた〉）
 == apps/landing/privacy.html: md 73 行 / html 73 行
 一致
 == apps/landing/terms.html: md 40 行 / html 40 行
