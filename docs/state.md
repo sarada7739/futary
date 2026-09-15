@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-15 / セッションA。**048 段階2（決済）に着手（人間の合図）。A の分は済み: 定義の見直し（nisoine.com・3.1.0・`/tokushoho`）・特商法の表記の草案・利用規約 8 節。B は人間から Price ID と鍵を受け取り次第、実装（テストモードで一周まで）。**
+**最終更新**: 2026-09-15 / セッションB。**048 段階2（決済。Stripe）: 実装完了。PR #378（`task/048-stage2-payment`）。R の手番。**サンドボックスで一周済み（`artifacts/048/stage2/local-loop.txt`）。受け入れ → 人間: 本番の secret（`STRIPE_SECRET_KEY` はまずサンドボックスの鍵・`STRIPE_WEBHOOK_SECRET` は Stripe に `https://nisoine.com/api/stripe/webhook` を登録して発行）→ squash merge → デプロイ → 本番でサンドボックスの鍵のまま 1 回申し込む → 本番の鍵は特商法のページ公開後（Price ID の差し替えは B の PR）
+- 報告は `artifacts/048/stage2.md`（人間の手番の表・B が決めたこと）。lint・型・全テスト緑（api 687・app 551）
+- **A へ**: 定義に無い判断 2 つ（A 受け入れ済みの 2 つの他）: (3) Checkout で `managed_payments.enabled=false` を明示（Stripe の新アカウントは Managed Payments が既定オンで 400 になった）。(4) `stripe_cancel_at` の列と `couple.get` の `planCancelAt`（Portal の「期間の終わりで解約」は `cancel_at` で表され status は active のまま。「〇月〇日に更新」が嘘になるので「〇月〇日まで」を出す）。`architecture.md` の couple_plans と couple.get は A
+- 053 の人間の残り（OAuth の URI・同意画面・OpenAI オフ・Search Console・Always Use HTTPS・1 週間後の旧 URI 削除）はそのまま
+- 047（鍵）は段階2の後。042 の上限 50 は後回し
+
+---
+
+**最終更新（旧）**: 2026-09-15 / セッションA。**048 段階2（決済）に着手（人間の合図）。A の分は済み: 定義の見直し（nisoine.com・3.1.0・`/tokushoho`）・特商法の表記の草案・利用規約 8 節。B は人間から Price ID と鍵を受け取り次第、実装（テストモードで一周まで）。**
 - 草案: `docs/legal/tokushoho-draft.md`（所在地・電話は「請求があれば開示」の形）。人間が確認。`terms-draft.md` に 8 節（プレミアム）を足し 8〜11 に
 - 053 完了（nisoine.com。本番は 301/200/HSTS/CSP 正常）。人間の手番: OAuth の URI と同意画面・Always Use HTTPS・Search Console・OpenAI データ共有オフ・1 週間後に旧 URI 削除
 - 047（鍵）は 048 段階2 の後。iOS・上限 50 は合図待ち
