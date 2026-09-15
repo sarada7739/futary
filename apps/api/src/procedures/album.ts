@@ -15,8 +15,9 @@ import { generateImageId } from "../lib/ulid";
 import { isConstraintViolation } from "./couple";
 import { readProcedure, writeProcedure } from "./base";
 
-// 041 タスク定義1節: 1 ペア 100 件（未削除）・1 アルバム 500 枚。超えたら LIMIT_REACHED
-const MAX_ALBUMS_PER_COUPLE = 100;
+// 041 タスク定義1節: 1 アルバム 500 枚。1 ペアの件数は 055 で 100 → 1,000 件（未削除。500 × 1,000 = 50 万枚）。
+// 超えたら LIMIT_REACHED
+const MAX_ALBUMS_PER_COUPLE = 1_000;
 const MAX_PHOTOS_PER_ALBUM = 500;
 
 // 契約の z.literal と同じ値。署名付き PUT URL は Content-Type を強制できないため、
@@ -280,8 +281,9 @@ async function fetchAlbumPhotoPage(
 
 // --- album.* ---------------------------------------------
 
-// ctx.coupleId のみを使う。未削除・新しい順。ページング無し（100 件上限）。
-// 署名は previews 4 枚 + カバー最大 100 枚（タスク定義2節「1 リクエスト 100 署名まで許容」）
+// ctx.coupleId のみを使う。未削除・新しい順。ページング無し（1,000 件上限。055）。
+// 署名は previews 4 枚 + カバー最大 1,000 枚（手元の HMAC 計算で、R2 への往復は無い。
+// 1,000 件でも応答は 1MB 未満: 055 T3）
 const albumList = implementer.album.list.use(readProcedure).handler(async ({ context }) => {
   const { db, coupleId, r2Sign } = context;
 

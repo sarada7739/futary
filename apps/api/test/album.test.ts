@@ -593,28 +593,47 @@ describe("T6: 上限", () => {
     ).rejects.toMatchObject({ code: "LIMIT_REACHED" });
   });
 
-  it("101 件目のアルバムは LIMIT_REACHED。削除済みは数えない", async () => {
+  // 055 T1: 1 ペアの件数の上限は 1,000 件（500 枚 × 1,000 = 50 万枚）。1,000 件目は作れ、1,001 件目で LIMIT_REACHED
+  it("1,001 件目のアルバムは LIMIT_REACHED（1,000 件目は作れる）。削除済みは数えない", async () => {
     const { owner, coupleId } = await createPair();
     const now = Math.floor(Date.now() / 1000);
+    // 表紙（署名付き URL）が応答の大半を占めるので、全件に写真 1 枚を入れて T3 の大きさを測る
     const statements = [];
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 999; i++) {
+      const albumId = `limit-${i}-${crypto.randomUUID()}`;
+      const photoId = generateImageId();
       statements.push(
         db
           .prepare(
             `INSERT INTO albums (id, couple_id, title, note, created_by, created_at, updated_at)
              VALUES (?1, ?2, ?3, '', ?4, ?5, ?5)`,
           )
-          .bind(`limit-${i}-${crypto.randomUUID()}`, coupleId, `アルバム ${i}`, owner.id, now),
+          .bind(albumId, coupleId, `アルバム ${i}`, owner.id, now),
+        db
+          .prepare(
+            `INSERT INTO album_photos (id, album_id, key, width, height, caption, taken_at, created_at)
+             VALUES (?1, ?2, ?3, 1, 1, '', ?4, ?4)`,
+          )
+          .bind(photoId, albumId, albumImageKeyFor(coupleId, photoId), now),
       );
     }
     await db.batch(statements);
 
-    await expect(call(router.album.create, { title: "101 件目" }, { context: contextFor(owner) })).rejects.toMatchObject({
+    const thousandth = await call(router.album.create, { title: "1,000 件目" }, { context: contextFor(owner) });
+    expect(thousandth.title).toBe("1,000 件目");
+    await expect(call(router.album.create, { title: "1,001 件目" }, { context: contextFor(owner) })).rejects.toMatchObject({
       code: "LIMIT_REACHED",
     });
 
+    // 055 T3: 1,000 件でも album.list は通り、応答の JSON は 1MB 未満（ページング無しのまま）
     const list = await call(router.album.list, {}, { context: contextFor(owner) });
-    await call(router.album.delete, { id: list.items[0]!.id }, { context: contextFor(owner) });
+    expect(list.items).toHaveLength(1_000);
+    expect(list.items.some((a) => a.id === thousandth.id)).toBe(true);
+    expect(list.items.filter((a) => a.cover !== null)).toHaveLength(999);
+    const bytes = new TextEncoder().encode(JSON.stringify(list)).byteLength;
+    expect(bytes).toBeLessThan(1_000_000);
+
+    await call(router.album.delete, { id: thousandth.id }, { context: contextFor(owner) });
     const created = await call(router.album.create, { title: "空きができた" }, { context: contextFor(owner) });
     expect(created.title).toBe("空きができた");
   });

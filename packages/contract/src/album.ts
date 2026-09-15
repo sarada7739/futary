@@ -85,7 +85,7 @@ export const albumSchema = z.object({
 });
 export type Album = z.infer<typeof albumSchema>;
 
-// album.list: 未削除・新しい順（created_at）。ページング無し（1 ペア 100 件上限）。
+// album.list: 未削除・新しい順（created_at）。ページング無し（1 ペア 1,000 件上限。055）。
 // timeline は仮想のアルバム（枚数 + 最新 4 枚）
 export const albumListContract = oc
   .input(z.object({}))
@@ -159,7 +159,7 @@ const DATE_ORDER_MESSAGE = "終了日は開始日以降の日付にしてくだ�
 
 // album.create: cover があれば R2 に実体があることを確認してから最初の 1 枚として入れ、
 // カバーにする（無ければ INVALID_INPUT でアルバムも作らない）。
-// LIMIT_REACHED: 1 ペア 100 件（未削除）
+// LIMIT_REACHED: 1 ペア 1,000 件（未削除。055）
 export const albumCreateContract = oc
   .input(
     z
