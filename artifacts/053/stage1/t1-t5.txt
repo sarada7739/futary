@@ -66,3 +66,7 @@ GET /app/calendar : HTTP/1.1 200 script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHN
 ## 注記
 - wrangler dev は Host ヘッダを localhost に書き換えるため、T1〜T3（旧ホスト・www の判定）はローカルの curl では再現できない（上の T1〜T3 の 200 はそのため）。T1〜T3 は apps/api/test/canonical-host.test.ts（app.fetch に本物の URL を渡す）で固定し、実機は本番デプロイ後に curl -I https://futary-api.sarada7739.workers.dev/ で確かめる（人間の手番 4）
 - CSP・nosniff・Referrer-Policy・HSTS が Worker から付いている（_headers は生成していない: ls apps/api/public に無い）
+
+## マージ前の人間の手番（許可あり。2026-09-15）
+- wrangler secret put BETTER_AUTH_URL / TRUSTED_ORIGINS → https://nisoine.com（Success。secret list に両方ある。R2_ACCOUNT_ID・R2_ACCESS_KEY_ID・R2_SECRET_ACCESS_KEY も secret にある = CSP の R2 ホストはこれから組める）
+- r2-cors.json は S3 形式（AllowedOrigins…）だったが、今の wrangler の `r2 bucket cors set` は `rules[].allowed.{origins,methods,headers}` を要求して落ちた（以前は人間がダッシュボードで設定していた。041「apply 不要」）。wrangler の形に直して apply。`cors list`: allowed_origins = http://localhost:8081, http://127.0.0.1:8081, https://nisoine.com（旧 workers.dev は無い）
