@@ -63,9 +63,10 @@ export type Plan = (typeof PLAN_VALUES)[number];
 // 環境変数にしない。変えるのはこの定数 1 つ。文言にこの数を直書きしない
 export const FREE_ALBUM_PHOTO_LIMIT = 30;
 
-// 048 段階2: プレミアムの「写真 5 万枚まで」（/premium・リリース履歴の文言）。文言用の定数で、
+// 048 段階2: プレミアムの「写真 50 万枚まで」（/premium・リリース履歴の文言。055 で 5 万 → 50 万 =
+// 1 アルバム 500 枚 × 1,000 件）。文言用の定数で、
 // サーバはこの数で止めていない（paid は albumQuota が null = 制限しない。物理上限の扱いは 042）
-export const PAID_ALBUM_PHOTO_LIMIT = 50_000;
+export const PAID_ALBUM_PHOTO_LIMIT = 500_000;
 
 // 045: 無料枠の残り。paid なら null（制限しない）。used は未削除のアルバムの写真の合計
 export const albumQuotaSchema = z.object({

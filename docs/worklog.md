@@ -13466,3 +13466,19 @@ Session: A
 - 順序: 055 → 054 → 047
 
 Session: A
+
+## 2026-09-16 セッションB: 055（プレミアムの写真 50 万枚）を実装
+
+- `MAX_ALBUMS_PER_COUPLE` 100 → 1,000・`PAID_ALBUM_PHOTO_LIMIT` 50_000 → 500_000・リリース履歴 3.2.0（3.1.0 の文言はそのまま）
+- T1〜T5 緑。T3 の実測: 1,000 件（表紙あり）で `album.list` の応答 602,392 bytes
+- 規約 8 節・045 の上限シートに「5 万」は無く触っていない。`architecture.md` の残りの「100 件」は `removePhotos` の話で別
+- 途中で `git checkout` をテストファイルに当てて自分の変更を消し、書き直した（結果は同じ）
+
+Session: B
+
+## 2026-09-16 セッションB: 055 を R が受け入れ → #386 をマージ
+
+- R の判定（必須修正なし。壊して 2 本赤を確認）を `artifacts/055/review-stage1.md` に保存
+- CI pass → squash merge。次は 054（LP）
+
+Session: B

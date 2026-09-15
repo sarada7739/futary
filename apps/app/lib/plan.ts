@@ -64,7 +64,7 @@ export function planLabel(plan: Plan): string {
   return plan === "paid" ? "プレミアム" : "無料";
 }
 
-// 048 段階2: /premium の「できること」の 1 行目「写真 5 万枚まで」（数字は契約の定数から。万単位で出す）
+// 048 段階2: /premium の「できること」の 1 行目「写真 50 万枚まで」（数字は契約の定数から。万単位で出す）
 export function paidPhotoLimitLabel(): string {
   return `写真 ${PAID_ALBUM_PHOTO_LIMIT / 10_000} 万枚まで`;
 }

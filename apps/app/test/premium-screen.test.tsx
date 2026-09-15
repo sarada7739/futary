@@ -121,7 +121,8 @@ describe("PremiumScreen（048 段階2 P6）: free", () => {
     renderIn(<PremiumScreen />);
     expect(screen.getByTestId("premium-title")).toHaveTextContent("プレミアムプラン");
     expect(screen.getByText("大切な思い出を、もっと自由に。")).toBeTruthy();
-    expect(screen.getByText("写真 5 万枚まで")).toBeTruthy();
+    expect(screen.getByText("写真 50 万枚まで")).toBeTruthy();
+    expect(screen.queryByText(/5 万枚/)).toBeNull();
     expect(screen.getByText("アルバムはいくつでも")).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId("premium-price")).toHaveTextContent("¥420 / 月"));
     expect(screen.getByTestId("premium-start")).toHaveTextContent("プレミアムを始める →");

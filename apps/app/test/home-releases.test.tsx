@@ -28,7 +28,7 @@ vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
 
-// 048 段階2: 最新は 3.1.0「プレミアムプランを始めました」（route /premium）。route 無しの形（3.0.0）は
+// 055: 最新は 3.2.0「プレミアムで保存できる写真が 50 万枚になりました」（route /premium）。route 無しの形（3.0.0）は
 // 最新を差し替えて見る（実体の配列は触らない）
 const releasesState = vi.hoisted(() => ({ latestOverride: null as null | { version: string; date: string; title: string; items: string[]; route?: string } }));
 vi.mock("../lib/releases", async (importOriginal) => {
@@ -145,18 +145,17 @@ describe("ホームの「リリース履歴を見る」（043 T2）", () => {
 });
 
 describe("「新機能のお知らせ」のシート（043 T3）", () => {
-  it("未読なら出る。最新の 1 項目（プレミアムプランを始めました。048 段階2）だけで、題名・2 行・「使ってみる」（/premium）。/premium はパネルの写真が無いので絵は無い", async () => {
+  it("未読なら出る。最新の 1 項目（プレミアムで保存できる写真が 50 万枚になりました。055）だけで、題名・1 行・「使ってみる」（/premium）。/premium はパネルの写真が無いので絵は無い", async () => {
     await renderHome();
     expect(screen.getByTestId("release-sheet")).toBeTruthy();
     expect(screen.getByText("新機能のお知らせ")).toBeTruthy();
     expect(screen.getByText("もっと便利に、もっと楽しく。")).toBeTruthy();
-    expect(screen.getByText("プレミアムプランを始めました")).toBeTruthy();
-    expect(screen.getByText("写真を 5 万枚まで保存できます")).toBeTruthy();
-    expect(screen.getByText("月額と年額から選べます")).toBeTruthy();
+    expect(screen.getByText("プレミアムで保存できる写真が 50 万枚になりました")).toBeTruthy();
+    expect(screen.getByText("アルバムの写真を 50 万枚まで保存できます")).toBeTruthy();
     expect(screen.getByTestId("release-sheet-try")).toBeTruthy();
     expect(screen.queryByTestId("release-sheet-photo")).toBeNull();
     // 1 つ前の版は出ない（複数を溜めない）
-    expect(screen.queryByText("Nisoine になりました")).toBeNull();
+    expect(screen.queryByText("プレミアムプランを始めました")).toBeNull();
   });
 
   it("route 無しの版（3.0.0 の形）なら「使ってみる」と絵は無い（最新を差し替えて）", async () => {

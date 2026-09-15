@@ -15,7 +15,7 @@ import { useViewerQueryKey } from "../../lib/viewer-key";
 // 045: プレミアムの画面。048 段階2 で申し込み（Stripe Checkout）が本物になった（タスク定義 3節 画面）。
 // 上に絵（ピンクはハートの線画 iconPanelWant、ホワイトは ✦ の線画 iconReleases。どちらも primary で塗る）・
 // 「プレミアムプラン」・「大切な思い出を、もっと自由に。」・
-// 「できること」のカード（**「写真 5 万枚まで」「アルバムはいくつでも」の 2 行だけ**。他は書かない）・
+// 「できること」のカード（**「写真 50 万枚まで」「アルバムはいくつでも」の 2 行だけ**。他は書かない）・
 // 月額／年額の切り替えと価格（billing.prices。Stripe から。直書きしない）・
 // 「プレミアムを始める →」（→ billing.createCheckoutSession の url へ window.location.assign）・
 // 「いつでも解約できます・自動更新」・下に「特定商取引法に基づく表記」「利用規約」（ランディングのページ）。
