@@ -13376,3 +13376,11 @@ Session: B
 - B の記録: deploy.yml の R2_ACCOUNT_ID（build が読まなくなった）は次の fix で消す
 
 Session: A
+
+## 2026-09-15 セッションB: 053 — R 受け入れ → 人間の許可で secret 2 つ・R2 CORS を本番に適用 → #373 を squash merge（main 0505471）。デプロイの承認は人間
+
+- 判定 `artifacts/053/review-stage1.md`。マージ前に `wrangler secret put BETTER_AUTH_URL` / `TRUSTED_ORIGINS` = `https://nisoine.com`、`wrangler r2 bucket cors set`（`r2-cors.json` は今の wrangler が要求する `rules` 形式に直した。以前は人間がダッシュボードで設定していた）
+- PR が main と CONFLICTING で CI が回らなかった → main を merge で取り込んで解消（自動）
+- 残りは人間: GitHub の Deploy（`production`）の承認は **最新の 0505471 だけ**（c67b45f〜e82622a の古い待ちは reject。古いのを後から承認すると巻き戻る）→ Google OAuth の URI・同意画面 → OpenAI のデータ共有オフ → 実機 → Search Console。R の記録 1: ゾーンの「Always Use HTTPS」をオン（初回の http を 301 に）
+
+Session: B
