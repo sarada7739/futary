@@ -16,7 +16,7 @@
 | 2 | 旧 URL | `workers.dev` は**残す**（`workers_dev = true` のまま）。Worker の先頭で `host` が `workers.dev` か `www.` なら **`https://nisoine.com` + 同じパスへ 301**。**`/api/*` は 301 しない**。旧ホストへの API 呼び出し（開きっぱなしの古いタブ）は **403 と「nisoine.com で開き直してください」**を返す | 「戻れる」を保つ。ただし Cookie は新オリジンに移らないので**ログインし直し**になる |
 | 3 | `BETTER_AUTH_URL` / `TRUSTED_ORIGINS` | `https://nisoine.com` に。**旧オリジンは `TRUSTED_ORIGINS` から外す**（301 するので要らない） | 信頼するオリジンを増やさない |
 | 4 | R2 の CORS | `r2-cors.json` の `AllowedOrigins` を `https://nisoine.com` に差し替え（旧を外す）→ `r2:cors:apply` | 同上 |
-| 5 | CSP・HSTS | CSP は `'self'` 中心なので変わらない。**HSTS を付ける**（`max-age=31536000; includeSubDomains`。`workers.dev` は preload 済みだったが独自ドメインは自分で付ける。`build-public.mjs` の既存のコメントが根拠） | SSL ストリップ対策 |
+| 5 | セキュリティヘッダの置き場 | **Worker で付ける。**旧ホストの 301 を全パスで行うには `run_worker_first = true` が要り、そのとき `_headers` は Worker の応答に効かない（Cloudflare の文書。B が確認）。固定のもの（`nosniff`・`Referrer-Policy`・`frame-ancestors`・**HSTS `max-age=31536000; includeSubDomains`**）は全応答に、CSP の `script-src` のハッシュは **配信する HTML の inline script を Worker が読んで sha256 を計算**（アセットのパスと ETag で 1 度だけ。モジュールのメモリに保持）。`build-public.mjs` の `_headers` 生成は消し、「inline script は 2 本・全ページ同じ」の留め金は残す（想定外の inline script を止めるのはビルドの役目。Worker は来たものを許すだけ） | 301 を Worker でやる代償。ヘッダの中身は変えない |
 | 6 | Google OAuth | 人間が **リダイレクト URI `https://nisoine.com/api/auth/callback/google`** と **JavaScript 生成元 `https://nisoine.com`** を足す。旧は**当面残す**（301 の間にログインが始まると旧 URI に戻るため。1 週間後に消す） | — |
 | 7 | 同意画面 | 承認済みドメインに `nisoine.com`。ホームページ `https://nisoine.com/`、プライバシー `https://nisoine.com/privacy`、規約 `https://nisoine.com/terms` | 052 で登録した URL を差し替え |
 | 8 | 検索 | `robots.txt`（`/api/` を Disallow、`/app/` を Disallow）・`sitemap.xml`（`/` `/privacy` `/terms`）・`<link rel="canonical" href="https://nisoine.com/">` を `index.html` に。人間が **Search Console** に登録して sitemap を送る | 独自ドメインになったので初めて意味がある |
@@ -40,11 +40,11 @@
 
 - `wrangler.toml` の `routes`（0節 #1）。`wrangler deploy` が Custom Domain を作る（ゾーンが Active でないと失敗する。**停止条件**）
 - Worker の先頭に 301（0節 #2）。`/api/*` は旧ホストで 403 + 「nisoine.com で開き直してください」の JSON
-- HSTS（0節 #5）
+- セキュリティヘッダを Worker へ（0節 #5。`apps/api/src/lib/security-headers.ts`）。`_headers` の生成を消す。`build-public.mjs` の留め金は残す
 - `r2-cors.json`・`apply`（人間の許可）
 - `.github/workflows/deploy.yml` の `BETTER_AUTH_URL` 等はローカル用の値なので触らない。**本番の secret は人間**
 - `robots.txt`・`sitemap.xml`・`canonical`・`User-Agent`
-- `docs/architecture.md` 3節の URL の表・`security-requirements.md` の `workers.dev` の記述は **A が直す**（B は起票して知らせる）
+- `docs/architecture.md` 3節の URL の表・`security-requirements.md` 7節（`_headers` → Worker）の記述は **A が直す**（B は起票して知らせる）
 
 ## 3. テストで証明すること
 
@@ -54,6 +54,8 @@
 | T2 | `Host: www.nisoine.com` → 301 `nisoine.com` | `apps/api` |
 | T3 | 旧ホストの `POST /api/...` → 403（301 しない） | `apps/api` |
 | T4 | `nisoine.com` の応答に `Strict-Transport-Security` | `apps/api` |
+| T4b | **`/`・`/app/`・`/privacy` の応答ヘッダ（CSP・nosniff・Referrer-Policy・frame-ancestors）が、移行前の `_headers` と同じ値**（移行前の値を固定して比較。CSP のハッシュは実際の inline script から計算した値と一致） | `apps/api` |
+| T4c | HTML 以外（`.js` `.png`）には CSP を付けず固定のヘッダだけ。`/api/*` の応答も固定のヘッダ | `apps/api` |
 | T5 | `robots.txt`・`sitemap.xml` が 200 で、`/api/` `/app/` が Disallow | `apps/api` |
 | T6 | `TRUSTED_ORIGINS` に旧オリジンが無い状態で、新オリジンからの API が通る（既存の CORS の検査） | `apps/api` |
 
