@@ -5,11 +5,17 @@ import { StrictGetMethodPlugin } from "@orpc/server/plugins";
 import { router } from "./router";
 import type { RpcContext } from "./context";
 import { createAuth, parseTrustedOrigins } from "./auth";
+import { canonicalUrlFor, isLegacyHost, LEGACY_ORIGIN_MESSAGE } from "./lib/canonical-host";
 import { withErrorId } from "./lib/error-id";
+import { applyStaticSecurityHeaders, withContentSecurityPolicy } from "./lib/security-headers";
 
 export interface Bindings {
   DB: D1Database;
   BUCKET: R2Bucket;
+  // 053: 静的アセット（apps/api/public。wrangler.toml の [assets]）。run_worker_first = true
+  // なので全リクエストが Worker に届き、/api/* 以外はこの binding に渡す。
+  // テスト環境で無いことがあるため optional（無ければ 404）
+  ASSETS?: Fetcher;
   BETTER_AUTH_SECRET?: string;
   BETTER_AUTH_URL?: string;
   GOOGLE_CLIENT_ID: string;
@@ -57,6 +63,32 @@ const handler = new RPCHandler(router, {
   interceptors: [({ next }) => withErrorId(next)],
 });
 
+// 053: 固定のセキュリティヘッダ（nosniff・Referrer-Policy・HSTS）を全応答に付ける。
+// 一番外側に置く: 下の 301・403・API・静的アセットのどの応答にも付く。
+// `_headers` は run_worker_first = true だと効かないため Worker で付ける
+// （src/lib/security-headers.ts）。静的アセットの応答は下の fallback で複製済み
+// （binding の応答はヘッダが immutable）
+app.use("*", async (c, next) => {
+  await next();
+  applyStaticSecurityHeaders(c.res);
+});
+
+// 053: 旧ホスト（*.workers.dev）と www は nisoine.com へ 301（同じパス・同じクエリ）。
+// /api/* は 301 しない: 開きっぱなしの古いタブからの API 呼び出しは fetch が 301 を
+// 黙って追って Cookie 無しの 401 になるだけなので、403 と文言で「開き直して」と伝える
+// （タスク定義 0節 #2）。ローカル（localhost）は isLegacyHost が false で素通り
+app.use("*", async (c, next) => {
+  const url = new URL(c.req.url);
+  if (!isLegacyHost(url.hostname)) {
+    await next();
+    return;
+  }
+  if (url.pathname.startsWith("/api/")) {
+    return c.json({ error: "LEGACY_ORIGIN", message: LEGACY_ORIGIN_MESSAGE }, 403);
+  }
+  return c.redirect(canonicalUrlFor(url), 301);
+});
+
 // 認証情報（Cookie）付きリクエストを許可するオリジンは環境変数で切り替える。
 // 本番は同一Workerから配信するため同一オリジンになり、そもそも越境しない
 app.use("/api/*", (c, next) => {
@@ -64,17 +96,6 @@ app.use("/api/*", (c, next) => {
     origin: parseTrustedOrigins(c.env.TRUSTED_ORIGINS),
     credentials: true,
   })(c, next);
-});
-
-// `_headers`（scripts/build-public.mjs）は静的アセットのレスポンスにのみ
-// 適用され、run_worker_first で /api/* はWorkerが直接応答するため対象外になる。
-// CSPはJSONレスポンスに意味を持たないため付けないが、nosniffは誤った
-// Content-Typeでのスニッフィング対策としてJSONにも意味があるため、
-// /api/* にも明示的に付ける（security-auditor全体監査Low-3指摘）
-app.use("/api/*", async (c, next) => {
-  await next();
-  c.res.headers.set("X-Content-Type-Options", "nosniff");
-  c.res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 });
 
 // @better-auth/expo の認可プロキシ。ネイティブの Google ログインは未対応
@@ -145,6 +166,19 @@ app.use("/api/*", async (c, next) => {
     return c.newResponse(response.body, response);
   }
   await next();
+});
+
+// 053: /api/* 以外は静的アセット（ランディング・/app/*）。run_worker_first = true に
+// したので Worker が ASSETS binding に渡す（html_handling・404 は binding 側の既定
+// のまま。`/privacy` -> privacy.html の解決も変わらない）。HTML には CSP を付ける
+// （inline script のハッシュは配信する HTML から計算。src/lib/security-headers.ts）。
+// /api/* で一致しなかったものは binding に渡さず 404（それまでの Hono の既定と同じ）
+app.all("*", async (c) => {
+  if (c.req.path.startsWith("/api/")) return c.notFound();
+  const assets = c.env.ASSETS;
+  if (!assets) return c.notFound();
+  const res = await assets.fetch(c.req.raw);
+  return withContentSecurityPolicy(res, c.req.path, c.env.R2_ACCOUNT_ID);
 });
 
 export default app;

@@ -13360,3 +13360,13 @@ Session: B
 - 人間がドメインを買い、Cloudflare にゾーンを作った。反映待ちの間に起票。旧 URL は 301 で残す。API は旧ホストで 403
 
 Session: A
+
+## 2026-09-15 セッションB: 053（独自ドメイン nisoine.com）を実装。PR を出して R の手番。ゾーン Active までマージしない
+
+- Cloudflare の文書で確認した 2 点: run_worker_first が配列だと一致するアセットのあるパスは Worker を通らない（旧ホストの `/` を 301 できない）→ true に。true だと `_headers` は Worker の応答に効かない → セキュリティヘッダを Worker へ（`apps/api/src/lib/security-headers.ts`）。A が受け入れ（e8cfbc3。条件 3 つ: ハッシュはパス+ETag で 1 度・移行前の `_headers` を固定値で比較・HTML 以外と API は固定ヘッダだけ）
+- `canonical-host.ts`（旧ホスト・www → 301、`/api/*` は 403）。CSP の script-src のハッシュは配信する HTML から計算。`_headers` の生成と `readR2AccountId` を消し、inline script の留め金は残す
+- robots.txt・sitemap.xml・canonical・UA・r2-cors.json（apply は人間の許可待ち）
+- T1〜T6 + T4b/T4c（`canonical-host.test.ts`・`cors.test.ts`。移行前のビルドの app/index.html をフィクスチャに）。実測: wrangler dev は Host を localhost に書き換えるので旧ホストの判定はローカルで再現できない（単体テストで固定。実機は本番で）
+- `/` `/privacy` の CSP は移行前より狭い（app のハッシュ 2 本が付かない）。報告 `artifacts/053/stage1.md`
+
+Session: B
