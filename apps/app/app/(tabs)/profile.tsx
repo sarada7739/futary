@@ -21,6 +21,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { DateInput8 } from "../../components/date-input8";
+import { LegalLinks } from "../../components/legal-links";
 import { ZipExportSheet } from "../../components/zip-export-sheet";
 import type { ZipSource } from "../../lib/album-zip";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
@@ -278,6 +279,8 @@ export default function ProfileScreen() {
               名前やアイコン、記念日を設定するには、Googleアカウントでログインしてください
             </Text>
             <Button onPress={exitGuestMode}>ログイン</Button>
+            {/* 052: ゲストにもプライバシーポリシー・利用規約は読める */}
+            <LegalLinks />
           </View>
         </View>
       </Screen>
@@ -550,6 +553,9 @@ export default function ProfileScreen() {
           <Button variant="ghost" onPress={() => router.push("/delete-account")}>
             アカウントを削除
           </Button>
+
+          {/* 052: マイページの一番下にプライバシーポリシー・利用規約（タスク定義 0節 4） */}
+          <LegalLinks />
       </ScrollView>
 
       <ZipExportSheet source={zipSource} onClose={() => setZipSource(null)} />

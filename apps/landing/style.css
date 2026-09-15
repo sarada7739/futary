@@ -212,6 +212,11 @@ h2 {
   background: var(--color-surface);
   border-radius: var(--radius-card);
   padding: 20px 24px;
+  /* 052: grid の子は min-width が auto で、中の表（.table-wrap table の最小幅 560）に
+     引きずられてカードごと画面の外へ広がる（実測: 390px でカードが 608px）。
+     0 にして、はみ出しは .table-wrap の横スクロールに閉じ込める。index.html の
+     カードは中身が折り返せるので見た目は変わらない */
+  min-width: 0;
 }
 
 .decision h3 {
@@ -231,6 +236,18 @@ h2 {
   padding: 2px 6px;
   border-radius: 6px;
   font-size: 13px;
+}
+
+/* 052: プライバシーポリシーの表の包み。スマホ幅で列を狭めず、表だけ横にスクロールさせる
+   （A の判断。法務ページに足す CSS はこれだけ）。包みだけだと日本語は 1 文字ずつ
+   折り返せるため表が画面幅まで縮んで列が狭いままになる（実測）。表に最小幅を
+   持たせて、包みの中でスクロールさせる */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table-wrap table {
+  min-width: 560px;
 }
 
 .repo-link {

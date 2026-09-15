@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Button, fontFamily, logoMark, Screen, space, Text, useTheme } from "@futary/ui";
 import { Image, Platform, Text as RNText, View } from "react-native";
+import { LegalLinks } from "../../components/legal-links";
 import { signIn } from "../../lib/auth-client";
 import { useGuestMode } from "../../lib/guest-mode";
 
@@ -131,6 +132,8 @@ export default function SignInScreen() {
               いまデモを見られません。しばらくしてからお試しください
             </Text>
           )}
+          {/* 052: 入る前にプライバシーポリシー・利用規約を読める（タスク定義 0節 4） */}
+          <LegalLinks />
         </View>
       </View>
     </Screen>
