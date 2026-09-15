@@ -216,6 +216,8 @@ function main() {
   cpSync(path.join(landingDir, "terms.html"), path.join(publicDir, "terms.html"));
   // 048 段階2: 特定商取引法に基づく表記
   cpSync(path.join(landingDir, "tokushoho.html"), path.join(publicDir, "tokushoho.html"));
+  // 054: 技術構成（index.html から移した。フッターからだけ辿れる。sitemap には載せない）
+  cpSync(path.join(landingDir, "tech.html"), path.join(publicDir, "tech.html"));
   // 053: 検索向け。robots.txt は /api/ と /app/ を Disallow、sitemap.xml は / /privacy /terms
   cpSync(path.join(landingDir, "robots.txt"), path.join(publicDir, "robots.txt"));
   cpSync(path.join(landingDir, "sitemap.xml"), path.join(publicDir, "sitemap.xml"));

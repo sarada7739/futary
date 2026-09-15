@@ -62,6 +62,22 @@
 | `hands-cafe.jpg` | カフェで重ねた手とコーヒー（1168×880。顔なし） | AI まとめの帯の右 |
 | `ai-network.jpg` | 濃紺の地に光る点と線（1360×768） | AI まとめの帯の地 |
 
+### 054 で切り出したもの（`apps/landing/assets/`）
+
+`landing/` の 9 枚と `プロフィール画像/` の 2 枚を `artifacts/054/scripts/make-assets.py` で縮小した（JPEG 品質 82・表示幅の 2 倍まで・EXIF 無し。1 枚 250KB 以下・合計 522KB）。
+`mockup-full.jpg`・`phone-home.jpg` は使っていない。
+
+| ファイル | 元 | 加工 |
+|---|---|---|
+| `hero-beach.jpg` | `landing/hero-beach.jpg` | 1552×656 のまま（107KB） |
+| `phone-chat.jpg` `phone-photos.jpg` `calendar-desk.jpg` `hands-cafe.jpg` | `landing/` の同名 | 640×482 に縮小 |
+| `ai-network.jpg` | `landing/ai-network.jpg` | 1360×768 のまま（帯の地。LP の濃紺 `--color-ai-band` はこの写真の暗い側の色 #070E3A 前後から） |
+| `want-grid.jpg` `polaroid-softcream.jpg` `polaroid-three.jpg` | `landing/` の同名 | 800×800 に縮小 |
+| `avatar-yui.jpg` `avatar-ren.jpg` | `プロフィール画像/woman1.jpg`・`man1.jpg`（デモペアと同じ顔。AI 生成） | 上寄りの正方形に切り出し 240×240（統計カードの 120px の円） |
+| `tab-timeline.png` `tab-calendar.png` `tab-home.png` `panel-memory.png` `panel-album.png` `panel-list.png` `panel-want.png` `panel-mood.png` | `packages/ui/assets/` の同名（線画） | 加工なし（LP は `packages/ui` を読めないので複製） |
+
+015 の `feature-{post,calendar,stats,memory}.png` は 054 で消した（LP が使わなくなった。`post`・`calendar`・`memory` は上の `tab-timeline`・`tab-calendar`・`panel-memory` と同じ画像だったので git では改名に見える）。
+
 ### 039 で切り出したもの（`packages/ui/assets/`）
 
 | ファイル | 元 | 加工 |
