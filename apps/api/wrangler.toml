@@ -3,6 +3,16 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
+# 053: 独自ドメイン。Workers の Custom Domains（DNS と証明書は Cloudflare が作る。
+# ゾーン nisoine.com が Active でないと wrangler deploy が失敗する）。
+# 旧 URL（*.workers.dev）は残す（workers_dev = true）。旧 URL と www は
+# Worker の先頭で nisoine.com へ 301 する（src/lib/canonical-host.ts）
+workers_dev = true
+routes = [
+  { pattern = "nisoine.com", custom_domain = true },
+  { pattern = "www.nisoine.com", custom_domain = true },
+]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "futary-db"
@@ -16,14 +26,17 @@ bucket_name = "futary-images"
 # ランディングページ（apps/landing）とアプリ本体（apps/app の Web エクスポート。
 # /app/* 配下）を合成した公開ディレクトリ（scripts/build-public.mjs が生成する。
 # デプロイ前に `pnpm build:public` を実行しておく必要がある。015タスク定義）。
-# run_worker_first は /api/* だけに絞る。/ と /app/* は静的アセットとして
-# そのまま配信できる（apps/app は app.json で web.output="static"・
-# experiments.baseUrl="/app" を設定しているため、動的セグメントの無い
-# このアプリでは全ルートが実ファイルとして書き出され、SPAフォールバックが要らない）
+# 053 で run_worker_first を true にした（それまでは ["/api/*"]）。旧ホスト・www の
+# `/`・`/app/*` を 301 するには Worker が先に受ける必要がある（配列だと、一致する
+# アセットがあるパスは Worker を通らずに配信される）。静的アセットは Worker の
+# 最後で ASSETS binding に渡す（src/index.ts）。apps/app は app.json で
+# web.output="static"・experiments.baseUrl="/app" を設定しているため、動的
+# セグメントの無いこのアプリでは全ルートが実ファイルとして書き出され、
+# SPAフォールバックが要らない（binding 経由でも html_handling は効く）
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/api/*"]
+run_worker_first = true
 
 # BETTER_AUTH_URL / TRUSTED_ORIGINS は [vars] に置かない。
 # ここに置くと本番デプロイ時に上書きし忘れた場合、Cookie の Secure 属性が

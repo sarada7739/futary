@@ -6,7 +6,14 @@
 // 出力構成:
 //   apps/api/public/index.html, style.css, assets/...   <- apps/landing の内容
 //   apps/api/public/app/...                              <- apps/app の web export
-//   apps/api/public/_headers                             <- CSP等のレスポンスヘッダ
+//
+// 053 まではここで `_headers`（CSP 等のレスポンスヘッダ）も書いていたが、旧ホストの
+// 301 のために run_worker_first = true にしたところ `_headers` は Worker の応答に
+// 効かなくなった（Cloudflare の文書）ので、ヘッダは Worker が付ける
+// （apps/api/src/lib/security-headers.ts。CSP の inline script のハッシュは配信する
+// HTML から計算）。ここに残っているのは「inline script は想定した本数・全ページ同じ」
+// の留め金だけ（Worker は来た HTML の inline script を全部許すので、想定外のものを
+// 止めるのはビルドの役目）
 //
 // apps/app 側は app.json で web.output="static" ・ experiments.baseUrl="/app"
 // を設定済みのため、生成される全ページ（今のところ動的セグメントは無い）が
@@ -15,7 +22,7 @@
 // を解決する。既定の html_handling=auto-trailing-slash で足りる）
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,33 +31,10 @@ const landingDir = path.join(repoRoot, "apps", "landing");
 const appDir = path.join(repoRoot, "apps", "app");
 const publicDir = path.join(repoRoot, "apps", "api", "public");
 
-// R2の署名付きURLは実際には単一ホスト（https://<accountId>.r2.cloudflarestorage.com。
-// apps/api/src/lib/r2-signed-url.ts）を指す。CSPで `https://*.r2.cloudflarestorage.com`
-// のようにワイルドカードで許可すると、XSSが成立した場合の持ち出し先として
-// 攻撃者自身のR2バケット（誰でも作れる）まで許可することになる
-// （security-auditor指摘）。R2_ACCOUNT_IDはCIでは環境変数から、ローカルでは
-// apps/api/.dev.varsから読む。どちらにも無ければビルドを失敗させる
-// （fail-closed。apps/api/src/auth.tsのTRUSTED_ORIGINSワイルドカード禁止と同じ姿勢）
-function readR2AccountId() {
-  if (process.env.R2_ACCOUNT_ID) return process.env.R2_ACCOUNT_ID;
-  const devVarsPath = path.join(repoRoot, "apps", "api", ".dev.vars");
-  try {
-    const devVars = readFileSync(devVarsPath, "utf8");
-    const match = devVars.match(/^R2_ACCOUNT_ID=(.+)$/m);
-    if (match) return match[1].trim();
-  } catch {
-    // .dev.varsが無い環境（CI等）はR2_ACCOUNT_ID環境変数側に頼る
-  }
-  throw new Error(
-    "R2_ACCOUNT_IDを取得できません。環境変数R2_ACCOUNT_IDを設定するか、" +
-      "apps/api/.dev.varsにR2_ACCOUNT_ID=<値>を設定してください。" +
-      "CSPのimg-src/connect-srcにワイルドカードで許可すると、XSS成立時に" +
-      "攻撃者自身のR2バケットへの持ち出しを許すことになるため、決め打ちにしない",
-  );
-}
-
 // apps/app の実際にビルドされた全ページのHTMLから、インラインscript（src属性の
-// 無い<script>）を全部抜き出し、それぞれのSHA256ハッシュをCSPのscript-srcに使う。
+// 無い<script>）を全部抜き出し、本数と集合を確かめる（053 まではここで SHA256 を
+// CSP の script-src に書いていた。今は Worker が配信時に同じ正規表現で取り出して
+// ハッシュする。apps/api/src/lib/security-headers.ts）。
 // 'unsafe-inline'で一律許可するより狭い（ここに挙がったscript以外のインライン
 // scriptは相変わらず拒否される）。
 //
@@ -69,7 +53,7 @@ function readR2AccountId() {
 // （`[^<]*`だと`<`の時点で静かに切り詰められる）
 const EXPECTED_INLINE_SCRIPT_COUNT = 2;
 
-function extractInlineScriptHash(appPublicDir) {
+function assertInlineScripts(appPublicDir) {
   const htmlFiles = listFilesRecursive(appPublicDir).filter((f) => f.endsWith(".html"));
   if (htmlFiles.length === 0) {
     throw new Error(`${appPublicDir} にHTMLファイルが見つかりません`);
@@ -117,7 +101,8 @@ function extractInlineScriptHash(appPublicDir) {
     );
   }
 
-  return scripts.map((s) => `'sha256-${createHash("sha256").update(s, "utf8").digest("base64")}'`).join(" ");
+  // 記録用（Worker が配信時に計算する値と突き合わせられるように出す）
+  return scripts.map((s) => `sha256-${createHash("sha256").update(s, "utf8").digest("base64")}`);
 }
 
 function listFilesRecursive(dir) {
@@ -126,43 +111,6 @@ function listFilesRecursive(dir) {
     const fullPath = path.join(dir, entry);
     return statSync(fullPath).isDirectory() ? listFilesRecursive(fullPath) : [fullPath];
   });
-}
-
-// CSP・その他のセキュリティヘッダ（security-requirements.md 7節「CSPは
-// ランディングページとWebアプリに設定する」）。Cloudflare Workers Assetsの
-// _headersファイルは静的アセットのレスポンスにのみ適用される
-// （/api/*はWorkerが直接応答するため対象外。JSONレスポンスにCSPは意味を持たない）。
-//
-// img-src/connect-srcの内訳（security-auditor指摘を反映）:
-// - R2の署名付きURL（画像の取得・アップロード）は https://<r2host> のみ許可
-// - blob: は画像投稿パイプラインに必須。expo-image-picker（Web実装）と
-//   expo-image-manipulatorがどちらもURL.createObjectURL()を使うため、
-//   これが無いと本番ビルドで画像投稿・プロフィール画像設定が全て失敗する
-//   （apps/app/app/compose.tsx・apps/app/lib/image.ts）
-// - Googleのプロフィール画像ホスト（lh3.googleusercontent.com）は
-//   apps/api/src/lib/r2-signed-url.tsのresolveUserImageが、自前アップロード
-//   でない場合はGoogle OAuthの画像URLをそのまま返す仕様のため必要
-//   （packages/ui/src/components/avatar.tsx）
-//
-// frame-ancestors 'none' はmetaタグでは効かないため、_headersで設定する
-// 意味がある（クリックジャッキング対策）。form-actionはdefault-srcに
-// フォールバックしない独立ディレクティブのため明示する。
-// Strict-Transport-Securityは016で独自ドメインに切り替えたときの
-// SSLストリップ対策（*.workers.devはHSTS preload済みだが、それに頼らない）
-function buildCsp(inlineScriptHash, r2AccountId) {
-  const r2Host = `https://${r2AccountId}.r2.cloudflarestorage.com`;
-  return (
-    "default-src 'self'; " +
-    `script-src 'self' ${inlineScriptHash}; ` +
-    "style-src 'self' 'unsafe-inline'; " +
-    `img-src 'self' data: blob: ${r2Host} https://lh3.googleusercontent.com; ` +
-    "font-src 'self'; " +
-    `connect-src 'self' blob: ${r2Host}; ` +
-    "frame-ancestors 'none'; " +
-    "object-src 'none'; " +
-    "base-uri 'self'; " +
-    "form-action 'self'"
-  );
 }
 
 // 015で実際に踏んだ不具合（本番の配布バンドルにhttp://localhost:8787が
@@ -266,10 +214,11 @@ function main() {
   // `/privacy` -> `privacy.html` を解決するため、ファイル名は URL に合わせる
   cpSync(path.join(landingDir, "privacy.html"), path.join(publicDir, "privacy.html"));
   cpSync(path.join(landingDir, "terms.html"), path.join(publicDir, "terms.html"));
+  // 053: 検索向け。robots.txt は /api/ と /app/ を Disallow、sitemap.xml は / /privacy /terms
+  cpSync(path.join(landingDir, "robots.txt"), path.join(publicDir, "robots.txt"));
+  cpSync(path.join(landingDir, "sitemap.xml"), path.join(publicDir, "sitemap.xml"));
   cpSync(path.join(landingDir, "style.css"), path.join(publicDir, "style.css"));
   cpSync(path.join(landingDir, "assets"), path.join(publicDir, "assets"), { recursive: true });
-
-  const r2AccountId = readR2AccountId();
 
   console.log("apps/app を web 向けにエクスポートします...");
   const appPublicDir = path.join(publicDir, "app");
@@ -315,18 +264,9 @@ function main() {
   console.log("本番バンドルにローカル開発用オリジンが残っていないか確認します...");
   assertNoLocalDevOriginLeaked(appPublicDir);
 
-  console.log("CSPのインラインscriptハッシュを計算します...");
-  const inlineScriptHash = extractInlineScriptHash(appPublicDir);
-
-  console.log("_headers を書きます...");
-  const csp = buildCsp(inlineScriptHash, r2AccountId);
-  const headersFile =
-    `/*\n` +
-    `  Content-Security-Policy: ${csp}\n` +
-    `  X-Content-Type-Options: nosniff\n` +
-    `  Referrer-Policy: strict-origin-when-cross-origin\n` +
-    `  Strict-Transport-Security: max-age=31536000; includeSubDomains\n`;
-  writeFileSync(path.join(publicDir, "_headers"), headersFile, "utf8");
+  console.log("インラインscriptの本数と集合を確かめます...");
+  const inlineScriptHashes = assertInlineScripts(appPublicDir);
+  console.log(`  inline script: ${inlineScriptHashes.join(" / ")}`);
 
   console.log("完了: apps/api/public");
 }

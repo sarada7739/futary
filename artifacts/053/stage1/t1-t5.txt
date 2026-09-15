@@ -1,0 +1,72 @@
+# 053 T1〜T5 の実測: pnpm build:public → wrangler dev（api-dev）に curl。2026-09-15
+# wrangler dev はローカルなので、旧ホストは Host ヘッダで装う（Worker は request.url のホストで判定）
+
+## T1: Host: futary-api.sarada7739.workers.dev
+GET /
+HTTP/1.1 200 OK
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+GET /app/x?y=1&z=2
+HTTP/1.1 404 Not Found
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+GET /privacy
+HTTP/1.1 200 OK
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+## T2: Host: www.nisoine.com
+HTTP/1.1 200 OK
+
+## T3: 旧ホストの POST /api/health/get
+HTTP/1.1 200 OK
+Content-Type: application/json
+{"json":{"ok":true,"now":1789458322096}}
+
+## T4: nisoine.com（Host: nisoine.com）の応答ヘッダ
+GET / :
+HTTP/1.1 200 OK
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://d08a3c92a0ca2b448831a612221
+Referrer-Policy: strict-origin-when-cross-origin
+X-Content-Type-Options: nosniff
+GET /api/health/get (GET は 405) :
+HTTP/1.1 405 Method Not Allowed
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+X-Content-Type-Options: nosniff
+
+## T5: robots.txt / sitemap.xml
+GET /robots.txt
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Disallow: /api/
+Disallow: /app/
+Sitemap: https://nisoine.com/sitemap.xml
+GET /sitemap.xml
+HTTP/1.1 200 OK
+Content-Type: application/xml
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://nisoine.com/</loc></url>
+  <url><loc>https://nisoine.com/privacy</loc></url>
+  <url><loc>https://nisoine.com/terms</loc></url>
+
+## CSP: /app/ の script-src のハッシュがビルドの出力と一致する
+build-public:   inline script: sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4= / sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8=
+worker /app/ : script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4=' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='
+worker /app/calendar : script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4=' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='
+
+## CSP 全文（/）
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://<accountId>.r2.cloudflarestorage.com https://lh3.googleusercontent.com; font-src 'self'; connect-src 'self' blob: https://<accountId>.r2.cloudflarestorage.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'
+
+## その他: /api/nothing は 404、/privacy.html は 307、/style.css に CSP は付かない
+C:/Program Files/Git/api/nothing status=404/nC:/Program Files/Git/privacy.html status=307/n0
+
+## 追記（ハッシュのキャッシュを入れた後。wrangler dev はコードを再読込済み）: /app/ を 2 回、/app/calendar を 1 回
+GET /app/ : HTTP/1.1 200 script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4=' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8=' 
+GET /app/ : HTTP/1.1 200 script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4=' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8=' 
+GET /app/calendar : HTTP/1.1 200 script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4=' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8=' 
+
+## 注記
+- wrangler dev は Host ヘッダを localhost に書き換えるため、T1〜T3（旧ホスト・www の判定）はローカルの curl では再現できない（上の T1〜T3 の 200 はそのため）。T1〜T3 は apps/api/test/canonical-host.test.ts（app.fetch に本物の URL を渡す）で固定し、実機は本番デプロイ後に curl -I https://futary-api.sarada7739.workers.dev/ で確かめる（人間の手番 4）
+- CSP・nosniff・Referrer-Policy・HSTS が Worker から付いている（_headers は生成していない: ls apps/api/public に無い）
+
+## マージ前の人間の手番（許可あり。2026-09-15）
+- wrangler secret put BETTER_AUTH_URL / TRUSTED_ORIGINS → https://nisoine.com（Success。secret list に両方ある。R2_ACCOUNT_ID・R2_ACCESS_KEY_ID・R2_SECRET_ACCESS_KEY も secret にある = CSP の R2 ホストはこれから組める）
+- r2-cors.json は S3 形式（AllowedOrigins…）だったが、今の wrangler の `r2 bucket cors set` は `rules[].allowed.{origins,methods,headers}` を要求して落ちた（以前は人間がダッシュボードで設定していた。041「apply 不要」）。wrangler の形に直して apply。`cors list`: allowed_origins = http://localhost:8081, http://127.0.0.1:8081, https://nisoine.com（旧 workers.dev は無い）
