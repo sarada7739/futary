@@ -13341,3 +13341,10 @@ Session: B
 - T1〜T3 を取り直した（`stage1/t1.txt`・`t2.txt`・`t3.txt`・png）
 
 Session: B
+
+## 2026-09-15 セッションB: 052 — R が追加コミット 03cc90a も受け入れ → #367 を squash merge（main c67b45f）。人間の手番へ
+
+- 判定は `artifacts/052/review-stage1.md`（R の記録: 048 段階2 で 8 節を入れるとき HTML の節番号を 9〜11 に戻す手順が要る → A へ）
+- 残りは人間: デプロイの承認・OAuth 同意画面に `/privacy` の URL・OpenAI のデータ共有をオフ
+
+Session: B
