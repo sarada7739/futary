@@ -464,10 +464,80 @@ describe("P3: source='manual' の行は Webhook が触らない", () => {
   it("applySubscriptionSnapshot を直接: 同じ snapshot を 2 回で同じ行", async () => {
     const { coupleId } = await createPair();
     const snap: SubscriptionSnapshot = { id: "sub_d", customerId: "cus_d", coupleId, status: "active", currentPeriodEnd: PERIOD_END, cancelAt: null };
-    expect(await applySubscriptionSnapshot(db, snap, NOW)).toBe("written");
+    expect(await applySubscriptionSnapshot(db, fake, snap, NOW)).toBe("written");
     const a = await planRow(coupleId);
-    expect(await applySubscriptionSnapshot(db, snap, NOW + 10)).toBe("written");
+    expect(await applySubscriptionSnapshot(db, fake, snap, NOW + 10)).toBe("written");
     expect(await planRow(coupleId)).toEqual(a);
+  });
+});
+
+// 0節 #9 の後半（R の指摘）: 行に付いた購読と違う購読の snapshot
+describe("P2b: 行に付いた購読と違う購読（2 本目・遅れて届いた古い event）", () => {
+  async function pairWithSub1() {
+    const { coupleId } = await createPair();
+    const cus = await fake.createCustomer(coupleId);
+    fake.putSubscription("sub_1", cus, "active", PERIOD_END);
+    const body = subscriptionEvent("customer.subscription.created", "sub_1", cus);
+    expect((await postWebhook(body, await sign(body))).status).toBe(200);
+    expect(await planRow(coupleId)).toMatchObject({ plan: "paid", stripe_subscription_id: "sub_1" });
+    return { coupleId, cus };
+  }
+
+  it("(a) 2 本目が active で来たら、古い方を Stripe で解約して行は新しい方になる", async () => {
+    const { coupleId, cus } = await pairWithSub1();
+    fake.putSubscription("sub_2", cus, "active", PERIOD_END + 100);
+    const body = subscriptionEvent("customer.subscription.created", "sub_2", cus);
+    const res = await postWebhook(body, await sign(body));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true, result: "written_replaced_subscription" });
+    expect(fake.canceled).toEqual(["sub_1"]);
+    expect(await planRow(coupleId)).toMatchObject({ plan: "paid", expires_at: PERIOD_END + 100, stripe_subscription_id: "sub_2" });
+
+    // 古い方の解約は冪等（もう canceled なら呼ばない）。同じ event をもう 1 度
+    const again = await postWebhook(body, await sign(body));
+    expect(await again.json()).toEqual({ received: true, result: "written" });
+    expect(fake.canceled).toEqual(["sub_1"]);
+  });
+
+  it("(b) 古い購読の canceled が遅れて届いても、新しい paid の行を free に落とさない", async () => {
+    const { coupleId, cus } = await pairWithSub1();
+    fake.putSubscription("sub_2", cus, "active", PERIOD_END + 100);
+    const b2 = subscriptionEvent("customer.subscription.created", "sub_2", cus);
+    await postWebhook(b2, await sign(b2));
+    // sub_1 は (a) で canceled になっている。その deleted が今届く
+    const b1 = subscriptionEvent("customer.subscription.deleted", "sub_1", cus);
+    const res = await postWebhook(b1, await sign(b1));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ received: true, result: "skipped_other_subscription" });
+    expect(await planRow(coupleId)).toMatchObject({ plan: "paid", stripe_subscription_id: "sub_2", expires_at: PERIOD_END + 100 });
+  });
+
+  it("(c) 行の購読自身の canceled は free になる（P2 のまま）", async () => {
+    const { coupleId, cus } = await pairWithSub1();
+    fake.putSubscription("sub_1", cus, "canceled", PERIOD_END);
+    const body = subscriptionEvent("customer.subscription.deleted", "sub_1", cus);
+    await postWebhook(body, await sign(body));
+    expect(await planRow(coupleId)).toMatchObject({ plan: "free", stripe_subscription_id: "sub_1" });
+  });
+
+  it("(d) 古い方の解約に失敗したら 500（Stripe が再送）。行は古い方のまま", async () => {
+    const { coupleId, cus } = await pairWithSub1();
+    fake.putSubscription("sub_2", cus, "active", PERIOD_END + 100);
+    fake.cancelShouldFail = true;
+    const body = subscriptionEvent("customer.subscription.created", "sub_2", cus);
+    await expect(postWebhook(body, await sign(body))).rejects.toThrow(/stripe down/);
+    expect(await planRow(coupleId)).toMatchObject({ plan: "paid", stripe_subscription_id: "sub_1" });
+  });
+
+  it("(e) 行に購読が無い（customer だけ。Checkout 直後）なら、どの購読でもそのまま書く", async () => {
+    const { owner, coupleId } = await createPair();
+    await call(router.billing.createCheckoutSession, { interval: "month" }, { context: contextFor(owner) });
+    const cus = (await planRow(coupleId))!.stripe_customer_id!;
+    fake.putSubscription("sub_9", cus, "active", PERIOD_END);
+    const body = subscriptionEvent("customer.subscription.created", "sub_9", cus);
+    expect(await (await postWebhook(body, await sign(body))).json()).toEqual({ received: true, result: "written" });
+    expect(fake.canceled).toEqual([]);
+    expect(await planRow(coupleId)).toMatchObject({ plan: "paid", stripe_subscription_id: "sub_9" });
   });
 });
 

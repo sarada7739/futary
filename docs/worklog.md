@@ -13407,3 +13407,10 @@ Session: B
 - P1〜P9 + P7b + マイページ。lint・型・全テスト緑（api 687・app 551）
 
 Session: B
+
+## 2026-09-15 セッションB: 048 段階2 — R の差し戻し（0節 #9 の後半）を直して #378 に積んだ
+
+- 行に付いた購読と違う購読の snapshot: paid なら 2 本目（古い方を Stripe で解約して差し替え）、paid でなければ書かない（古い購読の deleted が遅れて届いても新しい paid を free に落とさない。R が再現した経路）。`applySubscriptionSnapshot` に gateway を渡す形。P2b 5 件
+- R の記録 2（退会しても Stripe の customer が残る）は A の判断待ち
+
+Session: B

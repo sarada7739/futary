@@ -31,6 +31,10 @@
 - `viewer-key-coverage`（T9）: 価格のクエリにも `viewerKey` を含めた（免除を増やさない）
 - 認可の許可リスト: `billing.prices` は基底を経由しない（`health.get`・`me.get` と同じ理由）。`authorization.test.ts` に理由つきで足した
 
+## R の差し戻し（必須修正 1）で直したこと（2 コミット目）
+
+定義 0節 #9 の後半「Webhook で 2 本目の購読が来たら古い方を Stripe で解約してログ」が無かった。同じ根で、古い購読の deleted が遅れて届くと新しい paid の行を free に落とす（R が再現）。`applySubscriptionSnapshot` に gateway を渡し、**行に付いた購読と snapshot の id が違うとき**: paid なら 2 本目 → 行の購読を `cancelSubscription`（既に解約済みなら何もしない）してログ・新しい方を書く（`written_replaced_subscription`）。paid でなければ書かない（`skipped_other_subscription`）。解約に失敗したら例外 → 500 → Stripe が再送（行は古いまま）。テスト P2b (a)〜(e)（`billing.test.ts`）。
+
 ## B が決めたこと（A へ）
 
 - `stripe_cancel_at` の列と `planCancelAt`（上）。定義に無い。「解約したのに『更新』と出る」を避けるため
@@ -44,7 +48,7 @@
 | # | どこ | 結果 |
 |---|---|---|
 | P1 | `apps/api/test/billing.test.ts` 7 件 | 署名違い・無し・改ざん → 400 で書かない。正しければ `retrieve` の状態で upsert、同じ event 2 回で同じ行。checkout/invoice の形からも辿る。購読 id 無しは customer の最新。見ない種類は 200 無視。読み直し失敗は例外（500）。`app.fetch` 経由の本物の gateway で 400 / 設定無しで 404 |
-| P2 | 同 5 件 | active → paid/期限。canceled → free で期限は残る。past_due → paid。期限が取れなければ既存を保つ。**期間の終わりで解約 → paid のまま `stripe_cancel_at`、取り消しで NULL**。`couple.get` の 3 項目 |
+| P2 | 同 5 件 + **P2b 5 件**（2 本目 → 古い方を解約・遅れた canceled は無視・自身の canceled は free・解約失敗で 500・購読の無い行はそのまま） | active → paid/期限。canceled → free で期限は残る。past_due → paid。期限が取れなければ既存を保つ。**期間の終わりで解約 → paid のまま `stripe_cancel_at`、取り消しで NULL**。`couple.get` の 3 項目 |
 | P3 | 同 3 件 | manual の paid/free は触らない（`skipped_manual`）。couple_id の無い customer は書かない |
 | P4 | 同 5 件 | customer を先に保存。`metadata` に couple_id だけ（名前・メール無し）。year は年額の Price。paid（manual/stripe）は CONFLICT。期限切れ paid は通る。ゲスト FORBIDDEN・未所属 NEEDS_ONBOARDING。設定無しは 500 |
 | P5 | 同 3 件 | customer 無し・manual は NOT_FOUND。自分のペアの customer で `return_url=/app/profile`。他ペアの customer には辿れない |
@@ -56,7 +60,7 @@
 | マイページ | `profile-screen.test.tsx` 3 件 | 「（10月15日に更新）」+ 管理 → Portal。「（10月15日まで）」。manual は表示だけ |
 | 実機 | **`stage2/local-loop.txt`** | サンドボックスで一周: 申し込み → paid → Portal で解約（cancel_at）→ 「まで」→ 期限の代わりに即時解約 → free。年額の再申し込みも |
 
-`pnpm lint`・`pnpm type-check`・`pnpm test` 緑（api 687・app 551・date 67・db 32・ui 16）。
+`pnpm lint`・`pnpm type-check`・`pnpm test` 緑（api 692・app 551・date 67・db 32・ui 16）。
 
 ## 人間の手番（マージ前。B から値を示す）
 

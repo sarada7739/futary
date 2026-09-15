@@ -6,6 +6,7 @@
 // - **どの event でも、購読の今の状態を Stripe に読み直して couple_plans を upsert する**
 //   （event の中身を信じず、順序に依存しない。同じ event が 2 回来ても結果が同じ。lib/billing.ts）
 // - source='manual' の行は書かない
+// - 行に付いた購読と違う購読: paid なら 2 本目（古い方を解約して差し替え）、paid でなければ書かない（lib/billing.ts）
 // - 失敗（D1 が落ちた等）は 500 を返して Stripe に再送させる。成功したら 200
 // - ログは event の種類と couple_id の先頭だけ（security-requirements.md 8節）
 import type { BillingContext } from "./lib/billing";
@@ -62,7 +63,7 @@ export async function handleStripeWebhook(request: Request, deps: WebhookDeps): 
     return Response.json({ received: true, ignored: true });
   }
 
-  const result = await applySubscriptionSnapshot(deps.db, snapshot, deps.nowSeconds());
+  const result = await applySubscriptionSnapshot(deps.db, deps.billing.gateway, snapshot, deps.nowSeconds(), deps.log);
   deps.log?.(`stripe webhook ${event.type}: couple=${shortId(snapshot.coupleId)} status=${snapshot.status} ${result}`);
   return Response.json({ received: true, result });
 }
