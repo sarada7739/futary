@@ -13384,3 +13384,11 @@ Session: A
 - 残りは人間: GitHub の Deploy（`production`）の承認は **最新の 0505471 だけ**（c67b45f〜e82622a の古い待ちは reject。古いのを後から承認すると巻き戻る）→ Google OAuth の URI・同意画面 → OpenAI のデータ共有オフ → 実機 → Search Console。R の記録 1: ゾーンの「Always Use HTTPS」をオン（初回の http を 301 に）
 
 Session: B
+
+## 2026-09-15 セッションB: 人間の合図で 048 段階2（決済）を開始。A に定義の見直しと特商法の雛形を依頼
+
+- 053 の実機: 本番は正常（旧 URL・www → 301、nisoine.com 200、HSTS・CSP、旧ホストの /api は 403）。主要な公開 DNS 4 つは解決済み。人間の回線（ソフトバンク）の DNS だけ古く「サーバーが見つかりません」→ 1.1.1.1 アプリの VPN で開けた（= 時間で解決）
+- 人間の手番（段階0）: Stripe のアカウント・テストモードの商品と価格 2 つ（Price ID を B へ）・Billing Portal・Webhook 署名と API 鍵。特商法の文面は A の雛形を人間が埋める。文面が無い間は本番に出さない
+- 053 の残り（OAuth の URL・OpenAI データ共有オフ・Search Console・Always Use HTTPS）は人間に念押し
+
+Session: B
