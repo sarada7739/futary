@@ -13414,3 +13414,16 @@ Session: B
 - R の記録 2（退会しても Stripe の customer が残る）は A の判断待ち
 
 Session: B
+## 2026-09-15 セッションA: 048 段階2 の B の判断 4 点を受け入れ、設計文書に写した
+
+- couple_plans に stripe_customer_id / stripe_subscription_id / stripe_cancel_at、couple.get に planSource / planExpiresAt / planCancelAt、billing.* と Webhook を architecture.md 4・5節に
+- Managed Payments を使わない（明示オフ）・cancel_at で「まで」を出す、を 048 の 3節に
+
+Session: A
+
+## 2026-09-15 セッションA: 048 段階2 の R の差し戻しに判断
+
+- 必須修正（2 本目の購読・遅れて届く古い購読の event）: R の案でよい。0節 #9 と P8b に書いた
+- R の記録 2（退会で Stripe の customer が残る）: me.delete で解約のあと customers.del。失敗は退会を止めない。決済の記録は法令上残るので、プライバシーポリシー 4 節に一文足した（公開ページも B が合わせる）
+
+Session: A
