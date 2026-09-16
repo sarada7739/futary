@@ -755,8 +755,10 @@ SQLite は範囲条件を索引で使えない。繰り返す記念日は登録�
 me.get              現在のユーザーと所属ペア。未認証ならデモ閲覧モードを返す
 couple.create       {}                        付き合った日を受け取らない（023。マイページであとから設定する）
 couple.get          -> { datingDate: string | null, ..., plan: "free"|"paid", albumQuota: { limit, used } | null,
-                         planSource: "manual"|"stripe"|null, planExpiresAt: number|null, planCancelAt: number|null }
+                         planSource: "manual"|"stripe"|null, planExpiresAt: number|null, planCancelAt: number|null,
+                         planState: { plan: "paid" } | { plan: "free", lockAt: number|null, locked?: true } }
                     plan・albumQuota は 045。paid なら albumQuota は null。デモペアは paid
+                    planState は 047（猶予と鍵。lockAt = 猶予の終わり。locked = 無料枠を超える写真に鍵。albumQuota.used は鍵の分も数える）
                     planSource・planExpiresAt・planCancelAt は 048（マイページの「〇月〇日に更新／まで」と「プランを管理」の出し分け）
 billing.prices      {} -> { monthly: { amount, currency, priceId }, yearly: {...} }（048。Stripe から。1 時間キャッシュ）
 billing.createCheckoutSession { interval: "month"|"year" } -> { url }（048。paid なら CONFLICT。managed_payments は使わない）
@@ -852,10 +854,11 @@ album.removePhotos  { id, photoIds }（1〜100） -> Album。行を物理削除�
 album.delete        { id } -> { id }。論理削除。album_photos は同じ batch() で物理削除 → R2 を消す
 photo.list          { albumId?, cursor?, limit } -> { items: Photo[], nextCursor }（041。T9 対象）
                     PhotoRef = { kind: "post", postId, position } | { kind: "album", photoId }
-                    Photo = { ref: PhotoRef, url, width, height, takenAt, caption }
+                    Photo = { ref: PhotoRef, url: string|null, width, height, takenAt, caption, locked?: true }
+                    url が null = 鍵の写真（047。locked: true。caption も返さない。taken_at, id 昇順の 31 枚目以降。ビューアに渡さない）
                     albumId 無し = タイムライン（全投稿写真・新しい順。caption は投稿本文）。あればそのアルバム（古い順）。limit 最大60
                     タイムラインは posts.deleted_at IS NULL を必ず含める
-photo.downloadUrl   PhotoRef -> { url, filename }（041。6節「保存用の署名付き URL」）
+photo.downloadUrl   PhotoRef -> { url, filename }（041。6節「保存用の署名付き URL」。鍵の写真は NOT_FOUND〈047〉）
                     Content-Disposition: attachment 付きの署名付き GET。有効5分。filename はサーバが組み立てる
                     他ペアの ref は NOT_FOUND
 aiSummary.get       { periodKind, periodKey } -> { body, provider, model, updatedAt, generatedCount } | null

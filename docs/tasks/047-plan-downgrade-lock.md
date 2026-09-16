@@ -24,6 +24,8 @@
 | 11 | 猶予の起点 | **`expires_at` があればそれ**（Stripe の `canceled` は `plan='free'` で `expires_at` を残す〈048〉。期限切れで free になった行も同じ）。**`expires_at` が無い free の行**は、`source='manual'` なら `updated_at`（運営が手で free にした）、`source='stripe'` なら **鍵なし**（Checkout を作るときに先に書く `plan='free'` の行。一度も paid になっていない〈048〉） | 払っていないペアに鍵を掛けない |
 | 12 | 法務ページ・LP の文言 | **このタスクで戻す・直す**: `apps/landing/tokushoho.html` の「解約後のデータについて」を草案 `docs/legal/tokushoho-draft.md` の行の文面に。`apps/landing/terms.html` 8 節に草案 `terms-draft.md` の「30 日の猶予」の 1 行を足す。`index.html` の FAQ「写真はいつでも ZIP でまとめて持ち出せます」→「写真は ZIP でまとめて持ち出せます」（鍵の写真は ZIP に入らない） | 公開している文言と実装を同じにする（草案のメモ） |
 | 13 | 鍵の判定の形 | **「鍵でない 30 枚の id」を引く**（`unlockedPhotoIds(coupleId)`。`taken_at, id` 昇順の先頭 30）。鍵かどうかは「この 30 に無い」。鍵の側の id の集合は作らない | 055 で 1 ペア 1,000 件 × 500 枚になり、鍵の側は数十万になりうる。30 は D1 の 1 文 100 パラメータ（`architecture.md` 4節）に収まる |
+| 14 | 045 の部品の文言 | **「無制限」を消す**: `plan-limit-sheet.tsx`「写真枚数 無制限」→「写真 50 万枚まで」・`quota-warning-card.tsx`「プレミアムで無制限に」→「プレミアムで 50 万枚まで」・`usage-card.tsx`「プレミアムで無制限に ›」（`accessibilityLabel` も）→「プレミアムで 50 万枚まで ›」。045 の定義も同じ文言に直した | 鍵のマスを押すと出るのがこのシート。特商法・LP・`/premium` の「50 万枚まで」と同じ数字にする |
+| 15 | `unlockedPhotos` の `albums.deleted_at IS NULL` | **残す**。`album.delete` は写真の行を物理削除するので今は効かないが、削除の形が変わっても 30 の枠を削除済みが食わない。**テストを 1 本**（削除済みアルバムに写真の行を直接置き、先頭 30 に入らないこと。T12） | 条件を落として「効かない」と「要らない」を混ぜない |
 
 ## 1. 判定（サーバ）
 
@@ -79,6 +81,7 @@
 | T9 | 別ペアの写真を数えない（`couple_id` スコープ） | `apps/api` |
 | T10 | `/tokushoho` の「解約後のデータについて」が草案の文面（「30 日の猶予」を含む）。`/terms` 8 節に「30 日の猶予」の行。`/` の FAQ に「いつでも ZIP」が無い | `apps/api` |
 | T11 | locked で 1,000 件 × 数十枚のペアでも `photo.list` の 1 ページが D1 の 1 文に収まる（`unlockedPhotoIds` は 30 個。鍵の側を IN に入れない） | `apps/api` |
+| T12 | 削除済みアルバム（`deleted_at` あり）の写真の行が `unlockedPhotos` の先頭 30 に入らない | `apps/api` |
 
 ## 確認観点
 
