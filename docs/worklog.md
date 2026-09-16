@@ -13698,3 +13698,9 @@ Session: B
 - 判定を `artifacts/058/review-stage1.md` に保存（壊して 4 通り赤）。記録 1・2 のテスト（`loadDays` の二重の弾き・気象庁の fetch のヘッダ）を足した。CI pass → squash merge
 
 Session: B
+
+## 2026-09-17 セッションA: 天気の絵の原本を追跡に入れる
+
+- 人間が `docs/sample/weather/icons-source.png` を A のツリーに置いた。README の作法どおり置いたツリーで追跡に入れる。B に差し替えの手番を渡す
+
+Session: A
