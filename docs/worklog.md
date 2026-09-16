@@ -13562,3 +13562,9 @@ Session: A
 - 3 つのテストの文言を合わせ、「無制限」が無いことを固定
 
 Session: B
+
+## 2026-09-16 セッションB: 047 の追補を R が受け入れ → #394 をマージ
+
+- 判定を `artifacts/047/review-stage1.md` の末尾に追記（R は `deleted_at IS NULL` を外して T12 が赤になるのを確認）。CI pass → squash merge。B は待機
+
+Session: B

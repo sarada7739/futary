@@ -38,3 +38,16 @@ futary-R で 177b653 を checkout して実行した（`.dev.vars` は CI と同
 
 - 人間のペアでの確認観点（運営の SQL で `expires_at` を過去にして猶予 → 鍵 → paid に戻す）
 - スクリーンショットは `pink-album-detail-locked-tiles.png` だけ見た
+
+## 追補 PR #394（4c608fc）— R の判定（記録 1・2 を A の判断で直したもの）
+
+futary-R で 4c608fc を checkout。api `plan-lock.test.ts` 18 緑・app 565 緑。`tsc --noEmit` 緑・`eslint .` 緑。`worklog.md` は追記のみ。
+
+**受け入れ。必須修正なし。記録 1・2 は閉じた。**
+
+- 記録 1（「無制限」）: `git grep 無制限` は `apps/app/app`・`components`・`lib`・`packages/contract/src` でコメントだけ（本文 0）。3 部品とも `PAID_ALBUM_PHOTO_LIMIT` から `paidPhotoLimitLabel()` / `paidPhotoLimitCtaLabel()` で「写真 50 万枚まで」「プレミアムで 50 万枚まで」。`accessibilityLabel` も同じ関数。数字が 1 つ（契約の定数）に寄った
+- 記録 2（T12）: `unlockedPhotos` の `albums.deleted_at IS NULL` を外して走らせ、**T12 が赤**になるのを確かめた（段階1では緑のままだった）。テストは `deleted_at` を SQL で直接立てて古い 30 枚を残し、生きている 20 枚が全部鍵でないことと、削除済みのアルバム自体が NOT_FOUND のままなことを見ている
+
+### 記録（判定に使わない）
+
+- 無し
