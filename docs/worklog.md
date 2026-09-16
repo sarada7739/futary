@@ -13717,3 +13717,11 @@ Session: B
 - 判定を `artifacts/058/review-stage1.md` の末尾に追記。CI pass → squash merge
 
 Session: B
+
+## 2026-09-17 セッションB: 058 の追補 2（予定の無い日にも天気の行）
+
+- 人間の指示: 7 日以内で予定が無い日も「この日の予定はありません」の下に地域・天気・最高／最低を出す
+- `calendar.tsx` の条件から `selectedDayEvents.length > 0` を外す。T7 の「予定が無い日は出ない」を反転し、7 日の外は出ないテストを足す
+- 撮影 `artifacts/058/stage3/`（`capture-stage3.mjs`）。A へ: 058 の 0節 #5 の文言
+
+Session: B
