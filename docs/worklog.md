@@ -13725,3 +13725,9 @@ Session: B
 - 撮影 `artifacts/058/stage3/`（`capture-stage3.mjs`）。A へ: 058 の 0節 #5 の文言
 
 Session: B
+
+## 2026-09-17 セッションB: 058 の追補 2 を R が受け入れ → #409 をマージ
+
+- R の必須修正 1（「7 日の外」のテストが今日 = 日曜の 1 日のとき `gridFrom === today` で落ちる）を `gridFrom < today ? gridFrom : gridTo` で直した。判定を `review-stage1.md` の末尾に追記。CI pass → squash merge
+
+Session: B
