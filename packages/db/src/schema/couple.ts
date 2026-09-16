@@ -92,6 +92,9 @@ export const coupleMembers = sqliteTable(
     // 037: 投稿本文を外部の生成AIへ送ることへの、個人ごとの同意
     // （ADR-013）。2人ともtrueのときだけaiSummary.generateが通る
     aiOptIn: integer("ai_opt_in", { mode: "boolean" }).notNull().default(false),
+    // 058: 天気の地域（気象庁の予報区 class10 のコード。6 桁）。NULL = 未設定。個人ごと。
+    // 位置情報は取らない（利用者がマイページで選ぶ。表は packages/contract の WEATHER_AREAS）
+    weatherArea: text("weather_area"),
   },
   (table) => [
     primaryKey({ columns: [table.coupleId, table.userId] }),

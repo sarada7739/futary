@@ -1,0 +1,1 @@
+ALTER TABLE `couple_members` ADD `weather_area` text;

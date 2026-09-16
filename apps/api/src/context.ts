@@ -20,6 +20,8 @@ export interface RpcContext {
   // middleware/auth-context.ts の resolveIsAdmin の 1 箇所。optional なのは billing と同じ理由
   // （テストが context を手で組む）。無ければ運営はいない（fail-closed）
   adminEmails?: readonly string[];
+  // 058: 天気・祝日の外部 fetch（lib/weather.ts・lib/holidays.ts）。テストが差し替える。無ければ global の fetch
+  externalFetch?: (input: string, init: RequestInit) => Promise<Response>;
   user: { id: string; name: string; email: string; image: string | null } | null;
   // me.delete の再認証チェック（024・Aの決定）に使う、実際にサインインした
   // 時刻。Better Auth の session.createdAt は createSession() 時に一度だけ

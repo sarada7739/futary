@@ -20,6 +20,7 @@ const {
   photoListMock,
   signOutMock,
   pushMock,
+  updateWeatherAreaMock,
   billingPortalMock,
 } = vi.hoisted(() => ({
   meGetMock: vi.fn(),
@@ -35,6 +36,7 @@ const {
   photoListMock: vi.fn(),
   signOutMock: vi.fn(),
   pushMock: vi.fn(),
+  updateWeatherAreaMock: vi.fn(),
   // 048 段階2: 「プランを管理 ›」
   billingPortalMock: vi.fn(),
 }));
@@ -73,7 +75,10 @@ vi.mock("../lib/orpc", async () => {
       update: meUpdateMock,
       uploadImageUrl: meUploadImageUrlMock,
       setAiOptIn: meSetAiOptInMock,
+      // 058: 天気の地域
+      updateWeatherArea: updateWeatherAreaMock,
     },
+    weather: { get: vi.fn(), getForDate: vi.fn() },
     couple: {
       get: coupleGetMock,
       update: coupleUpdateMock,
@@ -758,5 +763,49 @@ describe("ProfileScreen: 運営の入口（057）", () => {
     await waitForLoaded();
     fireEvent.click(await screen.findByTestId("profile-admin"));
     expect(pushMock).toHaveBeenCalledWith("/admin");
+  });
+});
+
+// 058 T7: マイページの「天気の地域」（都道府県 → 予報区の 2 段。「設定しない」で null）
+describe("ProfileScreen: 天気の地域（058）", () => {
+  it("未設定なら「未設定 ›」。押すと都道府県の一覧。予報区が 1 つの県（大阪府）はその場で決まり me.updateWeatherArea が呼ばれる", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ weatherArea: null }));
+    updateWeatherAreaMock.mockResolvedValue({});
+    renderScreen();
+    await waitForLoaded();
+    expect(screen.getByTestId("profile-weather-area")).toHaveTextContent("未設定 ›");
+    fireEvent.click(screen.getByTestId("profile-weather-area"));
+    expect(await screen.findByTestId("weather-area-sheet")).toBeTruthy();
+    expect(screen.getByTestId("weather-pref-北海道")).toHaveTextContent("北海道 ›");
+    expect(screen.getByTestId("weather-pref-大阪府")).toHaveTextContent("大阪府");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("weather-pref-大阪府"));
+    });
+    await waitFor(() => expect(updateWeatherAreaMock).toHaveBeenCalledWith({ areaCode: "270000" }, expect.anything()));
+  });
+
+  it("予報区が複数の県（東京都）は 2 段目。伊豆諸島北部を選ぶ。設定済みなら名前が出て、「設定しない」で null", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ weatherArea: { code: "130010", name: "東京地方" } }));
+    updateWeatherAreaMock.mockResolvedValue({});
+    renderScreen();
+    await waitForLoaded();
+    expect(screen.getByTestId("profile-weather-area")).toHaveTextContent("東京地方 ›");
+    fireEvent.click(screen.getByTestId("profile-weather-area"));
+    await screen.findByTestId("weather-area-sheet");
+    fireEvent.click(screen.getByTestId("weather-pref-東京都"));
+    expect(await screen.findByTestId("weather-area-130020")).toHaveTextContent("伊豆諸島北部");
+    expect(screen.getByTestId("weather-area-130010")).toHaveTextContent("東京地方");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("weather-area-130020"));
+    });
+    await waitFor(() => expect(updateWeatherAreaMock).toHaveBeenCalledWith({ areaCode: "130020" }, expect.anything()));
+
+    // 開き直して「設定しない」
+    fireEvent.click(screen.getByTestId("profile-weather-area"));
+    await screen.findByTestId("weather-area-sheet");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("weather-area-none"));
+    });
+    await waitFor(() => expect(updateWeatherAreaMock).toHaveBeenCalledWith({ areaCode: null }, expect.anything()));
   });
 });

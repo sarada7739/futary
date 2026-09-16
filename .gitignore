@@ -42,3 +42,4 @@ coverage/
 .DS_Store
 Thumbs.db
 desktop.ini
+artifacts/058/scripts/.cache/
