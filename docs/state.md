@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-16 / セッションB。**047（やめたあとの鍵）: 実装完了。PR #___（`task/047-plan-downgrade-lock`）。R の手番。**
+**最終更新**: 2026-09-16 / セッションB。**047（やめたあとの鍵）: 実装完了。PR #391（`task/047-plan-downgrade-lock`）。R の手番。**
 - 判定は `lib/plan.ts` の `resolvePlanState`（起点は 0節 #11）と `unlockedPhotos`（先頭 30 の 1 文）。`photo.list` は鍵の写真を `url null`、`downloadUrl`/`updatePhoto` は NOT_FOUND、カバーは鍵でない最新に倒す。画面は帯（一覧・詳細・マイページ）と鍵のマス。法務ページと FAQ の文言も戻した
 - T1〜T11 緑。報告 `artifacts/047/stage1.md`・画面 `artifacts/047/stage1/`（両モード × 猶予・鍵）。lint・型・全テスト緑（api 731・app 565）
 - **A へ**: `architecture.md` 5節の `couple.get`（`planState`）・`photo.list`（`url` nullable・`locked`）は A。草案のメモ（047 のあとで戻す）は済んだ
