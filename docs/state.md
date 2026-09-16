@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-16 / セッションB。**057（運営の画面）: 実装完了。PR #___（`task/057-admin`）。R の手番。マージ前に人間の `wrangler secret put ADMIN_EMAILS`（自分のメール）。**
+**最終更新**: 2026-09-16 / セッションB。**057（運営の画面）: 実装完了。PR #402（`task/057-admin`）。R の手番。マージ前に人間の `wrangler secret put ADMIN_EMAILS`（自分のメール）。**
 - `admin_actions`（0025。FK 無し・退会しても残す）・`admin.*`（全部 `adminProcedure`。判定は `resolveIsAdmin` の 1 箇所）・`/app/admin`・マイページの「運営 ›」。T1〜T8 緑（T8 は `apps/api/test/schema-integrity.test.ts`）。報告 `artifacts/057/stage1.md`・画面 `artifacts/057/stage1/`
 - **A へ**: `architecture.md` 4節（`admin_actions`）・5節（`admin.*`・`couple.get.isAdmin`）
 - 人間の手番（続き）: 056 のデプロイ確認・047 の確認観点の残り（今は猶予中のまま。鍵の後 → paid の 2 本は許可をくれれば B が流す）・Stripe の本番 Price。開いている PR: Dependabot の fflate（#340・#382）
