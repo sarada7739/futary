@@ -182,3 +182,29 @@ describe("054: 文言（3節）とリンク", () => {
     );
   });
 });
+
+describe("047 T10: 法務ページと LP の文言が鍵の実装と一致する", () => {
+  it("/tokushoho の「解約後のデータについて」が草案の文面（30 日の猶予・ZIP で保存・削除しません）", async () => {
+    const res = await get("/tokushoho");
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain(
+      "<tr><td>解約後のデータについて</td><td>プレミアムをやめると、無料プランの範囲（アルバムの写真 30 枚まで）を超える写真は、期間の終わりから 30 日の猶予ののち閲覧できなくなります。猶予の間に「ZIP で保存」で手元に控えることができます。再びプレミアムにすると閲覧できるようになります。データは削除しません</td></tr>",
+    );
+    expect(html).not.toContain("新しく追加できなくなります");
+  });
+
+  it("/terms 8 節に「30 日の猶予」の行（草案の文面）", async () => {
+    const res = await get("/terms");
+    const html = await res.text();
+    expect(html).toContain(
+      "<li>プレミアムをやめた場合、無料プランの範囲を超える写真は、期間の終わりから 30 日の猶予ののち閲覧できなくなります。猶予の間に「ZIP で保存」で手元に控えてください。写真は削除されず、再びプレミアムにすると閲覧できます</li>",
+    );
+    expect(html).not.toContain("新しく追加できなくなります");
+  });
+
+  it("/ の FAQ に「いつでも ZIP」が無い（鍵の写真は ZIP に入らない）", () => {
+    expect(landingIndexHtml).not.toContain("いつでも ZIP");
+    expect(landingIndexHtml).toContain("写真は ZIP でまとめて持ち出せます。");
+  });
+});

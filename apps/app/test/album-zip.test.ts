@@ -175,6 +175,21 @@ describe("collectZipPhotos", () => {
     ]);
   });
 
+  it("047: 鍵の写真（url null）は ZIP に入れない", async () => {
+    photoListMock.mockResolvedValueOnce({
+      items: [
+        { ref: albumRef(1), caption: "一", url: "https://example.com/1.jpg" },
+        { ref: albumRef(2), caption: "", url: null, locked: true },
+        { ref: albumRef(3), caption: "三", url: "https://example.com/3.jpg" },
+      ],
+      nextCursor: null,
+    });
+
+    const photos = await collectZipPhotos({ kind: "album", albumId: "album-1", title: "京都旅行" });
+
+    expect(photos.map((p) => p.ref)).toEqual([albumRef(1), albumRef(3)]);
+  });
+
   it("Z5: 全部は album.list の items だけを辿る。タイムライン（albumId 無しの photo.list）は呼ばない。アルバムごとのフォルダに分ける", async () => {
     albumListMock.mockResolvedValue({
       timeline: { photoCount: 5, previews: [] },

@@ -397,3 +397,58 @@ describe("AlbumScreen: 無料枠（045）", () => {
     expect(coupleGetMock).not.toHaveBeenCalled();
   });
 });
+
+// 047 T8: 一覧の帯（使用量のカードの上）。猶予中は「ZIP で保存」→ すべての写真のシート
+describe("AlbumScreen: やめたあとの鍵の帯（047）", () => {
+  const LOCK_AT = Date.UTC(2026, 9, 15, 15, 0, 0) / 1000;
+
+  it("猶予中: 帯に日付。「ZIP で保存」で「すべての写真を ZIP で保存」のシート。使用量のカードの上にある", async () => {
+    coupleGetMock.mockResolvedValue({
+      id: "couple-1",
+      plan: "free",
+      albumQuota: { limit: 30, used: 100 },
+      planState: { plan: "free", lockAt: LOCK_AT, locked: false },
+    });
+    stubList([{ id: "album-1", title: "京都旅行", photoCount: 1 }]);
+    photoListMock.mockResolvedValue({ items: [{ ref: { kind: "album", photoId: "p1" }, caption: "", url: "https://example.com/1.jpg" }], nextCursor: null });
+    renderScreen();
+
+    const band = await screen.findByTestId("lock-band-grace");
+    expect(band).toHaveTextContent("2026年10月16日までに写真を保存してください。それ以降、無料枠を超える写真は見られなくなります");
+    const card = screen.getByTestId("album-usage-card");
+    expect(band.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("lock-band-zip"));
+    expect(await screen.findByText("すべての写真を ZIP で保存")).toBeTruthy();
+  });
+
+  it("鍵の後: 「無料枠を超える 70 枚は見られません」+「プレミアムについて」→ /premium。ZIP は無い", async () => {
+    coupleGetMock.mockResolvedValue({
+      id: "couple-1",
+      plan: "free",
+      albumQuota: { limit: 30, used: 100 },
+      planState: { plan: "free", lockAt: LOCK_AT, locked: true },
+    });
+    stubList([]);
+    renderScreen();
+
+    expect(await screen.findByTestId("lock-band-locked")).toHaveTextContent("無料枠を超える 70 枚は見られません");
+    expect(screen.queryByTestId("lock-band-zip")).toBeNull();
+    fireEvent.click(screen.getByTestId("lock-band-premium"));
+    expect(pushMock).toHaveBeenCalledWith("/premium");
+  });
+
+  it("一度も paid になっていない free（lockAt null）には帯が無い", async () => {
+    coupleGetMock.mockResolvedValue({
+      id: "couple-1",
+      plan: "free",
+      albumQuota: { limit: 30, used: 30 },
+      planState: { plan: "free", lockAt: null, locked: false },
+    });
+    stubList([]);
+    renderScreen();
+    await screen.findByTestId("album-usage-card");
+    expect(screen.queryByTestId("lock-band-grace")).toBeNull();
+    expect(screen.queryByTestId("lock-band-locked")).toBeNull();
+  });
+});

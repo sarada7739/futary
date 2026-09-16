@@ -10,7 +10,7 @@ import {
   MAX_IMAGE_BYTES,
   type R2SignConfig,
 } from "../lib/r2-signed-url";
-import { exceedsFreeQuota } from "../lib/plan";
+import { exceedsFreeQuota, isLocked, loadPlanState, unlockedPhotos, type UnlockedPhoto } from "../lib/plan";
 import { generateImageId } from "../lib/ulid";
 import { isConstraintViolation } from "./couple";
 import { readProcedure, writeProcedure } from "./base";
@@ -46,9 +46,24 @@ interface AlbumRow {
   cover_photo_id: string | null;
   created_at: number;
   photo_count: number;
+  cover_id: string | null;
   cover_key: string | null;
   cover_width: number | null;
   cover_height: number | null;
+}
+
+// 047: 鍵の文脈。locked のときだけ持つ（null なら鍵は無い）。unlocked は鍵でない写真（先頭 30 枚）。
+// 判定は lib/plan.ts の 1 箇所。ここは「この写真がその中に無い = 鍵」と読むだけ
+interface LockContext {
+  unlocked: UnlockedPhoto[];
+  unlockedIds: Set<string>;
+}
+
+async function loadLock(db: D1Database, coupleId: string): Promise<LockContext | null> {
+  const state = await loadPlanState(db, coupleId, nowSeconds());
+  if (!isLocked(state)) return null;
+  const unlocked = await unlockedPhotos(db, coupleId);
+  return { unlocked, unlockedIds: new Set(unlocked.map((p) => p.id)) };
 }
 
 interface AlbumPhotoRow {
@@ -80,14 +95,30 @@ const ALBUM_SELECT =
   `SELECT a.id AS id, a.title AS title, a.note AS note, a.start_date AS start_date, a.end_date AS end_date,
           a.cover_photo_id AS cover_photo_id, a.created_at AS created_at,
           (SELECT COUNT(*) FROM album_photos p WHERE p.album_id = a.id) AS photo_count,
-          c.key AS cover_key, c.width AS cover_width, c.height AS cover_height
+          c.id AS cover_id, c.key AS cover_key, c.width AS cover_width, c.height AS cover_height
      FROM albums a
      LEFT JOIN album_photos c ON c.id = (
        SELECT p2.id FROM album_photos p2 WHERE p2.album_id = a.id
         ORDER BY (p2.id = a.cover_photo_id) DESC, p2.taken_at DESC, p2.id DESC
         LIMIT 1)`;
 
-async function toAlbum(row: AlbumRow, r2Sign: R2SignConfig) {
+// 047: カバーが鍵の写真なら、鍵でない中でいちばん新しいもの（このアルバムのもの）に倒す。無ければ null。
+// photoCount は鍵を含む数のまま（タスク定義 1節）
+function resolveCover(row: AlbumRow, lock: LockContext | null): { key: string; width: number; height: number } | null {
+  if (row.cover_key === null || row.cover_width === null || row.cover_height === null) return null;
+  if (lock === null || (row.cover_id !== null && lock.unlockedIds.has(row.cover_id))) {
+    return { key: row.cover_key, width: row.cover_width, height: row.cover_height };
+  }
+  let newest: UnlockedPhoto | null = null;
+  for (const p of lock.unlocked) {
+    if (p.album_id !== row.id) continue;
+    if (newest === null || p.taken_at > newest.taken_at || (p.taken_at === newest.taken_at && p.id > newest.id)) newest = p;
+  }
+  return newest ? { key: newest.key, width: newest.width, height: newest.height } : null;
+}
+
+async function toAlbum(row: AlbumRow, r2Sign: R2SignConfig, lock: LockContext | null) {
+  const cover = resolveCover(row, lock);
   return {
     id: row.id,
     title: row.title,
@@ -95,10 +126,7 @@ async function toAlbum(row: AlbumRow, r2Sign: R2SignConfig) {
     startDate: row.start_date,
     endDate: row.end_date,
     photoCount: row.photo_count,
-    cover:
-      row.cover_key !== null && row.cover_width !== null && row.cover_height !== null
-        ? { url: await createGetUrl(r2Sign, row.cover_key), width: row.cover_width, height: row.cover_height }
-        : null,
+    cover: cover ? { url: await createGetUrl(r2Sign, cover.key), width: cover.width, height: cover.height } : null,
     createdAt: row.created_at,
   };
 }
@@ -123,14 +151,17 @@ async function fetchAlbumOrThrow(
   return row;
 }
 
-async function toAlbumPhoto(row: AlbumPhotoRow, r2Sign: R2SignConfig): Promise<Photo> {
+// 047: 鍵の写真は url が null・caption が空・locked が true（URL を出さないことで「見られない」を作る）
+async function toAlbumPhoto(row: AlbumPhotoRow, r2Sign: R2SignConfig, lock: LockContext | null): Promise<Photo> {
+  const locked = lock !== null && !lock.unlockedIds.has(row.id);
   return {
     ref: { kind: "album", photoId: row.id },
-    url: await createGetUrl(r2Sign, row.key),
+    url: locked ? null : await createGetUrl(r2Sign, row.key),
     width: row.width,
     height: row.height,
     takenAt: row.taken_at,
-    caption: row.caption,
+    caption: locked ? "" : row.caption,
+    locked,
   };
 }
 
@@ -138,6 +169,7 @@ async function toTimelinePhoto(row: TimelinePhotoRow, r2Sign: R2SignConfig): Pro
   return {
     ref: { kind: "post", postId: row.post_id, position: row.position },
     url: await createGetUrl(r2Sign, row.key),
+    locked: false,
     width: row.width,
     height: row.height,
     takenAt: row.created_at,
@@ -287,7 +319,7 @@ async function fetchAlbumPhotoPage(
 const albumList = implementer.album.list.use(readProcedure).handler(async ({ context }) => {
   const { db, coupleId, r2Sign } = context;
 
-  const [countRow, previewRows, albumRows] = await Promise.all([
+  const [countRow, previewRows, albumRows, lock] = await Promise.all([
     db
       .prepare(
         `SELECT COUNT(*) AS count FROM post_images JOIN posts ON posts.id = post_images.post_id
@@ -300,11 +332,13 @@ const albumList = implementer.album.list.use(readProcedure).handler(async ({ con
       .prepare(`${ALBUM_SELECT} WHERE a.couple_id = ?1 AND a.deleted_at IS NULL ORDER BY a.created_at DESC, a.id DESC`)
       .bind(coupleId)
       .all<AlbumRow>(),
+    // 047: 鍵の文脈は 1 度だけ引き、全アルバムのカバーの判定に使う（1,000 件でも 30 行）
+    loadLock(db, coupleId),
   ]);
 
   const [previews, items] = await Promise.all([
     Promise.all(previewRows.results.map((row) => toTimelinePhoto(row, r2Sign))),
-    Promise.all(albumRows.results.map((row) => toAlbum(row, r2Sign))),
+    Promise.all(albumRows.results.map((row) => toAlbum(row, r2Sign, lock))),
   ]);
   return { timeline: { photoCount: countRow?.count ?? 0, previews }, items };
 });
@@ -312,7 +346,7 @@ const albumList = implementer.album.list.use(readProcedure).handler(async ({ con
 const albumGet = implementer.album.get.use(readProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, r2Sign } = context;
   const row = await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
-  return toAlbum(row, r2Sign);
+  return toAlbum(row, r2Sign, await loadLock(db, coupleId));
 });
 
 // post.uploadUrl と同じ形。imageId はサーバが生成し、鍵もサーバだけが組み立てる
@@ -377,7 +411,7 @@ const albumCreate = implementer.album.create.use(writeProcedure).handler(async (
 
   // 書いた直後の行が読めないのは到達不能（batch が成功している）。契約に NOT_FOUND は無い
   const row = await fetchAlbumOrThrow(db, coupleId, id, () => new Error("作成したアルバムを読み直せませんでした"));
-  return toAlbum(row, r2Sign);
+  return toAlbum(row, r2Sign, await loadLock(db, coupleId));
 });
 
 // 渡されなかった項目は変えない。終了日と開始日の順序は既存の値と合わせて確かめる。
@@ -427,7 +461,7 @@ const albumUpdate = implementer.album.update.use(writeProcedure).handler(async (
   if (!updated) throw errors.NOT_FOUND();
 
   const row = await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
-  return toAlbum(row, r2Sign);
+  return toAlbum(row, r2Sign, await loadLock(db, coupleId));
 });
 
 // 合計が 500 を超えるなら LIMIT_REACHED（1 枚も入れない）。全部の実体を確かめてから
@@ -466,7 +500,7 @@ const albumAddPhotos = implementer.album.addPhotos.use(writeProcedure).handler(a
   }
 
   const row = await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
-  return toAlbum(row, r2Sign);
+  return toAlbum(row, r2Sign, await loadLock(db, coupleId));
 });
 
 // 説明文だけ変える。WHERE に「このペアの未削除のアルバムの写真」を EXISTS で含めた 1 文
@@ -474,6 +508,10 @@ const albumUpdatePhoto = implementer.album.updatePhoto
   .use(writeProcedure)
   .handler(async ({ context, input, errors }) => {
     const { db, coupleId, r2Sign } = context;
+
+    // 047: 鍵の写真は説明文も書けない（downloadUrl と同じく NOT_FOUND。画面は鍵のマスから編集に入れない）
+    const lock = await loadLock(db, coupleId);
+    if (lock !== null && !lock.unlockedIds.has(input.photoId)) throw errors.NOT_FOUND();
 
     const row = await db
       .prepare(
@@ -485,7 +523,7 @@ const albumUpdatePhoto = implementer.album.updatePhoto
       .bind(input.caption, input.photoId, input.id, coupleId)
       .first<AlbumPhotoRow>();
     if (!row) throw errors.NOT_FOUND();
-    return toAlbumPhoto(row, r2Sign);
+    return toAlbumPhoto(row, r2Sign, lock);
   });
 
 // 行を物理削除してから R2 を消す（D1 → R2。architecture.md 6節）。入っていない id は無視。
@@ -524,7 +562,7 @@ const albumRemovePhotos = implementer.album.removePhotos
     await deleteQuietly(bucket, keys);
 
     const row = await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
-    return toAlbum(row, r2Sign);
+    return toAlbum(row, r2Sign, await loadLock(db, coupleId));
   });
 
 // 論理削除 + album_photos は物理削除（同じ batch()）→ R2 を消す。
@@ -602,7 +640,9 @@ const photoList = implementer.photo.list.use(readProcedure).handler(async ({ con
   const pageRows = hasMore ? results.slice(0, limit) : results;
   const last = pageRows[pageRows.length - 1];
   const nextCursor = hasMore && last ? encodeCursor({ takenAt: last.taken_at, id: last.id }) : null;
-  const items = await Promise.all(pageRows.map((row) => toAlbumPhoto(row, r2Sign)));
+  // 047: locked のときだけ「鍵でない 30 枚」を引く（paid・猶予中は引かない）。鍵の側を IN に入れない
+  const lock = await loadLock(db, coupleId);
+  const items = await Promise.all(pageRows.map((row) => toAlbumPhoto(row, r2Sign, lock)));
   return { items, nextCursor };
 });
 
@@ -641,6 +681,11 @@ const photoDownloadUrl = implementer.photo.downloadUrl.use(readProcedure).handle
   const { db, coupleId, r2Sign } = context;
   const resolved = await resolvePhotoRef(db, coupleId, input);
   if (!resolved) throw errors.NOT_FOUND();
+  // 047: 鍵の写真は NOT_FOUND（存在を教えない形に寄せる。want.* と同じ）
+  if (input.kind === "album") {
+    const lock = await loadLock(db, coupleId);
+    if (lock !== null && !lock.unlockedIds.has(input.photoId)) throw errors.NOT_FOUND();
+  }
   const filename = `nisoine-${formatJstDateCompact(resolved.takenAt)}-${imageIdOfKey(resolved.key)}.jpg`;
   const url = await createDownloadUrl(r2Sign, resolved.key, filename);
   return { url, filename };

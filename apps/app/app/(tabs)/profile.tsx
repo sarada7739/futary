@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { ORPCError } from "@orpc/client";
 import { formatJstDateTime } from "@futary/date";
 import { PRIMARY_DATE_VALUES, type Couple } from "@futary/contract";
-import { paidPlanLabel, planLabel } from "../../lib/plan";
+import { lockNotice, paidPlanLabel, planLabel } from "../../lib/plan";
 import {
   APPEARANCE_VALUES,
   Avatar,
@@ -22,6 +22,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { DateInput8 } from "../../components/date-input8";
 import { LegalLinks } from "../../components/legal-links";
+import { LockBand } from "../../components/lock-band";
 import { ZipExportSheet } from "../../components/zip-export-sheet";
 import type { ZipSource } from "../../lib/album-zip";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
@@ -127,6 +128,8 @@ export default function ProfileScreen() {
   const [inviteErrorMessage, setInviteErrorMessage] = useState<string | null>(null);
   // 048: 「アルバムの写真をまとめて保存」（すべての写真を ZIP で）のシート
   const [zipSource, setZipSource] = useState<ZipSource | null>(null);
+  // 047: 猶予・鍵の帯
+  const lockNoticeFor = lockNotice(coupleQuery.data?.planState, coupleQuery.data?.albumQuota ?? null);
 
   // サーバのデータが届いた最初の1回だけフォームへ反映する。以降は
   // 利用者の入力をサーバ再取得で上書きしない（event-form.tsxのvisible再初期化とは
@@ -508,6 +511,11 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </Card>
+
+          {/* 047: プレミアムをやめたあとの猶予・鍵の帯（プランの行の上）。「ZIP で保存」は下と同じシート */}
+          {lockNoticeFor && (
+            <LockBand notice={lockNoticeFor} onZip={() => setZipSource({ kind: "all" })} onPremium={() => router.push("/premium")} />
+          )}
 
           {/* 045: 「プラン: 無料／プレミアム」の 1 行。無料のときだけ右に「プレミアムについて ›」（→ /premium）。
               couple.get の plan から。「お試し」は使わない。
