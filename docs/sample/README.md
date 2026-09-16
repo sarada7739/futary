@@ -83,7 +83,7 @@
 
 | ファイル | 内容 | 用途 |
 |---|---|---|
-| `icons-source.png` | 天気の絵 6 マス（晴・晴と雲・雲 / 雨・雪・雷。AI 生成）。**人間がまだ置いていない**（058 の 4 節） | 上段真ん中以外の 5 つを `packages/ui/assets/weather-*.png` に切り出す |
+| `icons-source.png` | 天気の絵 6 マス（晴・晴と雲・雲 / 雨・雪・雷。AI 生成。人間が 2026-09-17 に置いた） | 上段真ん中以外の 5 つを `packages/ui/assets/weather-*.png` に切り出す |
 
 **仮（058 の実装時点）**: `packages/ui/assets/weather-{sun,cloud,rain,snow,thunder}.png`（112×112・透過）は、人間の絵が来るまでの
 つなぎとして B が `artifacts/058/scripts/make-icons-placeholder.py` で描いたもの（原本無し。役割の名前・規格は本番と同じ）。
