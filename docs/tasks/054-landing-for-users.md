@@ -39,9 +39,9 @@
 | H | ヘッダー | 左にロゴ（`logo.png`）。右に「特徴」「プレミアム」「はじめる」（ページ内リンク 2 つ + `/app/`）。スマホでは「はじめる」だけ残す | — |
 | 1 | ヒーロー | 見出し・副文・機能のピル 4 つ・**「はじめる」**（主）・「ログインせずにデモを見る」（副）・「今はブラウザで使えます。Google Play は準備中です」 | `hero-beach.jpg`（横長。下端を `bg` にぼかして溶かす） |
 | 2 | 基本機能は無料 | 小さな見出し + 統計カード（0節 #9） | `woman1.jpg` `man1.jpg` |
-| 3 | ふたりのこと、置き場がほしかった。 | 3 枚のカード（見出し・2 行・写真） | `phone-chat.jpg` `phone-photos.jpg` `calendar-desk.jpg` |
+| 3 | ふたりのこと、置き場がほしかった。 | 3 枚のカード（見出し・2 行・写真。写真の四方に余白。059） | `phone-chat.jpg` `phone-photos.jpg` `calendar-desk.jpg` |
 | 4 | ぜんぶ、Nisoine に。（`id="features"`） | 2 列 × 3 行の 6 つ（アイコン + 名前 + 2 行） | `panel-*.png`（線画） |
-| 5 | AI まとめ | 濃紺の帯。右に写真 | `ai-network.jpg`（地）`hands-cafe.jpg`（右） |
+| 5 | AI まとめ | 濃紺の帯。中央に文字だけ（059） | `ai-network.jpg`（地） |
 | 6 | 気分の記録 / ほしいもの | 2 枚並び。左は折れ線を CSS（`border`）か小さな SVG で。右は写真 | `want-grid.jpg` |
 | 7 | 思い出・アルバム | 2 枚並び。左「思い出」右「アルバム」 | `polaroid-softcream.jpg` `polaroid-three.jpg` |
 | 8 | Nisoine と過ごす、ある 1 日 | 横 5 列（スマホは縦）。時刻・見出し・1 行 | `panel-*.png` |
