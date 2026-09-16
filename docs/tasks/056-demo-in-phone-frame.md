@@ -14,7 +14,9 @@
 |---|---|---|---|
 | 1 | `frame-ancestors` | **`'none'` → `'self'`**（HTML 全部。人間の了承 2026-09-16） | 自分のオリジンからだけ框に入れられる。他サイトからは今まで通り拒む（クリックジャッキングの実害は無い）。`/app/*` だけ `'self'` にする分岐は作らない（HTML は全部 Worker の同じ関数で、分けると規則が 2 つになる） |
 | 2 | デモに直接入る入口 | **`/app/?demo=1`**。未認証で開いたとき、サインイン画面を経ずにゲストモードで始まる（`isGuestMode` の初期値を `true` に）。**框の外で認証済みが開いたら無視**（普通に自分のペアが出る）。**框の中は #12 で常にデモ** | 訪問者に「ゲストではじめる」を押させない。サーバ側の拒否は変わらない（`security-requirements.md` 3節。このフラグは見せ方だけ） |
-| 3 | 框の中のログイン | **框の中（`window.top !== window.self`）では、サインイン画面に行く代わりに親ページを `/app/` に飛ばす**（`window.top.location.assign("/app/")`）。`exitGuestMode`・デモの帯の「ログイン」・書き込みの UI から戻るときの全部 | Google が iframe の中の OAuth を拒む。框の中でサインイン画面を出しても押せない |
+| 3 | 框の中のログイン | **親ページを `/app/` に飛ばすのは、利用者の操作のときだけ**: `exitGuestMode`（デモの帯の「ログイン」・書き込みの UI から戻る）の 1 箇所に `leaveFrameToApp()`（`window.top.location.assign("/app/")`）を置く。**`showAuth` を見て飛ばさない**（デモの読み込みが失敗しただけで、何も押していない訪問者の LP ごと飛ばさない） | Google が iframe の中の OAuth を拒む。飛ぶのは利用者が「ログイン」と言ったときだけ |
+| 3b | 框の中の失敗時 | **框の中ではサインイン画面を出さない。**未認証で、ゲストモードでもない状態（`demoFailed` のあと・`exitGuestMode` の直後の一瞬）は、サインイン画面の代わりに **1 行「デモを読み込めませんでした」+ リンク「アプリを開く」（`<a href="/app/" target="_top">`）** だけの画面。Google のボタンも「ゲストではじめる」も出さない | 框の中で押せないボタンを見せない。失敗は 1 行で止める |
+| 3c | 043 の「新機能のお知らせ」のシート | **框の中では出さない。`releaseSeen` も書かない**（同じオリジンの `localStorage` なので、框で書くと本物の `/app/` で出なくなる） | LP の枠の中に初回のシートが被ると、デモが見えない |
 | 4 | 置き場所 | **ヒーローの直後に節「さわってみる」**（`id="demo"`）。「基本機能は無料」の統計カード（054）は残す | 上で見た例（ゆい & れん・576 日目）が下で動いている形 |
 | 5 | 読み込み | `<iframe src="/app/?demo=1" loading="lazy" title="Nisoine のデモ">`。**768px 未満では節ごと `display: none`**（スマホの中にスマホを出さない。既存の「ログインせずにデモを見る」に任せる） | 初回表示の速さ（015）。アプリの JS はそこまでスクロールしてから読む |
 | 6 | 大きさ | iframe は **390×844** で描き、CSS の `transform: scale()` で枠の画面に合わせて縮める（`transform-origin: top left`。B が絵の画面の割合を測って倍率を決める。0.8 前後）。枠の表示幅はそれに合わせる（500px 前後） | アプリはスマホ幅で設計してある。390 より狭く描かない |
@@ -43,6 +45,8 @@
 | T3 | **框の外で**認証済みが `?demo=1` → 自分のペア（デモにならない） | `apps/app` |
 | T3b | **框の中**（`window.top !== window.self` を差し替え）では、ログイン中でも API の request に Cookie が付かず（`credentials: "omit"`）、`isAuthenticated` が false で、デモペアが出る | `apps/app` |
 | T4 | 框の中（`window.top !== window.self` を差し替え）で `exitGuestMode` → `window.top.location.assign("/app/")` が呼ばれ、サインイン画面は出ない。框の外では今まで通りサインイン画面 | `apps/app` |
+| T4b | 框の中で `?demo=1` → `couple.get` が失敗（`demoFailed`）→ **親は飛ばない**（`assign` が呼ばれない）・サインイン画面（Google のボタン）は出ない・「デモを読み込めませんでした」と「アプリを開く」（`target="_top"`）が出る。框の外の失敗は今まで通り（サインイン画面 + `demoUnavailable` の 1 行） | `apps/app` |
+| T7 | 框の中では 043 のシートが出ず、`releaseSeen` が書かれない。框の外は今まで通り | `apps/app` |
 | T5 | `/` の HTML に `<iframe` が 1 つ、`src="/app/?demo=1"`・`loading="lazy"`・`title` あり・`sandbox` 無し。`<script` は無いまま（054 T2） | `apps/api` |
 | T6 | `assets/phone-frame.png` の画面部分が透明（中央の画素のアルファが 0）・縁は不透明 | `scripts` か `apps/api` |
 
