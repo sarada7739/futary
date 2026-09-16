@@ -274,6 +274,18 @@ T4（デモ経路からの本番データ漏洩）そのものであり、
 | HTTPS | Cloudflare により常時。HTTP へのフォールバックを作らない。**HSTS `max-age=31536000; includeSubDomains`**（053。独自ドメインは preload されていないので自分で付ける） |
 | セキュリティヘッダの置き場 | **Worker が付ける**（`apps/api/src/lib/security-headers.ts`。053）。`run_worker_first = true` のとき `_headers` は Worker の応答に効かないため。固定のもの（`nosniff`・`Referrer-Policy`・`frame-ancestors`・HSTS）は全応答に、CSP は HTML にだけ。CSP の inline script のハッシュは**配信する HTML から Worker が計算**（アセットのパスと ETag で 1 度だけ）。**移行前の `_headers` と同じ値であることをテストで固定**（黙って弱くならない） |
 
+#### 2 つ目の口: 運営が決めた固定の URL（058。天気と祝日）
+
+**058 で Worker が気象庁の予報 JSON と holidays-jp の JSON を取る。**上の表の条件は「利用者の URL」のためのもので、こちらは形が違う:
+
+| 条件 | 理由 |
+|---|---|
+| **行き先はコードに書いた 2 つの URL だけ。**差し込むのは予報区のコード（同梱の表にある 6 桁の数字だけ。表に無ければ fetch しない） | 利用者の入力が URL に入らない。SSRF の余地が無い |
+| 応答は Zod で形を検証し、要る項目だけ取り出す。**12 秒で打ち切る** | 相手の JSON は正式な API ではない。形が変われば黙って `days: []` |
+| 失敗しても利用者にエラーを返さない（天気・祝日が出ないだけ） | 外部の都合を Nisoine の障害にしない |
+| 利用者の情報を送らない（クエリ・ヘッダに `couple_id`・メール・地域名を入れない。UA は 040 と同じ `nisoine-link-preview/1 (+https://nisoine.com)` でよい） | 公開データを取るだけ |
+
+**3 つ目の口を作るときは、この 2 つのどちらの形かを先に決める。**
 ### inline script は本数を固定し、ハッシュで許可する（039）
 
 `scripts/build-public.mjs` が書き出した HTML から inline script を全部集め、本数を `EXPECTED_INLINE_SCRIPT_COUNT` で固定し、**増えるとビルドが止まる**
