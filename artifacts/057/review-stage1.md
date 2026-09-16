@@ -38,3 +38,7 @@ futary-R で 355a297 を checkout して実行した（`.dev.vars` は CI と同
 
 - 人間の手番（`ADMIN_EMAILS` の secret・本番で自分を探して free → paid）
 - スクリーンショットは `capture.json` の文言を読んだだけ
+
+## 追加コミット 8914a13
+
+- 記録 2 を閉じた（R 確認: `ON CONFLICT` の `updated_at = ?3` を外すと T4 が赤。`admin.test.ts` 12 緑。差分はテストの 3 行だけ）。受け入れのまま
