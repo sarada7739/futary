@@ -74,16 +74,27 @@
 
   <!-- 056 さわってみる: スマホの枠の中で本物のデモ（/app/?demo=1 = ゲストモード）。同じオリジンなので API・画像は
        そのまま動く。iframe は 390×844 で描き CSS で 0.8 に縮める。枠の絵（画面と外側が透明）を上に重ねる
-       （pointer-events: none）。768px 未満は節ごと隠す（スマホの中にスマホを出さない。CSS）。JS は無い -->
+       （pointer-events: none）。768px 未満は節ごと隠す（スマホの中にスマホを出さない。CSS）。JS は無い。
+       059: 2 列（左にスマホ・右に見出し・説明・触り方の案内・ボタン）。文言は 059 の 0節 #4・#5 の分だけ -->
   <section class="demo" id="demo" aria-labelledby="demo-heading">
     <div class="container">
-      <h2 id="demo-heading" class="serif">さわってみる</h2>
-      <p class="demo-lead">ゆいとれんのデモです。投稿は見るだけで、書き込みはできません。</p>
-      <div class="phone">
-        <iframe class="phone-screen" src="/app/?demo=1" loading="lazy" title="Nisoine のデモ" width="390" height="844"></iframe>
-        <img class="phone-frame" src="/assets/phone-frame.png" alt="" width="800" height="1200" loading="lazy" />
+      <div class="demo-inner">
+        <div class="phone">
+          <iframe class="phone-screen" src="/app/?demo=1" loading="lazy" title="Nisoine のデモ" width="390" height="844"></iframe>
+          <img class="phone-frame" src="/assets/phone-frame.png" alt="" width="800" height="1200" loading="lazy" />
+        </div>
+        <div class="demo-copy">
+          <h2 id="demo-heading" class="serif">さわってみる</h2>
+          <p class="demo-lead">デモ画面です。投稿は見るだけで、書き込みはできません。</p>
+          <h3>枠の中を、そのまま触れます</h3>
+          <ul class="demo-guide">
+            <li><strong>ホーム</strong> — ふたりの日数と、機能の入口</li>
+            <li><strong>カレンダー</strong> — 記念日・予定・会った日を、ひとつの月表示で</li>
+            <li><strong>タイムライン</strong> — 写真と言葉の投稿と、リアクション</li>
+          </ul>
+          <a class="btn btn-primary" href="/app/">自分たちで始める</a>
+        </div>
       </div>
-      <p class="demo-more"><a class="link-secondary" href="/app/">自分たちで始める →</a></p>
     </div>
   </section>
 
@@ -188,7 +199,6 @@
           <h2 id="ai-heading" class="serif">AIまとめ</h2>
           <p>ふたりの 1 週間と 1 ヶ月を、AI が短く振り返ります。</p>
         </div>
-        <img src="/assets/hands-cafe.jpg" alt="" width="640" height="482" class="ai-band-photo" loading="lazy" />
       </div>
     </div>
   </section>

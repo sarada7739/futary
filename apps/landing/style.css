@@ -276,18 +276,51 @@ p {
   padding-top: 0;
 }
 
+/* 059: 2 列。左はスマホ（527px 固定）、右は文字の列（上下中央）。960px 未満で 1 列に落とす分岐は作らない（0節 #7） */
+.demo-inner {
+  display: grid;
+  grid-template-columns: 527px 1fr;
+  gap: 40px;
+  align-items: center;
+}
+
+.demo-copy {
+  min-width: 0;
+}
+
+.demo-copy h2 {
+  text-align: left;
+  margin-bottom: 12px;
+}
+
 .demo-lead {
-  text-align: center;
   font-size: 14px;
   color: var(--color-text-muted);
-  margin: -12px 0 24px;
+  margin-bottom: 28px;
+}
+
+.demo-copy h3 {
+  margin-bottom: 10px;
+}
+
+.demo-guide {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 28px;
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.demo-guide strong {
+  color: var(--color-text);
 }
 
 .phone {
   position: relative;
   width: 527px;
   height: 791px;
-  margin: 0 auto;
 }
 
 .phone-screen {
@@ -308,11 +341,6 @@ p {
   width: 100%;
   height: 100%;
   pointer-events: none;
-}
-
-.demo-more {
-  text-align: center;
-  margin-top: 20px;
 }
 
 /* ---- 2 基本機能は無料（統計カード） ---- */
@@ -405,8 +433,9 @@ p {
   grid-template-columns: repeat(2, 1fr);
 }
 
+/* 059: 写真の下にも 22px の白（写真がカードの下端に貼り付かない。0節 #10） */
 .photo-card {
-  padding: 22px 22px 0;
+  padding: 22px;
   overflow: hidden;
   min-width: 0;
 }
@@ -419,7 +448,7 @@ p {
 
 .photo-card img {
   width: 100%;
-  border-radius: 14px 14px 0 0;
+  border-radius: 14px;
 }
 
 .cards-2 .photo-card img {
@@ -495,13 +524,6 @@ p {
 
 .ai-band-copy p {
   font-size: 15px;
-}
-
-.ai-band-photo {
-  position: relative;
-  flex: none;
-  width: 260px;
-  border-radius: 14px;
 }
 
 /* ---- 6 気分の記録 ---- */
@@ -908,11 +930,6 @@ p {
   .ai-band {
     flex-direction: column;
     padding: 24px 20px;
-  }
-
-  .ai-band-photo {
-    width: 100%;
-    max-width: 320px;
   }
 
   .day-steps {

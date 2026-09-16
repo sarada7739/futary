@@ -100,14 +100,13 @@ describe("054 T3: `/` の <img> 全部に width と height がある", () => {
 describe("054 T4: apps/landing/assets/ の JPEG は 1 枚 250KB 以下・合計 1.5MB 以下", () => {
   const jpegs = landingAssets.filter((f) => f.name.endsWith(".jpg"));
 
-  it("054 で置いた 11 枚がある（役割の名前）", () => {
+  it("054 で置いた 11 枚のうち、059 で hands-cafe.jpg を外した 10 枚がある（役割の名前）", () => {
     expect(jpegs.map((f) => f.name).sort()).toEqual(
       [
         "ai-network.jpg",
         "avatar-ren.jpg",
         "avatar-yui.jpg",
         "calendar-desk.jpg",
-        "hands-cafe.jpg",
         "hero-beach.jpg",
         "phone-chat.jpg",
         "phone-photos.jpg",
@@ -219,11 +218,11 @@ describe("056 T5: `/` のスマホの枠の iframe", () => {
     expect(tag).toMatch(/\btitle="[^"]+"/);
     expect(tag).not.toMatch(/\bsandbox/);
     expect(landingIndexHtml).not.toMatch(/<script/i);
-    // 節「さわってみる」の文言（0節 #9。ここに無い文言は足さない）
+    // 節「さわってみる」の文言（056 の 0節 #9 → 059 の 0節 #4 で差し替え。ここに無い文言は足さない）
     expect(landingIndexHtml).toContain('<section class="demo" id="demo"');
     expect(landingIndexHtml).toContain("さわってみる");
-    expect(landingIndexHtml).toContain("ゆいとれんのデモです。投稿は見るだけで、書き込みはできません。");
-    expect(landingIndexHtml).toContain('href="/app/">自分たちで始める →</a>');
+    expect(landingIndexHtml).toContain("デモ画面です。投稿は見るだけで、書き込みはできません。");
+    expect(landingIndexHtml).toContain('<a class="btn btn-primary" href="/app/">自分たちで始める</a>');
     // 枠の絵は iframe の上に重ねる（pointer-events は CSS）。width/height あり
     expect(landingIndexHtml).toMatch(/<img class="phone-frame" src="\/assets\/phone-frame\.png" alt="" width="\d+" height="\d+" loading="lazy" \/>/);
   });
@@ -250,5 +249,79 @@ describe("056 T6: assets/phone-frame.png の画面部分が透明で、縁は不
     expect(alpha.topLeftOutside).toBe(0);
     expect(alpha.leftBezel).toBeGreaterThan(200);
     expect(alpha.notch).toBeGreaterThan(200);
+  });
+});
+
+// 059: LP の「さわってみる」を 2 列に・AI まとめの帯の写真を外す・写真カードの余白（docs/tasks/059-landing-demo-two-columns.md 2節）
+describe("059 T1: hands-cafe.jpg を外した", () => {
+  it("`/` の HTML に hands-cafe が無い。assets/ に hands-cafe.jpg が無い（054 T4 の一覧は 10 枚）", () => {
+    expect(landingIndexHtml).not.toContain("hands-cafe");
+    expect(landingAssets.some((f) => f.name === "hands-cafe.jpg")).toBe(false);
+    expect(landingAssets.filter((f) => f.name.endsWith(".jpg"))).toHaveLength(10);
+  });
+});
+
+describe("059 T2: 節「さわってみる」の中身（iframe・文言・案内の 3 行・ボタン）", () => {
+  const section = landingIndexHtml.match(/<section class="demo" id="demo"[\s\S]*?<\/section>/)?.[0] ?? "";
+
+  it("iframe（056 T5 のまま）と、説明の文言（「ゆいとれん」は無い）", () => {
+    expect(section).toMatch(/<iframe\b[^>]*src="\/app\/\?demo=1"/);
+    expect(section).toContain("デモ画面です。投稿は見るだけで、書き込みはできません。");
+    expect(landingIndexHtml).not.toContain("ゆいとれんのデモです");
+  });
+
+  it("<h3>枠の中を、そのまま触れます</h3> と <ul class=\"demo-guide\"> の <li> が 3 つ（0節 #5 の文言のとおり）", () => {
+    expect(section).toContain("<h3>枠の中を、そのまま触れます</h3>");
+    const guide = section.match(/<ul class="demo-guide">([\s\S]*?)<\/ul>/)?.[1] ?? "";
+    const items = [...guide.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1]!.trim());
+    expect(items).toEqual([
+      "<strong>ホーム</strong> — ふたりの日数と、機能の入口",
+      "<strong>カレンダー</strong> — 記念日・予定・会った日を、ひとつの月表示で",
+      "<strong>タイムライン</strong> — 写真と言葉の投稿と、リアクション",
+    ]);
+  });
+
+  it("ボタン <a class=\"btn btn-primary\" href=\"/app/\">自分たちで始める</a>。<script は無いまま", () => {
+    expect(section).toContain('<a class="btn btn-primary" href="/app/">自分たちで始める</a>');
+    expect(section).not.toContain("自分たちで始める →");
+    expect(landingIndexHtml).not.toMatch(/<script/i);
+  });
+});
+
+describe("059 T3: style.css の 2 列の grid と、帯の写真の CSS の削除", () => {
+  it(".demo-inner の grid-template-columns: 527px 1fr", () => {
+    expect(landingStyleCss).toMatch(/\.demo-inner \{[^}]*grid-template-columns: 527px 1fr;/);
+  });
+
+  it(".ai-band-photo が無い（PC・720px 未満の両方）。.demo-more も無い", () => {
+    expect(landingStyleCss).not.toContain(".ai-band-photo");
+    expect(landingStyleCss).not.toContain(".demo-more");
+  });
+
+  it("767px の .demo { display: none } はそのまま（056 T5）", () => {
+    expect(landingStyleCss).toMatch(/@media \(max-width: 767px\) \{\s*\.demo \{\s*display: none;/);
+  });
+});
+
+describe("059 T4: 見出しの階層（h1 が 1 つ・h3 は h2 の後にだけ）", () => {
+  it("`/` の h1 は 1 つ。最初の h2 より前に h3 は無く、さわってみるの h3 は demo-heading の後", () => {
+    const h1s = landingIndexHtml.match(/<h1\b/g) ?? [];
+    expect(h1s).toHaveLength(1);
+    const firstH2 = landingIndexHtml.search(/<h2\b/);
+    const firstH3 = landingIndexHtml.search(/<h3\b/);
+    expect(firstH2).toBeGreaterThan(-1);
+    expect(firstH3).toBeGreaterThan(firstH2);
+    const demoH2 = landingIndexHtml.indexOf('<h2 id="demo-heading"');
+    const demoH3 = landingIndexHtml.indexOf("<h3>枠の中を、そのまま触れます</h3>");
+    expect(demoH2).toBeGreaterThan(-1);
+    expect(demoH3).toBeGreaterThan(demoH2);
+  });
+});
+
+describe("059 T5: 写真カードの余白（写真の下にも 22px・四隅 14px の角丸）", () => {
+  it(".photo-card の padding が四方 22px。.photo-card img の border-radius が 14px（14px 14px 0 0 は無い）", () => {
+    expect(landingStyleCss).toMatch(/\.photo-card \{[^}]*padding: 22px;/);
+    expect(landingStyleCss).toMatch(/\.photo-card img \{[^}]*border-radius: 14px;/);
+    expect(landingStyleCss).not.toContain("14px 14px 0 0");
   });
 });
