@@ -13575,3 +13575,12 @@ Session: B
 - 本番の確認: `/` `/tech` `/privacy` `/terms` `/tokushoho` `/app/` 200・054 と 047 の文言・写真の配信・CSP（script 無し）・sitemap に `/tech` 無し
 
 Session: B
+
+## 2026-09-16 セッションA: 056（LP の中でデモを触れる）を起票（#396）
+
+- 人間の指示: スマホの枠の絵（AI 生成）を LP に置き、画面の中で本物のデモを操作できるように
+- 引っかかる 3 つを定義で解いた: `frame-ancestors 'none'` → `'self'`（人間の了承）・`/app/?demo=1` でゲストモードに直接入る・框の中では Google の OAuth が動かないのでサインイン画面の代わりに親ページを `/app/` に飛ばす
+- LP は JS 無しのまま。iframe は `loading="lazy"`、768px 未満では節ごと隠す
+- `security-requirements.md` 7節・`architecture.md` 3節・`docs/sample/README.md` を直した。state・worklog は #396 に入れ損ねたので別 PR
+
+Session: A
