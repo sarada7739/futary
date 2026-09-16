@@ -176,6 +176,7 @@ couple_members
   ai_opt_in  INTEGER NOT NULL DEFAULT 0             -- 037。外部の生成AIへ本文を送ることへの
                                                     -- 同意。個人ごと。2人とも1のときだけ使える
   joined_at  INTEGER NOT NULL
+  weather_area TEXT                                -- 058。気象庁の予報区のコード（6 桁）。NULL = 未設定。個人ごと。位置情報は取らない
   PRIMARY KEY (couple_id, user_id)
   UNIQUE (couple_id, slot)
 
@@ -767,7 +768,7 @@ couple.create       {}                        付き合った日を受け取ら�
 couple.get          -> { datingDate: string | null, ..., plan: "free"|"paid", albumQuota: { limit, used } | null,
                          planSource: "manual"|"stripe"|null, planExpiresAt: number|null, planCancelAt: number|null,
                          planState: { plan: "paid" } | { plan: "free", lockAt: number|null, locked?: true },
-                         isAdmin: boolean }
+                         isAdmin: boolean, weatherArea: { code, name } | null }
                     plan・albumQuota は 045。paid なら albumQuota は null。デモペアは paid
                     planState は 047（猶予と鍵。lockAt = 猶予の終わり。locked = 無料枠を超える写真に鍵。albumQuota.used は鍵の分も数える）
                     planSource・planExpiresAt・planCancelAt は 048（マイページの「〇月〇日に更新／まで」と「プランを管理」の出し分け）
@@ -775,6 +776,12 @@ couple.get          -> { datingDate: string | null, ..., plan: "free"|"paid", al
 billing.prices      {} -> { monthly: { amount, currency, priceId }, yearly: {...} }（048。Stripe から。1 時間キャッシュ）
 billing.createCheckoutSession { interval: "month"|"year" } -> { url }（048。paid なら CONFLICT。managed_payments は使わない）
 billing.createPortalSession   {} -> { url }（048。stripe_customer_id が無ければ NOT_FOUND）
+
+weather.get         {} -> { area: { code, name } | null, days: [{ date, code, tempMax, tempMin }] }（058。自分の地域。7 日分。未設定・失敗は days []）
+weather.getForDate  { date } -> { mine, partner, same: boolean }（058。予定の詳細。7 日の外は両方 null。相手の分はここでだけ返す）
+holiday.list        { year } -> { holidays: { "YYYY-MM-DD": name } }（058。同梱の表 + holidays-jp の JSON を 1 日 1 回）
+me.updateWeatherArea { areaCode: string | null } -> {}（058。表に無いコードは INVALID_INPUT）
+                    weather.* と holiday.* は Worker が固定の URL から取り 1 時間／1 日キャッシュ。security-requirements.md「外部 URL の取得」の 2 つ目の口
 
 admin.*             057。全部 ctx.isAdmin でなければ FORBIDDEN（admin ルーターの入口で 1 度。security-requirements.md 3節の例外）。
                     運営が触れるのは数（COUNT）と couple_plans の 1 行だけ。本文・写真・名前・記念日は返さない・書かない
