@@ -1820,6 +1820,7 @@ CSP との関係は `security-requirements.md` 7節。
 | `DB` | D1 バインディング | `wrangler.toml` |
 | `BUCKET` | R2 バインディング | `wrangler.toml` |
 | `DEMO_COUPLE_ID` | デモペアの id | `wrangler.toml` の vars |
+| `ADMIN_EMAILS` | 運営のメール（カンマ区切り。057。`ctx.isAdmin` の判定） | ローカル `.dev.vars` / 本番 `wrangler secret` |
 
 `.dev.vars` は `.gitignore` に入れる。秘密情報をコードに書かない。
 

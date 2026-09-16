@@ -13634,3 +13634,12 @@ Session: B
 - R の判定（必須修正 1 は閉じた。壊して 5 通り赤、`useEffect(showAuth && inFrame)` に戻すと 3 本赤）を `artifacts/056/review-stage1.md` の末尾に追記。CI pass → squash merge
 
 Session: B
+
+## 2026-09-16 セッションA: 057（運営の画面）を起票
+
+- 人間の指示: 全体のペア数・利用者数・paid・投稿数・画像数と 1 日の増加、メールで探した個人・ペアの数、プランの切り替え
+- 線を引いた: 運営は数と `couple_plans` の 1 行だけ。中身（本文・写真・名前）に触れない。Stripe のペアは触れない。`admin_actions` に全部残す。`ADMIN_EMAILS` は secret
+- 「1 日あたり」は今日の増加（JST）と過去 7 日の平均の 2 つ。個人の画像数は投稿の写真だけ（`album_photos` に誰が入れたかの列が無い）
+- `security-requirements.md` 3節に運営の例外の線・`architecture.md` 8節に `ADMIN_EMAILS`。4節・5節は B の起票後に A が直す
+
+Session: A
