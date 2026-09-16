@@ -1,13 +1,13 @@
 import { Image, Pressable, View } from "react-native";
 import { FREE_ALBUM_PHOTO_LIMIT } from "@futary/contract";
 import { Button, Card, iconLock, radius, space, Text, useTheme } from "@futary/ui";
-import { freePlanLimitLabel } from "../lib/plan";
+import { freePlanLimitLabel, paidPhotoLimitLabel } from "../lib/plan";
 import { Sheet } from "./sheet";
 
 // 045: 写真の上限に達したときのシート（タスク定義 3節。絵 04）。アルバム詳細の FAB・作成モーダルの
 // 「カバー写真を選択」・サーバの PLAN_LIMIT の 3 箇所で同じものを出す。
 // 鍵の絵 → 「写真の上限に達しました」→ 副題 → 現在のプラン（無料: 「30 枚まで保存可能」の 1 行だけ）→
-// ↓ → プレミアム（「写真枚数 無制限」の 1 行だけ。価格は 048 まで出さない）→
+// ↓ → プレミアム（「写真 50 万枚まで」の 1 行だけ。047 0節 #14: 「無制限」と書かない。価格は出さない）→
 // 「プレミアムプランを見る ›」（→ /premium）→「× あとで検討する」（閉じる）。
 // 「無料トライアル」の文言はどこにも出さない（人間の指示）
 
@@ -101,7 +101,7 @@ export function PlanLimitSheet({ visible, onClose, onPremium }: PlanLimitSheetPr
             ✓
           </Text>
           <Text size="sm" testID="plan-limit-premium-line">
-            写真枚数 無制限
+            {paidPhotoLimitLabel()}
           </Text>
         </View>
         <View style={{ marginTop: space.md }}>

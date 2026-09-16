@@ -446,6 +446,8 @@ describe("AlbumDetailScreen: 無料枠（045）", () => {
     expect(await screen.findByTestId("album-quota-warning")).toBeTruthy();
     expect(screen.getByTestId("album-quota-warning-title")).toHaveTextContent("残り 5 枚です");
     expect(screen.getByTestId("album-quota-warning-body")).toHaveTextContent("あと 5 枚で上限（無料プラン 30 枚）に達します");
+    expect(screen.getByTestId("album-quota-warning-premium")).toHaveTextContent("プレミアムで 50 万枚まで");
+    expect(screen.queryByText(/無制限/)).toBeNull();
     fireEvent.click(screen.getByTestId("album-quota-warning-premium"));
     expect(pushMock).toHaveBeenCalledWith("/premium");
     first.unmount();
@@ -520,7 +522,9 @@ describe("AlbumDetailScreen: 無料枠（045）", () => {
     expect(screen.getByTestId("plan-limit-title")).toHaveTextContent("写真の上限に達しました");
     expect(screen.getByTestId("plan-limit-message")).toHaveTextContent("大切な思い出をもっと残すために、プレミアムプランへ。");
     expect(screen.getByTestId("plan-limit-free-line")).toHaveTextContent("30 枚まで保存可能");
-    expect(screen.getByTestId("plan-limit-premium-line")).toHaveTextContent("写真枚数 無制限");
+    // 047 0節 #14: 「無制限」と書かない（数字は /premium・特商法・LP と同じ 50 万枚）
+    expect(screen.getByTestId("plan-limit-premium-line")).toHaveTextContent("写真 50 万枚まで");
+    expect(screen.queryByText(/無制限/)).toBeNull();
     // 価格・トライアル・存在しない機能は書かない
     expect(screen.queryByText(/トライアル/)).toBeNull();
     expect(screen.queryByText(/¥/)).toBeNull();

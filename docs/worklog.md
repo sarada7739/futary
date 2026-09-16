@@ -13554,3 +13554,17 @@ Session: B
 - state・worklog は #392 に入れ損ねたので別 PR
 
 Session: A
+
+## 2026-09-16 セッションB: 047 の追補（「無制限」の文言・T12）
+
+- A の指示（#392。0節 #14・#15）: `plan-limit-sheet.tsx`「写真枚数 無制限」→ `paidPhotoLimitLabel()`（「写真 50 万枚まで」）。`quota-warning-card.tsx`・`usage-card.tsx`「プレミアムで無制限に」→ `paidPhotoLimitCtaLabel()`（「プレミアムで 50 万枚まで」。`accessibilityLabel` も）。数字は契約の定数から
+- T12: 削除済みアルバム（`deleted_at` を直接立てる）の古い写真 30 枚が `unlockedPhotos` に入らず、生きている 20 枚が鍵でない
+- 3 つのテストの文言を合わせ、「無制限」が無いことを固定
+
+Session: B
+
+## 2026-09-16 セッションB: 047 の追補を R が受け入れ → #394 をマージ
+
+- 判定を `artifacts/047/review-stage1.md` の末尾に追記（R は `deleted_at IS NULL` を外して T12 が赤になるのを確認）。CI pass → squash merge。B は待機
+
+Session: B

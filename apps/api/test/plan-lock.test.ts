@@ -430,3 +430,28 @@ describe("047 T11: 鍵の側を IN に入れない（1 ペアの写真が多く�
     expect(list.items.every((x) => x.photoCount === 3)).toBe(true);
   });
 });
+
+describe("047 T12: 削除済みアルバムの写真は「鍵でない 30 枚」の枠を食わない（unlockedPhotos の albums.deleted_at IS NULL）", () => {
+  it("削除済みアルバム（deleted_at あり）に古い写真の行を直接 30 枚置いても、生きているアルバムの 20 枚が全部鍵でない", async () => {
+    const { owner, coupleId } = await createPair();
+    await setPlanRow(coupleId, "paid", "stripe", nowSec() + DAY);
+    const live = await call(router.album.create, { title: "生きている" }, { context: contextFor(owner) });
+    const dead = await call(router.album.create, { title: "消した" }, { context: contextFor(owner) });
+    // 消したアルバムの方が古い写真（枠を食うなら生きている 20 枚が全部鍵になる）。
+    // album.delete は写真の行を物理削除するので、deleted_at を SQL で直接立てて行を残す
+    const deadIds = await fillAlbum(coupleId, dead.id, LIMIT, 100);
+    const liveIds = await fillAlbum(coupleId, live.id, 20, 1_000);
+    await db.prepare("UPDATE albums SET deleted_at = ?1 WHERE id = ?2").bind(nowSec(), dead.id).run();
+    await setLocked(coupleId);
+
+    const unlocked = await unlockedPhotos(db, coupleId);
+    expect(unlocked.map((p) => p.id).sort()).toEqual([...liveIds].sort());
+    expect(unlocked.some((p) => deadIds.includes(p.id))).toBe(false);
+
+    const items = await listAll(owner, live.id);
+    expect(items).toHaveLength(20);
+    expect(items.every((p) => !p.locked && p.url !== null)).toBe(true);
+    // 削除済みのアルバム自体は NOT_FOUND のまま
+    await expect(call(router.photo.list, { albumId: dead.id }, { context: contextFor(owner) })).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
