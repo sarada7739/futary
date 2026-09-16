@@ -13628,3 +13628,9 @@ Session: A
 - T4b・T7 を足した（app 581）。`build:public` → wrangler dev で撮り直し（シート無し・localStorage 無し・ログインで親が `/app/`）
 
 Session: B
+
+## 2026-09-16 セッションB: 056 を R が受け入れ → #398 をマージ
+
+- R の判定（必須修正 1 は閉じた。壊して 5 通り赤、`useEffect(showAuth && inFrame)` に戻すと 3 本赤）を `artifacts/056/review-stage1.md` の末尾に追記。CI pass → squash merge
+
+Session: B

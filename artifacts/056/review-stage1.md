@@ -43,3 +43,17 @@ LP を開いた訪問者は、框の中のデモが一瞬でも読めなかっ�
 
 - 本番の `https://nisoine.com/` で人間が触る（完了条件）
 - 画面は `capture.json` の数字を読んだだけで PNG は見ていない
+
+## 追加コミット 04a81a9（A の #400。必須修正 1）— R の判定
+
+futary-R で 04a81a9 を checkout して実行した。app 581 緑・`tsc --noEmit` 緑・`eslint .` 緑。
+
+**受け入れ。必須修正 1 は閉じた。**
+
+- 差し戻しのときの使い捨てのテストを再実行: 框の中・`?demo=1`・`couple.get` が reject → **`top.location.assign` は呼ばれず**、`(auth)` も出ず、框の中に `frame-fallback`（「デモを読み込めませんでした」+「アプリを開く」）。削除済み
+- 壊して確かめた（`demo-frame` + `home-releases` 30 本）: `exitGuestMode` で親を飛ばさない → 1 本赤（T4）、框の中でも `(auth)` を出す → 2 本赤（T4b）、框の中でもシートを開く → 1 本赤（T7）、框の中でも `releaseSeen` を書く → 1 本赤（T7）、**`useEffect(showAuth && inFrame)` の形に戻す → 3 本赤**（T4b が拾う。同じ形に戻れない）
+- 読んで: 親を飛ばすのは `exitGuestMode` の 1 箇所（帯の「ログイン」・書き込み UI から戻る）。0節 #3b の 1 行は `showAuth && inFrame` のオーバーレイで、「アプリを開く」は `href="/app/"` + `target="_top"`（JS 無しで親を開く。利用者の操作）。0節 #3c: `index.tsx` は框の中でシートを開かず、`markReleaseSeen`・`deferRelease` は框の中では書かない（同じオリジンの storage を框で汚さない）。記録 1 も閉じた
+
+### 記録（判定に使わない）
+
+- 無し
