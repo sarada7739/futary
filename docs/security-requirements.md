@@ -263,7 +263,7 @@ T4（デモ経路からの本番データ漏洩）そのものであり、
 | CORS（Worker） | 自ドメインのみ許可。`*` を設定しない |
 | CORS（**R2 バケット**） | **別の設定である。**署名付きURLへのブラウザ直PUTに必要。許可は `PUT`/`GET` と実際のオリジンだけ。`*` を設定しない（`architecture.md` 6節） |
 | CSRF | `SameSite=Lax` + oRPC の POST 経由。状態変更を GET で行わない |
-| クリックジャッキング | CSP の **`frame-ancestors 'self'`**（056。自分のオリジンからだけ框に入れられる。LP の「さわってみる」が `/app/?demo=1` を iframe に入れるため。他サイトからは拒む）。`X-Frame-Options` は使わない（CSP が優先される） |
+| クリックジャッキング | CSP の **`frame-ancestors 'self'`**（056。自分のオリジンからだけ框に入れられる。LP の「さわってみる」が `/app/?demo=1` を iframe に入れるため。他サイトからは拒む）。`X-Frame-Options` は使わない（CSP が優先される）。**框の中のアプリは fetch に Cookie を送らない**（`credentials: "omit"`）。ログイン中のブラウザで LP を開いても、枠の中に本人のデータが映らない |
 | CSP | ランディングページと Web アプリに設定する。**Web アプリの `script-src` は `'self'` + inline script の sha256 ハッシュ。`'unsafe-inline'` にしない**（下記）。ランディング・法務ページには inline script が無いので、ハッシュを付けない（アプリより狭い） |
 | HTTPS | Cloudflare により常時。HTTP へのフォールバックを作らない。**HSTS `max-age=31536000; includeSubDomains`**（053。独自ドメインは preload されていないので自分で付ける） |
 | セキュリティヘッダの置き場 | **Worker が付ける**（`apps/api/src/lib/security-headers.ts`。053）。`run_worker_first = true` のとき `_headers` は Worker の応答に効かないため。固定のもの（`nosniff`・`Referrer-Policy`・`frame-ancestors`・HSTS）は全応答に、CSP は HTML にだけ。CSP の inline script のハッシュは**配信する HTML から Worker が計算**（アセットのパスと ETag で 1 度だけ）。**移行前の `_headers` と同じ値であることをテストで固定**（黙って弱くならない） |

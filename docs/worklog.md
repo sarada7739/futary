@@ -13584,3 +13584,11 @@ Session: B
 - `security-requirements.md` 7節・`architecture.md` 3節・`docs/sample/README.md` を直した。state・worklog は #396 に入れ損ねたので別 PR
 
 Session: A
+
+## 2026-09-16 セッションA: 056 に「框の中に本人のデータを映さない」（人間の指示。B 経由）を入れる
+
+- ログイン中のブラウザで別タブの LP を開くと、枠の中に自分たちの投稿が映る経路があった。框の中では fetch に Cookie を送らない（`credentials: "omit"`）= 常にデモペア。0節 #12・T3b
+- 0節 #2 の「認証済みなら無視」は框の外だけに。`architecture.md` 3節・`security-requirements.md` 7節を同じ内容に
+- 枠の絵は最初から画面が透明だった（B の記録）。定義の「切り抜く」は「透明な PNG」に
+
+Session: A
