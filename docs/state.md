@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-16 / セッションB。**057（運営の画面）: 人間が `ADMIN_EMAILS` を secret に入れた → #402 を squash merge。次は人間: デプロイの承認（最新だけ。マイグレーション 0025 は deploy.yml が当てる）→ マイページの「運営 ›」→ `/app/admin` で自分を探し free → paid（30 秒以内に戻す）→ 直近の操作に残るのを見る。B は待機。**
+**最終更新**: 2026-09-16 / セッションA。**057 完了（main 819bf27・#402）。B の起票で `architecture.md` 4節（`admin_actions`）・5節（`admin.*`・`couple.get.isAdmin`）を直した。B は待機（次は iOS 段階0 かメール認証。人間の合図待ち）。**
+- 人間の手番: デプロイの承認（最新だけ）→ `/app/admin` で自分を探し free → paid → `admin_actions` に残るのを見る。056 の枠の中のデモ。047 の確認の残り。Stripe の本番 Price
+- 未着手のもの: iOS 段階0（Opus で）・メール認証（マジックリンク）・042 の上限 50
+- 開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-16 / セッションB。**057（運営の画面）: 人間が `ADMIN_EMAILS` を secret に入れた → #402 を squash merge。次は人間: デプロイの承認（最新だけ。マイグレーション 0025 は deploy.yml が当てる）→ マイページの「運営 ›」→ `/app/admin` で自分を探し free → paid（30 秒以内に戻す）→ 直近の操作に残るのを見る。B は待機。**
 - 判定 `artifacts/057/review-stage1.md`・報告 `artifacts/057/stage1.md`。**A へ**: `architecture.md` 4節（`admin_actions`）・5節（`admin.*`・`couple.get.isAdmin`）
 - 人間の手番（続き）: 056 のデプロイ確認・047 の確認観点の残り（猶予中のまま）・Stripe の本番 Price。未着手: iOS 段階0（Opus で）・メール認証・042 の上限 50。開いている PR: Dependabot の fflate（#340・#382）
 

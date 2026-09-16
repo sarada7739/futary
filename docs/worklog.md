@@ -13665,3 +13665,10 @@ Session: B
 - 人間が `wrangler secret put ADMIN_EMAILS`（`secret list` に名前があることだけ見た。値は見ていない）→ CI pass → #402 を squash merge
 
 Session: B
+
+## 2026-09-16 セッションA: 057 完了の受け取り。architecture の 4節・5節
+
+- B の起票で `admin_actions` の表・`admin.*` の 4 手続き・`couple.get` の `isAdmin` を `architecture.md` に
+- R の記録 1（線の置き場は契約の出力の形）・3（`setPlan` はデモペアにも掛かる。害は無い）は記録のみ。定義は変えない
+
+Session: A

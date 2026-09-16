@@ -324,6 +324,16 @@ moods                                           -- 029。1日1回の気分
                                                 -- 論理削除を持たない。取り消しは物理削除
                                                 -- （029。1〜5の数値1つは入れ直せる。
                                                 --  deleted_at は主キーと衝突する）
+
+admin_actions                                   -- 057。運営の操作の記録。切り替えるたびに 1 行
+  id             TEXT    PK
+  admin_user_id  TEXT    NOT NULL                -- 運営の user.id
+  action         TEXT    NOT NULL                -- 'plan.set'
+  couple_id      TEXT    NOT NULL                -- FK を張らない。退会しても残す（消えたペアの id のまま）
+  detail         TEXT    NOT NULL                -- JSON（前後のプラン。名前・本文・写真は入れない）
+  created_at     INTEGER NOT NULL
+  INDEX (created_at)
+                                                -- 消す手続きは作らない。退会の手順にも入れない
 ```
 
 ### `posts` を読むクエリには必ず `deleted_at IS NULL` を含める
@@ -756,13 +766,27 @@ me.get              現在のユーザーと所属ペア。未認証ならデモ
 couple.create       {}                        付き合った日を受け取らない（023。マイページであとから設定する）
 couple.get          -> { datingDate: string | null, ..., plan: "free"|"paid", albumQuota: { limit, used } | null,
                          planSource: "manual"|"stripe"|null, planExpiresAt: number|null, planCancelAt: number|null,
-                         planState: { plan: "paid" } | { plan: "free", lockAt: number|null, locked?: true } }
+                         planState: { plan: "paid" } | { plan: "free", lockAt: number|null, locked?: true },
+                         isAdmin: boolean }
                     plan・albumQuota は 045。paid なら albumQuota は null。デモペアは paid
                     planState は 047（猶予と鍵。lockAt = 猶予の終わり。locked = 無料枠を超える写真に鍵。albumQuota.used は鍵の分も数える）
                     planSource・planExpiresAt・planCancelAt は 048（マイページの「〇月〇日に更新／まで」と「プランを管理」の出し分け）
+                    isAdmin は 057（ADMIN_EMAILS に含まれる認証済み利用者。ゲストは false。マイページの「運営 ›」の出し分け）
 billing.prices      {} -> { monthly: { amount, currency, priceId }, yearly: {...} }（048。Stripe から。1 時間キャッシュ）
 billing.createCheckoutSession { interval: "month"|"year" } -> { url }（048。paid なら CONFLICT。managed_payments は使わない）
 billing.createPortalSession   {} -> { url }（048。stripe_customer_id が無ければ NOT_FOUND）
+
+admin.*             057。全部 ctx.isAdmin でなければ FORBIDDEN（admin ルーターの入口で 1 度。security-requirements.md 3節の例外）。
+                    運営が触れるのは数（COUNT）と couple_plans の 1 行だけ。本文・写真・名前・記念日は返さない・書かない
+admin.stats         {} -> { couples, users, paidCouples, posts, images: 各 { total, today, avg7d } }
+                    デモペアを除く。今日 = JST 0:00 から。avg7d = 今日を含まない直近 7 日の増加 ÷ 7。1 分キャッシュ
+admin.lookup        { email } -> { user: { email, createdAt, posts, postImages } | null,
+                                   couple: { id, createdAt, members, plan, source, expiresAt, hasStripeCustomer, posts, images, albums } | null }
+                    完全一致で 1 人。返す形は数と日付だけ（テストでキーを固定）
+admin.setPlan       { coupleId, plan: "free"|"paid" } -> { plan }
+                    couple_plans に source='manual' を upsert（paid: expires_at NULL。free: updated_at が 047 の猶予の起点）。
+                    source='stripe' の行があれば CONFLICT（Webhook と食い違わせない）。admin_actions に 1 行
+admin.actions       { limit? } -> { items: [{ id, adminEmail, action, coupleId, detail, createdAt }] }（新しい順。最大 50）
 POST /api/stripe/webhook      oRPC の外。署名を確かめ、購読を読み直して couple_plans を upsert（048）
 couple.update       { datingDate: string | null, marriedDate, primaryDate }
 invite.issue        -> { code, expiresAt }
