@@ -13513,3 +13513,9 @@ Session: A
 - `billing.test.ts` 425 行のテスト: `Date.now()` を 1 度だけ取って 3 箇所で使う（#387 の CI で 1 秒ずれて赤になった）
 
 Session: B
+
+## 2026-09-16 セッションB: 054 の追補を R が受け入れ → #389 をマージ
+
+- 判定を `artifacts/054/review-stage1.md` の末尾に追記。CI pass → squash merge。次は 047（A の起票待ち）
+
+Session: B
