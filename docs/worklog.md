@@ -13545,3 +13545,12 @@ Session: B
 - R の記録 2 つ（045 の部品の「無制限」の文言・`unlockedPhotos` の `deleted_at` の固定）は A へ。CI pass → squash merge
 
 Session: B
+
+## 2026-09-16 セッションA: 047 完了の受け取り。R の記録 3 つの判断（#392）
+
+- 045 の部品 3 つに「無制限」が残っていた（048 の「無制限と書かない」は /premium だけ見ていた）→ 「50 万枚まで」に。047 の 0節 #14。045 の定義も同じ文言に
+- `unlockedPhotos` の `albums.deleted_at IS NULL` は残す（今は物理削除で効かないが、削除の形が変わっても枠を食わない）。テスト T12 を足す
+- `architecture.md` 5節: `couple.get` に `planState`・`photo.list` の `url` nullable と `locked`・`photo.downloadUrl` の NOT_FOUND
+- state・worklog は #392 に入れ損ねたので別 PR
+
+Session: A
