@@ -53,7 +53,7 @@ const { GuestModeContext } = await import("../lib/guest-mode");
 
 const today = todayJst();
 const [todayYear, todayMonth] = today.split("-").map(Number) as [number, number];
-const { from: gridFrom } = monthGridRange(todayYear, todayMonth);
+const { from: gridFrom, to: gridTo } = monthGridRange(todayYear, todayMonth);
 
 function makeEvent(overrides: Partial<Event> = {}): Event {
   return {
@@ -700,15 +700,16 @@ describe("CalendarScreen: 天気と祝日（058 T7）", () => {
   it("予定の詳細: 7 日の外の日は、予定が無くても天気の行は出ない（getForDate も呼ばない）", async () => {
     listMock.mockResolvedValue({ items: [] });
     renderScreen();
-    // グリッドの先頭は必ず今日より前（過去は 7 日の外）
-    await screen.findByTestId(`calendar-day-${gridFrom}`);
-    fireEvent.click(screen.getByTestId(`calendar-day-${gridFrom}`));
-    await screen.findByText(gridFrom);
+    // グリッドの先頭は今日より前（過去は 7 日の外）。今日が「日曜の 1 日」だと先頭 = 今日になるので、その日は末尾（27 日以上先）を使う
+    const outside = gridFrom < today ? gridFrom : gridTo;
+    await screen.findByTestId(`calendar-day-${outside}`);
+    fireEvent.click(screen.getByTestId(`calendar-day-${outside}`));
+    await screen.findByText(outside);
     await screen.findByText("この日の予定はありません");
     await act(async () => {
       await new Promise((r) => setTimeout(r, 30));
     });
     expect(screen.queryByTestId("calendar-weather-rows")).toBeNull();
-    expect(weatherForDateMock).not.toHaveBeenCalledWith({ date: gridFrom }, expect.anything());
+    expect(weatherForDateMock).not.toHaveBeenCalledWith({ date: outside }, expect.anything());
   });
 });

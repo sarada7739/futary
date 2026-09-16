@@ -59,3 +59,31 @@ futary-R で a281d16 を checkout。ui 20 緑。コードの差分は `assets.ts
 - 白地と濃紺の地に 5 枚を並べて見た: 白地では太陽・雨・雪・雷ははっきり、**雲は薄い**（B の気づきどおり。人間の絵のまま。判断は人間）。濃紺の地では雲と雪の周りに白っぽい点の残りがわずかに見える（塗りつぶしの取り残し）。アプリの地はピンク／白なので目に付かない。記録だけ
 - 0節 #6 の「上段真ん中は使わない」は `make-icons.py` の切り出し位置で守られている（B の報告）
 - 段階1の記録 3（絵は仮）は閉じた
+
+## 追補 PR #409（`task/058-weather-without-events`。予定の無い日にも天気の行）— R の判定
+
+futary-R で origin/task/058-weather-without-events を checkout。`calendar-screen.test.tsx` 33 件 緑・`tsc --noEmit` 緑。`worklog.md` は追記のみ。
+
+**受け入れ（条件付き）。必須修正 1（テストの 1 行。コード本体の修正は無い）。**
+
+- `calendar.tsx` の差分は条件から `selectedDayEvents.length > 0` を外しただけ（1 行）。並びは 祝日 → 「この日の予定はありません」／予定の一覧 → 天気の行 のまま。`forDateQuery` の `enabled` は `selectedWithinWeather` だけなので通信は増えない（B の報告どおり）
+- `pink-day-no-event.png`: 18 日を選ぶと「この日の予定はありません」の下に「東京地方: 曇・最高 25° / 最低 18°」。`capture.json` の `noEventText` が両モードとも `empty-then-weather`
+- API・契約・DB は触っていない（差分で確認）
+
+### 必須修正 1: 「7 日の外」のテストが、今日が「日曜の 1 日」のとき落ちる
+
+`calendar-screen.test.tsx` 新テストのコメント「グリッドの先頭は必ず今日より前」は成り立たない日がある。`monthGridRange` の `from` は「1 日を含む週の日曜」なので、**今日が日曜かつ 1 日**（次は 2026-11-01）だと `gridFrom === today`。すると `isWithinWeatherDays(today, today)` が true で `getForDate` が呼ばれ、`not.toHaveBeenCalledWith({ date: gridFrom })` と `queryByTestId("calendar-weather-rows")` の null が両方とも落ちる（その日に CI を回すと赤）。
+直し方の例（1 行）: `gridFrom < today` なら `gridFrom`、そうでなければ `gridTo`（`monthGridRange` の `to`。今日が 1 日なら 27 日以上先なので必ず 7 日の外）を選んでクリックする。コメントもそれに合わせる。
+
+### 記録（判定に使わない）
+
+1. 既存テスト「前月側の予定」（140 行付近）も `gridFrom` を使っている。同じ日には `gridFrom` が当月になるが、そちらの断言は「前月側」に依存していないように見えるので、今回は触らなくてよい（確かめてはいない）
+2. A へ: 0節 #5 の文言（「予定なら」→「日なら」）は B の起票どおり
+
+### 私が確かめていないこと
+
+- 本番デプロイ後の表示（人間の手番）
+
+### B の対応
+
+- 必須修正 1: `gridFrom < today ? gridFrom : gridTo` を選んでクリックするように直した（`gridTo` を `monthGridRange` から取る）。33 件 緑・tsc・eslint 緑
