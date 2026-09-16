@@ -354,10 +354,9 @@ export default function CalendarScreen() {
                   ))
                 )}
 
-                {/* 058: 7 日以内の予定なら「天気」の行。ふたりの地域が同じか片方だけなら 1 行、違えば 2 行（0節 #5） */}
-                {selectedDayEvents.length > 0 && selectedWithinWeather && forDateQuery.data && (
-                  <WeatherRows result={forDateQuery.data} />
-                )}
+                {/* 058: 7 日以内の日なら「天気」の行（予定が無い日も「この日の予定はありません」の下に出す。人間の指示 2026-09-17）。
+                    ふたりの地域が同じか片方だけなら 1 行、違えば 2 行（0節 #5） */}
+                {selectedWithinWeather && forDateQuery.data && <WeatherRows result={forDateQuery.data} />}
               </View>
             </Card>
           </>

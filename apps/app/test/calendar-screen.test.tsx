@@ -651,7 +651,7 @@ describe("CalendarScreen: 天気と祝日（058 T7）", () => {
     expect(holidayListMock).toHaveBeenCalledWith({ year: todayYear }, expect.anything());
   });
 
-  it("予定の詳細: 7 日以内の予定で、ふたりの地域が同じなら「天気」1 行。違えば自分と相手の 2 行。予定が無い日は出ない", async () => {
+  it("予定の詳細: 7 日以内なら、ふたりの地域が同じで「天気」1 行。違えば自分と相手の 2 行。予定が無い日も「予定はありません」の下に出る", async () => {
     listMock.mockResolvedValue({ items: [makeEvent({ date: today, sourceDate: today })] });
     weatherForDateMock.mockResolvedValue({
       mine: { area: TOKYO, day: days[0] },
@@ -687,13 +687,28 @@ describe("CalendarScreen: 天気と祝日（058 T7）", () => {
     third.unmount();
     queryClient.clear();
 
-    // 予定の無い日は出ない（getForDate は呼ぶが行は無い）
+    // 予定の無い日も出る（「この日の予定はありません」の下。人間の指示 2026-09-17）
+    weatherForDateMock.mockResolvedValue({ mine: { area: TOKYO, day: days[0] }, partner: null, same: false });
     listMock.mockResolvedValue({ items: [] });
     renderScreen();
-    await screen.findByTestId(`calendar-day-${today}`);
+    await screen.findByText("この日の予定はありません");
+    const emptyRows = await screen.findByTestId("calendar-weather-rows");
+    expect(emptyRows).toHaveTextContent("東京地方: 晴後曇・最高 25° / 最低 18°");
+    expect(screen.queryByTestId("calendar-weather-row-1")).toBeNull();
+  });
+
+  it("予定の詳細: 7 日の外の日は、予定が無くても天気の行は出ない（getForDate も呼ばない）", async () => {
+    listMock.mockResolvedValue({ items: [] });
+    renderScreen();
+    // グリッドの先頭は必ず今日より前（過去は 7 日の外）
+    await screen.findByTestId(`calendar-day-${gridFrom}`);
+    fireEvent.click(screen.getByTestId(`calendar-day-${gridFrom}`));
+    await screen.findByText(gridFrom);
+    await screen.findByText("この日の予定はありません");
     await act(async () => {
       await new Promise((r) => setTimeout(r, 30));
     });
     expect(screen.queryByTestId("calendar-weather-rows")).toBeNull();
+    expect(weatherForDateMock).not.toHaveBeenCalledWith({ date: gridFrom }, expect.anything());
   });
 });
