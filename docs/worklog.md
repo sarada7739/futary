@@ -13704,3 +13704,16 @@ Session: B
 - 人間が `docs/sample/weather/icons-source.png` を A のツリーに置いた。README の作法どおり置いたツリーで追跡に入れる。B に差し替えの手番を渡す
 
 Session: A
+
+## 2026-09-17 セッションB: 058 の絵を人間の原本に差し替え
+
+- `make-icons.py`: 隣との差の塗りつぶしだと雲が消えた（67 画素）ので、地の色（白〜薄いピンク・R ≥ B）の絶対判定に。README に「058 で切り出したもの」
+- 本物の絵で撮り直し（`artifacts/058/stage2/`）
+
+Session: B
+
+## 2026-09-17 セッションB: 058 の追補（絵）を R が受け入れ → #408 をマージ
+
+- 判定を `artifacts/058/review-stage1.md` の末尾に追記。CI pass → squash merge
+
+Session: B
