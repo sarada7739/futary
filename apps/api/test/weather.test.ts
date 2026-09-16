@@ -66,7 +66,13 @@ function fakeFetch(handler: (url: string, init: RequestInit) => Promise<Response
   return { impl, calls };
 }
 const okJson = (body: string) => new Response(body, { status: 200, headers: { "content-type": "application/json" } });
-const tokyoFetch = () => fakeFetch((url) => (url === `${JMA_FORECAST_URL}130000.json` ? okJson(tokyoJson) : new Response("nf", { status: 404 })));
+const tokyoFetch = () =>
+  fakeFetch((url, init) => {
+    // R の記録 2: 気象庁への fetch もヘッダは UA（040 と同じ）と accept だけ（Cookie・利用者の情報は送らない）
+    expect(init.headers).toEqual({ "user-agent": "nisoine-link-preview/1 (+https://nisoine.com)", accept: "application/json" });
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    return url === `${JMA_FORECAST_URL}130000.json` ? okJson(tokyoJson) : new Response("nf", { status: 404 });
+  });
 
 function contextFor(user: TestUser | null, externalFetch: RpcContext["externalFetch"], demoCoupleId: string | null = null): RpcContext {
   return {
@@ -231,6 +237,10 @@ describe("058 T3: fetch する URL は固定の 2 つだけ。差し込むのは
     // 表に無いコードが DB に直接入っていても fetch しない（loadDays の二重の守り）
     await db.prepare("UPDATE couple_members SET weather_area = '999999' WHERE user_id = ?1").bind(pair.owner.id).run();
     expect(await call(router.weather.get, {}, { context: ctx })).toEqual({ area: null, days: [] });
+    expect(calls).toEqual([]);
+    // R の記録 1: loadDays の二重の弾き（表に無いコードを直接渡しても fetch せず []）
+    expect(await loadDays("999999", NOW_MS, impl)).toEqual([]);
+    expect(await loadDays("130000", NOW_MS, impl)).toEqual([]);
     expect(calls).toEqual([]);
     // 表にあるコードなら URL は JMA_FORECAST_URL + office + ".json" だけ
     await call(router.me.updateWeatherArea, { areaCode: "130010" }, { context: ctx });
