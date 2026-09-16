@@ -13585,6 +13585,15 @@ Session: B
 
 Session: A
 
+## 2026-09-16 セッションB: 056（LP の中でデモ）を実装
+
+- `frame-ancestors 'self'`（053 の固定値も）。`/app/?demo=1` でゲストの初期値・框の中は `showAuth` で親を `/app/` へ（`lib/demo-frame.ts`。入口は `_layout` の 1 箇所）
+- **人間の指示（実装中）: 框の中に実ユーザーのデータが写らないように** → 框の中は API と認証の fetch に Cookie を送らない（`frameCredentials()` = `"omit"`）+ `isAuthenticated` を false に。ログイン中のブラウザで計測: 親は本人・框はデモ・框の request に Cookie 無し
+- LP の節「さわってみる」: iframe 390×844 を 0.8、枠の絵は人間の PNG が最初から透明（切り抜き不要）で幅 800 に。767px 以下は節を隠す（lazy の iframe は読まれないことを計測）
+- T1〜T6 + Cookie の検査。PNG のアルファは仮想モジュール（`node:zlib` で読む。依存を足さない）。vitest は CSS を空にするので style.css も仮想モジュールから
+- 撮影は Playwright の座標クリックが `transform: scale` の iframe でずれるため `dispatchEvent("click")` で
+
+Session: B
 ## 2026-09-16 セッションA: 056 に「框の中に本人のデータを映さない」（人間の指示。B 経由）を入れる
 
 - ログイン中のブラウザで別タブの LP を開くと、枠の中に自分たちの投稿が映る経路があった。框の中では fetch に Cookie を送らない（`credentials: "omit"`）= 常にデモペア。0節 #12・T3b
@@ -13593,6 +13602,18 @@ Session: A
 
 Session: A
 
+## 2026-09-16 セッションB: 056 に T3b のテストを足した（A の #399 を取り込み）
+
+- `apps/app/test/orpc-frame-credentials.test.ts`: 本物の `lib/orpc.ts` の fetch が框の外で `include`・框の中で `omit`。`demo-frame.test.tsx` の 2 本に T3b の印
+- main（#399。定義に 0節 #12・T3b）を取り込んだ。state.md は B の先頭を残して A の分を「旧」に
+
+Session: B
+
+## 2026-09-16 セッションB: 056 を R が差し戻し（必須修正 1。A の判断）
+
+- 判定を `artifacts/056/review-stage1.md` に保存。必須修正: 框の中で `demoFailed` → `showAuth` → 親ページが `/app/` へ飛ぶ（0節 #3 の形に由来）。A に回した
+
+Session: B
 ## 2026-09-16 セッションA: 056 の差し戻し（R の必須修正 1）への判断
 
 - 「`showAuth` が立った瞬間に框の中なら親を飛ばす」は、デモの読み込み失敗（通信断・5xx）でも訪問者の LP ごと `/app/` へ飛ばしてしまう（R が再現）。A の定義の形が原因
@@ -13600,3 +13621,16 @@ Session: A
 - R の記録: 043 のシートが框の中でも出る → 出さない。`releaseSeen` も書かない（同じオリジンの localStorage を汚さない）
 
 Session: A
+
+## 2026-09-16 セッションB: 056 の差し戻しを A の決定（#400）で直した
+
+- 0節 #3: `leaveFrameToApp()` を `exitGuestMode` に移し、`useEffect(showAuth && inFrame)` を消した。#3b: 框の中では `(auth)` を出さず、1 行「デモを読み込めませんでした」+「アプリを開く」（`target="_top"`）。#3c: お知らせのシートは框の中で出さず、`markReleaseSeen`・`deferRelease` も框の中では書かない
+- T4b・T7 を足した（app 581）。`build:public` → wrangler dev で撮り直し（シート無し・localStorage 無し・ログインで親が `/app/`）
+
+Session: B
+
+## 2026-09-16 セッションB: 056 を R が受け入れ → #398 をマージ
+
+- R の判定（必須修正 1 は閉じた。壊して 5 通り赤、`useEffect(showAuth && inFrame)` に戻すと 3 本赤）を `artifacts/056/review-stage1.md` の末尾に追記。CI pass → squash merge
+
+Session: B

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AppearanceProvider } from "@futary/ui";
 import type { ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // 043: ホームのリリース履歴のボタン（T2）・「新機能のお知らせ」のシート（T3）・一覧を開くと
 // ホームのバッジが消える（T4）・オンボーディングにはシートが出ない（T6）の画面結合テスト。
@@ -276,5 +276,35 @@ describe("オンボーディングにはシートが出ない（043 T6）", () =
     expect(screen.getByText("ふたりをはじめる")).toBeTruthy();
     expect(screen.queryByTestId("release-sheet")).toBeNull();
     expect(screen.queryByText("新機能のお知らせ")).toBeNull();
+  });
+});
+
+// 056 T7: LP のスマホの枠（iframe）の中では「新機能のお知らせ」を出さず、releaseSeen も書かない
+describe("056 T7: 框の中ではお知らせのシートを出さない", () => {
+  const originalTop = Object.getOwnPropertyDescriptor(window, "top");
+  afterEach(() => {
+    if (originalTop) Object.defineProperty(window, "top", originalTop);
+  });
+
+  it("框の中（window.top !== window.self）: 未読でもシートが出ず、localStorage の releaseSeen は書かれない。markReleaseSeen・deferRelease も書かない", async () => {
+    Object.defineProperty(window, "top", { configurable: true, get: () => ({}) });
+    const { markReleaseSeen, deferRelease } = await import("../lib/release-seen");
+    await renderHome();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(screen.queryByTestId("release-sheet")).toBeNull();
+    expect(window.localStorage.getItem(RELEASE_SEEN_STORAGE_KEY)).toBeNull();
+    markReleaseSeen();
+    deferRelease();
+    expect(window.localStorage.getItem(RELEASE_SEEN_STORAGE_KEY)).toBeNull();
+    expect(window.sessionStorage.getItem(RELEASE_LATER_STORAGE_KEY)).toBeNull();
+    // NEW のバッジ（読むだけ）は今まで通り
+    expect(screen.getByTestId("release-button-new")).toBeTruthy();
+  });
+
+  it("框の外: 今まで通り出る（上の describe と同じ）", async () => {
+    await renderHome();
+    expect(screen.getByTestId("release-sheet")).toBeTruthy();
   });
 });

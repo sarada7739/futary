@@ -1,0 +1,46 @@
+{
+  "pc": {
+    "demoVisible": true,
+    "appRequestedBeforeScroll": 20,
+    "frameDays": "563",
+    "frameUrl": "/app/",
+    "signInShown": false,
+    "releaseSheetInFrame": false,
+    "releaseSeenInStorage": null,
+    "afterTabUrl": "/app/calendar",
+    "parentUrlAfterLogin": "/app/",
+    "parentShowsSignIn": true
+  },
+  "mobile": {
+    "demoVisible": false,
+    "demoDisplay": "none",
+    "appRequestsAfterScroll": [],
+    "scrollWidth": 375
+  },
+  "consoleErrors": [],
+  "loggedIn": {
+    "topDays": "894",
+    "topIsGuest": false,
+    "frameDays": "563",
+    "frameIsGuest": true,
+    "frameCoupleId": "/app/",
+    "frameApiRequests": [
+      {
+        "url": "/api/couple/get",
+        "frame": true,
+        "cookie": "none"
+      },
+      {
+        "url": "/api/auth/get-session",
+        "frame": true,
+        "cookie": "none"
+      },
+      {
+        "url": "/api/stats/get",
+        "frame": true,
+        "cookie": "none"
+      }
+    ],
+    "frameApiWithCookie": 0
+  }
+}

@@ -72,6 +72,21 @@
     </div>
   </section>
 
+  <!-- 056 さわってみる: スマホの枠の中で本物のデモ（/app/?demo=1 = ゲストモード）。同じオリジンなので API・画像は
+       そのまま動く。iframe は 390×844 で描き CSS で 0.8 に縮める。枠の絵（画面と外側が透明）を上に重ねる
+       （pointer-events: none）。768px 未満は節ごと隠す（スマホの中にスマホを出さない。CSS）。JS は無い -->
+  <section class="demo" id="demo" aria-labelledby="demo-heading">
+    <div class="container">
+      <h2 id="demo-heading" class="serif">さわってみる</h2>
+      <p class="demo-lead">ゆいとれんのデモです。投稿は見るだけで、書き込みはできません。</p>
+      <div class="phone">
+        <iframe class="phone-screen" src="/app/?demo=1" loading="lazy" title="Nisoine のデモ" width="390" height="844"></iframe>
+        <img class="phone-frame" src="/assets/phone-frame.png" alt="" width="800" height="1200" loading="lazy" />
+      </div>
+      <p class="demo-more"><a class="link-secondary" href="/app/">自分たちで始める →</a></p>
+    </div>
+  </section>
+
   <!-- 2 基本機能は無料（統計カードは HTML/CSS。数字は例で動かない） -->
   <section class="free" aria-labelledby="free-heading">
     <div class="container">

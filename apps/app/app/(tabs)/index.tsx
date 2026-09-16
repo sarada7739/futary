@@ -28,6 +28,7 @@ import { FeaturePanel } from "../../components/feature-panel";
 import { ReleaseButton } from "../../components/release-button";
 import { ReleaseSheet } from "../../components/release-sheet";
 import { StatsCard } from "../../components/stats-card";
+import { isInFrame } from "../../lib/demo-frame";
 import { deferRelease, hasUnseenRelease, isReleaseDeferred, markReleaseSeen, useHasUnseenRelease } from "../../lib/release-seen";
 import { LATEST_RELEASE } from "../../lib/releases";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
@@ -65,8 +66,9 @@ export default function HomeScreen() {
   // 043: 「新機能のお知らせ」。ホームを開いたときに 1 度（未読で、この起動で「後で」を押していないとき）。
   // 描いたあとに開く（静的書き出しのサーバ側の描画では window が無く、初期値で開くと hydrate と食い違う）
   const [isReleaseSheetOpen, setIsReleaseSheetOpen] = useState(false);
+  // 056 0節 #3c: LP のスマホの枠（iframe）の中では出さない（デモが見えなくなる。releaseSeen も書かない）
   useEffect(() => {
-    if (hasUnseenRelease() && !isReleaseDeferred()) setIsReleaseSheetOpen(true);
+    if (!isInFrame() && hasUnseenRelease() && !isReleaseDeferred()) setIsReleaseSheetOpen(true);
   }, []);
 
   // 「閉じる ×」・シートの外 = 見た（0節 #5）。「使ってみる」= 見た + その画面へ（#6）。

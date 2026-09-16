@@ -8,7 +8,7 @@ import landingPrivacyHtml from "../../landing/privacy.html?raw";
 import landingTermsHtml from "../../landing/terms.html?raw";
 import landingTokushohoHtml from "../../landing/tokushoho.html?raw";
 import landingSitemapXml from "../../landing/sitemap.xml?raw";
-import landingAssets from "virtual:landing-assets";
+import landingAssets, { styleCss as landingStyleCss } from "virtual:landing-assets";
 
 // 054: ランディングページを一般向けに作り直す（docs/tasks/054-landing-for-users.md 5節 T1〜T5）。
 // T6（`/` の応答ヘッダが 053 の T4b と同じ）は canonical-host.test.ts の既存のテストがそのまま緑。
@@ -206,5 +206,49 @@ describe("047 T10: 法務ページと LP の文言が鍵の実装と一致する
   it("/ の FAQ に「いつでも ZIP」が無い（鍵の写真は ZIP に入らない）", () => {
     expect(landingIndexHtml).not.toContain("いつでも ZIP");
     expect(landingIndexHtml).toContain("写真は ZIP でまとめて持ち出せます。");
+  });
+});
+
+describe("056 T5: `/` のスマホの枠の iframe", () => {
+  it("<iframe が 1 つ。src=/app/?demo=1・loading=lazy・title あり・sandbox 無し。<script は無いまま", () => {
+    const iframes = [...landingIndexHtml.matchAll(/<iframe\b[^>]*>/g)].map((m) => m[0]);
+    expect(iframes).toHaveLength(1);
+    const tag = iframes[0]!;
+    expect(tag).toContain('src="/app/?demo=1"');
+    expect(tag).toContain('loading="lazy"');
+    expect(tag).toMatch(/\btitle="[^"]+"/);
+    expect(tag).not.toMatch(/\bsandbox/);
+    expect(landingIndexHtml).not.toMatch(/<script/i);
+    // 節「さわってみる」の文言（0節 #9。ここに無い文言は足さない）
+    expect(landingIndexHtml).toContain('<section class="demo" id="demo"');
+    expect(landingIndexHtml).toContain("さわってみる");
+    expect(landingIndexHtml).toContain("ゆいとれんのデモです。投稿は見るだけで、書き込みはできません。");
+    expect(landingIndexHtml).toContain('href="/app/">自分たちで始める →</a>');
+    // 枠の絵は iframe の上に重ねる（pointer-events は CSS）。width/height あり
+    expect(landingIndexHtml).toMatch(/<img class="phone-frame" src="\/assets\/phone-frame\.png" alt="" width="\d+" height="\d+" loading="lazy" \/>/);
+  });
+
+  it("768px 未満は節ごと display: none（style.css）", () => {
+    expect(landingStyleCss).toMatch(/@media \(max-width: 767px\) \{\s*\.demo \{\s*display: none;/);
+    expect(landingStyleCss).toMatch(/\.phone-frame \{[^}]*pointer-events: none;/);
+  });
+});
+
+describe("056 T6: assets/phone-frame.png の画面部分が透明で、縁は不透明", () => {
+  const frame = landingAssets.find((f) => f.name === "phone-frame.png");
+
+  it("RGBA の PNG として読める。150KB 以下", () => {
+    expect(frame).toBeDefined();
+    expect(frame!.png).toBeDefined();
+    expect(frame!.bytes).toBeLessThanOrEqual(150 * 1024);
+  });
+
+  it("中央（画面）と画面の下の方と外側（左上の角）はアルファ 0。左の縁とノッチは不透明", () => {
+    const alpha = frame!.png!.alphaAt;
+    expect(alpha.center).toBe(0);
+    expect(alpha.screenBottom).toBe(0);
+    expect(alpha.topLeftOutside).toBe(0);
+    expect(alpha.leftBezel).toBeGreaterThan(200);
+    expect(alpha.notch).toBeGreaterThan(200);
   });
 });
