@@ -426,19 +426,21 @@ describe("P2: 状態 → plan / expires_at", () => {
     const { owner, partner } = await createPair();
     const couple = await call(router.couple.get, undefined, { context: contextFor(owner) });
     const cus = await fake.createCustomer(couple.id);
-    fake.putSubscription("sub_1", cus, "active", Math.floor(Date.now() / 1000) + 86400);
+    // 時刻は 1 度だけ取る（Date.now() を 3 箇所で別々に呼ぶと、秒の境目をまたいで 1 秒ずれて赤になる。CI で 1 回）
+    const now = Math.floor(Date.now() / 1000);
+    fake.putSubscription("sub_1", cus, "active", now + 86400);
     const body = subscriptionEvent("customer.subscription.created", "sub_1", cus);
     const request = new Request("https://nisoine.com/api/stripe/webhook", {
       method: "POST",
       headers: { "stripe-signature": await sign(body) },
       body,
     });
-    await handleStripeWebhook(request, { db, billing: billingOf(), nowSeconds: () => Math.floor(Date.now() / 1000) });
+    await handleStripeWebhook(request, { db, billing: billingOf(), nowSeconds: () => now });
 
     const after = await call(router.couple.get, undefined, { context: contextFor(partner) });
     expect(after.plan).toBe("paid");
     expect(after.planSource).toBe("stripe");
-    expect(after.planExpiresAt).toBe(Math.floor(Date.now() / 1000) + 86400);
+    expect(after.planExpiresAt).toBe(now + 86400);
     expect(after.albumQuota).toBeNull();
   });
 });

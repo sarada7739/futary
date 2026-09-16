@@ -31,3 +31,12 @@ futary-R で 7cf10c9 を checkout して実行した。api 711（`landing.test.t
 
 - 本番デプロイ後の `https://nisoine.com/`・`/tech`（人間の手番）
 - `tech-*.png`・法務ページの 2 枚（T5 は緑を見た）
+
+## 追補 PR #389（e07e243）— R の判定
+
+futary-R で e07e243 を checkout。`billing.test.ts` 38 + `landing.test.ts` 17 = 55 緑。`eslint .` 緑。`worklog.md` は追記のみ。
+
+**受け入れ。必須修正なし。**
+
+- `index.html`: 「過去の 1 枚が届きます。」→「過去の投稿がそっと届きます。」の 1 行だけ。A が #388 で 3 節に書いた文言と一致。旧文言は残っていない（grep 0）
+- `billing.test.ts`: `Date.now()` を 1 度だけ取って `putSubscription`・`nowSeconds`・`expect` で同じ値。秒の境目の flake の直し方として正しい（`couple.get` の中の `resolvePlan` は実時刻で判定するが、期限は `now + 86400` なので影響しない）
