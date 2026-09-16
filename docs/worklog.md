@@ -13538,3 +13538,10 @@ Session: A
 - B の判断: 帯は `used <= limit` なら出さない・鍵のマスは選択モードで選べる（削除）・`updatePhoto` も NOT_FOUND
 
 Session: B
+
+## 2026-09-16 セッションB: 047 を R が受け入れ → #391 をマージ
+
+- R の判定（必須修正なし。壊して 8 通り赤を確認）を `artifacts/047/review-stage1.md` に保存
+- R の記録 2 つ（045 の部品の「無制限」の文言・`unlockedPhotos` の `deleted_at` の固定）は A へ。CI pass → squash merge
+
+Session: B
