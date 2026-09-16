@@ -71,9 +71,15 @@ export function planLabel(plan: Plan): string {
   return plan === "paid" ? "プレミアム" : "無料";
 }
 
-// 048 段階2: /premium の「できること」の 1 行目「写真 50 万枚まで」（数字は契約の定数から。万単位で出す）
+// 048 段階2: /premium の「できること」の 1 行目「写真 50 万枚まで」（数字は契約の定数から。万単位で出す）。
+// 047 0節 #14: 045 の上限シートの「プレミアム」の行も同じ（「無制限」とは書かない）
 export function paidPhotoLimitLabel(): string {
   return `写真 ${PAID_ALBUM_PHOTO_LIMIT / 10_000} 万枚まで`;
+}
+
+// 047 0節 #14: 045 の使用量のカード・警告のカードの「プレミアムで 50 万枚まで」（「無制限に」とは書かない）
+export function paidPhotoLimitCtaLabel(): string {
+  return `プレミアムで ${PAID_ALBUM_PHOTO_LIMIT / 10_000} 万枚まで`;
 }
 
 // 価格の表示: 「¥420 / 月」「¥4,200 / 年」（JPY。他の通貨は Stripe の設定が JPY なので来ない）

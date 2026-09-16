@@ -354,7 +354,7 @@ describe("AlbumScreen: 無料枠（045）", () => {
   });
 
   // 3節: 一覧の「写真の使用量」のカード（絵 05）。free のときだけ
-  it("free のとき「写真の使用量」のカード: 27 / 30 枚・あと 3 枚・プレミアムで無制限に（→ /premium）。一覧の一番下（アルバムのカードより後）", async () => {
+  it("free のとき「写真の使用量」のカード: 27 / 30 枚・あと 3 枚・プレミアムで 50 万枚まで（→ /premium。「無制限」と書かない）。一覧の一番下（アルバムのカードより後）", async () => {
     coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 27 } });
     stubList([makeAlbum()]);
     renderScreen();
@@ -368,6 +368,9 @@ describe("AlbumScreen: 無料枠（045）", () => {
     expect(screen.getByTestId("album-usage-remaining")).toHaveTextContent("あと 3 枚");
     // バーの塗りは used / limit の割合（27 / 30 = 90%）
     expect(screen.getByTestId("album-usage-bar-fill").style.width).toBe("90%");
+    expect(screen.getByTestId("album-usage-premium")).toHaveTextContent("プレミアムで 50 万枚まで ›");
+    expect(screen.getByLabelText("プレミアムで 50 万枚まで")).toBeTruthy();
+    expect(screen.queryByText(/無制限/)).toBeNull();
     fireEvent.click(screen.getByTestId("album-usage-premium"));
     expect(pushMock).toHaveBeenCalledWith("/premium");
   });
