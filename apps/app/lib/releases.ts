@@ -15,6 +15,13 @@ export type Release = {
 // 新しい順。先頭が最新。LATEST_VERSION は先頭から取る（2 箇所に持たない）
 export const RELEASES: readonly Release[] = [
   {
+    version: "3.3.0",
+    date: "2026-09-17",
+    title: "カレンダーに天気と祝日",
+    items: ["マイページで地域を選ぶと、7 日先までの天気が出ます", "祝日が赤くなります"],
+    route: "/calendar",
+  },
+  {
     version: "3.2.0",
     date: "2026-09-16",
     title: "プレミアムで保存できる写真が 50 万枚になりました",

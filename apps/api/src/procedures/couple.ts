@@ -3,7 +3,8 @@ import { generateInviteCode } from "../lib/invite-code";
 import { hashAccountId } from "../lib/account-hash";
 import { albumQuotaFor, loadPlanRow, resolvePlanState } from "../lib/plan";
 import { resolveIsAdmin } from "../middleware/auth-context";
-import { PLAN_SOURCES, type PlanSource } from "@futary/contract";
+import { DEMO_WEATHER_AREA } from "./weather";
+import { PLAN_SOURCES, weatherAreaName, type PlanSource } from "@futary/contract";
 import { authedProcedure, readProcedure, writeProcedure } from "./base";
 
 const INVITE_TTL_SECONDS = 24 * 60 * 60;
@@ -97,6 +98,17 @@ const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ con
   // （005時点でデモペアは未作成のため DEMO_COUPLE_ID は空文字＝ここには来ない）
   if (!row) throw new Error("couple_id に対応するペアが見つかりません");
   // 045: プランと無料枠。判定は lib/plan.ts の 1 箇所。ゲスト（デモペア）にも返す（シードで paid）
+  // 058: 自分の天気の地域（ゲストは東京地方で固定）
+  const weatherAreaCode =
+    context.userId === null
+      ? DEMO_WEATHER_AREA
+      : ((
+          await context.db
+            .prepare("SELECT weather_area AS weather_area FROM couple_members WHERE couple_id = ?1 AND user_id = ?2")
+            .bind(context.coupleId, context.userId)
+            .first<{ weather_area: string | null }>()
+        )?.weather_area ?? null);
+  const weatherAreaLabel = weatherAreaCode ? weatherAreaName(weatherAreaCode) : null;
   const planRow = await loadPlanRow(context.db, context.coupleId);
   // 047: 猶予と鍵も同じ判定から（plan は planState.plan）。albumQuota.used は鍵の分も数える（0節 #7）
   const planState = resolvePlanState(planRow, nowSeconds());
@@ -116,6 +128,7 @@ const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ con
     planCancelAt: planRow?.stripe_cancel_at ?? null,
     // 057: マイページの「運営 ›」の出し分け（判定は middleware/auth-context.ts の 1 箇所）
     isAdmin: resolveIsAdmin(context),
+    weatherArea: weatherAreaCode && weatherAreaLabel ? { code: weatherAreaCode, name: weatherAreaLabel } : null,
   };
 });
 

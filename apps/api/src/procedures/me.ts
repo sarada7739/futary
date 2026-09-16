@@ -1,4 +1,5 @@
 import { implementer } from "../implementer";
+import { isWeatherAreaCode } from "@futary/contract";
 import { generateImageId } from "../lib/ulid";
 import {
   albumImagePrefixFor,
@@ -303,9 +304,22 @@ const meSetAiOptIn = implementer.me.setAiOptIn.use(writeProcedure).handler(async
   return { aiOptIn: input.optIn };
 });
 
+// 058: 天気の地域（couple_members.weather_area）。表に無いコードは INVALID_INPUT（fetch する URL に
+// 差し込むのは表のコードだけ。security-requirements.md の 2 つ目の口）。null で「設定しない」
+const meUpdateWeatherArea = implementer.me.updateWeatherArea.use(writeProcedure).handler(async ({ context, input, errors }) => {
+  const { db, coupleId, userId } = context;
+  if (input.areaCode !== null && !isWeatherAreaCode(input.areaCode)) throw errors.INVALID_INPUT();
+  await db
+    .prepare("UPDATE couple_members SET weather_area = ?1 WHERE couple_id = ?2 AND user_id = ?3")
+    .bind(input.areaCode, coupleId, userId)
+    .run();
+  return {};
+});
+
 export const meProcedures = {
   update: meUpdate,
   uploadImageUrl: meUploadImageUrl,
   delete: meDelete,
   setAiOptIn: meSetAiOptIn,
+  updateWeatherArea: meUpdateWeatherArea,
 };

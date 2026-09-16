@@ -14,6 +14,7 @@ import { aiSummaryProcedures } from "./procedures/ai-summary";
 import { albumProcedures, photoProcedures } from "./procedures/album";
 import { billingProcedures } from "./procedures/billing";
 import { adminProcedures } from "./procedures/admin";
+import { holidayProcedures, weatherProcedures } from "./procedures/weather";
 import { resolveUserImage } from "./lib/r2-signed-url";
 import { isSessionFresh } from "./lib/reauth";
 
@@ -69,6 +70,9 @@ export const router = implementer.router({
   me: { get: meGet, ...meProcedures },
   couple: coupleProcedures,
   billing: billingProcedures,
+  // 058: 天気と祝日（読み取り。ゲストも通る）
+  weather: weatherProcedures,
+  holiday: holidayProcedures,
   // 057: 運営（全部 adminProcedure）
   admin: adminProcedures,
   invite: inviteProcedures,

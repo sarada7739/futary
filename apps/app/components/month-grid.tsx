@@ -1,10 +1,14 @@
 import { Pressable, Text as RNText, View } from "react-native";
-import type { Event } from "@futary/contract";
-import { radius, space, Text, useTheme } from "@futary/ui";
+import type { Event, WeatherDay } from "@futary/contract";
+import { radius, space, Text, useTheme, WeatherIcon } from "@futary/ui";
+import { tempMaxLabel } from "../lib/weather";
 import { buildMonthGrid, WEEKDAY_LABELS } from "../lib/calendar";
 import { eventKindColorsOf, EVENT_KIND_GLYPHS, type EventKind } from "../lib/event-kind";
 
 const CELL_WIDTH = `${100 / 7}%`;
+// 058: マスの中の天気の絵（B が決めた: 20。マスは 390 幅で 50px 弱）
+const WEATHER_CELL_ICON = 20;
+const CELL_MIN_HEIGHT = 56;
 
 export type MonthGridProps = {
   year: number;
@@ -15,6 +19,10 @@ export type MonthGridProps = {
   selectedDate: string;
   onSelectDate: (date: string) => void;
   todayDate: string;
+  // 058: 日付ごとの天気（今日から 7 日。無ければ空）。絵 + 最高気温を数字の下に出す
+  weatherByDate?: Record<string, WeatherDay>;
+  // 058: 祝日（日付 → 名前）。日付を記念日と同じ赤に
+  holidays?: Record<string, string>;
 };
 
 function kindsOf(events: Event[] | undefined): EventKind[] {
@@ -24,7 +32,7 @@ function kindsOf(events: Event[] | undefined): EventKind[] {
   return Array.from(seen);
 }
 
-export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDate, todayDate }: MonthGridProps) {
+export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDate, todayDate, weatherByDate = {}, holidays = {} }: MonthGridProps) {
   const { colors } = useTheme();
   const eventKindColors = eventKindColorsOf(colors);
   const days = buildMonthGrid(year, month);
@@ -47,6 +55,8 @@ export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDat
           const isToday = day.date === todayDate;
           const kinds = kindsOf(eventsByDate[day.date]);
           const dayNumber = Number(day.date.slice(8, 10));
+          const weather = weatherByDate[day.date];
+          const isHoliday = holidays[day.date] !== undefined;
 
           return (
             <Pressable
@@ -57,20 +67,36 @@ export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDat
               accessibilityLabel={day.date}
               style={{
                 width: CELL_WIDTH,
-                aspectRatio: 1,
+                // 058: 天気の絵 + 気温が入るぶん、正方形（aspectRatio 1 = 50px 弱）から最小の高さに変えた
+                minHeight: CELL_MIN_HEIGHT,
+                paddingVertical: 2,
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "flex-start",
                 borderRadius: radius.input,
                 backgroundColor: isSelected ? colors.primarySubtle : "transparent",
               }}
             >
-              <Text
-                size="sm"
-                weight={isToday ? "bold" : "regular"}
-                color={!day.inMonth ? "muted" : isToday ? "brand" : "default"}
-              >
-                {dayNumber}
-              </Text>
+              {/* 058: 祝日は記念日と同じ赤（日曜と同じ扱い。0節 #10）。今日・月の外の色より優先しない */}
+              {isHoliday && day.inMonth && !isToday ? (
+                <RNText testID={`calendar-holiday-${day.date}`} style={{ color: colors.eventAnniversary, fontSize: 14, lineHeight: 20 }}>
+                  {dayNumber}
+                </RNText>
+              ) : (
+                <Text
+                  size="sm"
+                  weight={isToday ? "bold" : "regular"}
+                  color={!day.inMonth ? "muted" : isToday ? "brand" : "default"}
+                >
+                  {dayNumber}
+                </Text>
+              )}
+              {/* 058: 天気（今日から 7 日）。数字の上に被せない。絵 + 最高気温だけ（0節 #4） */}
+              {weather && (
+                <View testID={`calendar-weather-${day.date}`} style={{ alignItems: "center", gap: 1 }}>
+                  <WeatherIcon code={weather.code} size={WEATHER_CELL_ICON} />
+                  <RNText style={{ color: colors.textMuted, fontSize: 9, lineHeight: 11 }}>{tempMaxLabel(weather)}</RNText>
+                </View>
+              )}
               <View style={{ flexDirection: "row", gap: 2, minHeight: 10 }}>
                 {kinds.map((kind) => (
                   <RNText key={kind} style={{ color: eventKindColors[kind], fontSize: 8 }}>

@@ -48,6 +48,10 @@ import {
 } from "./want";
 import { aiSummaryGenerateContract, aiSummaryGetContract } from "./ai-summary";
 import { adminActionsContract, adminLookupContract, adminSetPlanContract, adminStatsContract } from "./admin";
+import { holidayListContract, meUpdateWeatherAreaContract, weatherGetContract, weatherGetForDateContract } from "./weather";
+export type { WeatherAreaRef, WeatherDay, WeatherForecast } from "./weather";
+export { WEATHER_AREAS, WEATHER_PREFECTURES, isWeatherAreaCode, weatherAreaName } from "./weather-areas";
+export type { WeatherArea } from "./weather-areas";
 export { ADMIN_ACTIONS_DEFAULT_LIMIT, ADMIN_ACTIONS_MAX_LIMIT, ADMIN_STAT_KEYS } from "./admin";
 export type { AdminAction, AdminCount, AdminLookup, AdminStatKey, AdminStats } from "./admin";
 import {
@@ -102,11 +106,21 @@ export const contract = {
     uploadImageUrl: meUploadImageUrlContract,
     delete: meDeleteContract,
     setAiOptIn: meSetAiOptInContract,
+    // 058: 天気の地域
+    updateWeatherArea: meUpdateWeatherAreaContract,
   },
   couple: {
     create: coupleCreateContract,
     get: coupleGetContract,
     update: coupleUpdateContract,
+  },
+  // 058: 天気と祝日（読み取り。ゲストも通る）
+  weather: {
+    get: weatherGetContract,
+    getForDate: weatherGetForDateContract,
+  },
+  holiday: {
+    list: holidayListContract,
   },
   // 057: 運営（全部 isAdmin 必須）
   admin: {

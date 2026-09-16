@@ -13682,3 +13682,13 @@ Session: A
 - 利用者のデータの分析（ポリシー改訂）は人間が「やめる」と決めた。起票しない
 
 Session: A
+
+## 2026-09-17 セッションB: 058（カレンダーに天気と祝日）を実装
+
+- 同梱の表を気象庁の `area.json`・`week_area.json`・`forecast_area.json`・予報ページの `TELOPS`・内閣府の CSV から生成（`make-tables.mjs`。JS のオブジェクトが整数の形のキーを先に並べるのでコードで並べ直した）
+- `lib/weather.ts`: 短期 + 週間を合わせて 7 日。週間の区域が細分区域をまとめる（伊豆諸島）ので、コード → 名前の前方一致 → 最初の区域で倒す。office ごとに 1 時間キャッシュ。`lib/holidays.ts`: 同梱 + holidays-jp（1 日 1 回）
+- 画面: 月表示のマスを正方形から `minHeight: 56` に。帯・祝日の赤と名前・予定の詳細の 1 行／2 行・マイページの 2 段の選択
+- 絵は人間の PNG がまだ無いので `make-icons-placeholder.py` で仮を描いた（README に記録）
+- T1〜T8。撮影は本物の気象庁の予報（wrangler dev から）
+
+Session: B

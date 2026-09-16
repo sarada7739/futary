@@ -8,11 +8,20 @@ import { monthGridRange } from "../lib/calendar";
 
 // 011: カレンダー画面の画面結合テスト。home-timeline.test.tsx と同じ形で
 // oRPC クライアントをモックする（サーバとの契約自体は検証しない。conventions.md 6節）
-const { listMock, createMock, updateMock, deleteMock } = vi.hoisted(() => ({
+const { listMock, createMock, updateMock, deleteMock, weatherGetMock, weatherForDateMock, holidayListMock, pushMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
   updateMock: vi.fn(),
   deleteMock: vi.fn(),
+  // 058: 天気と祝日（既定は地域未設定・祝日なし。T7 のテストで上書きする）
+  weatherGetMock: vi.fn(),
+  weatherForDateMock: vi.fn(),
+  holidayListMock: vi.fn(),
+  pushMock: vi.fn(),
+}));
+
+vi.mock("expo-router", () => ({
+  useRouter: () => ({ push: pushMock, back: vi.fn(), canGoBack: () => true }),
 }));
 
 vi.mock("../lib/orpc", async () => {
@@ -24,6 +33,8 @@ vi.mock("../lib/orpc", async () => {
       update: updateMock,
       delete: deleteMock,
     },
+    weather: { get: weatherGetMock, getForDate: weatherForDateMock },
+    holiday: { list: holidayListMock },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
 });
@@ -64,6 +75,12 @@ function makeEvent(overrides: Partial<Event> = {}): Event {
 beforeEach(() => {
   vi.clearAllMocks();
   queryClient.clear();
+  window.localStorage.clear();
+  weatherGetMock.mockResolvedValue({ area: null, days: [] });
+  weatherForDateMock.mockResolvedValue({ mine: null, partner: null, same: false });
+  holidayListMock.mockResolvedValue({ holidays: {} });
+  // 058: 地域未設定の帯は既定で「消した」扱い（既存のテストに影響させない。帯のテストで消す）
+  window.localStorage.setItem("futary.weatherPromptDismissed", "1");
 });
 
 function renderScreen() {
@@ -568,5 +585,115 @@ describe("014: デモ閲覧中の「＋追加」はログイン導線になる",
 
     expect(exitGuestMode).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("event-form-title")).toBeNull();
+  });
+});
+
+// 058 T7: 天気と祝日
+describe("CalendarScreen: 天気と祝日（058 T7）", () => {
+  const tomorrow = (() => {
+    const [y, m, d] = today.split("-").map(Number) as [number, number, number];
+    const next = new Date(Date.UTC(y, m - 1, d + 1));
+    return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
+  })();
+  const TOKYO = { code: "130010", name: "東京地方" };
+  const days = [
+    { date: today, code: "111", tempMax: 25, tempMin: 18 },
+    { date: tomorrow, code: "203", tempMax: null, tempMin: null },
+  ];
+
+  it("地域を設定していると、今日と明日のマスに天気の絵（主 + 副）と最高気温。帯は出ない", async () => {
+    listMock.mockResolvedValue({ items: [] });
+    weatherGetMock.mockResolvedValue({ area: TOKYO, days });
+    window.localStorage.removeItem("futary.weatherPromptDismissed");
+    renderScreen();
+    const cell = await screen.findByTestId(`calendar-weather-${today}`);
+    expect(cell).toHaveTextContent("25°");
+    // 主 = 晴、副 = 曇（111 晴のち曇）
+    const icon = cell.querySelector('[data-weather-main="sun"][data-weather-sub="cloud"]');
+    expect(icon).not.toBeNull();
+    expect(screen.getByTestId(`calendar-weather-${tomorrow}`)).toHaveTextContent("");
+    expect(screen.getByTestId(`calendar-weather-${tomorrow}`).querySelector('[data-weather-main="cloud"][data-weather-sub="rain"]')).not.toBeNull();
+    expect(screen.queryByTestId("weather-prompt")).toBeNull();
+  });
+
+  it("未設定: 絵は出ず、「天気の地域を選ぶ ›」の帯が出る。押すとマイページ。× で消えて端末に記憶（次の描画でも出ない）", async () => {
+    listMock.mockResolvedValue({ items: [] });
+    weatherGetMock.mockResolvedValue({ area: null, days: [] });
+    window.localStorage.removeItem("futary.weatherPromptDismissed");
+    const first = renderScreen();
+    expect(await screen.findByTestId("weather-prompt")).toBeTruthy();
+    expect(screen.queryByTestId(`calendar-weather-${today}`)).toBeNull();
+    fireEvent.click(screen.getByTestId("weather-prompt-link"));
+    expect(pushMock).toHaveBeenCalledWith("/profile");
+    fireEvent.click(screen.getByTestId("weather-prompt-close"));
+    expect(screen.queryByTestId("weather-prompt")).toBeNull();
+    expect(window.localStorage.getItem("futary.weatherPromptDismissed")).toBe("1");
+    first.unmount();
+    queryClient.clear();
+    renderScreen();
+    await screen.findByTestId(`calendar-day-${today}`);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(screen.queryByTestId("weather-prompt")).toBeNull();
+  });
+
+  it("祝日: 日付が赤（記念日の色）で、選ぶと一覧の一番上に名前", async () => {
+    listMock.mockResolvedValue({ items: [] });
+    holidayListMock.mockResolvedValue({ holidays: { [tomorrow]: "試験の祝日" } });
+    renderScreen();
+    const red = await screen.findByTestId(`calendar-holiday-${tomorrow}`);
+    // theme.ts の eventAnniversary（ピンク: #E36387 = rgb(227, 99, 135)）
+    expect(getComputedStyle(red).color).toBe("rgb(227, 99, 135)");
+    expect(screen.queryByTestId(`calendar-holiday-${today}`)).toBeNull();
+    fireEvent.click(screen.getByTestId(`calendar-day-${tomorrow}`));
+    expect(await screen.findByTestId("calendar-holiday-name")).toHaveTextContent("試験の祝日");
+    expect(holidayListMock).toHaveBeenCalledWith({ year: todayYear }, expect.anything());
+  });
+
+  it("予定の詳細: 7 日以内の予定で、ふたりの地域が同じなら「天気」1 行。違えば自分と相手の 2 行。予定が無い日は出ない", async () => {
+    listMock.mockResolvedValue({ items: [makeEvent({ date: today, sourceDate: today })] });
+    weatherForDateMock.mockResolvedValue({
+      mine: { area: TOKYO, day: days[0] },
+      partner: { area: TOKYO, day: days[0] },
+      same: true,
+    });
+    const first = renderScreen();
+    const rows = await screen.findByTestId("calendar-weather-rows");
+    expect(rows).toHaveTextContent("東京地方: 晴後曇・最高 25° / 最低 18°");
+    expect(screen.queryByTestId("calendar-weather-row-1")).toBeNull();
+    expect(weatherForDateMock).toHaveBeenCalledWith({ date: today }, expect.anything());
+    first.unmount();
+    queryClient.clear();
+
+    weatherForDateMock.mockResolvedValue({
+      mine: { area: TOKYO, day: days[0] },
+      partner: { area: { code: "130020", name: "伊豆諸島北部" }, day: { date: today, code: "300", tempMax: 22, tempMin: null } },
+      same: false,
+    });
+    const second = renderScreen();
+    await screen.findByTestId("calendar-weather-row-1");
+    expect(screen.getByTestId("calendar-weather-row-0")).toHaveTextContent("自分（東京地方）: 晴後曇");
+    expect(screen.getByTestId("calendar-weather-row-1")).toHaveTextContent("相手（伊豆諸島北部）: 雨・最高 22°");
+    second.unmount();
+    queryClient.clear();
+
+    // 片方だけ設定 → 1 行（相手の地域）
+    weatherForDateMock.mockResolvedValue({ mine: null, partner: { area: TOKYO, day: days[0] }, same: false });
+    const third = renderScreen();
+    await screen.findByTestId("calendar-weather-row-0");
+    expect(screen.getByTestId("calendar-weather-row-0")).toHaveTextContent("東京地方: 晴後曇");
+    expect(screen.queryByTestId("calendar-weather-row-1")).toBeNull();
+    third.unmount();
+    queryClient.clear();
+
+    // 予定の無い日は出ない（getForDate は呼ぶが行は無い）
+    listMock.mockResolvedValue({ items: [] });
+    renderScreen();
+    await screen.findByTestId(`calendar-day-${today}`);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(screen.queryByTestId("calendar-weather-rows")).toBeNull();
   });
 });

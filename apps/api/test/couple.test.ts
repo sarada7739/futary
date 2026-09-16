@@ -125,6 +125,8 @@ describe("couple.get", () => {
       planCancelAt: null,
       // 057: 運営でない（ADMIN_EMAILS 無し）
       isAdmin: false,
+      // 058: 天気の地域は未設定
+      weatherArea: null,
     });
   });
 });

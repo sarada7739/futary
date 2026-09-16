@@ -55,17 +55,20 @@ describe("RELEASES（043 T1）", () => {
     }
   });
 
-  it("最新は 3.2.0（プレミアムで保存できる写真が 50 万枚になりました。route /premium。055 T5）で、初回は 1.0.0（🎉）", () => {
-    expect(LATEST_VERSION).toBe("3.2.0");
-    expect(LATEST_RELEASE.title).toBe("プレミアムで保存できる写真が 50 万枚になりました");
-    expect(LATEST_RELEASE.items).toEqual(["アルバムの写真を 50 万枚まで保存できます"]);
-    expect(LATEST_RELEASE.route).toBe("/premium");
+  it("最新は 3.3.0（カレンダーに天気と祝日。route /calendar。058）で、初回は 1.0.0（🎉）", () => {
+    expect(LATEST_VERSION).toBe("3.3.0");
+    expect(LATEST_RELEASE.title).toBe("カレンダーに天気と祝日");
+    expect(LATEST_RELEASE.items).toEqual(["マイページで地域を選ぶと、7 日先までの天気が出ます", "祝日が赤くなります"]);
+    expect(LATEST_RELEASE.route).toBe("/calendar");
+    // 3.2.0 の文言は変えない（出したときの事実）
+    const v320 = RELEASES.find((r) => r.version === "3.2.0");
+    expect(v320?.items).toEqual(["アルバムの写真を 50 万枚まで保存できます"]);
     // 3.1.0 の文言は変えない（出したときの事実。055 0節 #5）
     const v310 = RELEASES.find((r) => r.version === "3.1.0");
     expect(v310?.items).toEqual(["写真を 5 万枚まで保存できます", "月額と年額から選べます"]);
     // 3.0.0（Nisoine。route 無し）は 3.1.0 の次
-    expect(RELEASES[2]?.version).toBe("3.0.0");
-    expect(RELEASES[2]?.route).toBeUndefined();
+    expect(RELEASES[3]?.version).toBe("3.0.0");
+    expect(RELEASES[3]?.route).toBeUndefined();
     const first = RELEASES[RELEASES.length - 1]!;
     expect(first.version).toBe("1.0.0");
     expect(first.emoji).toBe("🎉");

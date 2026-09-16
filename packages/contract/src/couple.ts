@@ -109,6 +109,8 @@ export const coupleWithPlanSchema = coupleSchema.extend({
   planCancelAt: z.number().int().nullable(),
   // 057: 運営か（ADMIN_EMAILS に含まれる認証済みの利用者）。マイページの「運営 ›」の出し分けだけ。ゲストは false
   isAdmin: z.boolean(),
+  // 058: 自分の天気の地域（予報区）。未設定は null。相手の分は weather.getForDate でだけ返す。ゲストは東京地方
+  weatherArea: z.object({ code: z.string(), name: z.string() }).nullable(),
 });
 export type CoupleWithPlan = z.infer<typeof coupleWithPlanSchema>;
 

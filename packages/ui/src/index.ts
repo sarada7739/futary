@@ -32,3 +32,5 @@ export * from "./components/avatar";
 export * from "./components/screen";
 export * from "./components/fab";
 export * from "./assets";
+export * from "./weather-codes";
+export * from "./components/weather-icon";

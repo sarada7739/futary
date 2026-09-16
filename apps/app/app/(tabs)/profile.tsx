@@ -23,6 +23,7 @@ import { useRouter } from "expo-router";
 import { DateInput8 } from "../../components/date-input8";
 import { LegalLinks } from "../../components/legal-links";
 import { LockBand } from "../../components/lock-band";
+import { WeatherAreaSheet } from "../../components/weather-area-sheet";
 import { ZipExportSheet } from "../../components/zip-export-sheet";
 import type { ZipSource } from "../../lib/album-zip";
 import { compressImage, uploadCompressedImage, type SourceImage } from "../../lib/image";
@@ -152,6 +153,18 @@ export default function ProfileScreen() {
   const setAiOptIn = useMutation(
     orpc.me.setAiOptIn.mutationOptions({
       onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.me.get.key() }),
+    }),
+  );
+  // 058: 天気の地域（couple_members.weather_area）。couple.get の weatherArea を読み直す
+  const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
+  const updateWeatherArea = useMutation(
+    orpc.me.updateWeatherArea.mutationOptions({
+      onSuccess: () =>
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() }),
+          queryClient.invalidateQueries({ queryKey: orpc.weather.get.key() }),
+          queryClient.invalidateQueries({ queryKey: orpc.weather.getForDate.key() }),
+        ]),
     }),
   );
   // 048 段階2: 「プランを管理 ›」→ Stripe の Billing Portal（解約・カード変更）。同じタブで移動する
@@ -490,6 +503,30 @@ export default function ProfileScreen() {
             {isSubmitting ? "保存中…" : "保存する"}
           </Button>
 
+          {/* 058: 天気の地域（個人ごと。位置情報は取らない）。押すと都道府県 → 予報区のシート */}
+          <Card>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
+              <View style={{ gap: 2 }}>
+                <Text weight="bold">天気の地域</Text>
+                <Text size="xs" color="muted">
+                  カレンダーに 7 日先までの天気を出します
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="天気の地域を選ぶ"
+                onPress={() => setWeatherSheetOpen(true)}
+                disabled={updateWeatherArea.isPending}
+                hitSlop={space.sm}
+                testID="profile-weather-area"
+              >
+                <Text size="sm" weight="medium" color="brand">
+                  {`${coupleQuery.data?.weatherArea?.name ?? "未設定"} ›`}
+                </Text>
+              </Pressable>
+            </View>
+          </Card>
+
           {/* 037: 同意は設定であって、機能の一部ではない。ai-summary.tsxの
               画面の中に埋めず、ここに置く（タスク定義9節） */}
           <Card>
@@ -607,6 +644,15 @@ export default function ProfileScreen() {
       </ScrollView>
 
       <ZipExportSheet source={zipSource} onClose={() => setZipSource(null)} />
+      <WeatherAreaSheet
+        visible={weatherSheetOpen}
+        current={coupleQuery.data?.weatherArea?.code ?? null}
+        onClose={() => setWeatherSheetOpen(false)}
+        onSelect={(areaCode) => {
+          setWeatherSheetOpen(false);
+          updateWeatherArea.mutate({ areaCode });
+        }}
+      />
     </Screen>
   );
 }

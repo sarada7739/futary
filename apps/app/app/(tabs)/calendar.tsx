@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text as RNText, ScrollView, View } from "react-native";
-import type { Event } from "@futary/contract";
+import type { Event, WeatherDay } from "@futary/contract";
 import { addMonths, todayJst } from "@futary/date";
-import { Button, Card, Screen, space, Text, useTheme } from "@futary/ui";
+import { Button, Card, radius, Screen, space, Text, useTheme, WeatherIcon, weatherIconsOf } from "@futary/ui";
 import { ORPCError } from "@orpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { EventForm, type EventFormValues } from "../../components/event-form";
 import { MonthGrid } from "../../components/month-grid";
 import { monthGridRange, monthLabel } from "../../lib/calendar";
@@ -15,8 +16,13 @@ import { orpc } from "../../lib/orpc";
 import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
+import { dismissWeatherPrompt, isWeatherPromptDismissed, isWithinWeatherDays, weatherByDateOf, weatherDayLabel } from "../../lib/weather";
 
 type FormState = { mode: "create" | "edit"; date: string; event?: Event };
+
+function weatherNameOf(code: string): string {
+  return weatherIconsOf(code).name;
+}
 
 function groupByDate(events: Event[]): Record<string, Event[]> {
   const result: Record<string, Event[]> = {};
@@ -79,8 +85,40 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
   );
 }
 
+type ForDate = { mine: WeatherEntry | null; partner: WeatherEntry | null; same: boolean };
+type WeatherEntry = { area: { code: string; name: string }; day: WeatherDay | null };
+
+// 058 0節 #5: ふたりの地域が同じか、片方だけ設定なら 1 行（地域名: 天気）。違えば 2 行（自分の地域名 / 相手の地域名）
+function WeatherRows({ result }: { result: ForDate }) {
+  const twoLines = !result.same && result.mine !== null && result.partner !== null;
+  const entries: { label: string; entry: WeatherEntry }[] = twoLines
+    ? [
+        { label: `自分（${result.mine!.area.name}）`, entry: result.mine! },
+        { label: `相手（${result.partner!.area.name}）`, entry: result.partner! },
+      ]
+    : result.mine
+      ? [{ label: result.mine.area.name, entry: result.mine }]
+      : result.partner
+        ? [{ label: result.partner.area.name, entry: result.partner }]
+        : [];
+  if (entries.length === 0) return null;
+  return (
+    <View style={{ gap: space.xs, paddingTop: space.xs }} testID="calendar-weather-rows">
+      {entries.map(({ label, entry }, i) => (
+        <View key={`${i}-${entry.area.code}`} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }} testID={`calendar-weather-row-${i}`}>
+          {entry.day ? <WeatherIcon code={entry.day.code} size={22} /> : null}
+          <Text size="sm" color="muted">
+            {entry.day ? `${label}: ${weatherDayLabel(weatherNameOf(entry.day.code), entry.day)}` : `${label}: 予報がありません`}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function CalendarScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
   const eventKindColors = eventKindColorsOf(colors);
   const { isGuestMode, exitGuestMode } = useGuestMode();
   const todayDate = useMemo(() => todayJst(), []);
@@ -96,6 +134,28 @@ export default function CalendarScreen() {
   const viewerKey = useViewerQueryKey();
   const eventListOptions = orpc.event.list.queryOptions({ input: range });
   const query = useQuery({ ...eventListOptions, queryKey: [...eventListOptions.queryKey, viewerKey] });
+
+  // 058: 天気（自分の地域。今日から 7 日）・祝日（表示中の年）・「天気の地域を選ぶ ›」の帯
+  const weatherOptions = orpc.weather.get.queryOptions({ input: {} });
+  const weatherQuery = useQuery({ ...weatherOptions, queryKey: [...weatherOptions.queryKey, viewerKey] });
+  const holidayOptions = orpc.holiday.list.queryOptions({ input: { year } });
+  const holidayQuery = useQuery({ ...holidayOptions, queryKey: [...holidayOptions.queryKey, viewerKey] });
+  const weatherByDate = useMemo(() => weatherByDateOf(weatherQuery.data?.days ?? []), [weatherQuery.data]);
+  const holidays = holidayQuery.data?.holidays ?? {};
+  // 地域が未設定（area null）のときだけ。× で消したら端末に記憶（描いたあとに読む。静的書き出しでは window が無い）
+  const [weatherPromptDismissed, setWeatherPromptDismissed] = useState(true);
+  useEffect(() => {
+    setWeatherPromptDismissed(isWeatherPromptDismissed());
+  }, []);
+  const showWeatherPrompt = !isGuestMode && weatherQuery.data !== undefined && weatherQuery.data.area === null && !weatherPromptDismissed;
+  // 予定の詳細（選んだ日の一覧）: 7 日以内で予定があれば「天気」の行（0節 #5）
+  const selectedWithinWeather = isWithinWeatherDays(selectedDate, todayDate);
+  const forDateOptions = orpc.weather.getForDate.queryOptions({ input: { date: selectedDate } });
+  const forDateQuery = useQuery({
+    ...forDateOptions,
+    queryKey: [...forDateOptions.queryKey, viewerKey],
+    enabled: selectedWithinWeather,
+  });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: orpc.event.list.key() });
   const createEvent = useMutation(orpc.event.create.mutationOptions({ onSuccess: invalidate }));
@@ -216,6 +276,42 @@ export default function CalendarScreen() {
           <>
             {/* 読み込み中もグリッドの骨格は出したまま、マーカーだけ空で遅延させる
                 （eventsByDate が空のオブジェクトのまま渡る。タスク011「状態の網羅」） */}
+            {showWeatherPrompt && (
+              <View
+                testID="weather-prompt"
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: space.sm,
+                  paddingVertical: space.xs,
+                  paddingHorizontal: space.md,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.surfaceTint,
+                }}
+              >
+                <Pressable accessibilityRole="button" onPress={() => router.push("/profile")} hitSlop={space.sm} testID="weather-prompt-link">
+                  <Text size="xs" color="brand" weight="medium">
+                    天気の地域を選ぶ ›
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="閉じる"
+                  onPress={() => {
+                    dismissWeatherPrompt();
+                    setWeatherPromptDismissed(true);
+                  }}
+                  hitSlop={space.sm}
+                  testID="weather-prompt-close"
+                >
+                  <Text size="xs" color="muted">
+                    ×
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
             <MonthGrid
               year={year}
               month={month}
@@ -223,6 +319,8 @@ export default function CalendarScreen() {
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               todayDate={todayDate}
+              weatherByDate={weatherByDate}
+              holidays={holidays}
             />
 
             {!query.isLoading && events.length === 0 && (
@@ -238,6 +336,14 @@ export default function CalendarScreen() {
                   </Button>
                 </View>
 
+                {/* 058: 祝日の名前は一覧の一番上（予定ではないので押せない。0節 #10） */}
+                {holidays[selectedDate] !== undefined && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: space.xs }} testID="calendar-holiday-name">
+                    <RNText style={{ color: colors.eventAnniversary, fontSize: 14 }}>●</RNText>
+                    <Text>{holidays[selectedDate]}</Text>
+                  </View>
+                )}
+
                 {selectedDayEvents.length === 0 ? (
                   <Text size="sm" color="muted">
                     この日の予定はありません
@@ -246,6 +352,11 @@ export default function CalendarScreen() {
                   selectedDayEvents.map((event) => (
                     <EventRow key={`${event.id}-${event.date}`} event={event} onPress={() => openEditForm(event)} />
                   ))
+                )}
+
+                {/* 058: 7 日以内の予定なら「天気」の行。ふたりの地域が同じか片方だけなら 1 行、違えば 2 行（0節 #5） */}
+                {selectedDayEvents.length > 0 && selectedWithinWeather && forDateQuery.data && (
+                  <WeatherRows result={forDateQuery.data} />
                 )}
               </View>
             </Card>

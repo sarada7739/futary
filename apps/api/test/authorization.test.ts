@@ -1081,6 +1081,11 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     "billing.prices",
     "billing.createCheckoutSession",
     "billing.createPortalSession",
+    // 058: 天気と祝日（readProcedure。ゲストも通る）・天気の地域（writeProcedure）
+    "weather.get",
+    "weather.getForDate",
+    "holiday.list",
+    "me.updateWeatherArea",
     // 057: 運営（全部 adminProcedure。ADMIN_EMAILS に含まれる認証済みだけ）
     "admin.stats",
     "admin.lookup",
