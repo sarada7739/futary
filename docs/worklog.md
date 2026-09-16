@@ -13568,3 +13568,10 @@ Session: B
 - 判定を `artifacts/047/review-stage1.md` の末尾に追記（R は `deleted_at IS NULL` を外して T12 が赤になるのを確認）。CI pass → squash merge。B は待機
 
 Session: B
+
+## 2026-09-16 セッションB: 本番のデモペアを paid に（人間の許可）
+
+- 054・047 のデプロイ後の確認で、本番の `demo-couple` に `couple_plans` の行が無かった（045 のシードは paid を入れるが、本番のシードは 045 より前のまま）。人間の許可で 045 の SQL（`artifacts/045/plan-switch.md`）を `demo-couple` に流した → `couple.get` が `plan: paid`・`planState: { plan: "paid" }`
+- 本番の確認: `/` `/tech` `/privacy` `/terms` `/tokushoho` `/app/` 200・054 と 047 の文言・写真の配信・CSP（script 無し）・sitemap に `/tech` 無し
+
+Session: B
