@@ -13740,3 +13740,14 @@ Session: B
 - B の起票（#409）で 058 の 0節 #5 を現在の定義に。054 の表 3・5、056 の #4・#9、`docs/sample/README.md` の `hands-cafe.jpg` の行も直した
 
 Session: A
+
+## 2026-09-17 セッションB: 059（LP の「さわってみる」を 2 列に）
+
+- `index.html` の節 demo を `.demo-inner`（左 `.phone`・右 `.demo-copy`）に。文言は 0節 #4・#5 のとおり。帯の `ai-band-photo` を消し、`hands-cafe.jpg` を消した
+- `style.css`: `.demo-inner`（grid 527px 1fr）・`.demo-copy`・`.demo-guide`。`.photo-card` を四方 22px・img 四隅 14px。`.ai-band-photo`・`.demo-more` を消した
+- `landing.test.ts`: 054 T4 を 10 枚・056 T5 の固定値を差し替え・059 T1〜T5。タスク定義の T4「054 T3（見出しの階層）」は 054 に無かったので 059 T4 として書いた
+- 撮影 `artifacts/059/`（1280・800・375）。800 幅でボタンが 2 行に折れる（記録のみ）
+- 人間の指示: リリース履歴には出さない
+- Bash ツールのヒアドキュメントの中で `\\b` が 1 文字（0x08）になった。正規表現を含むテストの生成は Write ツールで書いた python に切り替えた
+
+Session: B
