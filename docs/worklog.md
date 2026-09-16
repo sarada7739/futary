@@ -13652,3 +13652,10 @@ Session: A
 - 撮影は 045 の撮影用ペア（`.dev.vars` に `ADMIN_EMAILS=shot-me@example.com`）。CI の `.dev.vars` にダミーを足した
 
 Session: B
+
+## 2026-09-16 セッションB: 057 を R が受け入れ（マージは人間の secret のあと）
+
+- 判定を `artifacts/057/review-stage1.md` に保存（壊して 6 通り赤）。記録 2 を受けて T4 の「free に戻すと `updated_at` が今」を、前の行を過去に置いてから見る形に
+- マージは人間の `wrangler secret put ADMIN_EMAILS` のあと（定義 3 節の順）
+
+Session: B

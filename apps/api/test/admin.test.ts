@@ -341,6 +341,9 @@ describe("057 T4: admin.setPlan と admin_actions", () => {
     expect(paidRow).toEqual({ plan: "paid", source: "manual", expires_at: null });
     expect((await call(router.couple.get, undefined, { context: contextFor(owner) })).plan).toBe("paid");
 
+    // R の記録 2: 前の行の updated_at を過去に置いてから free に戻す（同じ秒だと「今」を区別できない）。
+    // 047 の猶予の起点なので、ここで更新されることを固定する
+    await db.prepare("UPDATE couple_plans SET updated_at = ?1 WHERE couple_id = ?2").bind(nowSec() - 86400, coupleId).run();
     const t = nowSec();
     expect(await call(router.admin.setPlan, { coupleId, plan: "free" }, { context: ctx })).toEqual({ plan: "free" });
     const freeRow = await db
