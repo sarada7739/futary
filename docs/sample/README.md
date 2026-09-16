@@ -85,9 +85,11 @@
 |---|---|---|
 | `icons-source.png` | 天気の絵 6 マス（晴・晴と雲・雲 / 雨・雪・雷。AI 生成。人間が 2026-09-17 に置いた） | 上段真ん中以外の 5 つを `packages/ui/assets/weather-*.png` に切り出す |
 
-**仮（058 の実装時点）**: `packages/ui/assets/weather-{sun,cloud,rain,snow,thunder}.png`（112×112・透過）は、人間の絵が来るまでの
-つなぎとして B が `artifacts/058/scripts/make-icons-placeholder.py` で描いたもの（原本無し。役割の名前・規格は本番と同じ）。
-`icons-source.png` が来たら同じ名前・同じ規格で差し替える。
+### 058 で切り出したもの（`packages/ui/assets/`）
+
+| ファイル | 元 | 加工 |
+|---|---|---|
+| `weather-{sun,cloud,rain,snow,thunder}.png` | `weather/icons-source.png` の上段左・上段右・下段左・下段中・下段右（上段真ん中〈太陽 + 雲〉は使わない） | マスの角丸の地（薄いピンクがかった白）を縁からの塗りつぶし（白〜薄いピンクで R ≥ B の画素だけ）で透明にし、絵の外接矩形を正方形 + 8% の余白にして 112×112 の透過 PNG に。`artifacts/058/scripts/make-icons.py`。絵が来るまでは `make-icons-placeholder.py` の仮の絵だった |
 
 ### 039 で切り出したもの（`packages/ui/assets/`）
 

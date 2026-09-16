@@ -81,8 +81,8 @@ export { default as releaseGift } from "../assets/release-gift.jpg";
 export { default as iconLock } from "../assets/icon-lock.png";
 export { default as iconWarning } from "../assets/icon-warning.png";
 // 058: カレンダーの天気の絵 5 つ（晴・曇・雨・雪・雷。112×112・透過 PNG。表示は最大 28 CSS px）。
-// **仮**: 人間の絵（docs/sample/weather/icons-source.png）がまだ無いので、B が
-// artifacts/058/scripts/make-icons-placeholder.py で描いた。絵が来たら同じ名前・同じ規格で差し替える
+// 人間の絵 docs/sample/weather/icons-source.png（AI 生成）の 6 マスから、上段真ん中（太陽 + 雲）を除く 5 つを
+// artifacts/058/scripts/make-icons.py で切り出した（マスの地を落として絵だけ）。出自は docs/sample/README.md
 export { default as weatherSun } from "../assets/weather-sun.png";
 export { default as weatherCloud } from "../assets/weather-cloud.png";
 export { default as weatherRain } from "../assets/weather-rain.png";
