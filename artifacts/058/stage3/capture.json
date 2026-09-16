@@ -1,0 +1,36 @@
+{
+  "today": "2026-09-17",
+  "tomorrow": "2026-09-18",
+  "withEvent": {
+    "pink": "東京地方: 雨後曇・最高 23° / 最低 19°",
+    "white": "東京地方: 雨後曇・最高 23° / 最低 19°"
+  },
+  "noEvent": {
+    "pink": "東京地方: 曇・最高 25° / 最低 18°",
+    "white": "東京地方: 曇・最高 25° / 最低 18°"
+  },
+  "noEventText": {
+    "pink": "empty-then-weather",
+    "white": "empty-then-weather"
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}
