@@ -1,0 +1,108 @@
+{
+  "pc": {
+    "demo": {
+      "visible": true,
+      "gridColumns": "527px 345px",
+      "phoneLeft": 0,
+      "phoneWidth": 527,
+      "copyLeft": 567,
+      "copyWidth": 345,
+      "copyRightOfPhone": true,
+      "copyCenterOffset": 0,
+      "h2TextAlign": "left",
+      "guideItems": 3,
+      "buttonText": "自分たちで始める",
+      "scrollWidth": 1280,
+      "clientWidth": 1280
+    },
+    "aiBandPhotos": 0,
+    "aiBandHeight": 200,
+    "cards": [
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      }
+    ]
+  },
+  "w800": {
+    "demo": {
+      "visible": true,
+      "gridColumns": "527px 185px",
+      "phoneLeft": 0,
+      "phoneWidth": 527,
+      "copyLeft": 567,
+      "copyWidth": 185,
+      "copyRightOfPhone": true,
+      "copyCenterOffset": 0,
+      "h2TextAlign": "left",
+      "guideItems": 3,
+      "buttonText": "自分たちで始める",
+      "scrollWidth": 800,
+      "clientWidth": 800
+    }
+  },
+  "mobile": {
+    "demoDisplay": "none",
+    "scrollWidth": 375,
+    "aiBandPhotos": 0,
+    "cards": [
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      },
+      {
+        "bottomGap": 23,
+        "sideGap": 23,
+        "radius": "14px"
+      }
+    ]
+  },
+  "consoleErrors": []
+}
