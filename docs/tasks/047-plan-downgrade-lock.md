@@ -21,6 +21,9 @@
 | 8 | Cron・削除のジョブ | **持たない。**全部読むときの計算 | 消さないのでジョブが要らない。壊れる経路が 1 つ減る |
 | 9 | 実体（R2）の費用 | 持ち続ける。鍵の分も消さない | 100 枚で数十 MB。「戻れる」価値の方が大きい |
 | 10 | リリース履歴 | 入れない | 制限 |
+| 11 | 猶予の起点 | **`expires_at` があればそれ**（Stripe の `canceled` は `plan='free'` で `expires_at` を残す〈048〉。期限切れで free になった行も同じ）。**`expires_at` が無い free の行**は、`source='manual'` なら `updated_at`（運営が手で free にした）、`source='stripe'` なら **鍵なし**（Checkout を作るときに先に書く `plan='free'` の行。一度も paid になっていない〈048〉） | 払っていないペアに鍵を掛けない |
+| 12 | 法務ページ・LP の文言 | **このタスクで戻す・直す**: `apps/landing/tokushoho.html` の「解約後のデータについて」を草案 `docs/legal/tokushoho-draft.md` の行の文面に。`apps/landing/terms.html` 8 節に草案 `terms-draft.md` の「30 日の猶予」の 1 行を足す。`index.html` の FAQ「写真はいつでも ZIP でまとめて持ち出せます」→「写真は ZIP でまとめて持ち出せます」（鍵の写真は ZIP に入らない） | 公開している文言と実装を同じにする（草案のメモ） |
+| 13 | 鍵の判定の形 | **「鍵でない 30 枚の id」を引く**（`unlockedPhotoIds(coupleId)`。`taken_at, id` 昇順の先頭 30）。鍵かどうかは「この 30 に無い」。鍵の側の id の集合は作らない | 055 で 1 ペア 1,000 件 × 500 枚になり、鍵の側は数十万になりうる。30 は D1 の 1 文 100 パラメータ（`architecture.md` 4節）に収まる |
 
 ## 1. 判定（サーバ）
 
@@ -28,7 +31,7 @@
 
 ```
 { plan: "paid" }
-{ plan: "free", lockAt: null }              -- 行が無い（最初から free）
+{ plan: "free", lockAt: null }              -- 行が無い・一度も paid になっていない（0節 #11）
 { plan: "free", lockAt: number }            -- paid だった。lockAt = 期限（または updated_at）+ 30 日。now < lockAt なら猶予中
 { plan: "free", lockAt: number, locked: true }   -- now >= lockAt。無料枠を超える分に鍵
 ```
@@ -38,7 +41,7 @@
 - `photo.downloadUrl`: 鍵の写真は `NOT_FOUND`（存在を教えない形に寄せる。`want.*` と同じ）
 - `album.get` / `album.list`: `photoCount` は鍵を含む数。**`cover` が鍵の写真なら、鍵でない中でいちばん新しいものに倒す**（無ければ `null`）
 - `couple.get`: `planState`（上の形）を返す。`albumQuota.used` は鍵を含む
-- **判定は 1 箇所**（`lib/plan.ts`）。`photo.list` は「この写真が鍵か」を `lockedPhotoIds(coupleId, now)` の 1 関数から引く（31 枚目以降の id の集合。最大でも数百）
+- **判定は 1 箇所**（`lib/plan.ts`）。`photo.list` は「この写真が鍵か」を `unlockedPhotoIds(coupleId)`（0節 #13。先頭 30 の id）の 1 関数から引き、**`locked` のときだけ**使う（paid・猶予中は引かない）
 
 ## 2. 画面
 
@@ -65,7 +68,7 @@
 
 | # | 何を | どこで |
 |---|---|---|
-| T1 | `resolvePlan`: 行なし → free/lockAt null。paid 期限内 → paid。期限切れ +29 日 → free 猶予中。+30 日 → locked。手で free（`updated_at`）も同じ | `apps/api` |
+| T1 | `resolvePlan`: 行なし → free/lockAt null。**`plan='free', source='stripe', expires_at NULL`（Checkout 前の行）→ lockAt null**。paid 期限内 → paid。期限切れ +29 日 → free 猶予中。+30 日 → locked。Stripe の `canceled`（`plan='free'`・`expires_at` あり）も同じ起点。手で free（`source='manual'`・`updated_at`）も同じ | `apps/api` |
 | T2 | locked で 40 枚: `photo.list` の 31〜40 枚目（`taken_at` 昇順）が `url: null, locked: true`、caption 無し。30 枚目までは URL あり。アルバムをまたいで数える | `apps/api` |
 | T3 | locked で鍵の写真の `photo.downloadUrl` → `NOT_FOUND`。鍵でない写真は取れる | `apps/api` |
 | T4 | locked でカバーが鍵の写真 → 鍵でない中でいちばん新しいものに倒れる | `apps/api` |
@@ -74,6 +77,8 @@
 | T7 | 猶予中は全部の URL が返る。`couple.get` の `planState.lockAt` が正しい | `apps/api` |
 | T8 | 画面: 猶予中の帯に日付と「ZIP で保存」。locked で鍵のマスが出て、押すとシート。鍵のマスはビューアを開かない | `apps/app` |
 | T9 | 別ペアの写真を数えない（`couple_id` スコープ） | `apps/api` |
+| T10 | `/tokushoho` の「解約後のデータについて」が草案の文面（「30 日の猶予」を含む）。`/terms` 8 節に「30 日の猶予」の行。`/` の FAQ に「いつでも ZIP」が無い | `apps/api` |
+| T11 | locked で 1,000 件 × 数十枚のペアでも `photo.list` の 1 ページが D1 の 1 文に収まる（`unlockedPhotoIds` は 30 個。鍵の側を IN に入れない） | `apps/api` |
 
 ## 確認観点
 
@@ -88,9 +93,10 @@
 
 ## 停止条件
 
-- `photo.list` で 31 枚目以降を決める SQL が 1 文で書けず、ページごとに全件を読む形になる → 結果に書いて進む（数百枚まで。500 枚 × 100 件の上限があるので破綻しない）
+- 先頭 30 の id を引く SQL が 1 文で書けない → 結果に書いて進む（先頭 30 は `ORDER BY taken_at, id LIMIT 30` の 1 文で済むはず。全件を読む形にはしない〈0節 #13〉）
 - 「猶予 30 日」「古い順 30 枚」を変えたくなる → A へ（数字と並びは人間の判断が要る）
+- 猶予の起点が 0節 #11 のどれにも当てはまらない行の形を見つけた → A へ（鍵を掛けずに進める）
 
 ## 順序
 
-**048（ZIP で持ち出し + 決済）の後。**
+**054（LP）の後。**048 の本番の鍵への差し替え（人間の Stripe 準備）とは独立に進められる。iOS・メール認証の前。

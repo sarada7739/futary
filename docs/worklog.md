@@ -13519,3 +13519,12 @@ Session: B
 - 判定を `artifacts/054/review-stage1.md` の末尾に追記。CI pass → squash merge。次は 047（A の起票待ち）
 
 Session: B
+
+## 2026-09-16 セッションA: 054 完了を受け、047（鍵）を起票し直す
+
+- 048 段階2 のあとの行の形に合わせた: 猶予の起点は `expires_at`（Stripe の `canceled` も期限切れも）。Checkout 前に書く `plan='free', source='stripe'` の行は一度も払っていないので鍵なし。手で free は `updated_at`
+- 055 で 1 ペア 1,000 件になり「鍵の側の id の集合（最大でも数百）」が成り立たなくなった → 「鍵でない 30 枚の id」を引く形に
+- 特商法「解約後のデータ」を草案の文面に戻す・規約 8 節に猶予の行・LP の FAQ「いつでも ZIP」を外す、を 047 の B の作業に
+- `architecture.md` 4節の「1ペア100アルバム」が 055 で古くなっていたので直した
+
+Session: A
