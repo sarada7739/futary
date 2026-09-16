@@ -59,19 +59,19 @@
 | `polaroid-three.jpg` | ポラロイド 3 枚（海・窓・カフェラテ。1024×1024） | 「アルバム」 |
 | `phone-home.jpg` | Nisoine のホーム画面の絵が入ったスマホ（1168×880。**絵の画面は実装と違う**: 「統計」「リスト」のタイルの並び） | 使わない（054 の統計カードは HTML で組む）。予備 |
 | `want-grid.jpg` | ハート付きの商品写真 4 枚（セーター・花束・イヤホン・花瓶。1024×1024） | 「ほしいもの」 |
-| `hands-cafe.jpg` | カフェで重ねた手とコーヒー（1168×880。顔なし） | AI まとめの帯の右 |
+| `hands-cafe.jpg` | カフェで重ねた手とコーヒー（1168×880。顔なし） | 使わない（059 で帯から外した）。予備 |
 | `ai-network.jpg` | 濃紺の地に光る点と線（1360×768） | AI まとめの帯の地 |
 | `phone-frame.png` | スマホの枠（1024×1536。画面は黒。AI 生成。056） | LP の「さわってみる」。画面部分を透明に切り抜いて `/app/?demo=1` の iframe に重ねる |
 
 ### 054 で切り出したもの（`apps/landing/assets/`）
 
 `landing/` の 9 枚と `プロフィール画像/` の 2 枚を `artifacts/054/scripts/make-assets.py` で縮小した（JPEG 品質 82・表示幅の 2 倍まで・EXIF 無し。1 枚 250KB 以下・合計 522KB）。
-`mockup-full.jpg`・`phone-home.jpg` は使っていない。
+`mockup-full.jpg`・`phone-home.jpg`・`hands-cafe.jpg`（059 で外した）は使っていない。
 
 | ファイル | 元 | 加工 |
 |---|---|---|
 | `hero-beach.jpg` | `landing/hero-beach.jpg` | 1552×656 のまま（107KB） |
-| `phone-chat.jpg` `phone-photos.jpg` `calendar-desk.jpg` `hands-cafe.jpg` | `landing/` の同名 | 640×482 に縮小 |
+| `phone-chat.jpg` `phone-photos.jpg` `calendar-desk.jpg` | `landing/` の同名 | 640×482 に縮小 |
 | `ai-network.jpg` | `landing/ai-network.jpg` | 1360×768 のまま（帯の地。LP の濃紺 `--color-ai-band` はこの写真の暗い側の色 #070E3A 前後から） |
 | `want-grid.jpg` `polaroid-softcream.jpg` `polaroid-three.jpg` | `landing/` の同名 | 800×800 に縮小 |
 | `avatar-yui.jpg` `avatar-ren.jpg` | `プロフィール画像/woman1.jpg`・`man1.jpg`（デモペアと同じ顔。AI 生成） | 上寄りの正方形に切り出し 240×240（統計カードの 120px の円） |
