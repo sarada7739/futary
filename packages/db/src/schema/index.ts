@@ -8,3 +8,4 @@ export * from "./mood";
 export * from "./ai-summary";
 export * from "./want";
 export * from "./album";
+export * from "./admin";

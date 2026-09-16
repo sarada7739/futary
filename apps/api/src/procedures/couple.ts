@@ -2,6 +2,7 @@ import { implementer } from "../implementer";
 import { generateInviteCode } from "../lib/invite-code";
 import { hashAccountId } from "../lib/account-hash";
 import { albumQuotaFor, loadPlanRow, resolvePlanState } from "../lib/plan";
+import { resolveIsAdmin } from "../middleware/auth-context";
 import { PLAN_SOURCES, type PlanSource } from "@futary/contract";
 import { authedProcedure, readProcedure, writeProcedure } from "./base";
 
@@ -113,6 +114,8 @@ const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ con
     planSource,
     planExpiresAt: planRow?.expires_at ?? null,
     planCancelAt: planRow?.stripe_cancel_at ?? null,
+    // 057: マイページの「運営 ›」の出し分け（判定は middleware/auth-context.ts の 1 箇所）
+    isAdmin: resolveIsAdmin(context),
   };
 });
 

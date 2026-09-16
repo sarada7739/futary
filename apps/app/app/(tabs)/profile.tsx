@@ -593,6 +593,15 @@ export default function ProfileScreen() {
             アカウントを削除
           </Button>
 
+          {/* 057: 運営（ADMIN_EMAILS に含まれる）のときだけ「運営 ›」（→ /admin）。他の人には入口が見えない */}
+          {coupleQuery.data?.isAdmin && (
+            <Pressable accessibilityRole="button" accessibilityLabel="運営" onPress={() => router.push("/admin")} hitSlop={space.sm} testID="profile-admin">
+              <Text size="sm" weight="medium" color="brand" align="center">
+                運営 ›
+              </Text>
+            </Pressable>
+          )}
+
           {/* 052: マイページの一番下にプライバシーポリシー・利用規約（タスク定義 0節 4） */}
           <LegalLinks />
       </ScrollView>

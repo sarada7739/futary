@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-16 / セッションA。**057（運営の画面: 全体の数と 1 日の増加・メールで探す・プランの切り替え）を起票。B の手番。**
+**最終更新**: 2026-09-16 / セッションB。**057（運営の画面）: 実装完了。PR #___（`task/057-admin`）。R の手番。マージ前に人間の `wrangler secret put ADMIN_EMAILS`（自分のメール）。**
+- `admin_actions`（0025。FK 無し・退会しても残す）・`admin.*`（全部 `adminProcedure`。判定は `resolveIsAdmin` の 1 箇所）・`/app/admin`・マイページの「運営 ›」。T1〜T8 緑（T8 は `apps/api/test/schema-integrity.test.ts`）。報告 `artifacts/057/stage1.md`・画面 `artifacts/057/stage1/`
+- **A へ**: `architecture.md` 4節（`admin_actions`）・5節（`admin.*`・`couple.get.isAdmin`）
+- 人間の手番（続き）: 056 のデプロイ確認・047 の確認観点の残り（今は猶予中のまま。鍵の後 → paid の 2 本は許可をくれれば B が流す）・Stripe の本番 Price。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-16 / セッションA。**057（運営の画面: 全体の数と 1 日の増加・メールで探す・プランの切り替え）を起票。B の手番。**
 - 線: 運営が触れるのは数と `couple_plans` の 1 行だけ。中身に触れない。Stripe のペアは触れない。全部 `admin_actions` に残す
 - 人間の手番: 056 のデプロイの承認（最新だけ）→ `https://nisoine.com/` の枠の中でデモ。057 のマージ前に `ADMIN_EMAILS` の secret。047 の確認の残り。Stripe の本番 Price
 - 未着手のもの: iOS 段階0（Opus で）・メール認証（マジックリンク）・042 の上限 50

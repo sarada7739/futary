@@ -16,6 +16,10 @@ export interface RpcContext {
   // optional なのは、Stripe を使わない手続きのテストが context を手で組んでいる（16 箇所）ため。
   // 無いまま billing.* を呼ぶと INTERNAL（500）で落ちる（黙って free にしない）
   billing?: BillingContext;
+  // 057: 運営のメール（ADMIN_EMAILS を lib/admin-emails.ts で小文字化・trim 済み）。判定は
+  // middleware/auth-context.ts の resolveIsAdmin の 1 箇所。optional なのは billing と同じ理由
+  // （テストが context を手で組む）。無ければ運営はいない（fail-closed）
+  adminEmails?: readonly string[];
   user: { id: string; name: string; email: string; image: string | null } | null;
   // me.delete の再認証チェック（024・Aの決定）に使う、実際にサインインした
   // 時刻。Better Auth の session.createdAt は createSession() 時に一度だけ

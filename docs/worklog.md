@@ -13643,3 +13643,12 @@ Session: B
 - `security-requirements.md` 3節に運営の例外の線・`architecture.md` 8節に `ADMIN_EMAILS`。4節・5節は B の起票後に A が直す
 
 Session: A
+
+## 2026-09-16 セッションB: 057（運営の画面）を実装
+
+- `admin_actions`（0025。ULID の id・FK 無し）・契約 `admin.*` + `couple.get.isAdmin`・`resolveIsAdmin`（1 箇所）+ `adminProcedure`・`procedures/admin.ts`（stats は batch 6 文 + 1 分キャッシュ、lookup は数とプランの行だけ、setPlan は stripe なら CONFLICT + 記録 + ログ 1 行）
+- 画面 `/app/admin`（探す → 確認 → 切り替え → 直近の操作）・マイページの「運営 ›」
+- T1〜T8。`authorization.test.ts` に「admin.* は adminProcedure を必ず通る」・`me.test.ts` の全表の網に「admin_actions は残す」
+- 撮影は 045 の撮影用ペア（`.dev.vars` に `ADMIN_EMAILS=shot-me@example.com`）。CI の `.dev.vars` にダミーを足した
+
+Session: B
