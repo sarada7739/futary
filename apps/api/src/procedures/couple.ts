@@ -1,7 +1,7 @@
 import { implementer } from "../implementer";
 import { generateInviteCode } from "../lib/invite-code";
 import { hashAccountId } from "../lib/account-hash";
-import { albumQuotaFor, loadPlanRow, resolvePlan } from "../lib/plan";
+import { albumQuotaFor, loadPlanRow, resolvePlanState } from "../lib/plan";
 import { PLAN_SOURCES, type PlanSource } from "@futary/contract";
 import { authedProcedure, readProcedure, writeProcedure } from "./base";
 
@@ -97,7 +97,9 @@ const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ con
   if (!row) throw new Error("couple_id に対応するペアが見つかりません");
   // 045: プランと無料枠。判定は lib/plan.ts の 1 箇所。ゲスト（デモペア）にも返す（シードで paid）
   const planRow = await loadPlanRow(context.db, context.coupleId);
-  const plan = resolvePlan(planRow, nowSeconds());
+  // 047: 猶予と鍵も同じ判定から（plan は planState.plan）。albumQuota.used は鍵の分も数える（0節 #7）
+  const planState = resolvePlanState(planRow, nowSeconds());
+  const plan = planState.plan;
   const albumQuota = await albumQuotaFor(context.db, context.coupleId, plan);
   // 048 段階2: 出どころと期限も返す（マイページの「〇月〇日に更新」「プランを管理」の出し分け）。
   // 未知の source は null にする（画面が Portal のボタンを出さない向きに倒す）
@@ -107,6 +109,7 @@ const coupleGet = implementer.couple.get.use(readProcedure).handler(async ({ con
     ...toCouple(row),
     plan,
     albumQuota,
+    planState,
     planSource,
     planExpiresAt: planRow?.expires_at ?? null,
     planCancelAt: planRow?.stripe_cancel_at ?? null,

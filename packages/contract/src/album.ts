@@ -53,14 +53,17 @@ export const photoRefSchema = z.discriminatedUnion("kind", [
 export type PhotoRef = z.infer<typeof photoRefSchema>;
 
 // url は署名付き GET URL（有効期限1時間。post.list と同じ）。呼ぶたびに発行し直す。
-// タイムラインの写真は takenAt = posts.created_at、caption = 投稿本文
+// タイムラインの写真は takenAt = posts.created_at、caption = 投稿本文。
+// 047: 鍵の掛かった写真（プレミアムをやめて猶予が過ぎ、無料枠を超える分）は url が null・locked が true・
+// caption が空（サーバが URL を出さないことで「見られない」を作る。width/height/takenAt はマスの形のため残す）
 export const photoSchema = z.object({
   ref: photoRefSchema,
-  url: z.string().url(),
+  url: z.string().url().nullable(),
   width: z.number(),
   height: z.number(),
   takenAt: z.number(),
   caption: z.string(),
+  locked: z.boolean(),
 });
 export type Photo = z.infer<typeof photoSchema>;
 

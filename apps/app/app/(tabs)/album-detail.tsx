@@ -9,12 +9,13 @@ import {
   TIMELINE_ALBUM_ID,
 } from "@futary/contract";
 import { formatDateRangeJa, formatJstDateSlash, inclusiveDays } from "@futary/date";
-import { Button, type Colors, FabIcon, radius, Screen, space, Text, useTheme } from "@futary/ui";
+import { Button, type Colors, FabIcon, iconLock, radius, Screen, space, Text, useTheme } from "@futary/ui";
 import { ORPCError } from "@orpc/client";
 import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { AlbumForm, type AlbumFormValues } from "../../components/album-form";
 import { ImageViewer, type ImageViewerImage } from "../../components/image-viewer";
+import { LockBand } from "../../components/lock-band";
 import { PlanLimitSheet } from "../../components/plan-limit-sheet";
 import { QuotaWarningCard } from "../../components/quota-warning-card";
 import { Sheet } from "../../components/sheet";
@@ -23,7 +24,7 @@ import { ALBUM_UPLOAD_BATCH_MAX, pickAlbumImages, uploadAlbumImagesInBatches, ty
 import type { ZipSource } from "../../lib/album-zip";
 import type { SourceImage } from "../../lib/image";
 import { chunk } from "../../lib/chunk";
-import { albumQuotaHeadingLabel, albumQuotaOverLabel, albumQuotaRemaining, shouldWarnQuota } from "../../lib/plan";
+import { albumQuotaHeadingLabel, albumQuotaOverLabel, albumQuotaRemaining, lockNotice, lockNoticeShort, shouldWarnQuota } from "../../lib/plan";
 import { dismissQuotaWarning, isQuotaWarningDismissed } from "../../lib/quota-warning-dismissed";
 import { canShareFiles, MAX_SHARE_FILES, sharePhotos, type ShareProgress } from "../../lib/photo-download";
 import { useGuestMode } from "../../lib/guest-mode";
@@ -55,6 +56,9 @@ function inputStyleOf(colors: Colors) {
     color: colors.text,
   } as const;
 }
+
+// 047: 鍵のマスの鍵のアイコン（B が決めた: 28。マスは 3 列で 100px 前後）
+const LOCK_TILE_ICON = 28;
 
 function photoKey(photo: Photo): string {
   return photo.ref.kind === "album" ? photo.ref.photoId : `${photo.ref.postId}:${photo.ref.position}`;
@@ -116,6 +120,8 @@ export default function AlbumDetailScreen() {
   // paid なら null（制限しない）。届く前も null（枠の行を出さず、FAB は普通に動く。サーバが最終防御）
   const albumQuota = coupleQuery.data?.albumQuota ?? null;
   const quotaRemaining = albumQuota ? albumQuotaRemaining(albumQuota) : null;
+  // 047: プレミアムをやめたあとの猶予・鍵の帯（タイムラインには出さない）
+  const lockNoticeFor = isTimeline ? null : lockNotice(coupleQuery.data?.planState, albumQuota);
 
   const invalidateAll = () =>
     Promise.all([
@@ -134,6 +140,8 @@ export default function AlbumDetailScreen() {
   const album: Album | undefined = albumQuery.data;
   const title = isTimeline ? TIMELINE_TITLE : (album?.title ?? "アルバム");
   const photos = useMemo(() => photosQuery.data?.pages.flatMap((page) => page.items) ?? [], [photosQuery.data]);
+  // 047: 鍵の写真（url null）はビューアに渡さない・保存に入れない。ビューアの index はこちらの並び
+  const viewablePhotos = useMemo(() => photos.filter((photo) => photo.url !== null), [photos]);
   const photoCount = isTimeline ? (listQuery.data?.timeline.photoCount ?? photos.length) : (album?.photoCount ?? photos.length);
 
   const [gridWidth, setGridWidth] = useState(0);
@@ -219,8 +227,13 @@ export default function AlbumDetailScreen() {
   // 閉じた（AbortError）ときは何もしない（選択は残す）。取得できなかった枚数は共有シートのあとに 1 行
   async function handleShareSelected() {
     if (selected.size === 0 || tooManyToShare || shareProgress) return;
-    const refs = photos.filter((photo) => selected.has(photoKey(photo))).map((photo) => photo.ref);
+    // 047: 鍵の写真は保存に入れない（downloadUrl が NOT_FOUND。選択には残る = 削除はできる）
+    const refs = viewablePhotos.filter((photo) => selected.has(photoKey(photo))).map((photo) => photo.ref);
     setNotice(null);
+    if (refs.length === 0) {
+      setNotice("プレミアムで解放されていない写真は保存できません");
+      return;
+    }
     try {
       const result = await sharePhotos(refs, setShareProgress);
       if (result.outcome === "nothing") {
@@ -354,7 +367,7 @@ export default function AlbumDetailScreen() {
   }
 
   function openCaptionEditor(index: number) {
-    const photo = photos[index];
+    const photo = viewablePhotos[index];
     if (!photo || photo.ref.kind !== "album") return;
     setCaptionDraft(photo.caption);
     setCaptionFor(photo);
@@ -374,8 +387,9 @@ export default function AlbumDetailScreen() {
 
   // ビューアには photo.list の読み込み済みの範囲を送る（次ページの先読みはしない。端で止まる）。
   // caption = { アルバム名（タイムラインなら「タイムライン」）, 撮影日, 説明文（タイムラインなら投稿本文） }
-  const viewerImages: ImageViewerImage[] = photos.map((photo) => ({
-    url: photo.url,
+  const viewerImages: ImageViewerImage[] = viewablePhotos.map((photo) => ({
+    // viewablePhotos は url が null のものを除いてある
+    url: photo.url ?? "",
     width: photo.width,
     height: photo.height,
     caption: { title, date: formatJstDateSlash(photo.takenAt), body: photo.caption },
@@ -448,6 +462,16 @@ export default function AlbumDetailScreen() {
               )}
             </View>
 
+            {/* 047: 猶予・鍵の帯（短く）。「ZIP で保存」はこのアルバムの写真 */}
+            {canWrite && lockNoticeFor && (
+              <LockBand
+                notice={lockNoticeFor}
+                text={lockNoticeShort(lockNoticeFor)}
+                onZip={() => setZipSource({ kind: "album", albumId, title })}
+                onPremium={() => router.push("/premium")}
+              />
+            )}
+
             {uploadProgress && (
               <View style={{ alignItems: "center", gap: space.xs }}>
                 <Text color="muted" align="center" testID="album-detail-progress">
@@ -485,14 +509,21 @@ export default function AlbumDetailScreen() {
                 {photos.map((photo, index) => {
                   const key = photoKey(photo);
                   const isSelected = selected.has(key);
+                  // 047: 鍵のマス（絵 03）。押すと 045 のシート（選択モードでは選べる = 削除はできる）。ビューアは開かない
+                  const isLockedPhoto = photo.url === null;
+                  const viewerIndexOf = isLockedPhoto ? -1 : viewablePhotos.indexOf(photo);
                   return (
                     <Pressable
                       key={key}
                       testID={`album-photo-${key}`}
                       accessibilityRole="button"
-                      accessibilityLabel={isSelecting ? `${index + 1}枚目を選ぶ` : `${index + 1}枚目を全画面表示`}
+                      accessibilityLabel={
+                        isSelecting ? `${index + 1}枚目を選ぶ` : isLockedPhoto ? `${index + 1}枚目はプレミアムで解放` : `${index + 1}枚目を全画面表示`
+                      }
                       aria-selected={isSelecting ? isSelected : undefined}
-                      onPress={() => (isSelecting ? toggleSelected(key) : setViewerIndex(index))}
+                      onPress={() =>
+                        isSelecting ? toggleSelected(key) : isLockedPhoto ? setPlanLimitOpen(true) : setViewerIndex(viewerIndexOf)
+                      }
                       style={{
                         width: tileSize ?? "32%",
                         aspectRatio: 1,
@@ -502,7 +533,19 @@ export default function AlbumDetailScreen() {
                         opacity: isSelecting && !isSelected ? 0.6 : 1,
                       }}
                     >
-                      <Image source={{ uri: photo.url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+                      {isLockedPhoto ? (
+                        <View
+                          testID={`album-photo-locked-${key}`}
+                          style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center", gap: space.xs, backgroundColor: colors.surfaceTint }}
+                        >
+                          <Image source={iconLock} style={{ width: LOCK_TILE_ICON, height: LOCK_TILE_ICON, tintColor: colors.primary }} resizeMode="contain" />
+                          <Text size="xs" color="brand" weight="medium" align="center">
+                            プレミアムで解放
+                          </Text>
+                        </View>
+                      ) : (
+                        <Image source={{ uri: photo.url ?? "" }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+                      )}
                       {isSelecting && (
                         <View
                           testID={isSelected ? `album-photo-check-${key}` : undefined}

@@ -10,6 +10,7 @@ import { useNavigation, useRouter } from "expo-router";
 import { AlbumForm, type AlbumFormValues } from "../../components/album-form";
 import { PlanLimitSheet } from "../../components/plan-limit-sheet";
 import { Sheet } from "../../components/sheet";
+import { LockBand } from "../../components/lock-band";
 import { UsageCard } from "../../components/usage-card";
 import { ZipExportSheet } from "../../components/zip-export-sheet";
 import { pickAlbumImages, uploadAlbumImages } from "../../lib/album-upload";
@@ -17,7 +18,7 @@ import type { ZipSource } from "../../lib/album-zip";
 import { useGuestMode } from "../../lib/guest-mode";
 import type { SourceImage } from "../../lib/image";
 import { orpc } from "../../lib/orpc";
-import { albumQuotaRemaining } from "../../lib/plan";
+import { albumQuotaRemaining, lockNotice } from "../../lib/plan";
 import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
@@ -63,7 +64,7 @@ function TimelineCard({ photoCount, previews, onPress }: { photoCount: number; p
           justifyContent: "flex-end",
         }}
       >
-        {first && (
+        {first?.url && (
           <Image
             source={{ uri: first.url }}
             style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" }}
@@ -91,10 +92,12 @@ function TimelineCard({ photoCount, previews, onPress }: { photoCount: number; p
         <View style={{ flex: 1, gap: space.sm }}>
           {rest.slice(0, TIMELINE_PREVIEW_COUNT - 1).map((photo) => (
             <View
-              key={photo.url}
+              key={photo.url ?? `${photo.takenAt}`}
               style={{ flex: 1, aspectRatio: 1, borderRadius: radius.input, overflow: "hidden", backgroundColor: colors.surfaceTint }}
             >
-              <Image source={{ uri: photo.url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+              {photo.url && (
+                <Image source={{ uri: photo.url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" accessibilityIgnoresInvertColors />
+              )}
             </View>
           ))}
         </View>
@@ -176,6 +179,8 @@ export default function AlbumScreen() {
   const albumQuota = coupleQuery.data?.albumQuota ?? null;
   const quotaRemaining = albumQuota ? albumQuotaRemaining(albumQuota) : null;
   const [planLimitOpen, setPlanLimitOpen] = useState(false);
+  // 047: プレミアムをやめたあとの猶予・鍵の帯（使用量のカードの上）
+  const notice = lockNotice(coupleQuery.data?.planState, albumQuota);
 
   const invalidate = () =>
     Promise.all([
@@ -355,6 +360,9 @@ export default function AlbumScreen() {
 
             {/* 045: 写真の使用量（絵 05）。一覧の一番下（人間の指示。2026-09-14）。
                 free のときだけ（paid は null。ゲストは couple.get を読まない） */}
+            {canWrite && notice && (
+              <LockBand notice={notice} onZip={() => setZipSource({ kind: "all" })} onPremium={() => router.push("/premium")} />
+            )}
             {canWrite && albumQuota && <UsageCard quota={albumQuota} onPremium={() => router.push("/premium")} />}
           </>
         )}

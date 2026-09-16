@@ -1,7 +1,14 @@
 // 045: プランと無料枠の画面側の計算と文言。数字は契約の定数から出す（文言に 30 を直書きしない）。
 // 「無料プラン」「プレミアム」と書く。「トライアル」「お試し」は使わない（期限が無い。タスク定義 3節）
-import { PAID_ALBUM_PHOTO_LIMIT, type AlbumQuota, type BillingInterval, type BillingPrice, type Plan } from "@futary/contract";
-import { formatJstMonthDayJa } from "@futary/date";
+import {
+  PAID_ALBUM_PHOTO_LIMIT,
+  type AlbumQuota,
+  type BillingInterval,
+  type BillingPrice,
+  type Plan,
+  type PlanState,
+} from "@futary/contract";
+import { formatDateJa, formatJstMonthDayJa, todayJst } from "@futary/date";
 
 // 残りがこの枚数以下になったら、詳細の FAB の上に警告のカードを出す（B が決めた: 3節「残りが 5 枚以下」）
 export const QUOTA_WARNING_THRESHOLD = 5;
@@ -80,4 +87,27 @@ export function priceLabel(price: BillingPrice, interval: BillingInterval): stri
 export function paidPlanLabel(planExpiresAt: number | null, planCancelAt: number | null = null): string {
   if (planCancelAt !== null) return `プレミアム（${formatJstMonthDayJa(planCancelAt)}まで）`;
   return planExpiresAt === null ? "プレミアム" : `プレミアム（${formatJstMonthDayJa(planExpiresAt)}に更新）`;
+}
+
+// 047: プレミアムをやめたあとの帯（タスク定義 2節）。判定はサーバの planState。画面は表示だけ。
+// - 猶予中（lockAt あり・未到達）: 「9月30日までに写真を保存してください。それ以降、無料枠を超える写真は見られなくなります」
+// - 鍵の後（locked）: 「無料枠を超える 70 枚は見られません」
+// 無料枠を超えていなければ（used <= limit）失うものが無いので出さない（B が決めた）
+export type LockNotice = { kind: "grace"; text: string } | { kind: "locked"; text: string };
+
+export function lockNotice(planState: PlanState | undefined, quota: AlbumQuota | null): LockNotice | null {
+  if (!planState || planState.plan !== "free" || planState.lockAt === null || quota === null) return null;
+  const over = quota.used - quota.limit;
+  if (over <= 0) return null;
+  if (planState.locked) return { kind: "locked", text: `無料枠を超える ${over} 枚は見られません` };
+  const date = formatDateJa(todayJst(planState.lockAt * 1000));
+  return {
+    kind: "grace",
+    text: `${date}までに写真を保存してください。それ以降、無料枠を超える写真は見られなくなります`,
+  };
+}
+
+// アルバム詳細の帯（短く）
+export function lockNoticeShort(notice: LockNotice): string {
+  return notice.kind === "locked" ? notice.text : notice.text.replace("写真を保存してください。それ以降、", "写真を保存してください。");
 }

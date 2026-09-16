@@ -771,3 +771,105 @@ describe("AlbumDetailScreen: 一度に 100 枚（049）", () => {
     expect(uploadCompressedMock).not.toHaveBeenCalled();
   });
 });
+
+// 047 T8: プレミアムをやめたあとの帯と鍵のマス
+describe("AlbumDetailScreen: やめたあとの鍵（047 T8）", () => {
+  // 2026-10-16 00:00 JST
+  const LOCK_AT = Date.UTC(2026, 9, 15, 15, 0, 0) / 1000;
+
+  function lockedPhoto(i: number) {
+    return { ...makeAlbumPhoto(i), url: null, caption: "", locked: true };
+  }
+
+  it("猶予中: 帯に日付と「ZIP で保存」「プレミアムについて」。写真は全部普通のマスで、押すとビューア", async () => {
+    coupleGetMock.mockResolvedValue({
+      id: "couple-1",
+      plan: "free",
+      albumQuota: { limit: 30, used: 33 },
+      planState: { plan: "free", lockAt: LOCK_AT, locked: false },
+    });
+    renderScreen();
+
+    const band = await screen.findByTestId("lock-band-grace");
+    expect(band).toHaveTextContent("2026年10月16日までに写真を保存してください。無料枠を超える写真は見られなくなります");
+    expect(screen.getByTestId("lock-band-zip")).toBeTruthy();
+    expect(screen.getByTestId("lock-band-premium")).toBeTruthy();
+    expect(screen.queryByTestId("album-photo-locked-photo-1")).toBeNull();
+
+    // 「ZIP で保存」→ このアルバムのシート
+    fireEvent.click(screen.getByTestId("lock-band-zip"));
+    expect(await screen.findByTestId("zip-export-confirm")).toHaveTextContent("3 枚を ZIP で保存します");
+    expect(photoListMock).toHaveBeenLastCalledWith({ albumId: "album-1", cursor: undefined, limit: 60 });
+  });
+
+  it("鍵の後: 帯「無料枠を超える 3 枚は見られません」。鍵のマスが出て、押すとシート（ビューアは開かない）。鍵でないマスはビューア", async () => {
+    coupleGetMock.mockResolvedValue({
+      id: "couple-1",
+      plan: "free",
+      albumQuota: { limit: 30, used: 33 },
+      planState: { plan: "free", lockAt: LOCK_AT, locked: true },
+    });
+    photoListMock.mockResolvedValue({ items: [makeAlbumPhoto(1, "伏見稲荷"), lockedPhoto(2), lockedPhoto(3)], nextCursor: null });
+    renderScreen();
+
+    const band = await screen.findByTestId("lock-band-locked");
+    expect(band).toHaveTextContent("無料枠を超える 3 枚は見られません");
+    expect(screen.queryByTestId("lock-band-zip")).toBeNull();
+    expect(screen.getByTestId("lock-band-premium")).toBeTruthy();
+
+    expect(screen.getByTestId("album-photo-locked-photo-2")).toHaveTextContent("プレミアムで解放");
+    expect(screen.getByTestId("album-photo-locked-photo-3")).toBeTruthy();
+    expect(screen.queryByTestId("album-photo-locked-photo-1")).toBeNull();
+    expect(screen.getByLabelText("2枚目はプレミアムで解放")).toBeTruthy();
+
+    // 鍵のマス → 045 のシート。ビューアは開かない
+    fireEvent.click(screen.getByTestId("album-photo-photo-2"));
+    expect(await screen.findByTestId("plan-limit-sheet")).toBeTruthy();
+    expect(screen.queryByTestId("image-viewer-image")).toBeNull();
+    fireEvent.click(screen.getByTestId("plan-limit-close"));
+    act(() => finishModalAnimations());
+    await waitFor(() => expect(screen.queryByTestId("plan-limit-sheet")).toBeNull());
+
+    // 鍵でないマス → ビューア（鍵の写真は渡さない = 1 枚だけ）
+    fireEvent.click(screen.getByTestId("album-photo-photo-1"));
+    expect(await screen.findByTestId("image-viewer-image")).toBeTruthy();
+    // 鍵の 2 枚は渡していないので 1 枚だけ（枚数の表示と「次の画像」が無い）
+    expect(screen.queryByTestId("image-viewer-counter")).toBeNull();
+    expect(screen.queryByLabelText("次の画像")).toBeNull();
+    expect(screen.getByTestId("image-viewer-caption")).toHaveTextContent("伏見稲荷");
+  });
+
+  it("鍵の後の選択モード: 鍵のマスも選べる（削除できる）が、保存には入らない", async () => {
+    coupleGetMock.mockResolvedValue({
+      id: "couple-1",
+      plan: "free",
+      albumQuota: { limit: 30, used: 33 },
+      planState: { plan: "free", lockAt: LOCK_AT, locked: true },
+    });
+    photoListMock.mockResolvedValue({ items: [makeAlbumPhoto(1), lockedPhoto(2)], nextCursor: null });
+    removePhotosMock.mockResolvedValue(makeAlbum({ photoCount: 1 }));
+    renderScreen();
+    await screen.findByTestId("album-photo-locked-photo-2");
+    renderHeaderRight();
+    fireEvent.click(screen.getByTestId("album-detail-select"));
+    await screen.findByTestId("album-detail-selection-bar");
+    fireEvent.click(screen.getByTestId("album-photo-photo-2"));
+    expect(screen.getByTestId("album-photo-check-photo-2")).toBeTruthy();
+    expect(screen.queryByTestId("plan-limit-sheet")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("album-detail-remove"));
+    await act(async () => {
+      fireEvent.click(screen.getByText("削除する"));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(removePhotosMock).toHaveBeenCalledWith({ id: "album-1", photoIds: ["photo-2"] }, expect.anything()));
+  });
+
+  it("paid・lockAt null・タイムラインには帯が無い", async () => {
+    coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 33 }, planState: { plan: "free", lockAt: null, locked: false } });
+    renderScreen();
+    await screen.findByTestId("album-photo-photo-1");
+    expect(screen.queryByTestId("lock-band-grace")).toBeNull();
+    expect(screen.queryByTestId("lock-band-locked")).toBeNull();
+  });
+});

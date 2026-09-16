@@ -3,7 +3,23 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-16 / セッションA。**054 完了（main e9bc7bc）。047（やめたあとの鍵）を今の状態に合わせて起票し直した。B の手番: 047。**
+**最終更新**: 2026-09-16 / セッションB。**047（やめたあとの鍵）: R 受け入れ（必須修正なし）→ #391 を squash merge。次は人間: デプロイの承認（最新だけ）→ 確認観点（運営の SQL で `expires_at` を過去にして猶予 → 鍵 → paid に戻す）。B は待機。**
+- 判定 `artifacts/047/review-stage1.md`。報告 `artifacts/047/stage1.md`
+- **A へ（R の記録。急ぎ）**: (1) 045 の部品に「無制限」が残っている（`plan-limit-sheet.tsx`「写真枚数 無制限」・`quota-warning-card.tsx`・`usage-card.tsx`「プレミアムで無制限に」）。鍵のマスを押すと出るのがこのシートで、特商法・LP の「50 万枚まで」と食い違う。文言は A が決めて別の fix。(2) `unlockedPhotos` の `albums.deleted_at IS NULL` はテストで固定していない（045 #326 と同じ扱いにするなら 1 本）。(3) `architecture.md` 5節の `couple.get`（`planState`）・`photo.list`（`url` nullable・`locked`）
+- 人間の手番（続き）: 054 のデプロイ確認・Stripe の本番 Price（¥420/¥4,200）。未着手: iOS 段階0（Opus で）・メール認証・042 の上限 50。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-16 / セッションB。**047（やめたあとの鍵）: 実装完了。PR #391（`task/047-plan-downgrade-lock`）。R の手番。**
+- 判定は `lib/plan.ts` の `resolvePlanState`（起点は 0節 #11）と `unlockedPhotos`（先頭 30 の 1 文）。`photo.list` は鍵の写真を `url null`、`downloadUrl`/`updatePhoto` は NOT_FOUND、カバーは鍵でない最新に倒す。画面は帯（一覧・詳細・マイページ）と鍵のマス。法務ページと FAQ の文言も戻した
+- T1〜T11 緑。報告 `artifacts/047/stage1.md`・画面 `artifacts/047/stage1/`（両モード × 猶予・鍵）。lint・型・全テスト緑（api 731・app 565）
+- **A へ**: `architecture.md` 5節の `couple.get`（`planState`）・`photo.list`（`url` nullable・`locked`）は A。草案のメモ（047 のあとで戻す）は済んだ
+- 受け入れ → squash merge → 人間: デプロイの承認 → 確認観点（運営の SQL で `expires_at` を過去にして猶予 → 鍵の順に見る。終わったら paid に戻す）
+- 人間の手番（続き）: 054 のデプロイ確認・Stripe の本番 Price（¥420/¥4,200）。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-16 / セッションA。**054 完了（main e9bc7bc）。047（やめたあとの鍵）を今の状態に合わせて起票し直した。B の手番: 047。**
 - 047 の変えたところ: 猶予の起点（Stripe の `canceled` は `expires_at`・Checkout 前の free の行は鍵なし・手で free は `updated_at`）・判定は「鍵でない 30 枚の id」を引く（055 で鍵の側が数十万になりうる）・法務ページと LP の文言をこのタスクで戻す（特商法「解約後のデータ」・規約 8 節の猶予の行・FAQ の「いつでも ZIP」）
 - 人間の手番: デプロイの承認（最新だけ）→ `https://nisoine.com/` と `/tech` を見る。Stripe の本番 Price（¥420/¥4,200）の準備 → 鍵の差し替えは B の PR
 - 未着手のもの: iOS 段階0（Opus で）・メール認証（マジックリンク）・042 の上限 50

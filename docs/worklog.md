@@ -13528,3 +13528,20 @@ Session: B
 - `architecture.md` 4節の「1ペア100アルバム」が 055 で古くなっていたので直した
 
 Session: A
+
+## 2026-09-16 セッションB: 047（やめたあとの鍵）を実装
+
+- 契約: `planState`・`photoSchema.url` nullable + `locked`。サーバ: `resolvePlanState`（起点 0節 #11）・`unlockedPhotos`（先頭 30 の 1 文。鍵の側の集合は作らない）・`photo.list`/`downloadUrl`/`updatePhoto`/カバーの倒し
+- 画面: `LockBand`（一覧・詳細・マイページ）・鍵のマス（押すと 045 のシート。ビューアに渡さない）・ZIP と保存は `url` のある写真だけ
+- 法務: 特商法の行と規約 8 節を草案の文面に、FAQ「いつでも ZIP」を外した（T10）
+- T1〜T11 緑。撮影は 045 の `make-session.mjs --used=40` + `set-plan.mjs`。expo の Metro が古い branch のキャッシュで `guest-mode` を解決できず、app-web を立て直した
+- B の判断: 帯は `used <= limit` なら出さない・鍵のマスは選択モードで選べる（削除）・`updatePhoto` も NOT_FOUND
+
+Session: B
+
+## 2026-09-16 セッションB: 047 を R が受け入れ → #391 をマージ
+
+- R の判定（必須修正なし。壊して 8 通り赤を確認）を `artifacts/047/review-stage1.md` に保存
+- R の記録 2 つ（045 の部品の「無制限」の文言・`unlockedPhotos` の `deleted_at` の固定）は A へ。CI pass → squash merge
+
+Session: B

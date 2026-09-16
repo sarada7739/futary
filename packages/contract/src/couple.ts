@@ -81,9 +81,25 @@ export type AlbumQuota = z.infer<typeof albumQuotaSchema>;
 export const PLAN_SOURCES = ["manual", "stripe"] as const;
 export type PlanSource = (typeof PLAN_SOURCES)[number];
 
+// 047: プレミアムをやめたあとの猶予と鍵（タスク定義 1節）。free に戻ってから LOCK_GRACE_DAYS の猶予のあと、
+// 無料枠を超える写真（taken_at の古い順 FREE_ALBUM_PHOTO_LIMIT 枚より新しい分）に鍵が掛かる。
+// - { plan: "paid" }
+// - { plan: "free", lockAt: null, locked: false }: 行が無い・一度も paid になっていない（鍵は掛からない）
+// - { plan: "free", lockAt: 秒, locked: false }: paid だった。lockAt = 期限（または updated_at）+ 猶予。猶予中
+// - { plan: "free", lockAt: 秒, locked: true }: 猶予が過ぎた。無料枠を超える分に鍵
+// 判定はサーバ（apps/api/src/lib/plan.ts）の 1 箇所。画面は lockAt を表示し、locked で帯を出し分ける
+export const LOCK_GRACE_DAYS = 30;
+export const planStateSchema = z.discriminatedUnion("plan", [
+  z.object({ plan: z.literal("paid") }),
+  z.object({ plan: z.literal("free"), lockAt: z.number().int().nullable(), locked: z.boolean() }),
+]);
+export type PlanState = z.infer<typeof planStateSchema>;
+
 export const coupleWithPlanSchema = coupleSchema.extend({
   plan: z.enum(PLAN_VALUES),
   albumQuota: albumQuotaSchema.nullable(),
+  // 047: 猶予と鍵。plan と同じ判定から出る（plan は planState.plan と常に一致）
+  planState: planStateSchema,
   // 048 段階2: マイページの「プレミアム（〇月〇日に更新）」と「プランを管理」の出し分けに使う。
   // planExpiresAt は秒（couple_plans.expires_at。stripe なら current_period_end）。無期限・行無しは null。
   // 判定（paid かどうか）はサーバの plan だけを見る（画面で期限を計算し直さない）

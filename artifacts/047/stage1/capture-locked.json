@@ -1,0 +1,50 @@
+{
+  "state": "locked",
+  "list": {
+    "pink": "無料枠を超える 10 枚は見られません",
+    "white": "無料枠を超える 10 枚は見られません"
+  },
+  "detail": {
+    "pink": "無料枠を超える 10 枚は見られません",
+    "white": "無料枠を超える 10 枚は見られません"
+  },
+  "profile": {
+    "pink": "無料枠を超える 10 枚は見られません",
+    "white": "無料枠を超える 10 枚は見られません"
+  },
+  "lockedTiles": {
+    "pink": 10,
+    "white": 10
+  },
+  "photoUrls": {
+    "locked": {
+      "total": 40,
+      "withUrl": 30,
+      "locked": 10
+    }
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

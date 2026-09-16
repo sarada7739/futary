@@ -84,7 +84,11 @@ async function collectAlbum(albumId: string, folder: string | null): Promise<Zip
   let cursor: string | undefined;
   do {
     const page = await client.photo.list({ albumId, cursor, limit: PHOTO_LIST_MAX_LIMIT });
-    for (const photo of page.items) photos.push({ ref: photo.ref, caption: photo.caption, folder });
+    // 047: 鍵の写真（url null）は ZIP に入らない（downloadUrl も NOT_FOUND）
+    for (const photo of page.items) {
+      if (photo.url === null) continue;
+      photos.push({ ref: photo.ref, caption: photo.caption, folder });
+    }
     cursor = page.nextCursor ?? undefined;
   } while (cursor !== undefined);
   return photos;

@@ -714,3 +714,31 @@ describe("ProfileScreen: プライバシーポリシー・利用規約（052）"
     expect(openUrl).toHaveBeenCalledWith(`${getApiOrigin()}/terms`);
   });
 });
+
+// 047 T8: マイページの帯（プランの行の上）。「ZIP で保存」は「アルバムの写真をまとめて保存」と同じシート
+describe("ProfileScreen: やめたあとの鍵の帯（047）", () => {
+  const LOCK_AT = Date.UTC(2026, 9, 15, 15, 0, 0) / 1000;
+
+  it("猶予中: 帯に日付と「ZIP で保存」。押すとすべての写真のシート", async () => {
+    coupleGetMock.mockResolvedValue(
+      makeCouple({ plan: "free", albumQuota: { limit: 30, used: 40 }, planState: { plan: "free", lockAt: LOCK_AT, locked: false } }),
+    );
+    albumListMock.mockResolvedValue({ timeline: { photoCount: 0, previews: [] }, items: [] });
+    renderScreen();
+    await waitForLoaded();
+
+    expect(screen.getByTestId("lock-band-grace")).toHaveTextContent("2026年10月16日までに写真を保存してください");
+    fireEvent.click(screen.getByTestId("lock-band-zip"));
+    expect(await screen.findByText("すべての写真を ZIP で保存")).toBeTruthy();
+  });
+
+  it("鍵の後: 「無料枠を超える 10 枚は見られません」。paid には帯が無い", async () => {
+    coupleGetMock.mockResolvedValue(
+      makeCouple({ plan: "free", albumQuota: { limit: 30, used: 40 }, planState: { plan: "free", lockAt: LOCK_AT, locked: true } }),
+    );
+    renderScreen();
+    await waitForLoaded();
+    expect(screen.getByTestId("lock-band-locked")).toHaveTextContent("無料枠を超える 10 枚は見られません");
+    expect(screen.queryByTestId("lock-band-zip")).toBeNull();
+  });
+});

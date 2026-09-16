@@ -1,0 +1,50 @@
+{
+  "state": "grace",
+  "list": {
+    "pink": "2026年10月15日までに写真を保存してください。それ以降、無料枠を超える写真は見られなくなります",
+    "white": "2026年10月15日までに写真を保存してください。それ以降、無料枠を超える写真は見られなくなります"
+  },
+  "detail": {
+    "pink": "2026年10月15日までに写真を保存してください。無料枠を超える写真は見られなくなります",
+    "white": "2026年10月15日までに写真を保存してください。無料枠を超える写真は見られなくなります"
+  },
+  "profile": {
+    "pink": "2026年10月15日までに写真を保存してください。それ以降、無料枠を超える写真は見られなくなります",
+    "white": "2026年10月15日までに写真を保存してください。それ以降、無料枠を超える写真は見られなくなります"
+  },
+  "lockedTiles": {
+    "pink": 0,
+    "white": 0
+  },
+  "photoUrls": {
+    "grace": {
+      "total": 40,
+      "withUrl": 40,
+      "locked": 0
+    }
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}
