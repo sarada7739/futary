@@ -134,8 +134,8 @@ describe("lib/demo-frame（純関数）", () => {
   });
 });
 
-describe("056: 框の中では Cookie を送らない（frameCredentials）", () => {
-  it("框の外は include。框の中は omit", () => {
+describe("056 T3b: 框の中では Cookie を送らない（frameCredentials）", () => {
+  it("框の外は include。框の中は omit（orpc.ts の fetch は orpc-frame-credentials.test.ts で本物を見る）", () => {
     expect(frameCredentials()).toBe("include");
     enterFrame();
     expect(frameCredentials()).toBe("omit");
@@ -190,7 +190,7 @@ describe("056 T4: 框の中ではサインイン画面の代わりに親ペー�
     await waitFor(() => expect(frameState.assign).toHaveBeenCalledWith("/app/"));
   });
 
-  it("框の中でセッションが見えても（Cookie が漏れた場合の二重の守り）認証済みとして扱わず、デモのまま", async () => {
+  it("T3b: 框の中でセッションが見えても（Cookie が漏れた場合の二重の守り）isAuthenticated は false で、デモペアのまま", async () => {
     setSearch("?demo=1");
     sessionState.data = { user: { id: "me" } };
     enterFrame();

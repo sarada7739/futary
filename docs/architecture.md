@@ -55,7 +55,7 @@ Worker は1つ。ドメインは **`https://nisoine.com`**（053。Workers の C
 | `/tokushoho` | 特定商取引法に基づく表記（静的。048） |
 | `/tech` | 技術構成（静的。054。LP から移した面接官向けの節。`sitemap.xml` には載せない） |
 | `/robots.txt` `/sitemap.xml` | 検索向け（053） |
-| `/app/*` | アプリ本体（Expo Web エクスポート・SPA フォールバック）。**`/app/?demo=1`** は未認証ならサインイン画面を経ずにゲストモードで始まる（056。LP の iframe 用。認証済みなら無視）。框の中（`window.top !== window.self`）ではサインイン画面の代わりに親ページを `/app/` へ飛ばす |
+| `/app/*` | アプリ本体（Expo Web エクスポート・SPA フォールバック）。**`/app/?demo=1`** は未認証ならサインイン画面を経ずにゲストモードで始まる（056。LP の iframe 用。認証済みなら無視）。框の中（`window.top !== window.self`）では **fetch に Cookie を送らず常にデモペア**（ログイン中でも本人のデータを枠に映さない）、サインイン画面の代わりに親ページを `/app/` へ飛ばす |
 | `/api/*` | Hono + oRPC |
 | `/api/openapi.json` | oRPC が生成する API 仕様 |
 

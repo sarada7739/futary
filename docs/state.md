@@ -5,8 +5,13 @@
 
 **最終更新**: 2026-09-16 / セッションB。**056（LP の中でデモ）: 実装完了。PR #398（`task/056-demo-in-phone-frame`）。R の手番。人間の指示で「框の中に実ユーザーのデータが写る経路」を塞いだ（框の中は API・認証に Cookie を送らない = 常にデモ。二重に `isAuthenticated` も false）。**
 - `frame-ancestors 'self'`・`/app/?demo=1`・框の中は親を `/app/` へ・節「さわってみる」（iframe 0.8・枠の絵は最初から透明で幅 800 に）。T1〜T6 + Cookie の検査。報告 `artifacts/056/stage1.md`・画面 `artifacts/056/`（ログイン中のブラウザでも框はデモ、の記録あり）
-- **A へ**: 0節 #2「認証済みなら無視」は框の外だけ。框の中は常にデモ（人間の指示）。定義の書き換えは A
+- A が定義に入れた（#399。0節 #12・T3b）。T3b のテスト（本物の `orpc.ts` の fetch が框の中で `omit`）を `orpc-frame-credentials.test.ts` に足した
 - 人間の手番: 047 の確認観点の残り（今は猶予中のまま。鍵の後 → paid に戻すの 2 本は帰宅後に B が流す〈許可〉）・Stripe の本番 Price。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-16 / セッションA。**056: B の実装完了 → PR #398 が R の手番。人間の指示（B 経由）「框の中に本人のデータを映さない」を 056 の 0節 #12 に入れた（框の中は fetch に Cookie を送らず常にデモ）。**
+- 0節 #2 は「框の外で認証済み」に限定・#8 の理由・T3b を足した。`architecture.md` 3節・`security-requirements.md` 7節も同じ内容に
 
 ---
 
