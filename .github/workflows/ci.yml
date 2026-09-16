@@ -90,6 +90,7 @@ jobs:
           ANTHROPIC_API_KEY=ci-test-anthropic-key
           STRIPE_SECRET_KEY=sk_test_ci-not-a-real-key
           STRIPE_WEBHOOK_SECRET=whsec_ci-test-webhook-secret
+          ADMIN_EMAILS=ci-admin@example.com
           EOF
 
       - run: pnpm run test

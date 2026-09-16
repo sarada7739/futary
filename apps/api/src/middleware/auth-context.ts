@@ -1,5 +1,6 @@
 import type { ORPCErrorConstructorMap } from "@orpc/server";
 import type { RpcContext } from "../context";
+import { isAdminEmail } from "../lib/admin-emails";
 
 // couple_id の解決結果。以降の全手続きはこれだけを使い、couple_id を
 // 自前で解決しない（docs/tasks/005-authorization-middleware.md）。
@@ -29,6 +30,13 @@ type AuthErrors = ORPCErrorConstructorMap<{
  * env の設定ミス・書き間違い1つで実在ペアが未認証の全世界に公開される
  * 経路を、値の一致だけに頼らず塞ぐ（security-auditor 005監査 Medium指摘）
  */
+// 057: 運営か。認証済みで、メールが ADMIN_EMAILS に含まれるときだけ true。ゲストは false。
+// 判定はここの 1 箇所（admin.* の入口の adminProcedure と、couple.get の isAdmin が呼ぶ）
+export function resolveIsAdmin(context: RpcContext): boolean {
+  if (!context.user) return false;
+  return isAdminEmail(context.user.email, context.adminEmails ?? []);
+}
+
 export async function resolveCoupleContext(
   context: RpcContext,
   errors: AuthErrors,

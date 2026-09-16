@@ -13,6 +13,7 @@ import { wantProcedures } from "./procedures/want";
 import { aiSummaryProcedures } from "./procedures/ai-summary";
 import { albumProcedures, photoProcedures } from "./procedures/album";
 import { billingProcedures } from "./procedures/billing";
+import { adminProcedures } from "./procedures/admin";
 import { resolveUserImage } from "./lib/r2-signed-url";
 import { isSessionFresh } from "./lib/reauth";
 
@@ -68,6 +69,8 @@ export const router = implementer.router({
   me: { get: meGet, ...meProcedures },
   couple: coupleProcedures,
   billing: billingProcedures,
+  // 057: 運営（全部 adminProcedure）
+  admin: adminProcedures,
   invite: inviteProcedures,
   post: { ...postProcedures, uploadUrl: postUploadUrl },
   reaction: reactionProcedures,

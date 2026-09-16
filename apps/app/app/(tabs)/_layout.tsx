@@ -172,6 +172,8 @@ export default function TabsLayout() {
       {/* 045: 一覧の使用量のカード・詳細の警告と上限のシート・マイページの「プレミアムについて」の行き先。
           上と同じ理由で href: null。戻るは画面が setOptions で置く */}
       <Tabs.Screen name="premium" options={{ href: null, headerShown: true, title: "プレミアム" }} />
+      {/* 057: 運営の画面。タブに出さない。マイページの「運営 ›」（isAdmin のときだけ）から */}
+      <Tabs.Screen name="admin" options={{ href: null, headerShown: true, title: "運営" }} />
     </Tabs>
   );
 }

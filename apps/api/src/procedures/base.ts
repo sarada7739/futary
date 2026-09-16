@@ -1,5 +1,5 @@
 import type { Middleware, ORPCErrorConstructorMap } from "@orpc/server";
-import { resolveCoupleContext, type CoupleContext } from "../middleware/auth-context";
+import { resolveCoupleContext, resolveIsAdmin, type CoupleContext } from "../middleware/auth-context";
 import type { RpcContext } from "../context";
 
 // このファイルの `any` について（conventions.md 2節: 通常は禁止）。
@@ -73,4 +73,20 @@ export const writeProcedure: Middleware<
   const coupleContext = await resolveCoupleContext(context, errors);
   if (coupleContext.mode === "readonly") throw errors.FORBIDDEN();
   return next({ context: coupleContext });
+};
+
+// 057: 運営専用。認証済みで ADMIN_EMAILS に含まれるメールでなければ FORBIDDEN（ゲストも）。
+// admin.* の全部にこれを使う（認可を手続きごとに書かない。タスク定義 0節 #2）
+export const adminProcedure: Middleware<
+  RpcContext,
+  { user: NonNullable<RpcContext["user"]> },
+  unknown,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  AuthedErrors,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any
+> = async ({ context, next, errors }) => {
+  if (!context.user || !resolveIsAdmin(context)) throw errors.FORBIDDEN();
+  return next({ context: { user: context.user } });
 };

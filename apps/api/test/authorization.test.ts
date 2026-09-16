@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { call, isProcedure } from "@orpc/server";
 import { describe, expect, it } from "vitest";
 import { router } from "../src/router";
-import { authedProcedure, readProcedure, writeProcedure } from "../src/procedures/base";
+import { adminProcedure, authedProcedure, readProcedure, writeProcedure } from "../src/procedures/base";
 import type { Bindings } from "../src/index";
 import type { RpcContext } from "../src/context";
 
@@ -1081,9 +1081,14 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     "billing.prices",
     "billing.createCheckoutSession",
     "billing.createPortalSession",
+    // 057: 運営（全部 adminProcedure。ADMIN_EMAILS に含まれる認証済みだけ）
+    "admin.stats",
+    "admin.lookup",
+    "admin.setPlan",
+    "admin.actions",
   ].sort();
 
-  it("許可リストに無い手続きは、3基底のいずれかを経由している", () => {
+  it("許可リストに無い手続きは、4 基底のいずれかを経由している（admin.* は adminProcedure）", () => {
     const procedures = collectProcedures(router);
     // 手続きの一覧そのものが期待どおりである（増減・リネームのどちらも検出する）
     expect(procedures.map((p) => p.path).sort()).toEqual(EXPECTED_PROCEDURE_PATHS);
@@ -1091,7 +1096,7 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
     // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの
     // 関数が含まれているかを検査する（Rレビュー005 往復2回目の指摘）
-    const bases: readonly unknown[] = [readProcedure, writeProcedure, authedProcedure];
+    const bases: readonly unknown[] = [readProcedure, writeProcedure, authedProcedure, adminProcedure];
 
     for (const { path, procedure } of procedures) {
       if (ALLOWED_WITHOUT_BASE.has(path)) continue;
@@ -1101,6 +1106,10 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
         middlewares.some((m) => bases.includes(m)),
         `${path} が認可の基底を経由していません`,
       ).toBe(true);
+      // 057: admin.* は adminProcedure（ADMIN_EMAILS の判定）を必ず経由する。他の基底では足りない
+      if (path.startsWith("admin.")) {
+        expect(middlewares.includes(adminProcedure), `${path} が adminProcedure を経由していません`).toBe(true);
+      }
     }
   });
 

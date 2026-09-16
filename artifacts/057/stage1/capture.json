@@ -1,0 +1,36 @@
+{
+  "stats": {
+    "pink": "ペア3今日 +1・7 日平均 +0.3/日",
+    "white": "ペア3今日 +1・7 日平均 +0.3/日"
+  },
+  "lookup": {
+    "pink": {
+      "plan": "無料",
+      "source": "manual"
+    },
+    "white": {
+      "plan": "プレミアム",
+      "source": "manual"
+    }
+  },
+  "actions": {
+    "pink": "2026/9/16 18:47:14・shot-me@example.complan.set・shot-cou・無料 → プレミアム",
+    "white": "2026/9/16 18:48:24・shot-me@example.complan.set・shot-cou・プレミアム → 無料"
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

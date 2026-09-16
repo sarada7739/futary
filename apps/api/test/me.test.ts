@@ -638,7 +638,16 @@ describe("me.delete", () => {
     // 緩めても誤検知は増えない（couple_idを含むのに実際は
     // `WHERE couple_id = ?`が通らない表があれば、下のbeforeチェックで
     // 例外として落ちる。fail-closed）
-    const coupleIdTables = tables.filter((t) => /couple_id/.test(t.sql)).map((t) => t.name);
+    // 057: admin_actions は couple_id を持つが FK は無く、退会しても残す（運営の操作の記録。0節 #10。
+    // couple_id は消えたペアの id のまま）。この網からは外し、残ることを別に見る
+    const KEPT_AFTER_DELETE = new Set(["admin_actions"]);
+    const allCoupleIdTables = tables.filter((t) => /couple_id/.test(t.sql)).map((t) => t.name);
+    expect(allCoupleIdTables).toContain("admin_actions");
+    const coupleIdTables = allCoupleIdTables.filter((name) => !KEPT_AFTER_DELETE.has(name));
+    await db
+      .prepare("INSERT INTO admin_actions (id, admin_user_id, action, couple_id, detail, created_at) VALUES (?1, ?2, 'plan.set', ?3, '{}', unixepoch())")
+      .bind(crypto.randomUUID(), owner.id, couple.id)
+      .run();
 
     // 検出ロジック自体の健全性: 既知の表が最低限含まれていることを保証する
     // （0件だと下のループが何もチェックせず成功してしまう）
@@ -666,6 +675,9 @@ describe("me.delete", () => {
       const row = await db.prepare(`SELECT 1 FROM ${table} WHERE couple_id = ?1`).bind(couple.id).first();
       expect(row, `${table} にペアの行が残っています`).toBeNull();
     }
+    // 057: 記録は残る
+    const kept = await db.prepare("SELECT 1 FROM admin_actions WHERE couple_id = ?1").bind(couple.id).first();
+    expect(kept, "admin_actions の記録が退会で消えている（残す決まり。057 0節 #10）").not.toBeNull();
   });
 
   // 【032】上のテストは`couple_id`という列名に頼っているため、その列を
@@ -810,6 +822,7 @@ describe("me.delete", () => {
       account: "user_id <> ?1", // sessionと同じ理由
       verification: null, // Better Authの作業行。利用者に紐づかない
       invite_failures: null, // 消さないと決めた（PR #186。時間窓1時間で切れる）
+      admin_actions: null, // 057: 運営の操作の記録。退会しても残す（0節 #10）
     };
 
     // 消す前チェック（空振りの緑を防ぐ）。couple_id列を持つ表は既存の網と

@@ -11,6 +11,7 @@ import { applyStaticSecurityHeaders, withContentSecurityPolicy } from "./lib/sec
 import { createStripeGateway } from "./lib/stripe";
 import type { BillingContext } from "./lib/billing";
 import { handleStripeWebhook } from "./stripe-webhook";
+import { parseAdminEmails } from "./lib/admin-emails";
 
 export interface Bindings {
   DB: D1Database;
@@ -43,6 +44,8 @@ export interface Bindings {
   // 048 段階2: Stripe。鍵 2 つは secret、Price ID は [vars]（秘密ではない）
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  // 057: 運営のメール（カンマ区切り。wrangler secret。ローカルは .dev.vars）
+  ADMIN_EMAILS?: string;
   STRIPE_PRICE_MONTHLY?: string;
   STRIPE_PRICE_YEARLY?: string;
 }
@@ -190,6 +193,7 @@ app.use("/api/*", async (c, next) => {
     r2Sign,
     aiEnv,
     billing: buildBilling(c.env),
+    adminEmails: parseAdminEmails(c.env.ADMIN_EMAILS),
     user,
     ip,
     demoCoupleId,

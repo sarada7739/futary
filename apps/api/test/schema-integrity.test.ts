@@ -71,6 +71,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     const objects = await listIndexesAndTriggers();
 
     expect(objects.map((o) => `${o.type}:${o.name}`)).toEqual([
+      // 057: 運営の操作の記録（直近 N 件を created_at 降順で）
+      "index:admin_actions_created_idx",
       "index:album_photos_album_taken_idx",
       "index:album_photos_key_unique",
       "index:albums_couple_created_idx",
@@ -125,6 +127,25 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
       .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'couple_plans' AND name NOT LIKE 'sqlite_%'")
       .all<{ name: string }>();
     expect(indexes.results).toEqual([]);
+  });
+
+  // 057 T8: 0025_admin_actions。運営の操作の記録。FK を張らない（退会しても残す。couple_id は消えたペアの id のまま）。
+  // created_at の索引 1 つ
+  it("admin_actions の表が実体にあり、列が定義どおり。FK 無し。created_at の索引がある", async () => {
+    const columns = await db.prepare("PRAGMA table_info(admin_actions)").all<{ name: string; type: string; notnull: number; pk: number }>();
+    expect(columns.results.map((c) => [c.name, c.type, c.notnull, c.pk])).toEqual([
+      ["id", "TEXT", 1, 1],
+      ["admin_user_id", "TEXT", 1, 0],
+      ["action", "TEXT", 1, 0],
+      ["couple_id", "TEXT", 1, 0],
+      ["detail", "TEXT", 1, 0],
+      ["created_at", "INTEGER", 1, 0],
+    ]);
+    const fks = await db.prepare("PRAGMA foreign_key_list(admin_actions)").all();
+    expect(fks.results).toEqual([]);
+    const objects = await listIndexesAndTriggers();
+    const index = objects.find((o) => o.name === "admin_actions_created_idx");
+    expect(index?.sql).toContain("(`created_at`)");
   });
 
   // events_couple_date_idxはこの一覧テストが固有に守る唯一の対象（Rレビュー指摘）。

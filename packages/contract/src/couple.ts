@@ -107,6 +107,8 @@ export const coupleWithPlanSchema = coupleSchema.extend({
   planExpiresAt: z.number().int().nullable(),
   // 「期間の終わりで解約」済みならその終了日時（秒）。画面は「〇月〇日に更新」ではなく「〇月〇日まで」と出す
   planCancelAt: z.number().int().nullable(),
+  // 057: 運営か（ADMIN_EMAILS に含まれる認証済みの利用者）。マイページの「運営 ›」の出し分けだけ。ゲストは false
+  isAdmin: z.boolean(),
 });
 export type CoupleWithPlan = z.infer<typeof coupleWithPlanSchema>;
 

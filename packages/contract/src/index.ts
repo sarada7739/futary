@@ -47,6 +47,9 @@ import {
   wantUploadUrlContract,
 } from "./want";
 import { aiSummaryGenerateContract, aiSummaryGetContract } from "./ai-summary";
+import { adminActionsContract, adminLookupContract, adminSetPlanContract, adminStatsContract } from "./admin";
+export { ADMIN_ACTIONS_DEFAULT_LIMIT, ADMIN_ACTIONS_MAX_LIMIT, ADMIN_STAT_KEYS } from "./admin";
+export type { AdminAction, AdminCount, AdminLookup, AdminStatKey, AdminStats } from "./admin";
 import {
   albumAddPhotosContract,
   albumCreateContract,
@@ -104,6 +107,13 @@ export const contract = {
     create: coupleCreateContract,
     get: coupleGetContract,
     update: coupleUpdateContract,
+  },
+  // 057: 運営（全部 isAdmin 必須）
+  admin: {
+    stats: adminStatsContract,
+    lookup: adminLookupContract,
+    setPlan: adminSetPlanContract,
+    actions: adminActionsContract,
   },
   // 048 段階2: 決済
   billing: {

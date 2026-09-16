@@ -742,3 +742,21 @@ describe("ProfileScreen: やめたあとの鍵の帯（047）", () => {
     expect(screen.queryByTestId("lock-band-zip")).toBeNull();
   });
 });
+
+// 057 T7: マイページの「運営 ›」は isAdmin のときだけ。押すと /admin
+describe("ProfileScreen: 運営の入口（057）", () => {
+  it("運営でなければ無い", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ isAdmin: false }));
+    renderScreen();
+    await waitForLoaded();
+    expect(screen.queryByTestId("profile-admin")).toBeNull();
+  });
+
+  it("運営なら「運営 ›」が出て、押すと /admin", async () => {
+    coupleGetMock.mockResolvedValue(makeCouple({ isAdmin: true }));
+    renderScreen();
+    await waitForLoaded();
+    fireEvent.click(await screen.findByTestId("profile-admin"));
+    expect(pushMock).toHaveBeenCalledWith("/admin");
+  });
+});

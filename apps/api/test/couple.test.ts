@@ -123,6 +123,8 @@ describe("couple.get", () => {
       planSource: null,
       planExpiresAt: null,
       planCancelAt: null,
+      // 057: 運営でない（ADMIN_EMAILS 無し）
+      isAdmin: false,
     });
   });
 });
