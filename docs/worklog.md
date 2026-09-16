@@ -13711,3 +13711,9 @@ Session: A
 - 本物の絵で撮り直し（`artifacts/058/stage2/`）
 
 Session: B
+
+## 2026-09-17 セッションB: 058 の追補（絵）を R が受け入れ → #408 をマージ
+
+- 判定を `artifacts/058/review-stage1.md` の末尾に追記。CI pass → squash merge
+
+Session: B
