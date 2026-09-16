@@ -13482,3 +13482,19 @@ Session: B
 - CI pass → squash merge。次は 054（LP）
 
 Session: B
+
+## 2026-09-16 セッションB: 054（LP を一般向けに作り直す）を実装
+
+- `index.html`・`style.css` を書き直し、`tech.html` を新設。写真は `make-assets.py` で縮小（品質 82・合計 522KB。250KB 超は無し）。線画は `packages/ui/assets/` から複製
+- T1〜T5 は `apps/api/test/landing.test.ts`。T4 は workerd に `node:fs` が無いので `vitest.config.ts` の仮想モジュールで大きさを渡した
+- Playwright で 1280・375 の全画面を撮り、横のはみ出し 0 を計測（`capture.mjs`。lazy の写真は一度下までスクロールしてから撮る）
+- 3 節「思い出」の「過去の 1 枚」が `memory.*` の挙動（文だけの投稿も出る）と少し食い違う → 直さず A へ
+
+Session: B
+
+## 2026-09-16 セッションB: 054 を R が受け入れ → #387 をマージ
+
+- R の判定（必須修正なし。壊して 4 通り赤を確認）を `artifacts/054/review-stage1.md` に保存
+- CI pass → squash merge。次は人間のデプロイ承認 → 047（A の起票待ち）
+
+Session: B

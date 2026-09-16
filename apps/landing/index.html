@@ -4,13 +4,13 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Nisoine - ふたり専用SNS</title>
-<meta name="description" content="Nisoineは、ふたりだけの日々を残すための専用SNS。投稿・カレンダー・統計・思い出しの4つの機能で、日々が、ふたりの記録になる。ログイン不要のデモをその場で試せます。" />
+<meta name="description" content="Nisoineは、ふたりだけの毎日を残す専用SNS。タイムライン・カレンダー・思い出・アルバム・AIまとめ。基本機能は無料。ブラウザですぐに使えます。" />
 
 <!-- OGP -->
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Nisoine" />
 <meta property="og:title" content="Nisoine - ふたり専用SNS" />
-<meta property="og:description" content="ふたりだけの日々を残す専用SNS。ログイン不要のデモをその場で試せます。" />
+<meta property="og:description" content="ふたりだけの毎日を残す専用SNS。基本機能は無料、ブラウザですぐに使えます。" />
 <meta property="og:image" content="/assets/ogp.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
@@ -19,7 +19,7 @@
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Nisoine - ふたり専用SNS" />
-<meta name="twitter:description" content="ふたりだけの日々を残す専用SNS。ログイン不要のデモをその場で試せます。" />
+<meta name="twitter:description" content="ふたりだけの毎日を残す専用SNS。基本機能は無料、ブラウザですぐに使えます。" />
 <meta name="twitter:image" content="/assets/ogp.png" />
 
 <!-- 053: 独自ドメイン。旧 URL（workers.dev）は 301 で寄せるが、検索エンジンにも正を示す -->
@@ -34,107 +34,306 @@
 </head>
 <body>
 
-<header class="hero">
-  <div class="container">
-    <img src="/assets/logo.png" alt="Nisoine" class="logo" width="200" height="53" />
-    <p class="tagline">日々が、ふたりの記録になる。</p>
-    <p class="hero-sub">ふたりだけの日々を残すための、専用SNS</p>
-    <a class="cta" href="/app/">
-      デモを見る
-      <span class="cta-note">ログイン不要ですぐに試せます</span>
-    </a>
-    <a class="cta-secondary" href="/app/">はじめる</a>
+<!-- 054: 一般向け LP。文言は docs/tasks/054-landing-for-users.md 3節の通り（売り文句を足さない）。
+     JS は入れない（inline script なし。FAQ の開閉は <details>）。写真はすべて AI 生成 -->
+
+<!-- H ヘッダー -->
+<header class="site-header">
+  <div class="container site-header-inner">
+    <a href="/" class="site-logo"><img src="/assets/logo.png" alt="Nisoine" width="140" height="37" /></a>
+    <nav class="site-nav" aria-label="ページ内">
+      <a href="#features" class="site-nav-link">特徴</a>
+      <a href="#premium" class="site-nav-link">プレミアム</a>
+      <a href="/app/" class="btn btn-small">はじめる</a>
+    </nav>
   </div>
 </header>
 
 <main>
-  <section class="features" aria-labelledby="features-heading">
+  <!-- 1 ヒーロー -->
+  <section class="hero" aria-labelledby="hero-heading">
+    <div class="container hero-copy">
+      <h1 id="hero-heading" class="serif">ふたりの毎日を、<br />ひとつの場所に。</h1>
+      <p class="hero-sub">今日の記録も、記念日も、AIまとめも —<br />ふたりだけの、小さな世界。</p>
+      <ul class="pills" aria-label="主な機能">
+        <li>タイムライン</li>
+        <li>カレンダー</li>
+        <li>思い出</li>
+        <li>AIまとめ</li>
+      </ul>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="/app/">はじめる</a>
+        <a class="link-secondary" href="/app/">ログインせずにデモを見る</a>
+      </div>
+      <p class="hero-note">今はブラウザで使えます。Google Play は準備中です。</p>
+    </div>
+    <div class="hero-photo">
+      <img src="/assets/hero-beach.jpg" alt="" width="1552" height="656" />
+    </div>
+  </section>
+
+  <!-- 2 基本機能は無料（統計カードは HTML/CSS。数字は例で動かない） -->
+  <section class="free" aria-labelledby="free-heading">
     <div class="container">
-      <h2 id="features-heading">できること</h2>
-      <ul class="feature-grid">
-        <li class="feature-card">
-          <img src="/assets/feature-post.png" alt="" width="48" height="48" />
-          <h3>投稿</h3>
-          <p>今日あったことを、写真と一緒に残せます。ふたりだけのタイムラインに積み重なっていきます。</p>
+      <h2 id="free-heading" class="section-label">基本機能は無料</h2>
+      <div class="stats-card card">
+        <div class="stats-pair">
+          <img src="/assets/avatar-yui.jpg" alt="" width="120" height="120" class="avatar" loading="lazy" />
+          <span class="stats-heart" aria-hidden="true">♥</span>
+          <img src="/assets/avatar-ren.jpg" alt="" width="120" height="120" class="avatar" loading="lazy" />
+        </div>
+        <p class="stats-names">ゆい &amp; れん</p>
+        <p class="stats-days"><span class="stats-days-label">付き合って</span><span class="stats-days-number serif">576</span><span class="stats-days-unit">日目</span></p>
+        <p class="stats-met">会った日数: 94 日</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 ふたりのこと、置き場がほしかった。 -->
+  <section class="why" aria-labelledby="why-heading">
+    <div class="container">
+      <h2 id="why-heading" class="serif">ふたりのこと、置き場がほしかった。</h2>
+      <ul class="cards-3">
+        <li class="card photo-card">
+          <h3>今日のことを、残せる</h3>
+          <p>写真といっしょに、<br />ふたりのタイムラインに。</p>
+          <img src="/assets/phone-chat.jpg" alt="" width="640" height="482" loading="lazy" />
         </li>
-        <li class="feature-card">
-          <img src="/assets/feature-calendar.png" alt="" width="48" height="48" />
-          <h3>カレンダー</h3>
-          <p>会った日・記念日・これからの予定を1つのカレンダーで管理。会った日数は自動で数えます。</p>
+        <li class="card photo-card">
+          <h3>SNS よりも、ふたりだけ</h3>
+          <p>他の人には見えない、<br />ふたり専用の場所。</p>
+          <img src="/assets/phone-photos.jpg" alt="" width="640" height="482" loading="lazy" />
         </li>
-        <li class="feature-card">
-          <img src="/assets/feature-stats.png" alt="" width="48" height="48" />
-          <h3>統計</h3>
-          <p>付き合って何日目か、会った日数、投稿数。ふたりの歩みを数字で振り返れます。</p>
-        </li>
-        <li class="feature-card">
-          <img src="/assets/feature-memory.png" alt="" width="48" height="48" />
-          <h3>思い出し</h3>
-          <p>1ヶ月前・半年前・1年前の投稿を、ホームでそっと差し出します。過去の記録が意味を持ちます。</p>
+        <li class="card photo-card">
+          <h3>記念日・予定を忘れない</h3>
+          <p>記念日も、これからの予定も、<br />ひとつのカレンダーに。</p>
+          <img src="/assets/calendar-desk.jpg" alt="" width="640" height="482" loading="lazy" />
         </li>
       </ul>
     </div>
   </section>
 
-  <section class="tech" aria-labelledby="tech-heading">
+  <!-- 4 ぜんぶ、Nisoine に。 -->
+  <section class="features" id="features" aria-labelledby="features-heading">
     <div class="container">
-      <h2 id="tech-heading">技術構成</h2>
-      <p class="tech-intro">
-        個人開発ですが、複数ペア・複数人が同時に使える前提で設計しています。
-        いくつかの設計判断を紹介します（詳細は <a href="https://github.com/sarada7739/futary/blob/main/docs/decisions.md">docs/decisions.md</a>）。
-      </p>
-
-      <ul class="tech-stack">
-        <li>Expo (React Native Web) + Expo Router</li>
-        <li>Hono + oRPC（型安全なAPI層。Zodスキーマ）</li>
-        <li>Cloudflare Workers / D1 / R2</li>
-        <li>Drizzle ORM</li>
-        <li>TanStack Query</li>
+      <h2 id="features-heading" class="serif">ぜんぶ、Nisoine に。</h2>
+      <ul class="feature-grid">
+        <li class="card feature-card">
+          <img src="/assets/tab-timeline.png" alt="" width="72" height="72" loading="lazy" />
+          <div>
+            <h3>タイムライン</h3>
+            <p>今日あったことを、写真と言葉で。<br />相手の投稿にはリアクションを。</p>
+          </div>
+        </li>
+        <li class="card feature-card">
+          <img src="/assets/tab-calendar.png" alt="" width="72" height="72" loading="lazy" />
+          <div>
+            <h3>カレンダー</h3>
+            <p>記念日・予定・会った日を、<br />ひとつの月表示で。</p>
+          </div>
+        </li>
+        <li class="card feature-card">
+          <img src="/assets/panel-memory.png" alt="" width="96" height="96" loading="lazy" />
+          <div>
+            <h3>思い出</h3>
+            <p>1ヶ月前、半年前、1年前。<br />過去の投稿をそっと差し出します。</p>
+          </div>
+        </li>
+        <li class="card feature-card">
+          <img src="/assets/panel-album.png" alt="" width="96" height="96" loading="lazy" />
+          <div>
+            <h3>アルバム</h3>
+            <p>旅行やデートの写真を、<br />まとめて残せます。</p>
+          </div>
+        </li>
+        <li class="card feature-card">
+          <img src="/assets/panel-list.png" alt="" width="96" height="96" loading="lazy" />
+          <div>
+            <h3>行きたい・食べたいリスト</h3>
+            <p>「行きたい」「食べたい」を貯めて、<br />行ったらチェック。</p>
+          </div>
+        </li>
+        <li class="card feature-card">
+          <img src="/assets/panel-want.png" alt="" width="96" height="96" loading="lazy" />
+          <div>
+            <h3>ほしいもの</h3>
+            <p>「こういうのが欲しい」を、<br />そっと相手に伝えられます。</p>
+          </div>
+        </li>
       </ul>
+    </div>
+  </section>
 
-      <div class="decisions">
-        <div class="decision">
-          <h3>認可を1箇所に集約する</h3>
-          <p>
-            全ての手続きは <code>ctx.coupleId</code> だけを使い、引数として <code>coupleId</code> を受け取りません。
-            他ペアのIDを送りつける経路そのものを作らない設計にし、認可の書き忘れが起きる余地を無くしました。
-          </p>
+  <!-- 5 AI まとめ（濃紺の帯。地は ai-network.jpg） -->
+  <section class="ai" aria-labelledby="ai-heading">
+    <div class="container">
+      <div class="ai-band">
+        <img src="/assets/ai-network.jpg" alt="" width="1360" height="768" class="ai-band-bg" loading="lazy" />
+        <div class="ai-band-copy">
+          <h2 id="ai-heading" class="serif">AIまとめ</h2>
+          <p>ふたりの 1 週間と 1 ヶ月を、AI が短く振り返ります。</p>
         </div>
-        <div class="decision">
-          <h3>記念日・予定・会った日を1テーブルに統合する</h3>
-          <p>
-            種類ごとにテーブルを分けず、<code>kind</code> 列を持つ1つの <code>events</code> テーブルにしました。
-            カレンダー表示・射影計算（繰り返す記念日）のロジックを1箇所にまとめられます。
-          </p>
+        <img src="/assets/hands-cafe.jpg" alt="" width="640" height="482" class="ai-band-photo" loading="lazy" />
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 気分の記録 / ほしいもの -->
+  <section class="duo" aria-label="気分の記録とほしいもの">
+    <div class="container">
+      <div class="cards-2">
+        <div class="card mood-card">
+          <svg class="mood-line" viewBox="0 0 320 80" width="320" height="80" aria-hidden="true" focusable="false">
+            <polyline points="8,52 48,44 88,58 128,30 168,40 208,22 248,34 288,18 312,26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="128" cy="30" r="5" fill="currentColor" />
+            <circle cx="208" cy="22" r="5" fill="currentColor" />
+            <circle cx="288" cy="18" r="5" fill="currentColor" />
+          </svg>
+          <h3 class="serif">気分の記録</h3>
+          <p>1 日 1 回、今日の気分を 1 タップ。<br />ふたり分が並んで見えます。</p>
         </div>
-        <div class="decision">
-          <h3>「去年の今日」を「思い出し」に一般化する</h3>
-          <p>
-            「去年の今日」だけだと使い始めて1年間は何も表示されません。
-            1ヶ月前 → 半年前 → 1年前の順に探し、無ければ過去投稿からランダムに1件出す設計にし、
-            使い始めた翌日から機能するようにしました。
-          </p>
-        </div>
-        <div class="decision">
-          <h3>デモは未認証・閲覧専用</h3>
-          <p>
-            ログインの壁で離脱するのを避けるため、専用のデモペアを1組用意し、
-            未認証アクセスはそのペアのデータだけを読み取り専用で返します。
-            書き込みの拒否をサーバ側の1箇所（認可ミドルウェア）に集約し、UI側の実装漏れが本番データに波及しない設計です。
-          </p>
+        <div class="card photo-card">
+          <h3 class="serif">ほしいものリスト</h3>
+          <p>写真と URL で、欲しいものを共有。</p>
+          <img src="/assets/want-grid.jpg" alt="" width="800" height="800" loading="lazy" />
         </div>
       </div>
+    </div>
+  </section>
 
-      <a class="repo-link" href="https://github.com/sarada7739/futary">GitHubリポジトリを見る</a>
+  <!-- 7 思い出 / アルバム -->
+  <section class="duo" aria-label="思い出とアルバム">
+    <div class="container">
+      <div class="cards-2">
+        <div class="card photo-card">
+          <h3 class="serif">思い出</h3>
+          <p>使い始めた翌日から、過去の 1 枚が届きます。</p>
+          <img src="/assets/polaroid-softcream.jpg" alt="" width="800" height="800" loading="lazy" />
+        </div>
+        <div class="card photo-card">
+          <h3 class="serif">アルバム</h3>
+          <p>旅行ごと、季節ごとに、写真をまとめて。</p>
+          <img src="/assets/polaroid-three.jpg" alt="" width="800" height="800" loading="lazy" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 Nisoine と過ごす、ある 1 日 -->
+  <section class="day" aria-labelledby="day-heading">
+    <div class="container">
+      <h2 id="day-heading" class="serif">Nisoine と過ごす、ある 1 日</h2>
+      <ol class="day-steps card">
+        <li>
+          <img src="/assets/panel-mood.png" alt="" width="96" height="96" loading="lazy" />
+          <span class="day-time">朝 7:30</span>
+          <h3>今日の気分</h3>
+          <p>起きたら 1 タップ。</p>
+        </li>
+        <li>
+          <img src="/assets/panel-list.png" alt="" width="96" height="96" loading="lazy" />
+          <span class="day-time">昼 12:10</span>
+          <h3>行きたい場所を追加</h3>
+          <p>ランチで見つけたお店を、リストに。</p>
+        </li>
+        <li>
+          <img src="/assets/tab-timeline.png" alt="" width="72" height="72" loading="lazy" />
+          <span class="day-time">夕方 16:40</span>
+          <h3>写真を投稿</h3>
+          <p>帰り道の空を、タイムラインに。</p>
+        </li>
+        <li>
+          <img src="/assets/tab-home.png" alt="" width="72" height="70" loading="lazy" />
+          <span class="day-time">夜 21:00</span>
+          <h3>相手の投稿にリアクション</h3>
+          <p>今日もおつかれさま。</p>
+        </li>
+        <li>
+          <img src="/assets/panel-memory.png" alt="" width="96" height="96" loading="lazy" />
+          <span class="day-time">寝る前 23:30</span>
+          <h3>1 年前の今日</h3>
+          <p>思い出が、そっと届く。</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 9 プレミアム（価格は静的。0節 #2） -->
+  <section class="premium" id="premium" aria-labelledby="premium-heading">
+    <div class="container">
+      <h2 id="premium-heading" class="serif">プレミアムで、もっと特別なふたりに。</h2>
+      <div class="plans">
+        <div class="card plan">
+          <p class="plan-name">月額プラン</p>
+          <p class="plan-price"><span class="plan-amount serif">¥420</span><span class="plan-interval">/ 月</span></p>
+        </div>
+        <div class="card plan">
+          <p class="plan-name">年額プラン</p>
+          <p class="plan-price"><span class="plan-amount serif">¥4,200</span><span class="plan-interval">/ 年</span><span class="badge">2 ヶ月分お得</span></p>
+        </div>
+      </div>
+      <ul class="checklist">
+        <li>写真を 50 万枚まで保存<span class="checklist-note">（無料プランは 30 枚まで）</span></li>
+        <li>月額と年額から選べます</li>
+      </ul>
+      <p class="premium-note">いつでも解約できます。自動更新。</p>
+      <div class="premium-actions">
+        <a class="link-secondary" href="/app/premium">プレミアムを見る →</a>
+        <a class="btn btn-primary" href="/app/">はじめる</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 10 ふたりのことだから、誰にも見せない。 -->
+  <section class="trust" aria-labelledby="trust-heading">
+    <div class="container">
+      <h2 id="trust-heading" class="serif">ふたりのことだから、誰にも見せない。</h2>
+      <ul class="trust-list">
+        <li>ふたり以外には見えません</li>
+        <li>通信は暗号化されています</li>
+        <li>いつでも退会でき、データは消えます</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 11 よくある質問 -->
+  <section class="faq" aria-labelledby="faq-heading">
+    <div class="container">
+      <h2 id="faq-heading" class="serif">よくある質問</h2>
+      <details class="card faq-item">
+        <summary>基本機能は無料ですか？</summary>
+        <p>はい。タイムライン・カレンダー・思い出・アルバム（写真 30 枚まで）・AIまとめは無料で使えます。</p>
+      </details>
+      <details class="card faq-item">
+        <summary>プレミアムはいつでも解約できますか？</summary>
+        <p>はい。解約後も期間の終わりまで使えます。</p>
+      </details>
+      <details class="card faq-item">
+        <summary>ログインには何が必要ですか？</summary>
+        <p>Google アカウントだけです。相手は 6 桁の招待コードで参加します。</p>
+      </details>
+      <details class="card faq-item">
+        <summary>データは安全ですか？</summary>
+        <p>ふたりのペア以外からは見えない設計です。写真はいつでも ZIP でまとめて持ち出せます。</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- 12 最後の呼びかけ -->
+  <section class="closing" aria-labelledby="closing-heading">
+    <div class="container">
+      <img src="/assets/logo.png" alt="Nisoine" width="200" height="53" class="closing-logo" loading="lazy" />
+      <p id="closing-heading" class="tagline serif">日々が、ふたりの記録になる。</p>
+      <a class="btn btn-primary" href="/app/">はじめる</a>
     </div>
   </section>
 </main>
 
+<!-- F フッター -->
 <footer class="footer">
   <div class="container">
-    <p>Nisoine — 日々が、ふたりの記録になる。</p>
-    <!-- 052: プライバシーポリシー・利用規約（apps/landing/privacy.html・terms.html） -->
-    <p><a href="/privacy">プライバシーポリシー</a> ・ <a href="/terms">利用規約</a> ・ <a href="/tokushoho">特定商取引法に基づく表記</a></p>
+    <!-- 052: プライバシーポリシー・利用規約。054: 技術構成は /tech へ -->
+    <p><a href="/privacy">プライバシーポリシー</a> ・ <a href="/terms">利用規約</a> ・ <a href="/tokushoho">特定商取引法に基づく表記</a> ・ <a href="/tech">技術構成</a></p>
   </div>
 </footer>
 
