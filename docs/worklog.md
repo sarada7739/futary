@@ -13608,3 +13608,9 @@ Session: A
 - main（#399。定義に 0節 #12・T3b）を取り込んだ。state.md は B の先頭を残して A の分を「旧」に
 
 Session: B
+
+## 2026-09-16 セッションB: 056 を R が差し戻し（必須修正 1。A の判断）
+
+- 判定を `artifacts/056/review-stage1.md` に保存。必須修正: 框の中で `demoFailed` → `showAuth` → 親ページが `/app/` へ飛ぶ（0節 #3 の形に由来）。A に回した
+
+Session: B
