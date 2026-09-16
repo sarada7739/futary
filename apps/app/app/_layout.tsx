@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { isDefinedError } from "@orpc/client";
 import { AppearanceProvider, Button, Screen, space, Text, useTheme } from "@futary/ui";
-import { View } from "react-native";
+import { Text as RNText, View } from "react-native";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { DemoBanner } from "../components/demo-banner";
@@ -71,11 +71,6 @@ function RootNavigator() {
     }
   }, [demoFailed]);
 
-  // 056: 框（LP の iframe）の中ではサインイン画面を出さず、親ページを /app/ に飛ばす（0節 #3）。
-  // exitGuestMode・デモの帯の「ログイン」・書き込みの UI から戻るときの全部がここを通る（入口は 1 箇所）
-  useEffect(() => {
-    if (showAuth && inFrame) leaveFrameToApp();
-  }, [showAuth, inFrame]);
 
   // 【発見: ゲストではじめる→/composeに飛んで読み込み中のまま止まる不具合の真因】
   // 以前はここで識別変化のたびに`queryClient.clear()`を呼んでいた
@@ -153,8 +148,12 @@ function RootNavigator() {
         },
         // 上と同じ理由。(auth)グループの中身は"sign-in"1つだけなので、
         // guardがshowAuth:trueへ切り替われば自然にそこへ着地する
+        // 056 0節 #3: 框（LP の iframe）の中では、サインイン画面に行く代わりに親ページを /app/ に飛ばす。
+        // 親を飛ばすのは利用者の操作（帯の「ログイン」・書き込みの UI から戻る）= ここの 1 箇所だけ。
+        // デモの読み込みの失敗（demoFailed）では飛ばさない（R の指摘: 何も押していないのに LP ごと飛んでいた）
         exitGuestMode: () => {
           setIsGuestMode(false);
+          if (inFrame) leaveFrameToApp();
         },
         demoUnavailable,
       }}
@@ -174,7 +173,9 @@ function RootNavigator() {
         <Stack.Protected guard={needsOnboarding}>
           <Stack.Screen name="(onboarding)" />
         </Stack.Protected>
-        <Stack.Protected guard={showAuth}>
+        {/* 056 0節 #3b: 框の中ではサインイン画面（Google のボタン・「ゲストではじめる」）を一切出さない。
+            その状態は下の 1 行の画面が受ける */}
+        <Stack.Protected guard={showAuth && !inFrame}>
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
         {/* 認証済みの利用者がcouple.getでNEEDS_ONBOARDING以外のエラー（通信断等）を
@@ -204,6 +205,35 @@ function RootNavigator() {
           }}
         >
           <Text color="muted">読み込み中…</Text>
+        </View>
+      )}
+      {/* 056 0節 #3b: 框の中で未認証・ゲストでもない状態（demoFailed のあと・exitGuestMode の直後の一瞬）は
+          「デモを読み込めませんでした」+「アプリを開く」（親ページで /app/ を開く）だけ */}
+      {showAuth && inFrame && (
+        <View
+          testID="frame-fallback"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: colors.bg,
+            alignItems: "center",
+            justifyContent: "center",
+            gap: space.md,
+            padding: space.xl,
+          }}
+        >
+          <Text color="muted">デモを読み込めませんでした</Text>
+          <RNText
+            accessibilityRole="link"
+            testID="frame-fallback-open"
+            style={{ color: colors.brandInk, fontWeight: "700" }}
+            {...({ href: "/app/", hrefAttrs: { target: "_top" } } as object)}
+          >
+            アプリを開く
+          </RNText>
         </View>
       )}
       {isUnresolved && (

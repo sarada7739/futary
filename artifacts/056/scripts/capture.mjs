@@ -38,14 +38,11 @@ const browser = await chromium.launch();
   record.pc.signInShown = (await frame.getByText("ゲストではじめる").count()) > 0;
   await page.waitForTimeout(800);
   await page.screenshot({ path: path.join(outDir, "pc-demo-home.png") });
-  // 043 の「新機能のお知らせ」のシート（ゲストにも初回に出る）を閉じてから触る
+  // 0節 #3c: 043 の「新機能のお知らせ」のシートは框の中では出ない（T7）。localStorage の releaseSeen も書かれない
+  record.pc.releaseSheetInFrame = (await frame.getByTestId("release-sheet").count()) > 0;
+  record.pc.releaseSeenInStorage = await page.evaluate(() => window.localStorage.getItem("futary.releaseSeen"));
   // 框は CSS の transform: scale(0.8) で縮めてあり、Playwright の座標クリックが框の中でずれる（Playwright の
   // 既知の制約。本物のブラウザの操作はずれない）ので、框の中は dispatchEvent("click") で押す
-  const closeSheet = frame.getByLabel("閉じる");
-  if ((await closeSheet.count()) > 0) {
-    await closeSheet.first().dispatchEvent("click");
-    await page.waitForTimeout(800);
-  }
   await page.screenshot({ path: path.join(outDir, "pc-demo-home-closed.png") });
   // タブ切り替え（カレンダー）
   await frame.getByText("カレンダー").first().dispatchEvent("click");

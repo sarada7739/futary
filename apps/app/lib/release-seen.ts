@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { Platform } from "react-native";
+import { isInFrame } from "./demo-frame";
 import { LATEST_VERSION } from "./releases";
 
 // 043: リリース履歴の「見た」（タスク定義 2節）。端末だけに持つ（サーバに持たない。0節 #2）。
@@ -53,7 +54,10 @@ export function hasUnseenRelease(): boolean {
   return seen !== LATEST_VERSION;
 }
 
+// 056 0節 #3c: LP のスマホの枠（iframe）の中では書かない（同じオリジンの localStorage なので、框で書くと
+// 本物の /app/ でお知らせが出なくなる）。「後で」（sessionStorage）も同じ
 export function markReleaseSeen(): void {
+  if (isInFrame()) return;
   writeKey("local", RELEASE_SEEN_STORAGE_KEY, LATEST_VERSION);
   notify();
 }
@@ -65,6 +69,7 @@ export function isReleaseDeferred(): boolean {
 }
 
 export function deferRelease(): void {
+  if (isInFrame()) return;
   writeKey("session", RELEASE_LATER_STORAGE_KEY, LATEST_VERSION);
 }
 

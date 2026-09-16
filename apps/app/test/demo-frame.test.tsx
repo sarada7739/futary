@@ -184,10 +184,40 @@ describe("056 T4: 框の中ではサインイン画面の代わりに親ペー�
     expect(frameState.assign).toHaveBeenCalledTimes(1);
   });
 
-  it("框の中で ?demo=1 無しに開いても（showAuth）親を /app/ へ飛ばす（框の中にサインイン画面を出さない）", async () => {
+  it("0節 #3b: 框の中で ?demo=1 無しに開くと、サインイン画面を出さず「デモを読み込めませんでした」+「アプリを開く」（target=_top）。親は飛ばさない", async () => {
     enterFrame();
     render(<RootLayout />);
-    await waitFor(() => expect(frameState.assign).toHaveBeenCalledWith("/app/"));
+    expect(await screen.findByTestId("frame-fallback")).toHaveTextContent("デモを読み込めませんでした");
+    const open = screen.getByTestId("frame-fallback-open");
+    expect(open).toHaveTextContent("アプリを開く");
+    expect(open.getAttribute("href")).toBe("/app/");
+    expect(open.getAttribute("target")).toBe("_top");
+    expect(screen.queryByTestId("screen-auth")).toBeNull();
+    expect(frameState.assign).not.toHaveBeenCalled();
+  });
+
+  it("T4b: 框の中で ?demo=1 → couple.get が失敗（demoFailed）→ 親は飛ばない。サインイン画面は出ず、1 行と「アプリを開く」。框の外の失敗は今まで通りサインイン画面", async () => {
+    setSearch("?demo=1");
+    coupleGetMock.mockRejectedValue(new Error("network"));
+    enterFrame();
+    const inFrameRender = render(<RootLayout />);
+    expect(await screen.findByTestId("frame-fallback")).toHaveTextContent("デモを読み込めませんでした");
+    expect(screen.getByTestId("frame-fallback-open").getAttribute("target")).toBe("_top");
+    expect(screen.queryByTestId("screen-auth")).toBeNull();
+    expect(screen.queryByTestId("screen-tabs")).toBeNull();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+    expect(frameState.assign).not.toHaveBeenCalled();
+
+    // 框の外: サインイン画面（demoUnavailable の 1 行は sign-in.tsx。ここでは (auth) が出ることだけ）
+    inFrameRender.unmount();
+    leaveFrame();
+    queryClient.clear();
+    render(<RootLayout />);
+    expect(await screen.findByTestId("screen-auth")).toBeInTheDocument();
+    expect(screen.queryByTestId("frame-fallback")).toBeNull();
+    expect(frameState.assign).not.toHaveBeenCalled();
   });
 
   it("T3b: 框の中でセッションが見えても（Cookie が漏れた場合の二重の守り）isAuthenticated は false で、デモペアのまま", async () => {

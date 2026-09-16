@@ -13621,3 +13621,10 @@ Session: B
 - R の記録: 043 のシートが框の中でも出る → 出さない。`releaseSeen` も書かない（同じオリジンの localStorage を汚さない）
 
 Session: A
+
+## 2026-09-16 セッションB: 056 の差し戻しを A の決定（#400）で直した
+
+- 0節 #3: `leaveFrameToApp()` を `exitGuestMode` に移し、`useEffect(showAuth && inFrame)` を消した。#3b: 框の中では `(auth)` を出さず、1 行「デモを読み込めませんでした」+「アプリを開く」（`target="_top"`）。#3c: お知らせのシートは框の中で出さず、`markReleaseSeen`・`deferRelease` も框の中では書かない
+- T4b・T7 を足した（app 581）。`build:public` → wrangler dev で撮り直し（シート無し・localStorage 無し・ログインで親が `/app/`）
+
+Session: B

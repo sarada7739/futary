@@ -5,6 +5,8 @@
     "frameDays": "563",
     "frameUrl": "/app/",
     "signInShown": false,
+    "releaseSheetInFrame": false,
+    "releaseSeenInStorage": null,
     "afterTabUrl": "/app/calendar",
     "parentUrlAfterLogin": "/app/",
     "parentShowsSignIn": true
