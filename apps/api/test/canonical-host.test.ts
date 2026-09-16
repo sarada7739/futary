@@ -63,9 +63,10 @@ function fakeAssets(): Fetcher {
 }
 
 // 移行前の `_headers`（scripts/build-public.mjs が 052 時点で書いていたもの。`/*` に適用）。
-// 値を固定して比べる（A の条件: 黙って弱くならない）。<accountId> は R2_ACCOUNT_ID
+// 値を固定して比べる（A の条件: 黙って弱くならない）。<accountId> は R2_ACCOUNT_ID。
+// 056: frame-ancestors だけ 'none' → 'self'（人間の了承。LP が同じオリジンから框に入れる）。それ以外は 052 のまま
 const LEGACY_HEADERS_FILE = `/*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4=' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://<accountId>.r2.cloudflarestorage.com https://lh3.googleusercontent.com; font-src 'self'; connect-src 'self' blob: https://<accountId>.r2.cloudflarestorage.com; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4=' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://<accountId>.r2.cloudflarestorage.com https://lh3.googleusercontent.com; font-src 'self'; connect-src 'self' blob: https://<accountId>.r2.cloudflarestorage.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000; includeSubDomains
@@ -299,7 +300,9 @@ describe("053: CSP は Worker が配信する HTML から inline script のハ�
     // build-public.mjs が書いていた `_headers` の CSP と同じ形
     expect(csp).toBe(buildCsp([expectedHash.slice(1, -1)], "acct123"));
     expect(csp).toContain("https://acct123.r2.cloudflarestorage.com");
-    expect(csp).toContain("frame-ancestors 'none'");
+    // 056: LP が同じオリジンから框に入れる。他サイトは拒む
+    expect(csp).toContain("frame-ancestors 'self'");
+    expect(csp).not.toContain("'none'; object-src");
     // 本文はそのまま
     expect(await res.text()).toBe(FAKE_HTML);
   });

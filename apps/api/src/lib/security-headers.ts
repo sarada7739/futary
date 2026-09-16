@@ -43,7 +43,9 @@ export function applyStaticSecurityHeaders(res: Response): void {
 // - blob: は画像投稿パイプラインに必須（expo-image-picker / expo-image-manipulator の
 //   Web 実装が URL.createObjectURL() を使う）
 // - lh3.googleusercontent.com は Google OAuth のプロフィール画像（resolveUserImage）
-// - frame-ancestors 'none' はクリックジャッキング対策（meta タグでは効かない）
+// - frame-ancestors 'self' はクリックジャッキング対策（meta タグでは効かない）。056 で 'none' → 'self':
+//   LP（同じオリジン）がスマホの枠の中に /app/?demo=1 を iframe で埋める。他サイトからは今まで通り拒む。
+//   HTML は全部この 1 つの関数なので /app/* だけの分岐は作らない（056 0節 #1）
 // - form-action は default-src にフォールバックしない独立ディレクティブ
 export function buildCsp(inlineScriptHashes: readonly string[], r2AccountId: string | undefined): string {
   const r2Host = r2AccountId ? ` https://${r2AccountId}.r2.cloudflarestorage.com` : "";
@@ -55,7 +57,7 @@ export function buildCsp(inlineScriptHashes: readonly string[], r2AccountId: str
     `img-src 'self' data: blob:${r2Host} https://lh3.googleusercontent.com; ` +
     "font-src 'self'; " +
     `connect-src 'self' blob:${r2Host}; ` +
-    "frame-ancestors 'none'; " +
+    "frame-ancestors 'self'; " +
     "object-src 'none'; " +
     "base-uri 'self'; " +
     "form-action 'self'"

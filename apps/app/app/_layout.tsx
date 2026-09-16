@@ -6,6 +6,7 @@ import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { DemoBanner } from "../components/demo-banner";
 import { useSession } from "../lib/auth-client";
+import { isDemoEntry, isInFrame, leaveFrameToApp } from "../lib/demo-frame";
 import { GuestModeContext } from "../lib/guest-mode";
 import { orpc } from "../lib/orpc";
 import { queryClient } from "../lib/query";
@@ -15,10 +16,14 @@ import { useViewerQueryKeyFrom } from "../lib/viewer-key";
 function RootNavigator() {
   const { colors } = useTheme();
   const { data: session, isPending: isSessionPending } = useSession();
-  const isAuthenticated = !!session;
+  // 056: LP のスマホの枠（iframe）の中では認証済みとして扱わない（二重の守り。本体は lib/demo-frame.ts の
+  // frameCredentials で Cookie を送らないこと）。万一セッションが見えても、框の中の画面は実ユーザーのものにしない
+  const inFrame = isInFrame();
+  const isAuthenticated = !!session && !inFrame;
   // 014: サインイン画面の「ゲストではじめる」で入る、未認証のデモ閲覧モード。
-  // 実際に認証済みになったら意味を持たない（isAuthenticatedが優先）
-  const [isGuestMode, setIsGuestMode] = useState(false);
+  // 実際に認証済みになったら意味を持たない（isAuthenticatedが優先）。
+  // 056: `/app/?demo=1` で開いたら最初からゲストモード（LP のスマホの枠の中のデモ。Web だけ）
+  const [isGuestMode, setIsGuestMode] = useState(() => isDemoEntry());
   // デモの解決に失敗してサインイン画面へ戻された直後だけtrue。理由を1行
   // 出すために使う（architecture.md 3節。Rレビュー指摘R-1・A決定）。
   // 次に「ゲストではじめる」を押したら消す
@@ -65,6 +70,12 @@ function RootNavigator() {
       setDemoUnavailable(true);
     }
   }, [demoFailed]);
+
+  // 056: 框（LP の iframe）の中ではサインイン画面を出さず、親ページを /app/ に飛ばす（0節 #3）。
+  // exitGuestMode・デモの帯の「ログイン」・書き込みの UI から戻るときの全部がここを通る（入口は 1 箇所）
+  useEffect(() => {
+    if (showAuth && inFrame) leaveFrameToApp();
+  }, [showAuth, inFrame]);
 
   // 【発見: ゲストではじめる→/composeに飛んで読み込み中のまま止まる不具合の真因】
   // 以前はここで識別変化のたびに`queryClient.clear()`を呼んでいた

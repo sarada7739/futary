@@ -267,6 +267,54 @@ p {
   background: linear-gradient(to top, var(--color-bg), rgba(254, 246, 243, 0));
 }
 
+/* ---- 056 さわってみる（スマホの枠の中のデモ） ----
+   枠の絵は 1024×1536 で、画面（透明）は x 208〜814・y 114〜1427 = 606×1313（390×844 と同じ比。
+   artifacts/056/scripts/make-assets.py の実測）。iframe を 390×844 で描いて 0.8 に縮めると 312×675 で、
+   絵を幅 527px（= 312 / 606 × 1024）に置くと画面にぴったり重なる。iframe の位置は 208 / 1024・114 / 1536 */
+
+.demo {
+  padding-top: 0;
+}
+
+.demo-lead {
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  margin: -12px 0 24px;
+}
+
+.phone {
+  position: relative;
+  width: 527px;
+  height: 791px;
+  margin: 0 auto;
+}
+
+.phone-screen {
+  position: absolute;
+  left: 107px;
+  top: 59px;
+  width: 390px;
+  height: 844px;
+  border: 0;
+  background: var(--color-bg);
+  transform: scale(0.8);
+  transform-origin: top left;
+}
+
+.phone-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.demo-more {
+  text-align: center;
+  margin-top: 20px;
+}
+
 /* ---- 2 基本機能は無料（統計カード） ---- */
 
 .free {
@@ -816,6 +864,13 @@ p {
 }
 
 /* ---- スマホ（1 列に畳む） ---- */
+
+/* 056: 768px 未満はデモの節ごと隠す（スマホの中にスマホを出さない。「ログインせずにデモを見る」に任せる） */
+@media (max-width: 767px) {
+  .demo {
+    display: none;
+  }
+}
 
 @media (max-width: 720px) {
   .site-nav-link {

@@ -13584,3 +13584,13 @@ Session: B
 - `security-requirements.md` 7節・`architecture.md` 3節・`docs/sample/README.md` を直した。state・worklog は #396 に入れ損ねたので別 PR
 
 Session: A
+
+## 2026-09-16 セッションB: 056（LP の中でデモ）を実装
+
+- `frame-ancestors 'self'`（053 の固定値も）。`/app/?demo=1` でゲストの初期値・框の中は `showAuth` で親を `/app/` へ（`lib/demo-frame.ts`。入口は `_layout` の 1 箇所）
+- **人間の指示（実装中）: 框の中に実ユーザーのデータが写らないように** → 框の中は API と認証の fetch に Cookie を送らない（`frameCredentials()` = `"omit"`）+ `isAuthenticated` を false に。ログイン中のブラウザで計測: 親は本人・框はデモ・框の request に Cookie 無し
+- LP の節「さわってみる」: iframe 390×844 を 0.8、枠の絵は人間の PNG が最初から透明（切り抜き不要）で幅 800 に。767px 以下は節を隠す（lazy の iframe は読まれないことを計測）
+- T1〜T6 + Cookie の検査。PNG のアルファは仮想モジュール（`node:zlib` で読む。依存を足さない）。vitest は CSS を空にするので style.css も仮想モジュールから
+- 撮影は Playwright の座標クリックが `transform: scale` の iframe でずれるため `dispatchEvent("click")` で
+
+Session: B
