@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-17 / セッションB。**058（カレンダーに天気と祝日）: 実装完了。PR #___（`task/058-weather-and-holidays`）。R の手番。絵は仮（人間の `icons-source.png` がまだ無い。来たら別の小さな PR で差し替え）。**
+**最終更新**: 2026-09-17 / セッションB。**058（カレンダーに天気と祝日）: 実装完了。PR #406（`task/058-weather-and-holidays`）。R の手番。絵は仮（人間の `icons-source.png` がまだ無い。来たら別の小さな PR で差し替え）。**
 - 同梱の表 3 つ（予報区 142・天気コード 118・祝日 35 日）は `artifacts/058/scripts/make-tables.mjs` で気象庁・内閣府から生成。`weather.*`・`holiday.*`・`me.updateWeatherArea`・`couple.get.weatherArea`・0026（`weather_area`）・月表示の絵と祝日の赤・帯・予定の詳細の行・マイページの 2 段の選択・`/privacy`・3.3.0
 - T1〜T8 緑（api 764・app 594・ui 20）。報告 `artifacts/058/stage1.md`・画面 `artifacts/058/stage1/`（本物の気象庁の予報で撮った）
 - 人間の手番: `docs/sample/weather/icons-source.png` を置く・デプロイ後に地域を選んで見る。（続き）057 の確認・056 の確認・047 の確認観点（猶予中のまま）・Stripe の本番 Price
