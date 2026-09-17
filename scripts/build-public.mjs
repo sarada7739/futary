@@ -5,6 +5,7 @@
 //
 // 出力構成:
 //   apps/api/public/index.html, style.css, assets/...   <- apps/landing の内容
+//     （060: *.html と style.css はコメントを除いて写す。ソースのコメントは残る。assets 等はそのまま）
 //   apps/api/public/app/...                              <- apps/app の web export
 //
 // 053 まではここで `_headers`（CSP 等のレスポンスヘッダ）も書いていたが、旧ホストの
@@ -22,9 +23,23 @@
 // を解決する。既定の html_handling=auto-trailing-slash で足りる）
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+// 060: 配信する LP の HTML・CSS からコメントを落とす（docs/tasks/060-strip-comments-on-build.md）。
+// ソース（apps/landing/）のコメントはタスク番号・内部の文書のパス・内向きの注記を含み、本番に出す
+// ものではない。圧縮ツールは入れず、正規表現 1 つずつで足りる範囲に留める:
+// - HTML: `<!-- … -->`。条件付きコメント（`<!--[if …]>`）は使っていないので区別しない
+// - CSS: `/* … */`。`content:` と `url(` の中に `/*` が無いことをテストで留める（build-public.test.ts T3）
+// 除いた後の空行は詰めない（本番の HTML を読んで差分を追えるように）
+export function stripHtmlComments(text) {
+  return text.replace(/<!--[\s\S]*?-->/g, "");
+}
+
+export function stripCssComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, "");
+}
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const landingDir = path.join(repoRoot, "apps", "landing");
@@ -207,21 +222,25 @@ function main() {
   rmSync(publicDir, { recursive: true, force: true });
   mkdirSync(publicDir, { recursive: true });
 
-  console.log("apps/landing をコピーします...");
-  cpSync(path.join(landingDir, "index.html"), path.join(publicDir, "index.html"));
+  console.log("apps/landing をコピーします（HTML・CSS はコメントを除いて）...");
+  // 060: HTML と CSS は読んで → コメントを除いて → 書く。それ以外は cpSync
+  const copyStripped = (name, strip) => {
+    writeFileSync(path.join(publicDir, name), strip(readFileSync(path.join(landingDir, name), "utf8")), "utf8");
+  };
+  copyStripped("index.html", stripHtmlComments);
   // 052: プライバシーポリシー・利用規約。index.html と同じ扱いで写す。
   // Cloudflare の静的アセット配信（html_handling=auto-trailing-slash）が
   // `/privacy` -> `privacy.html` を解決するため、ファイル名は URL に合わせる
-  cpSync(path.join(landingDir, "privacy.html"), path.join(publicDir, "privacy.html"));
-  cpSync(path.join(landingDir, "terms.html"), path.join(publicDir, "terms.html"));
+  copyStripped("privacy.html", stripHtmlComments);
+  copyStripped("terms.html", stripHtmlComments);
   // 048 段階2: 特定商取引法に基づく表記
-  cpSync(path.join(landingDir, "tokushoho.html"), path.join(publicDir, "tokushoho.html"));
+  copyStripped("tokushoho.html", stripHtmlComments);
   // 054: 技術構成（index.html から移した。フッターからだけ辿れる。sitemap には載せない）
-  cpSync(path.join(landingDir, "tech.html"), path.join(publicDir, "tech.html"));
+  copyStripped("tech.html", stripHtmlComments);
   // 053: 検索向け。robots.txt は /api/ と /app/ を Disallow、sitemap.xml は / /privacy /terms
   cpSync(path.join(landingDir, "robots.txt"), path.join(publicDir, "robots.txt"));
   cpSync(path.join(landingDir, "sitemap.xml"), path.join(publicDir, "sitemap.xml"));
-  cpSync(path.join(landingDir, "style.css"), path.join(publicDir, "style.css"));
+  copyStripped("style.css", stripCssComments);
   cpSync(path.join(landingDir, "assets"), path.join(publicDir, "assets"), { recursive: true });
 
   console.log("apps/app を web 向けにエクスポートします...");
@@ -275,4 +294,7 @@ function main() {
   console.log("完了: apps/api/public");
 }
 
-main();
+// 060: テスト（apps/api/test/build-public.test.ts）が strip* を import できるように、入口のときだけ走らせる。
+// Windows の process.argv[1] は `C:\\…` 形式なので、両方を fileURLToPath / path.resolve で揃えて比べる
+const isEntry = process.argv[1] !== undefined && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isEntry) main();

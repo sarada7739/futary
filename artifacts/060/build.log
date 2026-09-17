@@ -1,0 +1,69 @@
+apps/api/public を作り直します...
+apps/landing をコピーします（HTML・CSS はコメントを除いて）...
+apps/app を web 向けにエクスポートします...
+
+Using (experimental) base path: /app
+Expo Autolinking module resolution enabled
+Starting Metro Bundler
+
+Static rendering is enabled. Learn more: https://docs.expo.dev/router/web/static-rendering/
+λ Bundled 4869ms node_modules\.pnpm\@expo+router-server@57.0.7__f666d1fee3d8b31fbbeea11665851d1f\node_modules\@expo\router-server\node\render.js (1203 modules)
+Web Bundled 5072ms node_modules\.pnpm\expo-router@57.0.16_d9b94056e4e8968c249e31313ebe5a00\node_modules\expo-router\entry.js (1150 modules)
+
+› web bundles (2):
+_expo/static/js/web/entry-4a978040ff96621580c3fe88c914a618.js (2.2MB)
+_expo/static/js/web/WebBrowser-c33805921ac781a0db28c05545a51105.js (8.3KB)
+
+› Static routes (46):
+/join (20KB)
+/list (20KB)
+/mood (20KB)
+/post (20KB)
+/want (20KB)
+/ (index) (20KB)
+/admin (20KB)
+/album (20KB)
+/stats (20KB)
+/create (20KB)
+/invite (20KB)
+/memory (20KB)
+/compose (20KB)
+/sign-in (20KB)
+/premium (20KB)
+/profile (20KB)
+/_sitemap (18KB)
+/calendar (20KB)
+/releases (20KB)
+/timeline (20KB)
+/+not-found (18KB)
+/ai-summary (20KB)
+/(tabs)/list (20KB)
+/(tabs)/mood (20KB)
+/(tabs)/post (20KB)
+/(tabs)/want (20KB)
+/(tabs)/admin (20KB)
+/album-detail (20KB)
+/(tabs)/album (20KB)
+/(tabs) (20KB)
+/(tabs)/stats (20KB)
+/(tabs)/memory (20KB)
+/(auth)/sign-in (20KB)
+/delete-account (20KB)
+/(tabs)/premium (20KB)
+/(tabs)/profile (20KB)
+/(tabs)/calendar (20KB)
+/(tabs)/releases (20KB)
+/(tabs)/timeline (20KB)
+/(onboarding)/join (20KB)
+/(tabs)/ai-summary (20KB)
+/(onboarding) (20KB)
+/(onboarding)/create (20KB)
+/(onboarding)/invite (20KB)
+/(tabs)/album-detail (20KB)
+/(tabs)/delete-account (20KB)
+
+Exported: C:\Users\coco7\futary\apps\api\public\app
+本番バンドルにローカル開発用オリジンが残っていないか確認します...
+インラインscriptの本数と集合を確かめます...
+  inline script: sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4= / sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8=
+完了: apps/api/public
