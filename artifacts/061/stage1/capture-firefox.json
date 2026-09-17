@@ -1,0 +1,211 @@
+{
+  "engine": "firefox",
+  "pink": {
+    "home": {
+      "bar": {
+        "x": 16,
+        "y": 764,
+        "w": 358,
+        "h": 64
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "bottomMargin": 16,
+      "tablistChildren": 5,
+      "tabCount": 4,
+      "tabLabels": [
+        "ホーム",
+        "カレンダー",
+        "タイムライン",
+        "マイページ"
+      ],
+      "selected": [
+        "ホーム"
+      ],
+      "pill": {
+        "x": 21,
+        "y": 778,
+        "w": 61.6,
+        "h": 44
+      },
+      "fab": {
+        "x": 167,
+        "y": 752,
+        "w": 56,
+        "h": 56
+      },
+      "fabOverhang": 12,
+      "layers": {
+        "blur": true,
+        "refraction": true,
+        "sheet": true,
+        "aberration": true,
+        "rim": true
+      },
+      "filterDefs": [
+        "nisoine-glass-pink",
+        "nisoine-glass-white"
+      ],
+      "supportsBackdropUrl": true
+    },
+    "calendar": {
+      "bar": {
+        "x": 16,
+        "y": 764,
+        "w": 358,
+        "h": 64
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "bottomMargin": 16,
+      "tablistChildren": 5,
+      "tabCount": 4,
+      "tabLabels": [
+        "ホーム",
+        "カレンダー",
+        "タイムライン",
+        "マイページ"
+      ],
+      "selected": [
+        "カレンダー"
+      ],
+      "pill": {
+        "x": 92.6,
+        "y": 778,
+        "w": 61.6,
+        "h": 44
+      },
+      "fab": {
+        "x": 167,
+        "y": 752,
+        "w": 56,
+        "h": 56
+      },
+      "fabOverhang": 12,
+      "layers": {
+        "blur": true,
+        "refraction": true,
+        "sheet": true,
+        "aberration": true,
+        "rim": true
+      },
+      "filterDefs": [
+        "nisoine-glass-pink",
+        "nisoine-glass-white"
+      ],
+      "supportsBackdropUrl": true
+    }
+  },
+  "white": {
+    "home": {
+      "bar": {
+        "x": 16,
+        "y": 764,
+        "w": 358,
+        "h": 64
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "bottomMargin": 16,
+      "tablistChildren": 5,
+      "tabCount": 4,
+      "tabLabels": [
+        "ホーム",
+        "カレンダー",
+        "タイムライン",
+        "マイページ"
+      ],
+      "selected": [
+        "ホーム"
+      ],
+      "pill": {
+        "x": 21,
+        "y": 778,
+        "w": 61.6,
+        "h": 44
+      },
+      "fab": {
+        "x": 167,
+        "y": 752,
+        "w": 56,
+        "h": 56
+      },
+      "fabOverhang": 12,
+      "layers": {
+        "blur": true,
+        "refraction": true,
+        "sheet": true,
+        "aberration": false,
+        "rim": true
+      },
+      "filterDefs": [
+        "nisoine-glass-pink",
+        "nisoine-glass-white"
+      ],
+      "supportsBackdropUrl": true
+    },
+    "calendar": {
+      "bar": {
+        "x": 16,
+        "y": 764,
+        "w": 358,
+        "h": 64
+      },
+      "viewport": {
+        "w": 390,
+        "h": 844
+      },
+      "bottomMargin": 16,
+      "tablistChildren": 5,
+      "tabCount": 4,
+      "tabLabels": [
+        "ホーム",
+        "カレンダー",
+        "タイムライン",
+        "マイページ"
+      ],
+      "selected": [
+        "カレンダー"
+      ],
+      "pill": {
+        "x": 92.6,
+        "y": 778,
+        "w": 61.6,
+        "h": 44
+      },
+      "fab": {
+        "x": 167,
+        "y": 752,
+        "w": 56,
+        "h": 56
+      },
+      "fabOverhang": 12,
+      "layers": {
+        "blur": true,
+        "refraction": true,
+        "sheet": true,
+        "aberration": false,
+        "rim": true
+      },
+      "filterDefs": [
+        "nisoine-glass-pink",
+        "nisoine-glass-white"
+      ],
+      "supportsBackdropUrl": true
+    }
+  },
+  "consoleErrors": [
+    "firefox: [JavaScript Error: \"downloadable font: download failed (font-family: \"Poppins\" style:normal weight:800 stretch:100 src index:0): status=2147746065 source: http://localhost:8081/app/fonts/poppins-800.woff2\"]",
+    "firefox: [JavaScript Error: \"downloadable font: download failed (font-family: \"Poppins\" style:normal weight:800 stretch:100 src index:0): status=2147746065 source: http://localhost:8081/app/fonts/poppins-800.woff2\"]",
+    "firefox: [JavaScript Error: \"downloadable font: download failed (font-family: \"Poppins\" style:normal weight:500 stretch:100 src index:0): status=2147746065 source: http://localhost:8081/app/fonts/poppins-500.woff2\"]",
+    "firefox: [JavaScript Error: \"downloadable font: download failed (font-family: \"Poppins\" style:normal weight:800 stretch:100 src index:0): status=2147746065 source: http://localhost:8081/app/fonts/poppins-800.woff2\"]",
+    "firefox: [JavaScript Error: \"downloadable font: download failed (font-family: \"Poppins\" style:normal weight:500 stretch:100 src index:0): status=2147746065 source: http://localhost:8081/app/fonts/poppins-500.woff2\"]",
+    "firefox: [JavaScript Error: \"downloadable font: download failed (font-family: \"Poppins\" style:normal weight:800 stretch:100 src index:0): status=2147746065 source: http://localhost:8081/app/fonts/poppins-800.woff2\"]"
+  ]
+}

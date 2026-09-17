@@ -46,6 +46,8 @@ async function settle(page) {
 
 async function setAppearance(page, mode) {
   await page.evaluate((m) => {
+    window.localStorage.setItem("futary.releaseSeen", "3.3.0");
+    window.localStorage.setItem("futary.weatherPromptDismissed", "1");
     if (m === "pink") window.localStorage.removeItem("futary.appearance");
     else window.localStorage.setItem("futary.appearance", m);
   }, mode);
@@ -66,8 +68,8 @@ function measureTabBar() {
   const tabs = [...document.querySelectorAll('[role="tab"]')];
   const pill = document.querySelector('[data-testid="glass-pill"]');
   // FAB は tablist の中の role="none" の枠（＋投稿）。中の押せる要素の矩形を取る
-  const fabSlot = tablist ? [...tablist.children].find((c) => c.getAttribute("role") === "none") : null;
-  const fab = fabSlot ? (fabSlot.querySelector("img") ?? fabSlot.firstElementChild) : null;
+  const fabSlot = tablist ? [...tablist.children].find((c) => ["none", "presentation"].includes(c.getAttribute("role"))) : null;
+  const fab = fabSlot ? (fabSlot.querySelector("img") ?? fabSlot.querySelector("[tabindex]")) : null;
   const barRect = rect(bar);
   const fabRect = rect(fab);
   return {

@@ -43,7 +43,7 @@
 ピルも項目と同じ枠の中で中央に置き直した（`top: 14`。バー全体の中央 `10` では
 項目とずれる）。
 
-数値は `artifacts/061/capture.json` の `fabOverhang` が 12 であることで確かめる。
+数値は `artifacts/061/stage1/capture.json` の `fabOverhang` が 12 であることで確かめる。
 
 ## テスト
 
@@ -90,10 +90,13 @@ data URI は `encodeURIComponent` 済みで壊れていない。包みの `div` 
 ## 撮影の手順（R）
 
 ```
-node artifacts/061/scripts/capture.mjs http://localhost:8081 artifacts/061 session-cookie.txt
-# webkit も入っていれば
-node artifacts/061/scripts/capture.mjs http://localhost:8081 artifacts/061 session-cookie.txt webkit
+node artifacts/061/scripts/capture.mjs http://localhost:8081 artifacts/061/stage1 session-cookie.txt
+# webkit・firefox も入っていれば
+node artifacts/061/scripts/capture.mjs http://localhost:8081 artifacts/061/stage1 session-cookie.txt webkit
+node artifacts/061/scripts/capture.mjs http://localhost:8081 artifacts/061/stage1 session-cookie.txt firefox
 ```
+
+`capture.mjs` は R が 2 箇所直した版（撮る前に `futary.releaseSeen` を `"3.3.0"`・`futary.weatherPromptDismissed` を `"1"` に置く〈新機能のお知らせのモーダルが画面を覆って `glass-tab-bar` が見つからなかった〉。FAB の枠は react-native-web が `role="none"` を `role="presentation"` で出すので両方で探し、中の `[tabindex]` を測る〈元は `fab: null`、ホワイトでは包みを拾って `fabOverhang: -8` の誤計測〉）。
 
 `capture.json` で見てほしい数値:
 
@@ -108,7 +111,7 @@ node artifacts/061/scripts/capture.mjs http://localhost:8081 artifacts/061 sessi
 | `layers.aberration` | ピンク true / ホワイト false | 039「装飾は無い」 |
 | `layers.refraction` | chromium true / webkit false | 屈折が効く engine の切り分け |
 
-## 画面
+## 画面（`artifacts/061/stage1/`。R が撮影・計測。390×844・DPR 2。3 エンジン × 2 外観 × 2 画面）
 
 | ファイル | 何 |
 |---|---|
@@ -116,5 +119,21 @@ node artifacts/061/scripts/capture.mjs http://localhost:8081 artifacts/061 sessi
 | `chromium-pink-home-scrolled.png` | 下までスクロールし、カードがバーの下に入った状態 |
 | `chromium-pink-bar.png` | タブバーの寄り |
 | `chromium-pink-calendar.png` | カレンダー |
-| `chromium-white-*.png` | 同じ4枚のホワイト |
-| `webkit-*.png` | 屈折の層が捨てられる経路（任意） |
+| `chromium-white-*.png` | 同じ 4 枚のホワイト |
+| `webkit-*.png`・`firefox-*.png` | 同じ 8 枚（寸法・DOM の証拠。下の「環境の限界」） |
+| `capture.json`・`capture-webkit.json`・`capture-firefox.json` | 計測値 |
+
+### 計測の結果（R。3 エンジン × 2 外観 × 2 画面の 12 通りすべて同じ）
+
+| 何 | 値 |
+|---|---|
+| タブバー | x=16 y=764 w=358 h=64、下余白 16（旧 `tab-bar-layout.ts` と同じ） |
+| `tablist` の子 / `role="tab"` | 5 / 4（隠し画面 12 枚が幅を食っていない） |
+| FAB | y=752 h=56 → `fabOverhang` **12**（必須 2 の留め金。直す前は 6） |
+| ピル | y=778 h=44（= 764 + 8 + (56−44)/2） |
+| SVG フィルタの定義 | 2 つとも文書にある |
+| 層 | ピンクは色収差の層あり、ホワイトは無し。`layers.refraction` は 3 エンジンとも true（層の DOM の有無。描画されるかは別で、`supportsBackdropUrl` も Playwright の WebKit で true を返す） |
+| 旧タブバーとの比較 | 058 の `artifacts/058/stage3/pink-day-no-event.png` と並べて、アイコン・文字・FAB の位置が 1px 以内で一致 |
+| コンソール | Chromium・WebKit は従来の 404 だけ。Firefox は `downloadable font: download failed`（Poppins）が 6 件（フォントの話。061 の外） |
+
+**環境の限界**: Playwright の WebKit・Firefox（Windows headless）は素の HTML でも `backdrop-filter` を描画しない（R が最小 HTML で確かめた）。この 2 エンジンの画面でバーの下の文字が鮮明なのはそのせいで、実装の問題ではない。寸法・DOM の証拠にしかならない。Chromium では背景が透けてぼける（`chromium-pink-home-scrolled.png`）。Safari の本物のぼかしは人間の iPhone で見る。

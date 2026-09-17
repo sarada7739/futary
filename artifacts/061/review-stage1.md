@@ -94,3 +94,17 @@ iPhone の 60fps と発熱。
 | 2 | 直した。`tablist` に `paddingTop: space.sm`、`alignItems` を外して stretch に戻し、ピルも同じ枠で中央に置き直した。**項目のずれは計算すると 8px ではなく 4px**（旧 y=36 → 32）。原因と向きは指摘のとおり。数値は `stage1.md` の表 |
 | 3 | `state.md`・`worklog.md` を更新した。**「マージ後に別コミットで記録する運用」という主張は誤りだった**（#409・#413・#416 を実際に開いて確認した）。PR 本文も直した |
 | 併せて | タスク定義 4節に `<a>` が消えることを明記。5節の申し送りを「直せない」→「直せるが A の判断」に訂正し、`useLinkToPathProps` → `appendBaseUrl` の経路を書いた。記録 3（G1 の 1 本目）も名前を直した |
+
+---
+
+## 撮影の結果（R。条件だった撮影を終えた）: 受け入れ
+
+R がローカルで Chromium・WebKit・Firefox × ピンク・ホワイト × ホーム・カレンダーを撮影・計測した（`artifacts/061/stage1/`。この節は B が R の結果をそのまま置いた）。
+
+- タブバー x=16 y=764 w=358 h=64、下余白 16（旧と同じ）。`tablist` の子 5・`role="tab"` 4
+- FAB y=752 h=56 → `fabOverhang` 12（必須 2 の留め金。直す前は 6）。ピル y=778 h=44
+- SVG フィルタの定義 2 つとも文書にある。ピンクは色収差の層あり、ホワイトは無し
+- 058 の旧タブバーと並べてアイコン・文字・FAB の位置が 1px 以内で一致
+- コンソールエラーは従来の 404 だけ。Firefox はフォントの読み込み失敗（061 の外）
+- 環境の限界: Playwright の WebKit・Firefox（Windows headless）は `backdrop-filter` を描画しない（最小 HTML で確認）。見た目は Chromium の画面と、人間の iPhone Safari で
+- `capture.mjs` の不具合 2 つ（お知らせのモーダル・FAB の枠の role）は R が直し、この PR で差し替えた
