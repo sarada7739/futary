@@ -13856,3 +13856,11 @@ Session: B
 - 番号は 061 が B のタブバー（人間が直接指示）で埋まっていたので 062
 
 Session: A
+
+## 2026-09-18 セッションB: 062（ピンクの機能パネルにも写真タイル）
+
+- `feature-panel.tsx` を今の `WhitePanel` の構造 1 つに書き直し、`appearance` の読み取り・`PanelSurface`・`CARD_HEIGHT`・「COMING SOON」・`opacity: 0.7`・`WHITE_*` を消した。差は `useTheme()` の色と影だけ
+- `white-stage2.test.tsx`（pink の 3 本 + T2 のソース検査）・`home-screen.test.tsx`（T3）。撮影 `artifacts/062/`
+- `releases.ts` には載せない（人間の指示）
+
+Session: B
