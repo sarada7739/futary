@@ -108,3 +108,16 @@ R がローカルで Chromium・WebKit・Firefox × ピンク・ホワイト × 
 - コンソールエラーは従来の 404 だけ。Firefox はフォントの読み込み失敗（061 の外）
 - 環境の限界: Playwright の WebKit・Firefox（Windows headless）は `backdrop-filter` を描画しない（最小 HTML で確認）。見た目は Chromium の画面と、人間の iPhone Safari で
 - `capture.mjs` の不具合 2 つ（お知らせのモーダル・FAB の枠の role）は R が直し、この PR で差し替えた
+
+---
+
+## 段階2 PR #422（8019d92。Safari で壊れた 2 箇所）— R の判定
+
+futary-R で origin/task/061-safari-fix を checkout。`glass-tab-bar.test.tsx` 14 件 緑・`tsc --noEmit` 緑。`worklog.md` は追記のみ（削除 0 行）。
+
+**受け入れ。必須修正なし。**
+
+- 差分は R の依頼どおり: `glass-refraction` の層・`supportsBackdropUrl()`・`refracting`・`useMemo` を消し、`tablist` に `zIndex: 1`。ぼかしの層・板の `filter: url()`・色収差・フチは残る。`theme.ts`・`+html.tsx`・`_layout.tsx` は触っていない
+- G5 は「`backdropFilter` / `WebkitBackdropFilter` の行に `url(` が無い」「`glass-refraction` が無い」「`tablist` の行に `zIndex: 1`」で固定。屈折の層を戻すと赤くなる
+- `stage2/capture.json`: 寸法・5/4・`fabOverhang` 12 は段階1と同じ。Chromium の画面で FAB が全部見える
+- 私が確かめていないこと: iPhone Safari の実機（headless の WebKit では再現しない）。縞が残れば板の `filter: url()` も外す（段階3）
