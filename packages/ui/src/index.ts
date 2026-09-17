@@ -10,6 +10,7 @@ export {
   type Appearance,
   type ColorToken,
   type Colors,
+  type Glass,
   type Gradients,
   type Shadow,
   type ShadowStyle,

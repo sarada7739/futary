@@ -13780,3 +13780,33 @@ Session: B
 - 判定を `artifacts/060/review-stage1.md` に保存。CI pass → squash merge
 
 Session: B
+
+## 2026-09-17 代行セッション: 061（下部タブバーを湾曲ガラスにする）
+
+- **A・R・B が起動しないため、人間の直接の指示で独立したセッションが B の手番を代行した。**ハーネスの外にいる。タスク定義（`docs/tasks/061-glass-tab-bar.md`）も代行者が書いた（本来 A）
+- 方式は CSS。WebGL は採らなかった: WebGL は自分でテクスチャにした絵しか歪ませられず、背景は通常の DOM で、Safari にそれをテクスチャにする手段が無い（HTML-in-Canvas は Chromium のフラグ付き・WebKit は未表明、DOM スナップショットは毎フレーム動かない）。WebGL にすると Safari では背景が透けすらしない
+- `expo-glass-effect`（iOS 26 の OS 標準）は Web では `GlassView` がただの `View`、`isLiquidGlassAvailable()` が `false`。`ios/` も `eas.json` も無く配信は Web だけ
+- ぼかしと屈折を別の層にした。`backdrop-filter` に `url()` を含めると WebKit・Firefox が宣言ごと捨て、ぼかしまで消える
+- SVG フィルタは `+html.tsx` に文書1回。`filter: url(#id)` は同じ文書の定義しか引けない。`react-native-svg`・`reanimated`・`gesture-handler` は足していない（ピルは `Animated` + `PanResponder`）
+- **実装中に代行者が自分で出した不具合**: ドラッグして＋投稿のスロットで離すと、選択が変わらないままピルが取り残される（`nearestAllowedIndex` で寄せ先から外した）
+
+Session: B
+
+## 2026-09-17 代行セッション: 061 の独立レビューで見つかった破壊的欠陥
+
+- **隠し画面の判定が実機で必ず壊れる形だった。**`_layout.tsx` は `href: null` と書くが、その項目は navigator まで届かない。expo-router が手前で剥がし、`tabBarItemStyle: { display: "none" }` と null を返す `tabBarButton` に置き換える（`expo-router/build/layouts/TabsClient.js`）。`options.href` を見ていたため常に `undefined` で、隠し画面 12 枚が全部タブに並び、本物のタブが 1/17 の幅に潰れる
+- **テストが同じ誤解を固定していた。**descriptors を自分で `href: null` の形で組み立てていたため、本番に存在しない条件を検査するだけになり、緑のまま壊れたコードを通していた。expo-router が実際に渡す形に直し、スロットの数を数える検査を足した。壊れた実装に戻すと、この検査**だけ**が落ちる
+- そのほか: `onPanResponderTerminate` の追加、寄せ先の tie-break を向きで決める、色収差とレンズの値を theme のトークンへ、ピルの初期位置、`role="none"` の枠、`tabBarButton` を要素として描く
+
+Session: B
+
+## 2026-09-17 代行セッション: 061 の R レビュー（受け入れ・条件付き。必須 3）への対応
+
+- R は疑ってほしいと言われた 3 点を自分で検証した。隠し画面の判定は `TabsClient.js` を開いて正しいと確認。既定の `BottomTabBar.js` も `StyleSheet.flatten(tabBarItemStyle).display` で判定しており同じ規則
+- **必須 2（直した）: FAB の縦位置が 6px 下がっていた。**旧 `tabBarStyle` の `paddingTop: space.sm` と項目の stretch（`tabBarItemStyle: { flex: 1 }`）を、`tablist` の `alignItems: "center"` に置き換えたのが原因。項目が中身の高さに縮み、`marginTop: -20` の起点が下がった。`paddingTop` を戻し `alignItems` を外した。ピルも項目と同じ枠で中央に置き直した（top 10 → 14）。**項目のずれは R は 8px と書いたが、計算すると 4px**（旧 y=36 → 32）。原因と向きは指摘どおり
+- **必須 3（直した）: `state.md`・`worklog.md` を PR に入れる。**代行者が PR 本文に書いた「マージ後に別コミットで記録する運用」は誤りだった。#409・#413・#416 を実際に開くと、実装 PR 自体に両方の更新が入っている。PR 本文も訂正した
+- **必須 1（用意した）: `artifacts/061/scripts/capture.mjs`。**撮影は R（クラウドの代行セッションからはブラウザを開けない）。`capture.json` にタブバー・FAB・ピルの矩形、`tablist` の子の数、`role="tab"` の数、SVG フィルタの定義の有無、`CSS.supports` の判定を書く。`fabOverhang` が 12 であることが必須 2 の回帰の留め金
+- 併せて: タスク定義 4節に「web の `<a>` は消える」を明記（4節と5節が矛盾していた）。5節の申し送りを「直せない」→「直せるが A の判断」に訂正し、`Link` → `useLinkToPathProps` → `appendBaseUrl` の経路を書いた（R が示した）。G1 の 1 本目の名前を「これだけでは除外の証明にならない」に直した（R の記録3）
+- R の判定の全文は `artifacts/061/review-stage1.md`
+
+Session: B

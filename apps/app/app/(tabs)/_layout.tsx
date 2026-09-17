@@ -1,9 +1,9 @@
-import { FabIcon, iconTabCalendar, iconTabHome, iconTabProfile, iconTabTimeline, radius, space, useTheme } from "@futary/ui";
+import { FabIcon, iconTabCalendar, iconTabHome, iconTabProfile, iconTabTimeline, useTheme } from "@futary/ui";
 import { Tabs, useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Image, type ImageSourcePropType, Pressable, View } from "react-native";
 import { useGuestMode } from "../../lib/guest-mode";
-import { TAB_BAR_BOTTOM_MARGIN, TAB_BAR_HEIGHT } from "../../lib/tab-bar-layout";
+import { GlassTabBar } from "../../components/glass-tab-bar";
 
 // 002 の絵文字代用を、docs/sample/透過素材/dnUunrHG.png から切り出したアイコンに
 // 差し替え（008）。単色の線画のため tintColor でアクティブ/非アクティブを塗り分ける。
@@ -64,37 +64,18 @@ function FabTabButton({
 }
 
 export default function TabsLayout() {
-  const { appearance, colors, shadow } = useTheme();
   const router = useRouter();
   const { isGuestMode, exitGuestMode } = useGuestMode();
 
   return (
     <Tabs
+      // 061: タブバーの見た目は GlassTabBar が全部持つ（ぼかし・屈折・フチ・
+      // レンズのピルで層が4枚要り、tabBarStyle の style 1枚では積めない）。
+      // ここに残すのは「何を出すか」だけで、「どう見せるか」は渡さない。
+      // tabBarActiveTintColor 等も GlassTabBar が useTheme() から直接引く
+      tabBar={(props) => <GlassTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
-        // 035: 画面下端に貼り付けず、左右と下に余白を取ったピル型にして浮かせる
-        // （タスク定義2節）。浮かせた分、各画面のスクロール下端が隠れないよう
-        // lib/tab-bar-layout.tsのTAB_BAR_CLEARANCEを足す必要がある
-        tabBarStyle: {
-          position: "absolute",
-          left: space.lg,
-          right: space.lg,
-          bottom: TAB_BAR_BOTTOM_MARGIN,
-          height: TAB_BAR_HEIGHT,
-          paddingTop: space.sm,
-          backgroundColor: colors.surface,
-          borderTopWidth: 0,
-          borderRadius: radius.pill,
-          ...shadow.card,
-          // 039: ホワイトでは影が無く（shadow.card の不透明度 0）、白いピルが白い地に
-          // 溶けて境目が見えない（人間の指摘）。モック・タスク定義 5-2 d のとおり
-          // border 1px の枠線で輪郭を出す。ピンクには足さない（1ピクセルも変えない）
-          ...(appearance === "white" ? { borderWidth: 1, borderColor: colors.border } : null),
-        },
-        tabBarLabelStyle: { fontSize: 11 },
-        tabBarItemStyle: { flex: 1 },
       }}
     >
       <Tabs.Screen

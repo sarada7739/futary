@@ -121,3 +121,26 @@ describe("isAppearance", () => {
     expect(isAppearance(1)).toBe(false);
   });
 });
+
+// 061: ガラス（湾曲ガラスのタブバー）のトークン
+describe("T5: glass のトークン", () => {
+  it("キーが両モードで同一（片方だけの項目を作らない）", () => {
+    expect(Object.keys(themes.white.glass).sort()).toEqual(Object.keys(themes.pink.glass).sort());
+  });
+
+  it("filterId は外観ごとに別（屈折の強さが違うため SVG フィルタを分けている）", () => {
+    expect(themes.pink.glass.filterId).not.toBe(themes.white.glass.filterId);
+  });
+
+  // 039「装飾は無い」。虹色のにじみはピンクの語彙で、ホワイトには無い
+  // （shadow.glow の不透明度を 0 にしたのと同じ理由）
+  it("ホワイトは色収差を出さない（0）", () => {
+    expect(themes.white.glass.aberration).toBe(0);
+    expect(themes.pink.glass.aberration).toBeGreaterThan(0);
+  });
+
+  it("ぼかしは両モードとも効かせる（ガラスである以上、地は透ける）", () => {
+    expect(themes.pink.glass.blurRadius).toBeGreaterThan(0);
+    expect(themes.white.glass.blurRadius).toBeGreaterThan(0);
+  });
+});

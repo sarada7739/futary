@@ -12,6 +12,64 @@ import { ScrollViewStyleReset } from "expo-router/html";
 // 仕組み）。これを使えば baseUrl が変わっても書き直さずに済む
 const baseUrl = process.env.EXPO_BASE_URL ?? "";
 
+// 061: 湾曲ガラスのタブバーが使う SVG フィルタ。
+//
+// なぜ +html.tsx に置くか: CSS の `filter: url(#id)` は「同じ文書の中にある」
+// フィルタしか引けない。画面側で描くと、タブバーが載っていない画面で定義が
+// 消えて参照が壊れる（参照が解決できないフィルタを指定した要素は、仕様上
+// 描画されなくなる）。文書に1度だけ置くこの場所が、消えない唯一の置き場。
+// react-native-svg は入れない（依存を増やさないため。packages/ui の方針と同じ）。
+//
+// 変位マップ（feDisplacementMap の in2）は、R に横・G に縦のランプを焼いた画像。
+// 中央を 0x80（= 変位 0）で平らにし、両端に向かってだけ値を振ることで、
+// 「フチに近いほど歪み、中央はほぼ素通し」という形を作る。turbulence の
+// ランダムノイズでは中央も一様に歪むため使わない。
+// 3枚目の青い矩形は B チャンネルを埋めるためだけのもの（変位には使わない）。
+const DISPLACEMENT_MAP_SVG = [
+  "<svg xmlns='http://www.w3.org/2000/svg' width='360' height='72'>",
+  "<defs>",
+  "<linearGradient id='gx' x1='0' y1='0' x2='1' y2='0'>",
+  "<stop offset='0' stop-color='#000000'/>",
+  "<stop offset='0.22' stop-color='#800000'/>",
+  "<stop offset='0.78' stop-color='#800000'/>",
+  "<stop offset='1' stop-color='#ff0000'/>",
+  "</linearGradient>",
+  "<linearGradient id='gy' x1='0' y1='0' x2='0' y2='1'>",
+  "<stop offset='0' stop-color='#000000'/>",
+  "<stop offset='0.34' stop-color='#008000'/>",
+  "<stop offset='0.66' stop-color='#008000'/>",
+  "<stop offset='1' stop-color='#00ff00'/>",
+  "</linearGradient>",
+  "</defs>",
+  "<rect width='360' height='72' fill='url(#gx)'/>",
+  "<rect width='360' height='72' fill='url(#gy)' style='mix-blend-mode:screen'/>",
+  "<rect width='360' height='72' fill='#0000ff' style='mix-blend-mode:screen'/>",
+  "</svg>",
+].join("");
+
+const DISPLACEMENT_MAP = `data:image/svg+xml,${encodeURIComponent(DISPLACEMENT_MAP_SVG)}`;
+
+// 屈折の強さ（feDisplacementMap の scale）だけが外観で違うため、フィルタを
+// 2本に分ける。id は packages/ui/src/theme.ts の glass.filterId と対で持つ
+// （片方だけ直すと参照が壊れるため、apps/app/test/glass-tab-bar.test.tsx が
+// 2つの id の一致を検査する）
+function glassFilter(id: string, scale: number): string {
+  return (
+    `<filter id="${id}" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">` +
+    `<feImage href="${DISPLACEMENT_MAP}" preserveAspectRatio="none" result="map"/>` +
+    `<feDisplacementMap in="SourceGraphic" in2="map" scale="${scale}"` +
+    ` xChannelSelector="R" yChannelSelector="G"/>` +
+    `</filter>`
+  );
+}
+
+const GLASS_FILTER_DEFS =
+  `<svg width="0" height="0" focusable="false" aria-hidden="true"` +
+  ` style="position:absolute;width:0;height:0;overflow:hidden"><defs>` +
+  glassFilter("nisoine-glass-pink", 26) +
+  glassFilter("nisoine-glass-white", 12) +
+  `</defs></svg>`;
+
 export default function Root({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
@@ -91,7 +149,15 @@ export default function Root({ children }: { children: React.ReactNode }) {
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {/* 061: ガラスのタブバーが引く SVG フィルタ。上のコメント参照。
+            スクリプトでもスタイルでもないため CSP のハッシュは要らない */}
+        <div
+          style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
+          dangerouslySetInnerHTML={{ __html: GLASS_FILTER_DEFS }}
+        />
+        {children}
+      </body>
     </html>
   );
 }
