@@ -13820,3 +13820,12 @@ Session: B
 
 Session: B
 
+
+## 2026-09-18 セッションB: 061 の証跡（R の撮影）を artifacts/061 に置く
+
+- R が #418 の条件だった撮影を終えていた（Chromium・WebKit・Firefox × 2 外観 × 2 画面。`fabOverhang` 12・寸法は旧と一致）。#419 の「撮影はまだ」は古い記録
+- R の scratchpad から `artifacts/061/stage1/`（png 24 枚・json 3 つ）に写し、`scripts/capture.mjs` を R が直した版（お知らせのモーダルを消してから撮る・FAB の枠を `role="presentation"` でも探す）に差し替えた。`stage1.md` の画面の表と `review-stage1.md` の末尾に結果を書いた
+- WebKit・Firefox の headless は `backdrop-filter` を描かない（R が最小 HTML で確認）。見た目は人間の実機で
+- リモートの残骸 `task/061-glass-tab-bar` を消した。コードは触っていない
+
+Session: B
