@@ -96,7 +96,10 @@ function renderBar(props: GlassTabBarProps, appearance: Appearance = "pink") {
 // --- 振る舞い ---------------------------------------------------------------
 
 describe("G1: 出す項目", () => {
-  it("隠し画面（display: none）はタブのボタンとして出さない", () => {
+  // この検査だけでは足りない。隠し画面の tabBarButton は null を返すので、
+  // 除外に失敗していても文字は出ない（＝壊れた実装でも通る）。幅を食うかどうかは
+  // 下の「スロットの数」で見る（R レビュー記録3）
+  it("隠し画面の文字がタブに出ない（これだけでは除外の証明にならない）", () => {
     const { props } = makeProps();
     const { queryByText, getByText } = renderBar(props);
 

@@ -67,7 +67,7 @@
 | WebGL・canvas での屈折 | しない（0節 #1） |
 | `expo-glass-effect`（iOS 26 の OS 標準） | しない（0節 #2）。iOS アプリ化のときに分岐を足す |
 | `react-native-svg`・`reanimated`・`gesture-handler` の追加 | しない（0節 #5・#8） |
-| タブの項目・遷移・寸法の変更 | しない（見た目だけ） |
+| タブの項目・遷移・寸法の変更 | しない（見た目だけ）。**ただし web の `<a href>` は消える**（既定のタブバーは各項目を `<a>` で描いていた。遷移そのものは同じ。5節） |
 | `docs/architecture.md` 7節の書き換え | **A の手番**（下記） |
 
 ## 5. A へ申し送る
@@ -78,13 +78,16 @@
 - **039 の「装飾は無い」との関係。**ホワイトもガラスにしたが、色収差と影は 0 にして
   039 の決定は動かしていない。この解釈でよいか
 - **Safari では本物の屈折が出ない**ことを仕様として書くかどうか
-- **タブがリンク（`<a href>`）でなくなった。**既定のタブバーは `buildHref` で各項目に
-  `href` を与え、web では `<a>` を出していた（`expo-router/build/react-navigation/bottom-tabs/views/BottomTabBar.js`）。
+- **タブがリンク（`<a href>`）でなくなった。直せるが、直すかは A の判断。**
+  既定のタブバーは `buildHref` で各項目に `href` を与え、web では `<a>` を出していた
+  （`expo-router/build/react-navigation/bottom-tabs/views/BottomTabBar.js`）。
   カスタムのタブバーは `Pressable` で描くため、**PC の cmd/中クリックでの別タブ・
-  右クリックの「新しいタブで開く」・ステータスバーの URL 表示**が消える。
-  遷移そのものは同じ。直すには `buildHref` 相当が要るが、expo-router は
-  `useLinkBuilder` を公開しておらず、パスを手で組むと `baseUrl`（`/app`）でずれる。
-  **A の判断を仰ぐ**（許容するか、別タスクで直すか）
+  右クリックの「新しいタブで開く」・ステータスバーの URL 表示**が消える。遷移そのものは同じ。
+  **直し方はある**（R が示した）: 公開されている `Link` は `useLinkToPathProps` →
+  `appendBaseUrl` で `/app` を自分で足す（`expo-router/build/link/useLinkToPathProps.js`）。
+  4 タブの href は静的なので `<Link href asChild>` で包めば `<a>` に戻せる。
+  **代償**: 部品が実行時に expo-router を読むようになり、テストにモックが要る
+  （今は型だけの import で、モック無しで描ける）。許容するか、この代償を払って直すかが A の判断
 
 ## 完了条件
 

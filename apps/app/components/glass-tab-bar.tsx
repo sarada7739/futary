@@ -349,7 +349,9 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
           style={[
             {
               position: "absolute",
-              top: (TAB_BAR_HEIGHT - PILL_HEIGHT) / 2,
+              // 項目と同じ枠（paddingTop の内側）の中で上下中央に置く。
+              // バー全体で中央にすると、項目だけが 4px 下がってピルとずれる
+              top: space.sm + (TAB_BAR_HEIGHT - space.sm - PILL_HEIGHT) / 2,
               left: 0,
               width: pillWidth,
               height: PILL_HEIGHT,
@@ -368,7 +370,12 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
         />
       )}
 
-      <View role="tablist" style={{ flex: 1, flexDirection: "row", alignItems: "center" }}>
+      {/* 旧 tabBarStyle の paddingTop（space.sm）をここで持つ。項目は縦に伸ばす
+          （alignItems を center にすると項目が中身の高さに縮み、FAB の
+          marginTop: -20 の起点が下がって、バーからのはみ出しが 12px → 6px に
+          減る。旧 tabBarItemStyle: { flex: 1 } は既定の stretch で伸びていた。
+          R レビュー必須2） */}
+      <View role="tablist" style={{ flex: 1, flexDirection: "row", paddingTop: space.sm }}>
         {visible.map(({ route, index }, visibleIndex) => {
           const descriptor = descriptors[route.key];
           if (!descriptor) return null;
