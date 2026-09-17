@@ -13843,3 +13843,9 @@ Session: B
 - A へ: タスク定義 0節 #3・#4 の前提の書き換え
 
 Session: B
+
+## 2026-09-18 セッションB: 061 段階2 を R が受け入れ → #422 をマージ
+
+- 判定を `artifacts/061/review-stage1.md` の末尾に追記。CI pass → squash merge（main b713eaf）。次は人間の実機の撮り直し
+
+Session: B
