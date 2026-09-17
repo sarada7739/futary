@@ -13864,3 +13864,10 @@ Session: A
 - `releases.ts` には載せない（人間の指示）
 
 Session: B
+
+## 2026-09-18 セッションB: 062 をマージ・061 段階3 を起こす
+
+- 062: R 受け入れ（必須修正なし）→ #426 を squash merge（main aa2fbfc）
+- 061: 段階2 のデプロイ後も人間の実機（iPhone Safari・ピンクのタイムライン）でアイコンの二重化と上端の帯が残った。R の段階3（`glass-sheet` の `filter: url()` を外す）を PR #427 に。G5 に「コードに url( が無い」を追加。Chromium `artifacts/061/stage3/`
+
+Session: B
