@@ -13871,3 +13871,9 @@ Session: B
 - 061: 段階2 のデプロイ後も人間の実機（iPhone Safari・ピンクのタイムライン）でアイコンの二重化と上端の帯が残った。R の段階3（`glass-sheet` の `filter: url()` を外す）を PR #427 に。G5 に「コードに url( が無い」を追加。Chromium `artifacts/061/stage3/`
 
 Session: B
+
+## 2026-09-18 セッションB: 061 段階3 を R が受け入れ → #427 をマージ
+
+- R の読みで、二重化はピルの `backdrop-filter` + `transform`（iOS Safari の癖）。板の `filter` に加えてピルの `backdrop-filter` も外し、G5 で `backdropFilter:` の行を 1 行に固定。判定を `review-stage1.md` の末尾に追記。CI pass → squash merge（main 158434a）
+
+Session: B
