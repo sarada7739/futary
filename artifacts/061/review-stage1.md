@@ -121,3 +121,14 @@ futary-R で origin/task/061-safari-fix を checkout。`glass-tab-bar.test.tsx` 
 - G5 は「`backdropFilter` / `WebkitBackdropFilter` の行に `url(` が無い」「`glass-refraction` が無い」「`tablist` の行に `zIndex: 1`」で固定。屈折の層を戻すと赤くなる
 - `stage2/capture.json`: 寸法・5/4・`fabOverhang` 12 は段階1と同じ。Chromium の画面で FAB が全部見える
 - 私が確かめていないこと: iPhone Safari の実機（headless の WebKit では再現しない）。縞が残れば板の `filter: url()` も外す（段階3）
+
+---
+
+## 段階3 PR #427（94566dc。板の `filter: url()` とピルの `backdrop-filter` を外す）— R の判定
+
+futary-R で checkout。コードの `backdropFilter:` は `glass-blur` の 1 行（`blur() saturate()`）だけ、`filter:` / `url(` は無い。ピルは `lensTint`・`lensRim`・inset の光だけ。`glass-tab-bar.test.tsx` 16 件 緑・`tsc` 緑。`worklog.md` は削除 0 行。main（7328d2e）に rebase 済み。
+
+**受け入れ。必須修正なし。**残る CSS の効果はぼかし 1 層だけ。人間の撮り直しで二重化・帯が消えなければ、Safari ではぼかし自体が成り立たない → A・人間の判断（Safari だけ不透明に戻すか、ガラスをやめるか）。
+
+- 人間の画面（段階2 後）の R の読み: バーの中に左と上に余白を残して右下へずれた明るい矩形 = `glass-sheet` が変位マップで右下へ 10px 前後ずらされた姿。上端の帯はその上縁。アイコン・文字の二重化はピルの `backdrop-filter` + `transform`（iOS Safari の癖）
+- マージ後は人間の手番: デプロイの承認 → Safari のタブを閉じて開き直してから、ピンクのタイムライン（写真のある投稿）を撮る。FAB が全部見えるかも
