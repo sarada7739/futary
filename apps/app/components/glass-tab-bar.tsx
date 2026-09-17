@@ -1,6 +1,6 @@
 import { fontFamily, radius, space, useTheme, type Glass } from "@futary/ui";
 import type { Tabs } from "expo-router";
-import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import {
   Animated,
   PanResponder,
@@ -30,15 +30,16 @@ import {
 // 状態管理は navigator のまま（この部品は state と descriptors を読むだけで、
 // 自前の選択状態を持たない）。
 //
-// 【屈折が本物になるのは Chromium だけ】
-// CSS には「背後の絵を歪ませる」手段が `backdrop-filter: url(#フィルタ)` しか
-// 無く、これを実装しているのは Chromium だけ（WebKit・Firefox は url() を含む
-// 宣言ごと捨てる）。そのため層を2枚に分けてある:
+// 【backdrop-filter には url() を置かない】
+// 「背後の絵を歪ませる」`backdrop-filter: url(#フィルタ)` の層は最初の版に
+// あったが外した。前提「WebKit は url() を含む宣言ごと捨てる」が iPhone の
+// Safari で成り立たず（`CSS.supports` も true を返す）、Safari はこの層を処理して
+// 壊れた絵（バーの上下に背景をずらした赤い帯・上端に沿った縞。FAB の下半分も
+// 覆われた）を出した（人間の実機。2026-09-18）。歪みは「ガラス板そのもの」
+// （下の屈折シート）の通常の `filter: url()` だけに持たせる。
 //   - ぼかしの層: blur と saturate だけ。url() を含めない。全ブラウザで効く
-//   - 屈折の層  : backdrop-filter に url() だけを渡す。捨てられても上の層は残る
-// 1つの宣言にまとめると、Safari が宣言ごと捨てたときにぼかしまで消える。
-// Safari でも歪んで見えるのは「ガラス板そのもの」（下の屈折シート）の方で、
-// こちらは通常の `filter: url()` のため全ブラウザで効く。
+//   - ガラス板  : filter: url() で板の側を歪ませる
+// backdrop-filter に url() を置かないことはテスト G5 が留めている。
 const PILL_HEIGHT = 44;
 // スロットの中でピルが左右に残す余白
 const PILL_INSET = 5;
@@ -51,19 +52,6 @@ const DRAG_THRESHOLD = 6;
 // （components/wheel-column.tsx の maskImage と同じ形。ネイティブでは null）
 function webOnly(style: Record<string, string | number>): object | null {
   return Platform.OS === "web" ? (style as object) : null;
-}
-
-// `backdrop-filter: url(#...)` を実装しているか。UA では判定しない。
-// Safari が構文としては受け付けて描画しない場合に備え、これが true でも
-// ぼかしの層は別に持たせてある（上のコメント）
-function supportsBackdropUrl(): boolean {
-  if (Platform.OS !== "web") return false;
-  if (typeof CSS === "undefined" || typeof CSS.supports !== "function") return false;
-  try {
-    return CSS.supports("backdrop-filter", "url(#nisoine-glass-pink)");
-  } catch {
-    return false;
-  }
 }
 
 // タブのボタンとして出さない画面（(tabs)/_layout.tsx の思い出・統計など）の判定。
@@ -79,8 +67,8 @@ function isHiddenFromTabBar(options: { tabBarItemStyle?: StyleProp<ViewStyle> })
   return StyleSheet.flatten(options.tabBarItemStyle)?.display === "none";
 }
 
-/** ガラスの板。ぼかし・屈折・フチ・色収差を重ねる。中身（ピル・項目）は持たない */
-function GlassPane({ glass, refracting }: { glass: Glass; refracting: boolean }) {
+/** ガラスの板。ぼかし・歪んだ板・フチ・色収差を重ねる。中身（ピル・項目）は持たない */
+function GlassPane({ glass }: { glass: Glass }) {
   const blur = `blur(${glass.blurRadius}px) saturate(${glass.saturate})`;
   return (
     <View style={[StyleSheet.absoluteFill, { borderRadius: radius.pill, overflow: "hidden" }]} pointerEvents="none">
@@ -92,20 +80,7 @@ function GlassPane({ glass, refracting }: { glass: Glass; refracting: boolean })
           webOnly({ backdropFilter: blur, WebkitBackdropFilter: blur }),
         ]}
       />
-      {/* 2. 屈折。Chromium だけが効かせる。捨てられても 1 は残る */}
-      {refracting && (
-        <View
-          testID="glass-refraction"
-          style={[
-            StyleSheet.absoluteFill,
-            webOnly({
-              backdropFilter: `url(#${glass.filterId})`,
-              WebkitBackdropFilter: `url(#${glass.filterId})`,
-            }),
-          ]}
-        />
-      )}
-      {/* 3. ガラス板そのもの。これ自体を filter で歪ませる（全ブラウザで効く）。
+      {/* 2. ガラス板そのもの。これ自体を filter で歪ませる（全ブラウザで効く）。
              左上が明るく右下が暗い斜めのグラデーションを持たせ、歪みが
              見える形を与える。無地だと歪ませても何も起きない */}
       <View
@@ -122,7 +97,7 @@ function GlassPane({ glass, refracting }: { glass: Glass; refracting: boolean })
           }),
         ]}
       />
-      {/* 4. 色収差。歪んだフチにだけ虹色を乗せる。inset の影を左右に振ると、
+      {/* 3. 色収差。歪んだフチにだけ虹色を乗せる。inset の影を左右に振ると、
              端にしか出ない（中央には届かない）。ホワイトは aberration が 0 で
              この層自体を出さない（039「装飾は無い」） */}
       {glass.aberration > 0 && (
@@ -139,7 +114,7 @@ function GlassPane({ glass, refracting }: { glass: Glass; refracting: boolean })
           ]}
         />
       )}
-      {/* 5. フチ。左上からの光と、反対側の弱い反射 */}
+      {/* 4. フチ。左上からの光と、反対側の弱い反射 */}
       <View
         testID="glass-rim"
         style={[
@@ -164,7 +139,6 @@ export type GlassTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs
 export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps) {
   const { colors, glass, shadow } = useTheme();
   const [barWidth, setBarWidth] = useState(0);
-  const refracting = useMemo(supportsBackdropUrl, []);
   // レンズ（ピル）は板より強く曲げる。値はトークンから引く（architecture.md 7節）
   const lensFilter =
     `blur(${glass.lensBlurRadius}px) brightness(${glass.lensBrightness}) saturate(${glass.lensSaturate})`;
@@ -338,7 +312,7 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
       ]}
       {...pan.panHandlers}
     >
-      <GlassPane glass={glass} refracting={refracting} />
+      <GlassPane glass={glass} />
 
       {/* 選択中のピル。ガラスの板の上に乗る「レンズ」。押している間は
           膨らんでバーの外へ出るため、overflow: hidden の GlassPane の外に置く */}
@@ -374,8 +348,11 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
           （alignItems を center にすると項目が中身の高さに縮み、FAB の
           marginTop: -20 の起点が下がって、バーからのはみ出しが 12px → 6px に
           減る。旧 tabBarItemStyle: { flex: 1 } は既定の stretch で伸びていた。
-          R レビュー必須2） */}
-      <View role="tablist" style={{ flex: 1, flexDirection: "row", paddingTop: space.sm }}>
+          R レビュー必須2）。
+          zIndex: 1 は、backdrop-filter を持つ兄弟（GlassPane）が後に描くこの列の
+          上に来る WebKit の重なり順の癖を抑える（iPhone の Safari で FAB の下半分が
+          バーに覆われた。2026-09-18） */}
+      <View role="tablist" style={{ flex: 1, flexDirection: "row", paddingTop: space.sm, zIndex: 1 }}>
         {visible.map(({ route, index }, visibleIndex) => {
           const descriptor = descriptors[route.key];
           if (!descriptor) return null;

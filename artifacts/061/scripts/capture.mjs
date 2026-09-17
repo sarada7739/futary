@@ -89,7 +89,6 @@ function measureTabBar() {
     // ガラスの層が実際に出ているか（ホワイトは色収差の層を出さない）
     layers: {
       blur: !!document.querySelector('[data-testid="glass-blur"]'),
-      refraction: !!document.querySelector('[data-testid="glass-refraction"]'),
       sheet: !!document.querySelector('[data-testid="glass-sheet"]'),
       aberration: !!document.querySelector('[data-testid="glass-aberration"]'),
       rim: !!document.querySelector('[data-testid="glass-rim"]'),
