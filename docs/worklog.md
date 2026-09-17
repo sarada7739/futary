@@ -13810,3 +13810,13 @@ Session: B
 - R の判定の全文は `artifacts/061/review-stage1.md`
 
 Session: B
+
+## 2026-09-17 代行セッション: 061 を人間の判断でマージ（#418）
+
+- 人間から「マージしていいよ」。**R の撮影を待たずにマージした**（R の判定は「受け入れ（条件付き）」で、条件は撮影だった）。squash merge、main `aa1d5ca`。`Session: B` トレーラーが main に残っていることを確認
+- **見た目そのものは誰も見ていないままマージした。**デプロイは `production` 環境の承認で止まるため、本番に出るのは人間が承認したとき
+- リモートの `task/061-glass-tab-bar` が消せていない。代行セッションの環境で `git push origin :branch` が通らなかった（`remote end hung up`）。人間か B が消す
+- `artifacts/061/scripts/capture.mjs` はマージ後でも走らせられる。`fabOverhang` が 12 でなければ、FAB の縦位置の回帰が残っている
+
+Session: B
+
