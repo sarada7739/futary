@@ -13765,3 +13765,12 @@ Session: B
 - 059 の T4 の参照（R の記録）を実体の記述に直した
 
 Session: A
+
+## 2026-09-17 セッションB: 060（本番の LP からコメントを落とす）
+
+- `scripts/build-public.mjs`: `stripHtmlComments`・`stripCssComments` を export。複製の段で HTML・CSS だけ通す。`main()` を `isEntry`（`path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)`）で包む
+- 型は `scripts/build-public.d.mts`（`.mjs` の隣）。`raw-import.d.ts` に相対パスの `declare module` を書く形は tsc に効かなかった
+- `apps/api/test/build-public.test.ts` T1〜T4。workerd でも `build-public.mjs` を import できた（nodejs_compat の stub）
+- `pnpm build:public`: index.html の `<!--` 21 → 0、style.css の `/*` 30 → 0。撮影 `artifacts/060/`
+
+Session: B
