@@ -3,7 +3,13 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-17 / セッションB。**060（本番の LP からコメントを落とす）: 実装完了。PR #416（`task/060-strip-comments`）。R の手番。**
+**最終更新**: 2026-09-17 / セッションB。**060（本番の LP からコメントを落とす）: R 受け入れ（必須修正なし）→ #416 を squash merge（main 423c530）。次は人間: デプロイの承認（最新だけ）→ `https://nisoine.com/` の開発者ツールでコメントが無いのを見る。B は待機（次は iOS 段階0 かメール認証。人間の合図待ち）。**
+- 判定 `artifacts/060/review-stage1.md`。R の記録: `isEntry` はドライブ文字の大小が違うと false（今は問題なし）・タスク定義の「約 980 個」はソースの `/*` 30 と合わない（A の記述）
+- 人間の手番（続き）: 059 の 2 列・058 の予定の無い日・057・056 の確認・047 の確認観点・Stripe の本番 Price。未着手: iOS 段階0（Opus で）・メール認証・042 の上限 50。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-17 / セッションB。**060（本番の LP からコメントを落とす）: 実装完了。PR #416（`task/060-strip-comments`）。R の手番。**
 - `build-public.mjs` に `stripHtmlComments`・`stripCssComments`（export）。HTML 5 つと `style.css` は読んで → 除いて → 書く。`main()` は入口のときだけ。`build-public.d.mts`（型）・`build-public.test.ts`（T1〜T4）。api 786 緑。`pnpm build:public` で出力の `<!--`・`/*` が 0。報告 `artifacts/060/stage1.md`
 - 人間の手番: 059 のデプロイの承認（最新だけ）→ `https://nisoine.com/` の 2 列。（続き）058・057・056 の確認・047 の確認観点・Stripe の本番 Price。開いている PR: Dependabot の fflate（#340・#382）
 
