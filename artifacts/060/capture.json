@@ -1,0 +1,64 @@
+{
+  "served": {
+    "/": {
+      "status": 200,
+      "bytes": 13063,
+      "htmlComments": 0,
+      "cssComments": 0
+    },
+    "/privacy": {
+      "status": 200,
+      "bytes": 5818,
+      "htmlComments": 0,
+      "cssComments": 0
+    },
+    "/terms": {
+      "status": 200,
+      "bytes": 4693,
+      "htmlComments": 0,
+      "cssComments": 0
+    },
+    "/tokushoho": {
+      "status": 200,
+      "bytes": 2913,
+      "htmlComments": 0,
+      "cssComments": 0
+    },
+    "/tech": {
+      "status": 200,
+      "bytes": 2769,
+      "htmlComments": 0,
+      "cssComments": 0
+    },
+    "/style.css": {
+      "status": 200,
+      "bytes": 13901,
+      "htmlComments": 0,
+      "cssComments": 0
+    }
+  },
+  "pages": {
+    "/": {
+      "title": "Nisoine - ふたり専用SNS",
+      "h1": "ふたりの毎日を、ひとつの場所に。",
+      "sections": 13,
+      "bodyColor": "rgb(74, 55, 51)",
+      "containerMaxWidth": "960px"
+    },
+    "/privacy": {
+      "title": "プライバシーポリシー - Nisoine",
+      "h1": null,
+      "sections": 1,
+      "bodyColor": "rgb(74, 55, 51)",
+      "containerMaxWidth": "960px"
+    },
+    "/tech": {
+      "title": "Nisoine の技術構成",
+      "h1": null,
+      "sections": 1,
+      "bodyColor": "rgb(74, 55, 51)",
+      "containerMaxWidth": "960px"
+    }
+  },
+  "consoleErrors": []
+}
