@@ -39,10 +39,12 @@ import {
 //     成り立たなかった。`CSS.supports` も true を返す）→ 段階2 で外した
 //   - filter: url(): 外した後もアイコンと文字が二重にずれ、上端に帯が残った
 //     → 段階3 で外した
-// 残る層は、ぼかし（blur と saturate だけ。全ブラウザで効く）・無地の板
-// （斜めのグラデーション）・色収差・フチ。歪みは無い「曇りガラス」。
-// この部品に url( が無いことはテスト G5 が留めている。+html.tsx の SVG
-// フィルタの定義と theme の filterId は残っているが、ここからは参照しない。
+//   - ピルの backdrop-filter: transform と同時に持つと背後を二重に描く → 段階3 で外した
+// 残る層は、ぼかし（glass-blur。blur と saturate だけ。backdrop-filter はこの 1 箇所）・
+// 無地の板（斜めのグラデーション）・色収差・フチ・ピル（色とフチと inset の光）。
+// 歪みは無い「曇りガラス」。この部品に url( が無いこと・backdrop-filter が 1 箇所
+// だけなことはテスト G5 が留めている。+html.tsx の SVG フィルタの定義と theme の
+// filterId・lens* は残っているが、ここからは参照しない。
 const PILL_HEIGHT = 44;
 // スロットの中でピルが左右に残す余白
 const PILL_INSET = 5;
@@ -139,10 +141,6 @@ export type GlassTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs
 export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps) {
   const { colors, glass, shadow } = useTheme();
   const [barWidth, setBarWidth] = useState(0);
-  // レンズ（ピル）は板より強く曲げる。値はトークンから引く（architecture.md 7節）
-  const lensFilter =
-    `blur(${glass.lensBlurRadius}px) brightness(${glass.lensBrightness}) saturate(${glass.lensSaturate})`;
-
   // href: null の画面（思い出・統計など）はボタンとして出さない。
   // 既定のタブバーと同じ規則（(tabs)/_layout.tsx のコメント参照）
   const visible = state.routes
@@ -335,9 +333,11 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
               borderColor: glass.lensRim,
               transform: [{ translateX }, { scaleX: stretch }, { scale: press }],
             },
+            // ピルに backdrop-filter は置かない。iOS Safari は backdrop-filter と
+            // transform（translateX・scaleX・scale）を同時に持つ要素で、背後の内容を
+            // transform の分だけずらして二重に描く（人間の実機でアイコンと文字が
+            // 二重化。段階3）。レンズの質感は色（lensTint）・フチ・inset の光だけ
             webOnly({
-              backdropFilter: lensFilter,
-              WebkitBackdropFilter: lensFilter,
               boxShadow: `inset 0 1px 0 ${glass.edgeHighlight}, inset 0 -1px 0 ${glass.edgeReflection}`,
             }),
           ]}

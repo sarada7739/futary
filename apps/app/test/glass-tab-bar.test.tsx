@@ -226,6 +226,14 @@ describe("G5: この部品で SVG フィルタ（url()）を使わない", () =>
     expect(source).not.toContain("glass-refraction");
   });
 
+  it("backdropFilter の宣言は glass-blur の 1 箇所だけ（ピルには置かない。transform と同時だと Safari が背後を二重に描く。段階3）", () => {
+    const source = readSource("components/glass-tab-bar.tsx");
+    const code = source.replace(/\/\*[^]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    const lines = code.split("\n").filter((line) => /\bbackdropFilter:/.test(line));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("backdropFilter: blur");
+  });
+
   it("filter / WebkitFilter の宣言も無い（板の歪みも外した。段階3）。コードに url( が無い", () => {
     const source = readSource("components/glass-tab-bar.tsx");
     const code = source.replace(/\/\*[^]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");

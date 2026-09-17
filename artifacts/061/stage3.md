@@ -7,11 +7,13 @@
 
 R が段階2 で決めていた次の手のとおり、ガラス板 `glass-sheet` の `filter: url(#…)` も外した。
 
+R が人間の画面を拡大して読んだ: バーの中に左と上に余白を残して右下へずれた明るい矩形が見える。これは `glass-sheet` が `filter: url()`（変位マップ）で右下へ 10px 前後ずらされた姿で、上端の「帯」はその矩形の上縁（グラデーションの明るい側）。**「アイコンと文字が二重にずれる」の方は板ではなくピル（レンズ）の `backdrop-filter` + `transform`**: iOS Safari は `backdrop-filter` と `transform: translate/scale` を同時に持つ要素で、背後の内容を transform の分だけずらして二重に描く癖がある（ピルは `translateX`・`scaleX`・`scale` を持ち、その下にアイコンと文字がある）。なのでピルの `backdrop-filter` も外した。
+
 ## 変更
 
-- `apps/app/components/glass-tab-bar.tsx`: `glass-sheet` の `filter` / `WebkitFilter` を消した。板は色（`tint`）と斜めのグラデーションだけ。冒頭のコメントを段階2・3 の経緯込みの今の前提に。残る層はぼかし（blur + saturate）・板・色収差（ピンクだけ）・フチ。**この部品に `url(` は無い**
-- `apps/app/test/glass-tab-bar.test.tsx` G5: 「`filter` / `WebkitFilter` の宣言も無い。コード（コメントを除く）に `url(` が無い」を足した。前の「屈折は `filter` だけ」の断言は消した
-- `+html.tsx` の SVG フィルタの定義と `theme.ts` の `filterId`（G6）は触っていない（もう参照されない。消すかは A の判断）
+- `apps/app/components/glass-tab-bar.tsx`: `glass-sheet` の `filter` / `WebkitFilter` を消した。**ピル `glass-pill` の `backdropFilter` / `WebkitBackdropFilter`（`lensFilter`）も消した**（`lensTint`・`lensRim`・inset の光は残る）。`backdrop-filter` は `glass-blur` の 1 箇所だけ。板は色（`tint`）と斜めのグラデーションだけ。冒頭のコメントを段階2・3 の経緯込みの今の前提に。残る層はぼかし（blur + saturate）・板・色収差（ピンクだけ）・フチ。**この部品に `url(` は無い**
+- `apps/app/test/glass-tab-bar.test.tsx` G5: 「`backdropFilter:` を含む行は 1 行だけ（`glass-blur`）」「`filter` / `WebkitFilter` の宣言も無い。コード（コメントを除く）に `url(` が無い」を足した。前の「屈折は `filter` だけ」の断言は消した
+- `+html.tsx` の SVG フィルタの定義と `theme.ts` の `filterId`・`lensBlurRadius`・`lensBrightness`・`lensSaturate`（G6・T5）は触っていない（もう参照されない。消すかは A の判断）
 
 ## テスト
 
@@ -23,8 +25,9 @@ R が段階2 で決めていた次の手のとおり、ガラス板 `glass-sheet
 
 ## B が確かめていないこと
 
-- **iPhone Safari の実機。**マージ・デプロイ後に人間が同じ画面をもう一度撮る。これでも二重化・帯が残るなら、残る候補はピルの `backdrop-filter: blur() brightness() saturate()` と色収差の `inset` の影（段階4。判断は R・A）
+- **iPhone Safari の実機。**マージ・デプロイ後に人間が同じ画面（ピンクのタイムライン、写真のある投稿）をもう一度撮る。**Safari のキャッシュで前のビルドが出る可能性があるので、撮る前にタブを閉じて開き直す。**段階2 の `zIndex` で FAB が全部見えるようになったかも一緒に見る
+- これで残るのは `glass-blur` の `backdrop-filter: blur() saturate()` だけ。それでも二重化・帯が残るなら、ぼかし自体が Safari で成り立たないということで、Safari だけ不透明に戻す（UA 判定が要る）かガラスをやめるかは A・人間の判断
 
 ## A へ
 
-- `+html.tsx` の SVG フィルタの定義・変位マップと `theme.ts` の `Glass.filterId` は参照されなくなった。消すなら A の判断（タスク定義 0節 #3・#4 の書き換えと一緒に）
+- `+html.tsx` の SVG フィルタの定義・変位マップと `theme.ts` の `Glass.filterId`・`lens*`（`lensBlurRadius`・`lensBrightness`・`lensSaturate`）は参照されなくなった。消すなら A の判断（タスク定義 0節 #3・#4 の書き換えと一緒に）
