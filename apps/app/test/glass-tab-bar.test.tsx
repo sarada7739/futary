@@ -208,9 +208,9 @@ describe("G4: 外観", () => {
 
 // --- ソースの不変条件 ---------------------------------------------------------
 
-describe("G5: ぼかしと屈折を別の層に分ける", () => {
-  // 1つの宣言にまとめると、url() を解釈しない Safari が宣言ごと捨てたときに
-  // ぼかしまで消える（components/glass-tab-bar.tsx 冒頭のコメント）
+describe("G5: backdrop-filter に url() を置かない（屈折は filter だけ）", () => {
+  // iPhone の Safari は `backdrop-filter: url()` を捨てずに処理して壊れた絵を出す
+  // （バーの上下に赤い帯・上端の縞。components/glass-tab-bar.tsx 冒頭のコメント）
   it("ぼかしの宣言に url( を含めない", () => {
     const source = readSource("components/glass-tab-bar.tsx");
     const blurLine = source.split("\n").find((line) => line.includes("const blur ="));
@@ -218,10 +218,20 @@ describe("G5: ぼかしと屈折を別の層に分ける", () => {
     expect(blurLine).not.toContain("url(");
   });
 
-  it("屈折は backdrop-filter と filter の両方に置く（Chromium 以外でも板は歪む）", () => {
+  it("backdropFilter / WebkitBackdropFilter の宣言に url( が無い（ぼかしの層もレンズも）。屈折は filter だけ", () => {
     const source = readSource("components/glass-tab-bar.tsx");
-    expect(source).toContain("backdropFilter: `url(#${glass.filterId})`");
+    const backdropLines = source.split("\n").filter((line) => /\bbackdropFilter:|\bWebkitBackdropFilter:/.test(line));
+    expect(backdropLines.length).toBeGreaterThan(0);
+    expect(backdropLines.filter((line) => line.includes("url("))).toEqual([]);
     expect(source).toContain("filter: `url(#${glass.filterId})`");
+    expect(source).not.toContain("glass-refraction");
+  });
+
+  it("タブの列（tablist）はガラスの層の上に固定する（zIndex: 1。Safari で FAB が覆われない）", () => {
+    const source = readSource("components/glass-tab-bar.tsx");
+    const tablistLine = source.split("\n").find((line) => line.includes('role="tablist"'));
+    expect(tablistLine).toBeDefined();
+    expect(tablistLine).toContain("zIndex: 1");
   });
 });
 

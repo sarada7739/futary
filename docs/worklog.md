@@ -13835,3 +13835,11 @@ Session: B
 - R が png・json・`capture.mjs` を手元と `cmp` で同一と確認。CI pass → squash merge（main 4321901）
 
 Session: B
+
+## 2026-09-18 セッションB: 061 段階2（iPhone Safari の壊れ 2 箇所）
+
+- 人間の実機で、ピンクはバーの上下に赤い帯 + FAB の下半分が覆われ、ホワイトは上端に縞。R の推定: Safari が `backdrop-filter: url()` を捨てずに処理している（前提が崩れた）
+- `glass-refraction` の層と `supportsBackdropUrl` を消し、`tablist` に `zIndex: 1`。G5 を「backdrop-filter に url( を置かない」に反転。`capture.mjs` の `layers.refraction` を外す。Chromium で撮り直し `artifacts/061/stage2/`
+- A へ: タスク定義 0節 #3・#4 の前提の書き換え
+
+Session: B
