@@ -44,7 +44,15 @@ function makeProps(options: { focusedName?: string; preventDefault?: boolean } =
     descriptors[`${spec.name}-key`] = {
       options: {
         title: spec.title,
-        ...(spec.hidden ? { href: null } : {}),
+        // **`href: null` は navigator まで届かない。**expo-router が手前で剥がし、
+        // `tabBarItemStyle: { display: "none" }` と「null を返す tabBarButton」に
+        // 置き換える（expo-router/build/layouts/TabsClient.js の processor）。
+        // ここで `href: null` を渡す形にすると、本番に存在しない条件を検査する
+        // だけのテストになる（実際にそう書いていて、隠し画面が全部タブに並ぶ
+        // 不具合を緑のまま通した）。実物と同じ形を作る
+        ...(spec.hidden
+          ? { tabBarItemStyle: { display: "none" }, tabBarButton: () => null }
+          : {}),
         ...(spec.fab
           ? {
               tabBarButton: (buttonProps: { onPress?: () => void }) => (
@@ -88,7 +96,7 @@ function renderBar(props: GlassTabBarProps, appearance: Appearance = "pink") {
 // --- 振る舞い ---------------------------------------------------------------
 
 describe("G1: 出す項目", () => {
-  it("href: null の画面はタブのボタンとして出さない", () => {
+  it("隠し画面（display: none）はタブのボタンとして出さない", () => {
     const { props } = makeProps();
     const { queryByText, getByText } = renderBar(props);
 
@@ -96,8 +104,26 @@ describe("G1: 出す項目", () => {
     expect(getByText("カレンダー")).toBeTruthy();
     expect(getByText("タイムライン")).toBeTruthy();
     expect(getByText("マイページ")).toBeTruthy();
-    // 思い出（href: null）はボタンにならない
     expect(queryByText("思い出")).toBeNull();
+  });
+
+  // 隠し画面を数に入れると、スロットが増えて本物のタブが潰れる
+  // （実測: (tabs)/_layout.tsx の隠し画面 12 枚ぶん、5 → 17 スロットになった）
+  it("スロットの数が、出す項目の数と一致する（隠し画面が幅を食わない）", () => {
+    const { props } = makeProps();
+    const { container } = renderBar(props);
+
+    const tablist = container.querySelector('[role="tablist"]');
+    expect(tablist).not.toBeNull();
+    // タブ4つ ＋ ＋投稿の枠1つ
+    expect(tablist?.children).toHaveLength(5);
+    expect(container.querySelectorAll('[role="tab"]')).toHaveLength(4);
+  });
+
+  it("隠し画面を開いているときはピルを出さない", () => {
+    const { props } = makeProps({ focusedName: "memory" });
+    const { container } = renderBar(props);
+    expect(container.querySelectorAll('[aria-selected="true"]')).toHaveLength(0);
   });
 
   it("tabBarButton を持つ項目は、その部品がそのまま描かれる（＋投稿の FAB）", () => {

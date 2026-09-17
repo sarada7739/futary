@@ -19,6 +19,8 @@
 | 8 | ピルの動き | **`Animated` と `PanResponder`**（React Native コア） | `react-native-reanimated`・`react-native-gesture-handler` は `apps/app` から解決できない（expo-router の推移的依存）。直接依存を増やさずに済む |
 | 9 | タブバーの差し替え方 | **`Tabs` の `tabBar` にカスタム部品を渡す** | 層が4枚要り、`tabBarStyle` の style 1枚では積めない。navigator 自体は置き換えない |
 | 10 | 新しいパッケージ | **足さない** | 上の 5・8 のとおり |
+| 11 | 隠し画面の判定 | **`tabBarItemStyle.display === "none"`** で見る。`options.href` は見ない | `_layout.tsx` は `href: null` と書くが、その項目は navigator まで届かない。expo-router が手前で剥がし、`tabBarItemStyle: { display: "none" }` と「null を返す `tabBarButton`」に置き換える（`expo-router/build/layouts/TabsClient.js`）。`href` を見ると隠し画面 12 枚がすべてタブに並び、本物のタブが 1/17 の幅に潰れる |
+| 12 | ドラッグの寄せ先 | **＋投稿のスロットには寄せない。**同じ距離なら動いていた向きの側へ | ＋投稿は選ばれた状態にならないため、寄せると選択が変わらないままピルが取り残される |
 
 ## 1. 変更するもの
 
@@ -39,7 +41,8 @@
 | # | 何を | どこで |
 |---|---|---|
 | P1〜P5 | ピルの位置・寄せ先・速さによる伸び・端での丸め・スロット幅 0 で NaN にならない | `apps/app/test/tab-pill.test.ts` |
-| G1 | `href: null` の画面はタブに出ない。`tabBarButton`（＋投稿）はその部品が描かれる。アイコンは `tabBarIcon` から引く | `apps/app/test/glass-tab-bar.test.tsx` |
+| P6 | ＋投稿のスロットを指したら本物のタブへ振り替える。同じ距離なら動いていた向きの側 | 同上 |
+| G1 | 隠し画面（`display: none`）はタブに出ない。**スロットの数が出す項目の数と一致する**（隠し画面が幅を食わない）。隠し画面を開いている間はピルを出さない。`tabBarButton`（＋投稿）はその部品が描かれる。アイコンは `tabBarIcon` から引く。**descriptors は expo-router が実際に渡す形で組み立てる**（`href: null` を自分で作ると、本番に無い条件を検査するだけになる） | `apps/app/test/glass-tab-bar.test.tsx` |
 | G2 | 選択中の項目にだけ `aria-selected` が付く | 同上 |
 | G3 | `tabPress` を emit し、止められなければ navigate する。選択中は navigate しない。`preventDefault` されたら navigate しない（＋投稿の経路） | 同上 |
 | G4 | ピンク・ホワイトの両方で描ける | 同上 |
@@ -75,6 +78,13 @@
 - **039 の「装飾は無い」との関係。**ホワイトもガラスにしたが、色収差と影は 0 にして
   039 の決定は動かしていない。この解釈でよいか
 - **Safari では本物の屈折が出ない**ことを仕様として書くかどうか
+- **タブがリンク（`<a href>`）でなくなった。**既定のタブバーは `buildHref` で各項目に
+  `href` を与え、web では `<a>` を出していた（`expo-router/build/react-navigation/bottom-tabs/views/BottomTabBar.js`）。
+  カスタムのタブバーは `Pressable` で描くため、**PC の cmd/中クリックでの別タブ・
+  右クリックの「新しいタブで開く」・ステータスバーの URL 表示**が消える。
+  遷移そのものは同じ。直すには `buildHref` 相当が要るが、expo-router は
+  `useLinkBuilder` を公開しておらず、パスを手で組むと `baseUrl`（`/app`）でずれる。
+  **A の判断を仰ぐ**（許容するか、別タスクで直すか）
 
 ## 完了条件
 

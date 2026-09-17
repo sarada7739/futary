@@ -82,9 +82,15 @@ export type Glass = Readonly<{
   edgeReflection: string;
   // 色収差の横ずれ（px）。0 なら色収差を出さない
   aberration: number;
-  // 選択中のピル（レンズ）
+  // 色収差の2色（左右のフチに振り分ける）
+  aberrationCool: string;
+  aberrationWarm: string;
+  // 選択中のピル（レンズ）。板より強く曲げるので、ぼかしと明るさは別に持つ
   lensTint: string;
   lensRim: string;
+  lensBlurRadius: number;
+  lensBrightness: number;
+  lensSaturate: number;
 }>;
 
 export type Theme = Readonly<{
@@ -170,8 +176,13 @@ const pinkGlass: Glass = {
   edgeHighlight: "rgba(255, 255, 255, 0.85)",
   edgeReflection: "rgba(255, 255, 255, 0.3)",
   aberration: 1.2,
+  aberrationCool: "rgba(0, 220, 255, 0.4)",
+  aberrationWarm: "rgba(255, 0, 200, 0.32)",
   lensTint: "rgba(245, 134, 141, 0.2)",
   lensRim: "rgba(255, 255, 255, 0.75)",
+  lensBlurRadius: 6,
+  lensBrightness: 1.08,
+  lensSaturate: 1.4,
 };
 
 // ---------------------------------------------------------------------------
@@ -257,8 +268,15 @@ const whiteGlass: Glass = {
   edgeHighlight: "rgba(255, 255, 255, 0.9)",
   edgeReflection: "rgba(0, 0, 0, 0.03)",
   aberration: 0,
+  // aberration が 0 のとき色収差の層自体を描かないため、この2色は使われない。
+  // キーの集合を両外観で同じに保つために置く（theme.test.ts T5）
+  aberrationCool: "transparent",
+  aberrationWarm: "transparent",
   lensTint: "rgba(29, 29, 31, 0.06)",
   lensRim: "rgba(0, 0, 0, 0.12)",
+  lensBlurRadius: 8,
+  lensBrightness: 1.02,
+  lensSaturate: 1.05,
 };
 
 export const themes: Readonly<Record<Appearance, Theme>> = {

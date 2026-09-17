@@ -100,6 +100,13 @@ describe("P6: ピルが乗ってよいスロットへ寄せ直す", () => {
     expect(nearestAllowedIndex(2, ALLOWED)).toBe(1);
   });
 
+  // 常に左を選ぶと、カレンダー(1)からタイムライン(3)へ投げたときに 1 へ戻る
+  it("ちょうど中間のときは、動いていた向きの側を選ぶ", () => {
+    expect(nearestAllowedIndex(2, ALLOWED, 1)).toBe(3);
+    expect(nearestAllowedIndex(2, ALLOWED, -1)).toBe(1);
+    expect(nearestAllowedIndex(2, ALLOWED, 0)).toBe(1);
+  });
+
   it("もともと本物のタブならそのまま", () => {
     for (const index of ALLOWED) {
       expect(nearestAllowedIndex(index, ALLOWED)).toBe(index);

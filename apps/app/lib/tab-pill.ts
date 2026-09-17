@@ -60,13 +60,29 @@ export function stretchForVelocity(velocityX: number): number {
  * 選択は変わらないのにピルだけがそこへ取り残される。ドラッグの寄せ先からは
  * 最初から外す。
  *
+ * 同じ距離に2つある（＝ちょうど FAB のスロットを指した）ときは、動いていた
+ * 向きの側を選ぶ。常に左を選ぶと、カレンダーからタイムラインへ投げたときに
+ * カレンダーへ戻ってしまう。direction が 0 なら左を選ぶ。
+ *
  * allowed は昇順で渡す。空なら index をそのまま返す（寄せ先が無い）。
  */
-export function nearestAllowedIndex(index: number, allowed: readonly number[]): number {
+export function nearestAllowedIndex(
+  index: number,
+  allowed: readonly number[],
+  direction = 0,
+): number {
   if (allowed.length === 0) return index;
   let best = allowed[0] as number;
   for (const candidate of allowed) {
-    if (Math.abs(candidate - index) < Math.abs(best - index)) best = candidate;
+    const gap = Math.abs(candidate - index);
+    const bestGap = Math.abs(best - index);
+    if (gap < bestGap) {
+      best = candidate;
+    } else if (gap === bestGap && direction !== 0) {
+      // 同じ距離なら、動いていた向きの側を採る
+      const towardDirection = direction > 0 ? candidate > best : candidate < best;
+      if (towardDirection) best = candidate;
+    }
   }
   return best;
 }
