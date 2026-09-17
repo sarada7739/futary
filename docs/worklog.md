@@ -13829,3 +13829,9 @@ Session: B
 - リモートの残骸 `task/061-glass-tab-bar` を消した。コードは触っていない
 
 Session: B
+
+## 2026-09-18 セッションB: 061 の証跡（#420）を R が受け入れ → マージ
+
+- R が png・json・`capture.mjs` を手元と `cmp` で同一と確認。CI pass → squash merge（main 4321901）
+
+Session: B

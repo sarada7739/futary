@@ -3,7 +3,7 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-18 / セッションB。**061（下部タブバーを湾曲ガラスにする）: R の撮影済み → 証跡を `artifacts/061/stage1/` に置いた（PR #420。docs と artifacts だけ）。次は人間: デプロイの承認（最新だけ）→ 実機で見る。B は待機。**
+**最終更新**: 2026-09-18 / セッションB。**061（下部タブバーを湾曲ガラスにする）: R の撮影済み → 証跡を `artifacts/061/stage1/` に置いた（#420 を R 受け入れ → squash merge。main 4321901）。次は人間: デプロイの承認（最新だけ）→ 実機で見る。B は待機（次は iOS 段階0 かメール認証。人間の合図待ち）。**
 - **R の撮影は済んでいる**（前の版の「まだ走っていない」「誰も見ていない」は古い）。Chromium で背景が透けてぼける・寸法は旧と一致（x=16 y=764 w=358 h=64・下余白 16）・`tablistChildren` 5・`tabCount` 4・`fabOverhang` 12。**WebKit/Firefox の headless は `backdrop-filter` を描かない**ので、見た目は人間の iPhone Safari と PC Chrome で。判定は `artifacts/061/review-stage1.md` の末尾、数値は `artifacts/061/stage1.md`
 - `artifacts/061/scripts/capture.mjs` は R が直した版に差し替え（お知らせのモーダル・FAB の枠の role）。リモートの `task/061-glass-tab-bar` は B が消した
 - **A の手番（タスク定義5節の申し送り 4 件）**: (1) `architecture.md` 7節にガラスのトークン（`glass`）を書く (2) タブがリンク（`<a href>`）でなくなった。直せるが直すかは A の判断（`<Link href asChild>` で戻せる。代償は部品が実行時に expo-router を読むこと） (3) ホワイトもガラスにしたが色収差と影は 0 にした。039「装飾は無い」の解釈でよいか (4) Safari で本物の屈折が出ないことを仕様に書くか
