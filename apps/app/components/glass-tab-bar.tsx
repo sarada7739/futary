@@ -30,16 +30,21 @@ import {
 // 状態管理は navigator のまま（この部品は state と descriptors を読むだけで、
 // 自前の選択状態を持たない）。
 //
-// 【backdrop-filter には url() を置かない】
-// 「背後の絵を歪ませる」`backdrop-filter: url(#フィルタ)` の層は最初の版に
-// あったが外した。前提「WebKit は url() を含む宣言ごと捨てる」が iPhone の
-// Safari で成り立たず（`CSS.supports` も true を返す）、Safari はこの層を処理して
-// 壊れた絵（バーの上下に背景をずらした赤い帯・上端に沿った縞。FAB の下半分も
-// 覆われた）を出した（人間の実機。2026-09-18）。歪みは「ガラス板そのもの」
-// （下の屈折シート）の通常の `filter: url()` だけに持たせる。
-//   - ぼかしの層: blur と saturate だけ。url() を含めない。全ブラウザで効く
-//   - ガラス板  : filter: url() で板の側を歪ませる
-// backdrop-filter に url() を置かないことはテスト G5 が留めている。
+// 【SVG フィルタ（url()）はこの部品では使わない】
+// 最初の版は「背後の絵を歪ませる」`backdrop-filter: url(#フィルタ)` の層と、
+// ガラス板そのものを歪ませる `filter: url(#フィルタ)` を持っていた。どちらも
+// iPhone の Safari で壊れた絵になった（人間の実機。2026-09-18）:
+//   - backdrop-filter: url(): バーの上下に背景をずらした赤い帯・上端の縞・
+//     FAB の下半分が覆われる（前提「WebKit は url() を含む宣言ごと捨てる」が
+//     成り立たなかった。`CSS.supports` も true を返す）→ 段階2 で外した
+//   - filter: url(): 外した後もアイコンと文字が二重にずれ、上端に帯が残った
+//     → 段階3 で外した
+//   - ピルの backdrop-filter: transform と同時に持つと背後を二重に描く → 段階3 で外した
+// 残る層は、ぼかし（glass-blur。blur と saturate だけ。backdrop-filter はこの 1 箇所）・
+// 無地の板（斜めのグラデーション）・色収差・フチ・ピル（色とフチと inset の光）。
+// 歪みは無い「曇りガラス」。この部品に url( が無いこと・backdrop-filter が 1 箇所
+// だけなことはテスト G5 が留めている。+html.tsx の SVG フィルタの定義と theme の
+// filterId・lens* は残っているが、ここからは参照しない。
 const PILL_HEIGHT = 44;
 // スロットの中でピルが左右に残す余白
 const PILL_INSET = 5;
@@ -80,17 +85,14 @@ function GlassPane({ glass }: { glass: Glass }) {
           webOnly({ backdropFilter: blur, WebkitBackdropFilter: blur }),
         ]}
       />
-      {/* 2. ガラス板そのもの。これ自体を filter で歪ませる（全ブラウザで効く）。
-             左上が明るく右下が暗い斜めのグラデーションを持たせ、歪みが
-             見える形を与える。無地だと歪ませても何も起きない */}
+      {/* 2. ガラス板そのもの。色（tint）と、左上が明るく右下が暗い斜めの
+             グラデーション。歪ませない（filter: url() は Safari で壊れた。冒頭） */}
       <View
         testID="glass-sheet"
         style={[
           StyleSheet.absoluteFill,
           { backgroundColor: glass.tint },
           webOnly({
-            filter: `url(#${glass.filterId})`,
-            WebkitFilter: `url(#${glass.filterId})`,
             backgroundImage:
               `linear-gradient(135deg, ${glass.edgeHighlight} 0%, transparent 28%, ` +
               `transparent 72%, ${glass.edgeReflection} 100%)`,
@@ -139,10 +141,6 @@ export type GlassTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs
 export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps) {
   const { colors, glass, shadow } = useTheme();
   const [barWidth, setBarWidth] = useState(0);
-  // レンズ（ピル）は板より強く曲げる。値はトークンから引く（architecture.md 7節）
-  const lensFilter =
-    `blur(${glass.lensBlurRadius}px) brightness(${glass.lensBrightness}) saturate(${glass.lensSaturate})`;
-
   // href: null の画面（思い出・統計など）はボタンとして出さない。
   // 既定のタブバーと同じ規則（(tabs)/_layout.tsx のコメント参照）
   const visible = state.routes
@@ -335,9 +333,11 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
               borderColor: glass.lensRim,
               transform: [{ translateX }, { scaleX: stretch }, { scale: press }],
             },
+            // ピルに backdrop-filter は置かない。iOS Safari は backdrop-filter と
+            // transform（translateX・scaleX・scale）を同時に持つ要素で、背後の内容を
+            // transform の分だけずらして二重に描く（人間の実機でアイコンと文字が
+            // 二重化。段階3）。レンズの質感は色（lensTint）・フチ・inset の光だけ
             webOnly({
-              backdropFilter: lensFilter,
-              WebkitBackdropFilter: lensFilter,
               boxShadow: `inset 0 1px 0 ${glass.edgeHighlight}, inset 0 -1px 0 ${glass.edgeReflection}`,
             }),
           ]}

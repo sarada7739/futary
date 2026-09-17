@@ -208,9 +208,9 @@ describe("G4: 外観", () => {
 
 // --- ソースの不変条件 ---------------------------------------------------------
 
-describe("G5: backdrop-filter に url() を置かない（屈折は filter だけ）", () => {
-  // iPhone の Safari は `backdrop-filter: url()` を捨てずに処理して壊れた絵を出す
-  // （バーの上下に赤い帯・上端の縞。components/glass-tab-bar.tsx 冒頭のコメント）
+describe("G5: この部品で SVG フィルタ（url()）を使わない", () => {
+  // iPhone の Safari は `backdrop-filter: url()` も `filter: url()` も壊れた絵にする
+  // （バーの上下に赤い帯・上端の縞・アイコンの二重化。components/glass-tab-bar.tsx 冒頭のコメント）
   it("ぼかしの宣言に url( を含めない", () => {
     const source = readSource("components/glass-tab-bar.tsx");
     const blurLine = source.split("\n").find((line) => line.includes("const blur ="));
@@ -218,13 +218,27 @@ describe("G5: backdrop-filter に url() を置かない（屈折は filter だ�
     expect(blurLine).not.toContain("url(");
   });
 
-  it("backdropFilter / WebkitBackdropFilter の宣言に url( が無い（ぼかしの層もレンズも）。屈折は filter だけ", () => {
+  it("backdropFilter / WebkitBackdropFilter の宣言に url( が無い（ぼかしの層もレンズも）", () => {
     const source = readSource("components/glass-tab-bar.tsx");
     const backdropLines = source.split("\n").filter((line) => /\bbackdropFilter:|\bWebkitBackdropFilter:/.test(line));
     expect(backdropLines.length).toBeGreaterThan(0);
     expect(backdropLines.filter((line) => line.includes("url("))).toEqual([]);
-    expect(source).toContain("filter: `url(#${glass.filterId})`");
     expect(source).not.toContain("glass-refraction");
+  });
+
+  it("backdropFilter の宣言は glass-blur の 1 箇所だけ（ピルには置かない。transform と同時だと Safari が背後を二重に描く。段階3）", () => {
+    const source = readSource("components/glass-tab-bar.tsx");
+    const code = source.replace(/\/\*[^]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    const lines = code.split("\n").filter((line) => /\bbackdropFilter:/.test(line));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("backdropFilter: blur");
+  });
+
+  it("filter / WebkitFilter の宣言も無い（板の歪みも外した。段階3）。コードに url( が無い", () => {
+    const source = readSource("components/glass-tab-bar.tsx");
+    const code = source.replace(/\/\*[^]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+    expect(code).not.toMatch(/\bfilter:|\bWebkitFilter:/);
+    expect(code).not.toContain("url(");
   });
 
   it("タブの列（tablist）はガラスの層の上に固定する（zIndex: 1。Safari で FAB が覆われない）", () => {
