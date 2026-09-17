@@ -61,11 +61,38 @@ export type Gradients = Readonly<{
   card: readonly [string, string];
 }>;
 
+// 061: 湾曲ガラスのタブバー。ぼかし量・フチの光・屈折の強さは外観で変わるため
+// colors ではなくここに置く（colors は「1つの色」を表す役割のトークンで、
+// 数値や複数の役割を混ぜない。shadow・gradients と同じ扱い）。
+// filterId は apps/app/app/+html.tsx が置く SVG フィルタの id。CSS の
+// `filter: url(#...)` から引く。外観ごとに屈折の強さ（feDisplacementMap の
+// scale）が違うため、フィルタ自体を2本に分けて id で選ぶ
+export type Glass = Readonly<{
+  filterId: string;
+  // backdrop-filter の blur 半径（px）と saturate の倍率
+  blurRadius: number;
+  saturate: number;
+  // ガラス板そのものの色（半透明）
+  tint: string;
+  // 外周の細い線
+  rim: string;
+  // 左上から光が当たったフチ
+  edgeHighlight: string;
+  // 反対側（右下）の弱い反射
+  edgeReflection: string;
+  // 色収差の横ずれ（px）。0 なら色収差を出さない
+  aberration: number;
+  // 選択中のピル（レンズ）
+  lensTint: string;
+  lensRim: string;
+}>;
+
 export type Theme = Readonly<{
   appearance: Appearance;
   colors: Colors;
   shadow: Shadow;
   gradients: Gradients;
+  glass: Glass;
 }>;
 
 // ---------------------------------------------------------------------------
@@ -130,6 +157,21 @@ const pinkShadow: Shadow = {
 const pinkGradients: Gradients = {
   screen: [pinkColors.bg, pinkColors.surfaceTint],
   card: [pinkColors.surfaceTint, pinkColors.primarySubtle],
+};
+
+// 061: ピンクのガラス。地が淡い桜色のグラデーションのため、白を強めに混ぜると
+// 「曇りガラス」に寄りすぎる。tint を薄くして彩度を上げ、背後の色が残る側にした
+const pinkGlass: Glass = {
+  filterId: "nisoine-glass-pink",
+  blurRadius: 20,
+  saturate: 1.8,
+  tint: "rgba(255, 255, 255, 0.42)",
+  rim: "rgba(255, 255, 255, 0.55)",
+  edgeHighlight: "rgba(255, 255, 255, 0.85)",
+  edgeReflection: "rgba(255, 255, 255, 0.3)",
+  aberration: 1.2,
+  lensTint: "rgba(245, 134, 141, 0.2)",
+  lensRim: "rgba(255, 255, 255, 0.75)",
 };
 
 // ---------------------------------------------------------------------------
@@ -202,9 +244,26 @@ const whiteGradients: Gradients = {
   card: [whiteColors.surface, whiteColors.surface],
 };
 
+// 061: ホワイトのガラス。039 の「装飾は無い」に合わせ、色を持たせない。
+// 色収差は 0（虹色のにじみはピンクの語彙で、ホワイトには無い。shadow.glow を
+// 0 にしたのと同じ理由）。屈折も弱め（フィルタ側の scale が別。+html.tsx）。
+// 地が真っ白なので、輪郭は光ではなく薄いグレーの線で出す
+const whiteGlass: Glass = {
+  filterId: "nisoine-glass-white",
+  blurRadius: 24,
+  saturate: 1.1,
+  tint: "rgba(255, 255, 255, 0.6)",
+  rim: "rgba(0, 0, 0, 0.1)",
+  edgeHighlight: "rgba(255, 255, 255, 0.9)",
+  edgeReflection: "rgba(0, 0, 0, 0.03)",
+  aberration: 0,
+  lensTint: "rgba(29, 29, 31, 0.06)",
+  lensRim: "rgba(0, 0, 0, 0.12)",
+};
+
 export const themes: Readonly<Record<Appearance, Theme>> = {
-  pink: { appearance: "pink", colors: pinkColors, shadow: pinkShadow, gradients: pinkGradients },
-  white: { appearance: "white", colors: whiteColors, shadow: whiteShadow, gradients: whiteGradients },
+  pink: { appearance: "pink", colors: pinkColors, shadow: pinkShadow, gradients: pinkGradients, glass: pinkGlass },
+  white: { appearance: "white", colors: whiteColors, shadow: whiteShadow, gradients: whiteGradients, glass: whiteGlass },
 };
 
 // T2 用: 型の Record は余分なキーを弾けないため、テストが Object.keys で見る
