@@ -14,7 +14,8 @@ import { useViewerQueryKey } from "../../lib/viewer-key";
 
 type PostListPage = { items: Post[]; nextCursor: string | null };
 
-// 投稿の一覧（ホームから独立したタブ。020）
+// 投稿の一覧（020）。ホームから独立したタブで、ロゴ・統計カード・思い出のカードは
+// ホームにある
 export default function TimelineScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -22,8 +23,9 @@ export default function TimelineScreen() {
   const myId = session?.user.id;
   const { isGuestMode, exitGuestMode } = useGuestMode();
 
-  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）。post.list.key() を使う invalidate・setQueriesData は
-  // 前方一致なので、末尾に viewerKey を足しても効く
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）。
+  // post.list.key() を使う invalidate・setQueriesData は前方一致なので、
+  // 末尾に viewerKey を足しても効く
   const viewerKey = useViewerQueryKey();
   const postListOptions = orpc.post.list.infiniteOptions({
     input: (cursor: string | undefined) => ({ cursor }),
@@ -43,7 +45,8 @@ export default function TimelineScreen() {
     }),
   );
 
-  // 押した瞬間に反映し、失敗したら戻す（楽観的更新。サーバの応答を待たない）
+  // 押した瞬間に反映し、失敗したら戻す（楽観的更新）。onMutate でキャッシュを
+  // 直接書き換え、サーバの応答を待たない
   const toggleReaction = useMutation(
     orpc.reaction.toggle.mutationOptions({
       onMutate: async (input) => {
