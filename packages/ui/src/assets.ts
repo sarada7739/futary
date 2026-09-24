@@ -1,51 +1,32 @@
-// docs/sample/透過素材/ から切り出した画像アセット（008）。ボトムタブ・FAB・
-// ロゴなど複数箇所から使うため packages/ui にまとめる（docs/sample/README.md）。
-// 原本はスプライトシートで、切り出し後に表示サイズの3倍程度まで縮小してある
+// 画像アセット。タブ・FAB・ロゴなど複数箇所から使うので packages/ui にまとめる。
+// 出自（どの見本から切り出したか・描き起こしたか）は docs/sample/README.md
 export { default as iconTabHome } from "../assets/tab-home.png";
 export { default as iconTabSearch } from "../assets/tab-search.png";
 export { default as iconTabProfile } from "../assets/tab-profile.png";
 export { default as iconFabPlus } from "../assets/fab-plus.png";
 export { default as logoMark } from "../assets/logo-mark.png";
-// カレンダータブ（fix/persistent-tab-bar）。素材シートに該当する図案が無いため
-// 新規に描き起こした。既存4つ（単線・角丸・塗りなし・同じ線色）に合わせた
-// モノライン。日付の数字は入れていない（24px表示では潰れて読めないため）
+// カレンダータブ。他のタブと同じ単線・角丸・塗りなしのモノライン。日付の数字は入れない（24px では潰れる）
 export { default as iconTabCalendar } from "../assets/tab-calendar.png";
-// タイムラインタブ（020。検索タブを置き換えた）。素材シートに該当する図案が
-// 無いため、カレンダーと同じ手順で新規に描き起こした。3本の横線（長さを
-// 変えてフィードらしさを出す）。他のタブアイコンと同じ単線・角丸・塗りなし
+// タイムラインタブ。3 本の横線（長さを変えてフィードらしさを出す）
 export { default as iconTabTimeline } from "../assets/tab-timeline.png";
-// ホーム機能パネルのアイコン6種（020。docs/sample/README.md「ホーム機能
-// パネルのアイコンも描き起こす」）。人間が置いた見本（透過の無いJPEG。
-// 使わない理由は同READMEに記録）を見本に、タブアイコンと同じ単線・角丸・
-// 塗りなし・単色で新規に描き起こした。タイムライン・カレンダーは既存の
-// タブアイコンを使い回すためここには含めない
+// ホームの機能パネルのアイコン（タブと同じ単線・角丸・塗りなし・単色）。タイムライン・カレンダーは
+// タブのアイコンを使い回すので含めない
 export { default as iconPanelMemory } from "../assets/panel-memory.png";
 export { default as iconPanelStats } from "../assets/panel-stats.png";
 export { default as iconPanelToday } from "../assets/panel-today.png";
 export { default as iconPanelList } from "../assets/panel-list.png";
 export { default as iconPanelMood } from "../assets/panel-mood.png";
 export { default as iconPanelAi } from "../assets/panel-ai.png";
-// 040: ホームの機能パネル「ほしいもの」のピンクの線画アイコン。docs/sample/icon/ に該当する
-// 図案が無いため、既存の panel-*.png と同じ規格（96×96・単色 #4A3733・単線・塗りなし）で
-// B が新規に描き起こした（ハート。A の指示「ハートか、リボンの付いた箱」）。出自は docs/sample/README.md
+// 機能パネル「ほしいもの」のアイコン（ハート。panel-*.png と同じ規格: 96×96・単色 #4A3733・単線・塗りなし）
 export { default as iconPanelWant } from "../assets/panel-want.png";
-// 041: ホームの機能パネル「アルバム」のピンクの線画アイコン。素材に該当する図案が無いため、
-// panel-want.png と同じ規格（96×96・単色 #4A3733・単線・塗りなし）で B が新規に描き起こした
-// （写真が 1 枚入ったアルバムの本。A の指示「重なった写真 2 枚か、アルバムの本」。重なった写真は
-// 「思い出」が既に使っている）。出自は docs/sample/README.md
+// 機能パネル「アルバム」のアイコン（写真が 1 枚入ったアルバムの本。重なった写真は「思い出」が使っている）
 export { default as iconPanelAlbum } from "../assets/panel-album.png";
-// 035: 記念日カード・デモバナーの装飾用スパークル。同スプライトシート
-// （6sj6V6ve.png）から、ピンクの4方向の星を切り出した
+// 記念日カード・デモバナーの装飾のスパークル（ピンクの 4 方向の星）
 export { default as sparkle } from "../assets/sparkle.png";
-// 035視覚仕様4節: Screenの地に敷く光のボケ。新しく作るのではなく、
-// docs/sample/mockup/signin.jpgのy260〜560px（人物も文字も無い純粋な
-// 背景の帯）を切り出した。出自はdocs/sample/README.md参照
+// Screen の地に敷く光のボケ（モックの人物も文字も無い背景の帯から切り出した）
 export { default as bokeh } from "../assets/bokeh.png";
-// 039 段階2: ホワイトの機能パネルの写真タイル8枚。人間が docs/sample/simpleMode/ に
-// 置いた 1254×1254 の生成画像（ファイル名は生成元の都合で中身とずれている。
-// A が中身で対応づけた表はタスク定義「アセット到着」節）を、役割の名前で 600×600 の
-// JPEG に切り出した（写真なので PNG より 1/10 の容量。出自は docs/sample/README.md）。
-// 写真を差し替えるときはここだけを変える（差し替え口はこの1箇所。タスク定義 5-2 c）
+// 機能パネルの写真タイル（600×600 の JPEG。写真なので PNG より 1/10 の容量）。
+// 差し替えるときはここだけを変える（差し替え口はこの 1 箇所）
 export { default as panelPhotoTimeline } from "../assets/panel-white-timeline.jpg";
 export { default as panelPhotoCalendar } from "../assets/panel-white-calendar.jpg";
 export { default as panelPhotoMemory } from "../assets/panel-white-memory.jpg";
@@ -54,35 +35,22 @@ export { default as panelPhotoToday } from "../assets/panel-white-today.jpg";
 export { default as panelPhotoList } from "../assets/panel-white-list.jpg";
 export { default as panelPhotoMood } from "../assets/panel-white-mood.jpg";
 export { default as panelPhotoAi } from "../assets/panel-white-ai.jpg";
-// 040: ホワイトの機能パネル「ほしいもの」の写真タイル。docs/sample/simpleMode/新機能/ の
-// Wishlist の絵（人間が「使っていい」と言ったもの）から 2×2 の商品グリッド部分を正方形に
-// 切り出し、600×600 の JPEG にした（039 と同じ置き方。出自は docs/sample/README.md）
+// 機能パネル「ほしいもの」の写真タイル（商品の 2×2 のグリッド）
 export { default as panelPhotoWant } from "../assets/panel-white-want.jpg";
-// 041: ホワイトの機能パネル「アルバム」の写真タイル。人間が docs/sample/simpleMode/アルバム機能/
-// モック画面/ホームアイコン/ に置いた 1254×1254 の生成画像を 600×600 の JPEG にした
-// （039・040 と同じ置き方。出自は docs/sample/README.md）
+// 機能パネル「アルバム」の写真タイル
 export { default as panelPhotoAlbum } from "../assets/panel-white-album.jpg";
-// 039 段階2: ホワイトの統計画面のヒーロー写真（仮）。人間からのヒーロー画像はまだ
-// 無いため、docs/sample/風景/RcmUGlPg.jpg（夕暮れの海辺に立つ男女。後ろ姿。AI 生成）を
-// 中央で 4:3（1280×960）に切り出して仮に置いている。本物が来たらここを差し替える
+// ホワイトの統計画面のヒーロー写真（仮。本物が来たら差し替える）
 export { default as statsHeroPlaceholder } from "../assets/stats-hero-placeholder.jpg";
-// 043: ホームの「リリース履歴を見る」の ✦。素材に該当する図案が無いため、panel-want.png と同じ規格
-// （96×96・単色 #4A3733・単線・塗りなし）で B が新規に描き起こした（4 方向の星 1 つ。見本
-// docs/sample/simpleMode/リリース履歴/pink/01 の形）。再現は artifacts/043/scripts/make-assets.py
+// ホームの「リリース履歴を見る」の ✦（96×96・単色・単線。再現は artifacts/043/scripts/make-assets.py）
 export { default as iconReleases } from "../assets/panel-releases.png";
-// 043: 「新機能のお知らせ」のシートの上の贈り物の絵（ホワイト）。人間が置いた見本
-// docs/sample/simpleMode/リリース履歴/04-new-feature-sheet.jpg の贈り物とリボンの部分を切り出し、
-// 地を白に寄せた（出自は docs/sample/README.md）。ピンクは既存の sparkle.png を使う（部品の中で分岐）
+// 「新機能のお知らせ」の上の贈り物の絵（ホワイト）。ピンクは sparkle.png を使う（部品の中で分岐）
 export { default as releaseGift } from "../assets/release-gift.jpg";
-// 045: 写真の上限のシートの鍵と、残りの警告カードの ⚠。素材に該当する図案が無いため、panel-want.png と
-// 同じ規格（96×96・単色 #4A3733・単線・塗りなし）で B が新規に描き起こした（見本
-// docs/sample/simpleMode/プレミアム/04・01 の形）。部品側で tintColor を primary にする。
-// 再現は artifacts/045/scripts/make-assets.py。出自は docs/sample/README.md
+// 写真の上限のシートの鍵と、残りの警告の ⚠（96×96・単色・単線。部品側で tintColor を primary にする。
+// 再現は artifacts/045/scripts/make-assets.py）
 export { default as iconLock } from "../assets/icon-lock.png";
 export { default as iconWarning } from "../assets/icon-warning.png";
-// 058: カレンダーの天気の絵 5 つ（晴・曇・雨・雪・雷。112×112・透過 PNG。表示は最大 28 CSS px）。
-// 人間の絵 docs/sample/weather/icons-source.png（AI 生成）の 6 マスから、上段真ん中（太陽 + 雲）を除く 5 つを
-// artifacts/058/scripts/make-icons.py で切り出した（マスの地を落として絵だけ）。出自は docs/sample/README.md
+// カレンダーの天気の絵 5 つ（晴・曇・雨・雪・雷。112×112 の透過 PNG で、表示は最大 28 CSS px）。
+// 切り出しは artifacts/058/scripts/make-icons.py
 export { default as weatherSun } from "../assets/weather-sun.png";
 export { default as weatherCloud } from "../assets/weather-cloud.png";
 export { default as weatherRain } from "../assets/weather-rain.png";

@@ -5,9 +5,7 @@ import { MOOD_LABELS } from "../lib/mood-labels";
 
 const CELL_WIDTH = `${100 / 7}%`;
 
-// タスク定義2節: 新しい色トークンを作らない。primaryの濃さ5段は不透明度から
-// ここで導出する（役割ではなく量だから、architecture.md 7節のトークンには
-// しない）
+// 新しい色トークンを作らない。primary の濃さ 5 段は不透明度からここで出す（役割でなく量なので、トークンにしない）
 const LEVEL_ALPHAS: Record<number, number> = { 1: 0.2, 2: 0.4, 3: 0.6, 4: 0.8, 5: 1 };
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -15,8 +13,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
   return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
 }
 
-// 039: primary は外観で変わるため、RGB への分解は描画時に行う（モジュール直下の
-// 定数にしない）
+// primary は外観で変わるので、RGB への分解は描画時に行う
 function backgroundFor(level: number | undefined, primary: { r: number; g: number; b: number }): string {
   if (level === undefined) return "transparent";
   return `rgba(${primary.r}, ${primary.g}, ${primary.b}, ${LEVEL_ALPHAS[level]})`;
@@ -49,8 +46,7 @@ export function MoodMonthGrid({ year, month, levelsByDate, todayDate }: MoodMont
       <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
         {days.map((day) => {
           const level = levelsByDate[day.date];
-          // タスク定義2節「未記録は、地のまま枠線だけ」。薄い色（level 1）と
-          // 未記録を見間違えないよう、色の濃さではなく枠線の有無で分ける
+          // 未記録は地のまま枠線だけ（薄い色の level 1 と見間違えないよう、濃さでなく枠線の有無で分ける）
           const isRecorded = level !== undefined;
           const isToday = day.date === todayDate;
           const dayNumber = Number(day.date.slice(8, 10));

@@ -1,9 +1,7 @@
-/* Nisoine ランディングページ（054 で一般向けに書き直し）。
-   デザイントークンは packages/ui/src/tokens.ts・theme.ts と揃える
-   （architecture.md 7節。RN Web側と別実装のため、値がずれたら両方直す）。
-   index.html のほか privacy.html・terms.html・tokushoho.html・tech.html も読む。
-   法務ページが使うクラス（.hero .logo .tagline .tech-intro .decisions .decision .table-wrap .footer）は
-   見た目を変えない。JS は無い（FAQ は <details>）。style 属性は使わない */
+/* Nisoine のランディングページ。デザイントークンは packages/ui/src/tokens.ts・theme.ts と揃える
+   （RN Web と別実装なので、値がずれたら両方直す。architecture.md 7節）。
+   index.html のほか privacy・terms・tokushoho・tech も読む。法務ページが使うクラス（.hero .logo .tagline
+   .tech-intro .decisions .decision .table-wrap .footer）の見た目は変えない。JS は無い。style 属性は使わない */
 
 :root {
   --color-bg: #FEF6F3;
@@ -16,7 +14,7 @@
   --color-text: #4A3733;
   --color-text-muted: #A08C87;
   --color-border: #F2E0DC;
-  /* AI まとめの帯だけ濃紺（ai-network.jpg の地。artifacts/054/scripts/make-assets.py の実測 #070E3A 前後） */
+  /* AI まとめの帯だけ濃紺（ai-network.jpg の地。#070E3A 前後） */
   --color-ai-band: #0B1038;
   --radius-card: 20px;
   --radius-pill: 999px;
@@ -26,7 +24,7 @@
   /* Webフォントを読み込まない。OSに入っている日本語フォントだけを使う（fontFamily.ja） */
   --font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", Meiryo, "Yu Gothic UI",
     "Noto Sans CJK JP", "Noto Sans JP", sans-serif;
-  /* 見出しは明朝（054 0節 #6）。数字の 576・価格も同じ列 */
+  /* 見出しは明朝。数字の 576・価格も同じ列 */
   --font-serif: "Hiragino Mincho ProN", "Yu Mincho", "BIZ UDPMincho", "Noto Serif CJK JP", serif;
 }
 
@@ -37,7 +35,7 @@
 html, body {
   margin: 0;
   padding: 0;
-  /* 横スクロールを作らない（015完了条件） */
+  /* 横スクロールを作らない */
   overflow-x: hidden;
   max-width: 100%;
 }
@@ -267,7 +265,7 @@ p {
   background: linear-gradient(to top, var(--color-bg), rgba(254, 246, 243, 0));
 }
 
-/* ---- 056 さわってみる（スマホの枠の中のデモ） ----
+/* ---- さわってみる（スマホの枠の中のデモ） ----
    枠の絵は 1024×1536 で、画面（透明）は x 208〜814・y 114〜1427 = 606×1313（390×844 と同じ比。
    artifacts/056/scripts/make-assets.py の実測）。iframe を 390×844 で描いて 0.8 に縮めると 312×675 で、
    絵を幅 527px（= 312 / 606 × 1024）に置くと画面にぴったり重なる。iframe の位置は 208 / 1024・114 / 1536 */
@@ -276,7 +274,7 @@ p {
   padding-top: 0;
 }
 
-/* 059: 2 列。左はスマホ（527px 固定）、右は文字の列（上下中央）。960px 未満で 1 列に落とす分岐は作らない（0節 #7） */
+/* 2 列。左はスマホ（527px 固定）、右は文字の列（上下中央）。960px 未満でも 1 列に落とさない（767px で節ごと消える） */
 .demo-inner {
   display: grid;
   grid-template-columns: 527px 1fr;
@@ -433,7 +431,7 @@ p {
   grid-template-columns: repeat(2, 1fr);
 }
 
-/* 059: 写真の下にも 22px の白（写真がカードの下端に貼り付かない。0節 #10） */
+/* 写真の下にも 22px の白（写真がカードの下端に貼り付かない） */
 .photo-card {
   padding: 22px;
   overflow: hidden;
@@ -771,7 +769,7 @@ p {
   margin: 0 auto 12px;
 }
 
-/* ---- 法務ページ・/tech の上部（052 までの LP の形をそのまま残す） ---- */
+/* ---- 法務ページ・/tech の上部 ---- */
 
 .hero .logo {
   margin: 0 auto 16px;
@@ -834,9 +832,8 @@ p {
   background: var(--color-surface);
   border-radius: var(--radius-card);
   padding: 20px 24px;
-  /* 052: grid の子は min-width が auto で、中の表（.table-wrap table の最小幅 560）に
-     引きずられてカードごと画面の外へ広がる（実測: 390px でカードが 608px）。
-     0 にして、はみ出しは .table-wrap の横スクロールに閉じ込める */
+  /* grid の子は min-width が auto で、中の表（最小幅 560）に引きずられてカードごと画面の外へ広がる
+     （390px でカードが 608px）。0 にして、はみ出しは .table-wrap の横スクロールに閉じ込める */
   min-width: 0;
 }
 
@@ -859,10 +856,8 @@ p {
   font-size: 13px;
 }
 
-/* 052: プライバシーポリシーの表の包み。スマホ幅で列を狭めず、表だけ横にスクロールさせる
-   （A の判断。法務ページに足す CSS はこれだけ）。包みだけだと日本語は 1 文字ずつ
-   折り返せるため表が画面幅まで縮んで列が狭いままになる（実測）。表に最小幅を
-   持たせて、包みの中でスクロールさせる */
+/* プライバシーポリシーの表の包み。スマホ幅で列を狭めず表だけ横にスクロールさせる。包みだけだと日本語は
+   1 文字ずつ折り返せて表が画面幅まで縮むので、表に最小幅を持たせる */
 .table-wrap {
   overflow-x: auto;
 }
@@ -887,7 +882,7 @@ p {
 
 /* ---- スマホ（1 列に畳む） ---- */
 
-/* 056: 768px 未満はデモの節ごと隠す（スマホの中にスマホを出さない。「ログインせずにデモを見る」に任せる） */
+/* 768px 未満はデモの節ごと隠す（スマホの中にスマホを出さない。「ログインせずにデモを見る」に任せる） */
 @media (max-width: 767px) {
   .demo {
     display: none;

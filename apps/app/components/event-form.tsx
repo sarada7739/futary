@@ -7,11 +7,9 @@ import { TimeWheelPicker } from "./time-wheel-picker";
 import { EVENT_KIND_LABELS, EVENT_KIND_ORDER, type EventKind } from "../lib/event-kind";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-// eventInputSchema（packages/contract/src/event.ts）と同じ下限。
-// 上限はここでは強制しない（超えたらサーバのエラーメッセージで気づく）
+// 入力スキーマと同じ下限。上限はここで強制しない（超えたらサーバのエラーで気づく）
 const MAX_TITLE_LENGTH = 200;
-// 「時間を追加」を押した直後の初期値。5分刻みなのでbuildMinuteOptionsが
-// 特別扱いする必要はない
+// 「時間を追加」を押した直後の初期値（5 分刻みなので特別扱いは要らない）
 const DEFAULT_TIME = "00:00";
 
 export type EventFormValues = {
@@ -32,12 +30,11 @@ export type EventFormProps = {
   defaultKind?: EventKind;
   defaultStartTime?: string | null;
   defaultEndTime?: string | null;
-  // 「ふたりの予定」（021）。kind='plan'のときだけ意味を持つ
+  // 「ふたりの予定」（021）。plan のときだけ意味を持つ
   defaultIsShared?: boolean;
   // 射影された記念日（表示上の日付 ≠ 登録された日付）を編集しているときの注記
   sourceDateNote?: string;
-  // 日付ごとの既存の「会った日」（自分自身は除く）。kind='meetup'を選んだときの
-  // 上書き注記に使う（018）
+  // 日付ごとの既存の「会った日」（自分自身は除く）。会った日を選んだときの上書きの注記に使う
   meetupByDate: Record<string, Event>;
   editingEventId?: string;
   isSubmitting: boolean;
@@ -69,16 +66,14 @@ export function EventForm({
   const [date, setDate] = useState(defaultDate);
   const [title, setTitle] = useState(defaultTitle ?? "");
   const [kind, setKind] = useState<EventKind>(defaultKind ?? "plan");
-  // null = 未設定。ここに入る値は丸めない（刻みに乗らない既存の時刻でも
-  // そのまま保持し、タイトルだけ直して保存しても書き換わらないようにする。
-  // event.updateは部分更新ではなく全項目の置き換えのため、画面が持っている
-  // 値がそのまま送られる。022・Aの決定）
+  // null = 未設定。丸めない（刻みに乗らない既存の時刻も保ち、題だけ直して保存しても書き換わらない。
+  // event.update は全項目の置き換えなので、画面が持っている値がそのまま送られる。022）
   const [startTime, setStartTime] = useState<string | null>(defaultStartTime ?? null);
   const [endTime, setEndTime] = useState<string | null>(defaultEndTime ?? null);
   const [isShared, setIsShared] = useState(defaultIsShared ?? false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
-  // 開くたび（別のイベントを編集し直す場合を含む）に初期値へ揃える
+  // 開くたび（別のイベントを編集し直すときも）初期値へ揃える
   useEffect(() => {
     if (!visible) return;
     setDate(defaultDate);
@@ -90,19 +85,14 @@ export function EventForm({
     setConfirmingDelete(false);
   }, [visible, defaultDate, defaultTitle, defaultKind, defaultStartTime, defaultEndTime, defaultIsShared]);
 
-  // isSharedはkind='plan'のときだけ立てられる（入力スキーマのrefineと同じ判断。
-  // 021）。他のkindへ切り替えたら送信前にfalseへ戻す
+  // isShared は plan のときだけ立てられる（入力スキーマと同じ）。他の種別へ切り替えたら送る前に false へ戻す
   function selectKind(nextKind: EventKind) {
     setKind(nextKind);
     if (nextKind !== "plan") setIsShared(false);
   }
 
-  // 021: 記念日・会った日〈どちらでも編集できる〉から非共有planへの変換で
-  // 相手（または自分）を締め出せる経路があったため、区分をまたぐ変換自体を
-  // サーバのWHERE句で禁じた（docs/tasks/021-plan-ownership.md「権限の条件を
-  // 『操作』ではなく『状態遷移』で書く」）。編集中のイベントの元の種別が
-  // plan以外なら、選択肢からplanそのものを外す（押しても拒まれるものを
-  // 選ばせない）。「ふたりの予定」を条件付きで固定する形はこれで不要になった
+  // サーバは plan 以外 → plan の変換を拒む（締め出しを防ぐ。021）。押しても拒まれるものを選ばせないよう、
+  // 元の種別が plan 以外なら選択肢から plan を外す
   const availableKinds =
     mode === "edit" && defaultKind && defaultKind !== "plan"
       ? EVENT_KIND_ORDER.filter((k) => k !== "plan")
@@ -110,16 +100,13 @@ export function EventForm({
 
   const trimmedTitle = title.trim();
   const isAnniversary = kind === "anniversary";
-  // 終了は開始より後。同じ日の中だけで、日をまたがない（022）。HH:MMは
-  // ゼロ詰めなので文字列比較がそのまま時刻の前後になる（CHECK・入力スキーマと
-  // 同じ判断）
+  // 終了は開始より後（同じ日の中だけ）。HH:MM はゼロ詰めなので文字列の比較がそのまま前後になる
   const endTimeValid = endTime == null || (startTime != null && endTime > startTime);
 
-  // 同じ日に自分以外の「会った日」が既にあるか（018）
+  // 同じ日に自分以外の「会った日」があるか
   const conflictingMeetup = kind === "meetup" ? meetupByDate[date] : undefined;
   const showMeetupNote = conflictingMeetup && conflictingMeetup.id !== editingEventId;
-  // create は上書きが正しい挙動なので止めない。edit はサーバでも上書きしない
-  // 設計（INVALID_INPUT）のため、送信前にここで止める（018）
+  // create は上書きが正しいので止めない。edit はサーバも上書きしない（INVALID_INPUT）ので送る前に止める
   const blockedByMeetupConflict = mode === "edit" && showMeetupNote;
 
   const canSubmit =
@@ -128,9 +115,8 @@ export function EventForm({
     (isAnniversary || endTimeValid) &&
     !blockedByMeetupConflict;
 
-  // 終了時刻・会った日の重複は既に個別のメッセージを常時表示している
-  // （endTimeValid・showMeetupNote）ため、ここではタイトル・日付だけを見る
-  // （人間の指摘: 必須項目未入力で保存を押したとき理由が分かるようにする）
+  // 終了時刻・会った日の重複は常にメッセージを出しているので、ここではタイトル・日付だけを見る
+  // （必須項目が空のまま保存を押したとき理由が分かるように）
   const missingFieldMessage =
     trimmedTitle.length === 0
       ? "タイトルを入力してください"
@@ -138,8 +124,7 @@ export function EventForm({
         ? "日付を正しく入力してください"
         : null;
 
-  // 押しても何も起きない、にしない（020と同じ判断）。ボタン自体は常に押せる
-  // ようにし、条件が満たされていなければ理由を表示する
+  // 押しても何も起きない、にしない。ボタンは常に押せて、条件が足りなければ理由を出す
   const [showValidation, setShowValidation] = useState(false);
 
   // 開始が無いと終了は持てない。削除すると終了も一緒に消す
@@ -153,8 +138,7 @@ export function EventForm({
       setShowValidation(true);
       return;
     }
-    // 記念日を選ぶと repeat_yearly が自動で true になる（タスク011）。
-    // 記念日には時刻を付けられない（018・入力スキーマのrefineと同じ判断）
+    // 記念日を選ぶと repeat_yearly が true になる。記念日には時刻を付けられない
     await onSubmit({
       date,
       title: trimmedTitle,
@@ -166,19 +150,14 @@ export function EventForm({
     });
   }
 
-  // animationType="none"は見た目の選択だけでなく、閉じた瞬間に
-  // react-native-webがchildrenをアンマウントする前提として使われている
-  // （WheelColumn内のselfCommittedValueRef・pendingAnimatedScrollRefは
-  // アンマウントで自然にリセットされる想定。PR #156レビュー・Rの指摘）。
-  // animationTypeを付ける／WheelColumnをModalの外へ出す／常設パネルに
-  // 変えるなど、閉じてもアンマウントされない形に変えるときはwheel-column.tsx
-  // 側の前提も見直すこと
+  // animationType="none" は、閉じた瞬間に react-native-web が children をアンマウントする前提でもある
+  // （WheelColumn の ref はアンマウントで戻る想定）。閉じてもアンマウントされない形に変えるときは
+  // wheel-column.tsx の前提も見直すこと
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onCancel}>
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: space.lg }}>
-        {/* 背景は独立したレイヤーとして下に敷く（Pressable の親子でstopPropagationを
-            扱う必要を無くす。017で当たり判定の穴を踏んだのと同じ回避）。
-            フォーム本体はその上に描画されるため、背景タップだけがここに到達する */}
+        {/* 背景は独立したレイヤーとして下に敷く（Pressable の親子で stopPropagation を扱わずに済む）。
+            フォームはその上に描かれるので、背景のタップだけがここに届く */}
         <Pressable
           onPress={onCancel}
           accessibilityRole="button"
@@ -187,8 +166,7 @@ export function EventForm({
           style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}
         />
 
-        {/* 時刻ホイールを2つ足したことでモーダルが画面の高さを超えうる
-            （人間の実機確認で発覚）。ScrollViewで中身全体をスクロール可能にする */}
+        {/* 時刻ホイールでモーダルが画面の高さを超えうるので、中身全体をスクロールできるようにする */}
         <View style={{ width: "100%", maxWidth: 480, maxHeight: "100%" }}>
           <ScrollView>
             <Card>
@@ -235,10 +213,7 @@ export function EventForm({
                   <Text size="sm" color="muted">
                     種別
                   </Text>
-                  {/* flex:1で等分すると、狭い幅ではラベルが単語の途中で
-                      折り返される（profile.tsxの「ホーム上部の表示」と同じ形。
-                      Rレビュー指摘）。ボタンを内容の幅で並べ、収まらない分だけ
-                      次の行へ折り返す */}
+                  {/* flex:1 で等分すると狭い幅でラベルが単語の途中で折れる。内容の幅で並べ、収まらない分だけ折る */}
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
                     {availableKinds.map((k) => (
                       <Button
@@ -258,11 +233,7 @@ export function EventForm({
                   )}
                 </View>
 
-                {/* 021: is_sharedはkind='plan'のときだけ意味を持つ。3（翌日「会った日」に
-                    変わる）は公開後へ回したため、説明文には現時点でできることだけを書く
-                    （「翌日『会った日』になります」とは書かない。動かない機能を先に
-                    説明しない。020の「準備中です」を避けたのと同じ判断。
-                    docs/tasks/021-plan-ownership.md） */}
+                {/* plan のときだけ意味を持つ。説明文には今できることだけを書く（動かない機能を先に説明しない。021） */}
                 {kind === "plan" && (
                   <View style={{ gap: space.xs }}>
                     <Button
@@ -278,8 +249,7 @@ export function EventForm({
                   </View>
                 )}
 
-                {/* 記念日には時刻を設定できない（入力スキーマのrefineと同じ判断。018）。
-                    項目自体を隠す（「日」であって時刻を持つ概念ではないため） */}
+                {/* 記念日には時刻を設定できないので項目ごと隠す（「日」であって時刻を持つ概念ではない） */}
                 {!isAnniversary && (
                   <View style={{ gap: space.sm }}>
                     <Text size="sm" color="muted">
@@ -306,8 +276,7 @@ export function EventForm({
                           時間を削除
                         </Button>
 
-                        {/* 開始を選ぶ前に終了を選べない形にする（押せてから断られる形に
-                            しない。022）。startTimeがある場合にしかこの分岐へ来ない */}
+                        {/* 開始を選ぶ前に終了を選べない形にする（押せてから断られる形にしない） */}
                         {endTime == null ? (
                           <Button
                             variant="secondary"
@@ -351,8 +320,7 @@ export function EventForm({
                   </Text>
                 )}
 
-                {/* 押しても何も起きない、にしない（020と同じ判断）。保存を一度
-                    押したあとだけ、足りない項目を表示する */}
+                {/* 押しても何も起きない、にしない。保存を一度押したあとだけ、足りない項目を出す */}
                 {showValidation && missingFieldMessage && (
                   <Text size="sm" color="muted">
                     {missingFieldMessage}

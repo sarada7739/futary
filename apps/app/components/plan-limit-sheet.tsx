@@ -4,14 +4,12 @@ import { Button, Card, iconLock, radius, space, Text, useTheme } from "@futary/u
 import { freePlanLimitLabel, paidPhotoLimitLabel } from "../lib/plan";
 import { Sheet } from "./sheet";
 
-// 045: 写真の上限に達したときのシート（タスク定義 3節。絵 04）。アルバム詳細の FAB・作成モーダルの
-// 「カバー写真を選択」・サーバの PLAN_LIMIT の 3 箇所で同じものを出す。
-// 鍵の絵 → 「写真の上限に達しました」→ 副題 → 現在のプラン（無料: 「30 枚まで保存可能」の 1 行だけ）→
-// ↓ → プレミアム（「写真 50 万枚まで」の 1 行だけ。047 0節 #14: 「無制限」と書かない。価格は出さない）→
-// 「プレミアムプランを見る ›」（→ /premium）→「× あとで検討する」（閉じる）。
-// 「無料トライアル」の文言はどこにも出さない（人間の指示）
+// 写真の上限に達したときのシート（045）。アルバム詳細の FAB・作成の「カバー写真を選択」・サーバの PLAN_LIMIT の
+// 3 箇所で同じものを出す。鍵の絵 → 題 → 副題 → 現在のプラン（「30 枚まで保存可能」の 1 行）→ ↓ → プレミアム
+// （「写真 50 万枚まで」の 1 行。「無制限」と書かず、価格も出さない）→「プレミアムプランを見る ›」→「× あとで検討する」。
+// 「無料トライアル」は出さない
 
-// 数値は B が決めた: 鍵の丸は 72（絵は 96×96 の線画を 40 で）。ピルは高さ 22
+// 鍵の丸は 72（絵は 96×96 の線画を 40 で）。ピルは高さ 22
 const LOCK_CIRCLE = 72;
 const LOCK_ICON = 40;
 const PILL_HEIGHT = 22;
@@ -40,7 +38,7 @@ function Pill({ label, tone, testID }: { label: string; tone: "muted" | "brand";
 export type PlanLimitSheetProps = {
   visible: boolean;
   onClose: () => void;
-  // 「プレミアムプランを見る ›」。呼び出し側が /premium へ進む（シートは閉じてから）
+  // 呼び出し側が /premium へ進む（シートは閉じてから）
   onPremium: () => void;
 };
 

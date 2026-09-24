@@ -22,20 +22,18 @@
 <meta name="twitter:description" content="ふたりだけの毎日を残す専用SNS。基本機能は無料、ブラウザですぐに使えます。" />
 <meta name="twitter:image" content="/assets/ogp.png" />
 
-<!-- 053: 独自ドメイン。旧 URL（workers.dev）は 301 で寄せるが、検索エンジンにも正を示す -->
+<!-- 旧 URL（workers.dev）は 301 で寄せるが、検索エンジンにも正を示す -->
 <link rel="canonical" href="https://nisoine.com/" />
 <link rel="icon" type="image/png" href="/assets/favicon.png" />
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
-<!-- 030・Rレビュー指摘: /app/*側の+html.tsxにだけtheme-colorを足すと、
-     同じサイトなのに/と/app/*でAndroid Chromeのブラウザ枠の色が変わる。
-     両方に揃える -->
+<!-- /app/* の +html.tsx と同じ値にする（片方だけだと / と /app/* で Android Chrome の枠の色が変わる） -->
 <meta name="theme-color" content="#F5868D" />
 <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
 
-<!-- 054: 一般向け LP。文言は docs/tasks/054-landing-for-users.md 3節の通り（売り文句を足さない）。
-     JS は入れない（inline script なし。FAQ の開閉は <details>）。写真はすべて AI 生成 -->
+<!-- 一般向けの LP。文言は docs/tasks/054-landing-for-users.md 3節のとおり（売り文句を足さない）。
+     JS は入れない（FAQ の開閉は <details>）。写真はすべて AI 生成 -->
 
 <!-- H ヘッダー -->
 <header class="site-header">
@@ -72,10 +70,9 @@
     </div>
   </section>
 
-  <!-- 056 さわってみる: スマホの枠の中で本物のデモ（/app/?demo=1 = ゲストモード）。同じオリジンなので API・画像は
-       そのまま動く。iframe は 390×844 で描き CSS で 0.8 に縮める。枠の絵（画面と外側が透明）を上に重ねる
-       （pointer-events: none）。768px 未満は節ごと隠す（スマホの中にスマホを出さない。CSS）。JS は無い。
-       059: 2 列（左にスマホ・右に見出し・説明・触り方の案内・ボタン）。文言は 059 の 0節 #4・#5 の分だけ -->
+  <!-- さわってみる: スマホの枠の中で本物のデモ（/app/?demo=1 = ゲスト）。同じオリジンなので API・画像はそのまま動く。
+       iframe は 390×844 で描いて CSS で 0.8 に縮め、枠の絵（画面と外側が透明。pointer-events: none）を重ねる。
+       左にスマホ、右に見出し・説明・触り方・ボタンの 2 列。768px 未満は節ごと隠す（スマホの中にスマホを出さない） -->
   <section class="demo" id="demo" aria-labelledby="demo-heading">
     <div class="container">
       <div class="demo-inner">
@@ -283,7 +280,7 @@
     </div>
   </section>
 
-  <!-- 9 プレミアム（価格は静的。0節 #2） -->
+  <!-- 9 プレミアム（価格は静的） -->
   <section class="premium" id="premium" aria-labelledby="premium-heading">
     <div class="container">
       <h2 id="premium-heading" class="serif">プレミアムで、もっと特別なふたりに。</h2>
@@ -357,7 +354,7 @@
 <!-- F フッター -->
 <footer class="footer">
   <div class="container">
-    <!-- 052: プライバシーポリシー・利用規約。054: 技術構成は /tech へ -->
+    <!-- プライバシーポリシー・利用規約・技術構成（/tech） -->
     <p><a href="/privacy">プライバシーポリシー</a> ・ <a href="/terms">利用規約</a> ・ <a href="/tokushoho">特定商取引法に基づく表記</a> ・ <a href="/tech">技術構成</a></p>
   </div>
 </footer>

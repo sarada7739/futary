@@ -6,10 +6,8 @@ import type { Contract } from "@futary/contract";
 import { getApiOrigin } from "./api-origin";
 import { frameCredentials } from "./demo-frame";
 
-// urlは呼び出しごとに評価される関数で渡す（api-origin.tsのコメント参照。
-// `${getApiOrigin()}/api`をここで先に文字列化して渡すと、ビルド時の
-// 最適化で固定値に畳み込まれてしまう経路と同じ形になる）
-// 056: LP のスマホの枠（iframe）の中では Cookie を送らない（frameCredentials）。框の中は常に未認証 = デモペア
+// url は呼び出しごとに評価する関数で渡す（先に文字列にすると、ビルドの最適化で固定値に畳み込まれるのと同じ形になる。
+// api-origin.ts）。LP のスマホの枠の中では Cookie を送らない（枠の中は常に未認証 = デモペア。056）
 const link = new RPCLink({
   url: () => `${getApiOrigin()}/api`,
   fetch: (input, init) => fetch(input, { ...init, credentials: frameCredentials() }),

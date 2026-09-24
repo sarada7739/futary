@@ -6,20 +6,13 @@ export type FabIconProps = {
   size: number;
 };
 
-// 白い「＋」の腕の長さと太さ（size=56 のとき 22 と 2.5。ピンクの fab-plus.png の
-// ＋とほぼ同じ見た目になる比率。B が 039 段階1で実機比較して決めた）
+// 白い「＋」の腕の長さと太さ（size=56 で 22 と 2.5。ピンクの fab-plus.png の＋とほぼ同じ比率）
 const PLUS_LENGTH_RATIO = 22 / 56;
 const PLUS_THICKNESS_RATIO = 2.5 / 56;
 
-// 中央の投稿ボタン（FAB）の絵。
-//
-// ピンクでは 008 で切り出した画像（fab-plus.png: ピンクの円に白い＋）をそのまま描く
-// （039 でピンクの見た目は1ピクセルも変えない）。
-//
-// ホワイトでは黒い円にする（タスク定義3節: FAB は primary）。画像は円も＋も
-// 不透明で、tintColor を当てると＋まで黒く塗りつぶされて消える（B が PNG の画素を
-// 実測: 白 1840px・ピンク 19930px・透過 6014px、＋は透過ではない）ため、画像は
-// 使わず View で描く。分岐はこの部品に閉じる（呼び出し側は appearance を読まない）
+// 中央の投稿ボタン（FAB）の絵。ピンクは画像（fab-plus.png: ピンクの円に白い＋）そのまま。
+// ホワイトは黒い円（FAB は primary）。画像は円も＋も不透明で、tintColor を当てると＋まで塗りつぶされるので、
+// View で描く。分岐はこの部品に閉じる（呼び出し側は appearance を読まない。039）
 export function FabIcon({ size }: FabIconProps) {
   const { appearance, colors } = useTheme();
 

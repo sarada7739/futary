@@ -11,15 +11,14 @@ export const EVENT_KIND_LABELS: Record<EventKind, string> = {
   meetup: "会った日",
 };
 
-// 色だけに頼らず形（グリフ）でも種別を区別する（色覚特性への配慮。011確認観点）
+// 色だけに頼らず形（グリフ）でも種別を区別する（色覚特性への配慮）
 export const EVENT_KIND_GLYPHS: Record<EventKind, string> = {
   anniversary: "●",
   plan: "■",
   meetup: "▲",
 };
 
-// 039: 静的な colors の export が無くなったため、描画側が useTheme() の colors を
-// 渡す関数にした（event-* の3色自体は両モードで同じ値。タスク定義3節）
+// 描画側が useTheme() の colors を渡す（event-* の 3 色は両外観で同じ値）
 export function eventKindColorsOf(colors: Colors): Record<EventKind, string> {
   return {
     anniversary: colors.eventAnniversary,

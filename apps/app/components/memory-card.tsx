@@ -16,8 +16,7 @@ const LABELS: Record<MemoryLabel, string> = {
 };
 
 export function MemoryCard() {
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照
-  // （T9。coupleIdを引数に取らない問い合わせは識別をキーに含めて区別する）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）
   const viewerKey = useViewerQueryKey();
   const query = useQuery({
     ...orpc.memory.get.queryOptions(),
@@ -26,19 +25,13 @@ export function MemoryCard() {
   const [bodyExpanded, setBodyExpanded] = useState(false);
   const postId = query.data?.post.id;
 
-  // 日をまたいでmemory.getが再取得され別の投稿に変わったとき、前の投稿で
-  // 展開していた状態を持ち越さない
+  // 日をまたいで別の投稿に変わったとき、展開していた状態を持ち越さない
   useEffect(() => {
     setBodyExpanded(false);
   }, [postId]);
 
-  // 016: memory.tsx（思い出タブ）がこのカードだけを描画する構成になった
-  // （旧タスク定義時点ではホームの補助パネルの1つだったため、当時は
-  // 読み込み中・エラー・該当なしをすべて非表示にしても他の要素が画面を
-  // 埋めていた。現在はこのカードが画面の唯一の内容なので、無表示のままだと
-  // 画面がほぼ空白のまま何が起きているか分からなくなる。security-auditor
-  // 全体監査・3状態レビュー指摘）。読み込み中・エラーは他画面と同じ表示に、
-  // 該当なし（今日に該当する思い出が無い。正当な空状態）だけは案内文を出す
+  // このカードが思い出の画面の唯一の中身なので、読み込み中・エラーを無表示にすると何が起きているか分からない。
+  // 読み込み中・エラーは他画面と同じ表示、該当なし（正当な空状態）だけ案内文
   if (query.isLoading) {
     return (
       <View style={{ alignItems: "center", padding: space.xl }}>
@@ -85,21 +78,12 @@ export function MemoryCard() {
           </Text>
         </View>
 
-        {/* タップで元の投稿へ遷移する、とタスク定義にあるが、この画面
-            （ホームのタイムライン）には投稿ごとの個別ルートが無い
-            （FlatListの無限スクロールのみ）。既存の画像表示パターン
-            （017のImageViewer・031のPostImages。post-card.tsxと同じ使い方）を
-            再利用し、タップで画像を全画面表示する形にした */}
+        {/* 投稿ごとの個別ルートは無いので、押したら元の投稿へ飛ぶ代わりに画像を全画面で出す（post-card.tsx と同じ） */}
         <PostImages images={post.images} accessibilityLabel="思い出の投稿を表示" postId={post.id} />
 
         {hasBody && (
-          // 画像タップ（全画面表示）とは別の当たり判定。テキストのみの思い出
-          // （探索4段目のランダム選択は画像を優先しないため起こりうる）には
-          // タップできる要素が画像側に無く、本文を最後まで読む手段が無くなる
-          // 穴があった（Rレビュー指摘・Aのタスク定義更新）。当たり判定の
-          // 正確さに依存させない（conventions.md 6節）ため、実際に省略が
-          // 起きているかどうかを判定せず、本文があれば常にタップで
-          // 展開/折りたたみできる形にした
+          // 画像とは別の当たり判定。テキストだけの思い出（4 段目のランダムは画像を優先しない）では、本文を最後まで
+          // 読む手段が無くなる。省略が起きているかは判定せず、本文があれば常にタップで展開できる（conventions.md 6節）
           <Pressable
             onPress={() => setBodyExpanded((expanded) => !expanded)}
             accessibilityRole="button"

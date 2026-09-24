@@ -33,16 +33,14 @@ import { queryClient } from "../../lib/query";
 import { TAB_BAR_BOTTOM_MARGIN, TAB_BAR_CLEARANCE, TAB_BAR_HEIGHT } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
-// 041: アルバムの詳細。`?id=` が timeline ならタイムライン（仮想）。
-// タスク定義3節は `(tabs)/album/[id].tsx` だが、apps/app は web.output="static" で
-// 「動的セグメントが無いから全ルートが実ファイルとして書き出せる」前提（scripts/build-public.mjs）
-// のため、動的ルートを足すとその前提が崩れる。A が許した `?id=` に倒した（結果に書く。
-// (tabs) の外には出さない: タブバーを消さない）
+// アルバムの詳細。`?id=timeline` ならタイムライン（仮想）。`album/[id].tsx` にしないのは、
+// web.output="static" が「動的セグメントが無いので全ルートが実ファイルになる」前提だから
+// （scripts/build-public.mjs）。(tabs) の外に出さない（タブバーを消さない。041）
 
 const GRID_COLUMNS = 3;
 const GRID_GAP = space.xs;
 const FAB_SIZE = 56;
-// 045: FAB の上に固定で乗る警告のカードの高さぶん（B が決めた）
+// FAB の上に固定で乗る警告のカードの高さ（045）
 const QUOTA_WARNING_CLEARANCE = 120;
 const TIMELINE_TITLE = "タイムライン";
 
@@ -57,15 +55,14 @@ function inputStyleOf(colors: Colors) {
   } as const;
 }
 
-// 047: 鍵のマスの鍵のアイコン（B が決めた: 28。マスは 3 列で 100px 前後）
+// 鍵のマスのアイコン（マスは 3 列で 100px 前後。047）
 const LOCK_TILE_ICON = 28;
 
 function photoKey(photo: Photo): string {
   return photo.ref.kind === "album" ? photo.ref.photoId : `${photo.ref.postId}:${photo.ref.position}`;
 }
 
-// 見出しの 2 行: 期間と「N枚の写真・M日間の思い出」（期間が無ければ「N枚の写真」だけ）。
-// 日付計算は packages/date（architecture.md 5節）
+// 見出しの 2 行: 期間と「N枚の写真・M日間の思い出」（期間が無ければ「N枚の写真」だけ）。日付計算は packages/date
 function headingLines(photoCount: number, startDate: string | null, endDate: string | null): { period: string | null; summary: string } {
   if (startDate === null) return { period: null, summary: `${photoCount}枚の写真` };
   return {
@@ -92,19 +89,19 @@ export default function AlbumDetailScreen() {
   const isTimeline = albumId === TIMELINE_ALBUM_ID;
   // ゲストは見られる。+・編集を出さない。タイムラインにも無い（自動）
   const canWrite = !isGuestMode && !isTimeline;
-  // 042: 共有シートに File を渡せる環境（iPhone・Android）では、選択モードに「保存」を出す。
-  // ゲストもタイムラインも押せる（041 の保存と同じ理由）。PC には出さない。判定は起動後に変わらない
+  // 共有シートに File を渡せる環境（iPhone・Android）だけ選択モードに「保存」を出す（PC には出さない）。
+  // ゲストもタイムラインも押せる。判定は起動後に変わらない（042）
   const canShare = useMemo(() => canShareFiles(), []);
   // 選択モードに入れるのは、写真を消せる（メンバーのアルバム）か、まとめて保存できる（共有シート）とき
   const canSelect = canWrite || canShare;
-  // 048: ⋯（ZIP で保存）はタイムライン以外の全員（ゲストも押せる。タイムラインの ZIP は作らない。タスク定義 5節）
+  // ⋯（ZIP で保存）はタイムライン以外の全員（ゲストも。タイムラインの ZIP は作らない。048）
   const canExportZip = !isTimeline;
 
-  // queryKey に viewerKey を含める理由は apps/app/lib/viewer-key.ts 参照（T10）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts）
   const viewerKey = useViewerQueryKey();
   const albumOptions = orpc.album.get.queryOptions({ input: { id: albumId } });
   const albumQuery = useQuery({ ...albumOptions, queryKey: [...albumOptions.queryKey, viewerKey], enabled: !isTimeline });
-  // タイムラインの枚数は album.list の timeline から（行を持たないため album.get は無い）
+  // タイムラインは行を持たないので、枚数は album.list の timeline から
   const listOptions = orpc.album.list.queryOptions({ input: {} });
   const listQuery = useQuery({ ...listOptions, queryKey: [...listOptions.queryKey, viewerKey], enabled: isTimeline });
   const photosOptions = orpc.photo.list.infiniteOptions({
@@ -113,14 +110,13 @@ export default function AlbumDetailScreen() {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
   const photosQuery = useInfiniteQuery({ ...photosOptions, queryKey: [...photosOptions.queryKey, viewerKey] });
-  // 045: 無料枠は couple.get から取る（album.get には持たない。2 箇所に持たない）。
-  // 書けるときだけ読む（ゲスト・タイムラインには枠の表示が無い）
+  // 無料枠は couple.get から取る（2 箇所に持たない）。書けるときだけ読む（ゲスト・タイムラインには出さない。045）
   const coupleOptions = orpc.couple.get.queryOptions();
   const coupleQuery = useQuery({ ...coupleOptions, queryKey: [...coupleOptions.queryKey, viewerKey], enabled: canWrite });
-  // paid なら null（制限しない）。届く前も null（枠の行を出さず、FAB は普通に動く。サーバが最終防御）
+  // paid なら null。届く前も null（枠の行を出さず FAB は普通に動く。サーバが最終防御）
   const albumQuota = coupleQuery.data?.albumQuota ?? null;
   const quotaRemaining = albumQuota ? albumQuotaRemaining(albumQuota) : null;
-  // 047: プレミアムをやめたあとの猶予・鍵の帯（タイムラインには出さない）
+  // プレミアムをやめたあとの猶予・鍵の帯（タイムラインには出さない。047）
   const lockNoticeFor = isTimeline ? null : lockNotice(coupleQuery.data?.planState, albumQuota);
 
   const invalidateAll = () =>
@@ -128,7 +124,7 @@ export default function AlbumDetailScreen() {
       queryClient.invalidateQueries({ queryKey: orpc.album.get.key() }),
       queryClient.invalidateQueries({ queryKey: orpc.album.list.key() }),
       queryClient.invalidateQueries({ queryKey: orpc.photo.list.key() }),
-      // 045: 枠の used も変わる
+      // 枠の used も変わる
       queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() }),
     ]);
   const requestUploadUrl = useMutation(orpc.album.uploadUrl.mutationOptions());
@@ -140,7 +136,7 @@ export default function AlbumDetailScreen() {
   const album: Album | undefined = albumQuery.data;
   const title = isTimeline ? TIMELINE_TITLE : (album?.title ?? "アルバム");
   const photos = useMemo(() => photosQuery.data?.pages.flatMap((page) => page.items) ?? [], [photosQuery.data]);
-  // 047: 鍵の写真（url null）はビューアに渡さない・保存に入れない。ビューアの index はこちらの並び
+  // 鍵の写真（url null）はビューアに渡さず保存にも入れない。ビューアの index はこちらの並び（047）
   const viewablePhotos = useMemo(() => photos.filter((photo) => photo.url !== null), [photos]);
   const photoCount = isTimeline ? (listQuery.data?.timeline.photoCount ?? photos.length) : (album?.photoCount ?? photos.length);
 
@@ -153,21 +149,19 @@ export default function AlbumDetailScreen() {
   const [captionFor, setCaptionFor] = useState<Photo | null>(null);
   const [captionDraft, setCaptionDraft] = useState("");
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
-  // 049: 20 枚超を選んだときの確認（送る前）。null なら閉じている
+  // 20 枚超を選んだときの送る前の確認。null なら閉じている（049）
   const [uploadConfirm, setUploadConfirm] = useState<SourceImage[] | null>(null);
-  // 049: 送っている途中で「やめる」（送り終えた塊は残る）
+  // 送っている途中の「やめる」（送り終えた塊は残る）
   const uploadAbortRef = useRef<AbortController | null>(null);
   const [shareProgress, setShareProgress] = useState<ShareProgress | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  // 045: 無料枠の残りが 0 のとき（FAB を押した・サーバが PLAN_LIMIT を返した）に出すシート
+  // 無料枠の残りが 0 のとき（FAB を押した・サーバが PLAN_LIMIT を返した）のシート
   const [planLimitOpen, setPlanLimitOpen] = useState(false);
-  // 048: ヘッダーの ⋯ のメニューと、「ZIP で保存」のシート
+  // ヘッダーの ⋯ のメニューと「ZIP で保存」のシート
   const [menuOpen, setMenuOpen] = useState(false);
   const [zipSource, setZipSource] = useState<ZipSource | null>(null);
-  // 045: 残りが 5 枚以下なら FAB の上に警告（3節。絵 01）。選択中は FAB と一緒に隠す。
-  // × で消せる（人間の指示）。消した状態は sessionStorage に「消したときの残り枚数」で持ち、
-  // 残りが変わればまた出す。描いたあと（useEffect）に読む理由は index.tsx のシートと同じ
-  // （静的書き出しでは window が無い）
+  // 残りが 5 枚以下なら FAB の上に警告（選択中は FAB と一緒に隠す）。× で消せ、消した状態は sessionStorage に
+  // 「消したときの残り枚数」で持って、残りが変われば再び出す。effect で読むのは静的書き出しに window が無いから（045）
   const [warningDismissed, setWarningDismissed] = useState(false);
   useEffect(() => {
     setWarningDismissed(quotaRemaining !== null && isQuotaWarningDismissed(quotaRemaining));
@@ -181,7 +175,7 @@ export default function AlbumDetailScreen() {
 
   const tileSize = gridWidth > 0 ? (gridWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS : undefined;
   const selectedIds = [...selected];
-  // 042 1節: 1 回の共有は MAX_SHARE_FILES 枚まで。超えていたら「保存」を押せなくして 1 行を出す
+  // 1 回の共有は MAX_SHARE_FILES 枚まで。超えたら「保存」を押せなくして 1 行（042）
   const tooManyToShare = canShare && selected.size > MAX_SHARE_FILES;
 
   function stopSelecting() {
@@ -190,12 +184,11 @@ export default function AlbumDetailScreen() {
     setConfirmingRemove(false);
   }
 
-  // ヘッダー: 題名と、編集・選択（メンバーのアルバムだけ）・⋯（ZIP で保存。048）。選択モードでは「N 枚を選択中」「やめる」
+  // ヘッダー: 題名と、編集・選択（メンバーのアルバムだけ）・⋯。選択モードでは「N 枚を選択中」「やめる」
   useEffect(() => {
     navigation.setOptions({
       title: isSelecting ? `${selected.size} 枚を選択中` : title,
-      // 戻る先は一覧に固定する（Tabs の中の href: null の画面同士では router.back() の行き先が
-      // 履歴に依存して安定しない。撮影スクリプトで実測: ホームへ戻ることがあった）
+      // 戻る先は一覧に固定する（Tabs の中の href: null の画面同士では router.back() が履歴次第でホームへ戻る）
       headerLeft: () => <HeaderTextButton label="‹ 戻る" onPress={() => router.push("/album")} testID="album-detail-back" />,
       headerRight: isSelecting
         ? () => <HeaderTextButton label="やめる" onPress={stopSelecting} testID="album-detail-stop-selecting" />
@@ -212,8 +205,8 @@ export default function AlbumDetailScreen() {
     // stopSelecting・router は毎回同じ振る舞い。依存に入れると setOptions が描画のたびに走る
   }, [navigation, title, canWrite, canSelect, canExportZip, isSelecting, selected.size]);
 
-  // 選択に上限は掛けない（042 1節。選択モードは削除・カバーと共用で、選ぶ時点では何をするか分からない。
-  // 100 枚を超える削除は分けて送る）。20 枚の上限は下のバーの「保存」に掛ける（tooManyToShare）
+  // 選択に上限は掛けない（削除・カバーと共用で、選ぶ時点では何をするか分からない。100 枚を超える削除は
+  // 分けて送る）。20 枚の上限は下のバーの「保存」に掛ける（042）
   function toggleSelected(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -223,11 +216,11 @@ export default function AlbumDetailScreen() {
     });
   }
 
-  // 042: 選んだ写真を表示順に共有シートへ（fetch → File を枚数ぶん。進捗「3 / 12 枚を取得中…」）。
-  // 閉じた（AbortError）ときは何もしない（選択は残す）。取得できなかった枚数は共有シートのあとに 1 行
+  // 選んだ写真を表示順に共有シートへ（fetch → File を枚数ぶん。進捗「3 / 12 枚を取得中…」）。
+  // 閉じた（AbortError）ら何もしない（選択は残す）。取れなかった枚数は共有シートのあとに 1 行
   async function handleShareSelected() {
     if (selected.size === 0 || tooManyToShare || shareProgress) return;
-    // 047: 鍵の写真は保存に入れない（downloadUrl が NOT_FOUND。選択には残る = 削除はできる）
+    // 鍵の写真は保存に入れない（選択には残るので削除はできる）
     const refs = viewablePhotos.filter((photo) => selected.has(photoKey(photo))).map((photo) => photo.ref);
     setNotice(null);
     if (refs.length === 0) {
@@ -251,29 +244,29 @@ export default function AlbumDetailScreen() {
     }
   }
 
-  // + FAB: 写真を追加（複数選択。049: 1 回 100 枚まで）→ 20 枚ずつ「1 枚ずつ圧縮 → 署名付き PUT → addPhotos」。
-  // 塊の中で 1 枚でも失敗したらその塊は入らず（T15）、残りの塊は続ける。20 枚超は送る前に確認を 1 つ
+  // + FAB: 写真を追加（1 回 100 枚まで）→ 20 枚ずつ「1 枚ずつ圧縮 → 署名付き PUT → addPhotos」。
+  // 塊の中で 1 枚でも失敗したらその塊は入らず、残りの塊は続ける。20 枚超は送る前に確認を 1 つ（049）
   async function handleAddPhotos() {
     if (!canWrite || uploadProgress) return;
-    // 045: 残りが 0 なら選ぶ前にシート（写真を選ばせない。タスク定義 3節）
+    // 残りが 0 なら選ぶ前にシート（写真を選ばせない）
     if (quotaRemaining === 0) {
       setPlanLimitOpen(true);
       return;
     }
     const sources = await pickAlbumImages(ALBUM_UPLOAD_BATCH_MAX);
     if (sources.length === 0) return;
-    // 049 T3: Web の選択画面には上限が無いので、超えていたら 1 行で止める（送らない）
+    // Web の選択画面には上限が無いので、超えていたら 1 行で止める
     if (sources.length > ALBUM_UPLOAD_BATCH_MAX) {
       setNotice(`一度に入れられるのは ${ALBUM_UPLOAD_BATCH_MAX} 枚までです`);
       return;
     }
-    // 045: 残り n 枚で n+1 枚以上選んだ → 送る前に 1 行で止める（サーバでも拒む）
+    // 残り n 枚で n+1 枚以上選んだら送る前に 1 行で止める（サーバでも拒む）
     if (albumQuota && sources.length > albumQuotaRemaining(albumQuota)) {
       setNotice(albumQuotaOverLabel(albumQuota));
       return;
     }
     setNotice(null);
-    // 049: 20 枚超は「N 枚を送ります。少し時間がかかります」→「送る」。20 枚以下は今までどおり確認無し
+    // 20 枚超は「N 枚を送ります。少し時間がかかります」→「送る」。20 枚以下は確認無し
     if (sources.length > MAX_PHOTOS_PER_ADD) {
       setUploadConfirm(sources);
       return;
@@ -297,7 +290,7 @@ export default function AlbumDetailScreen() {
         {
           onProgress: setUploadProgress,
           signal: controller.signal,
-          // 045: サーバが PLAN_LIMIT を返したら残りの塊は送らずシート（枠が無いので続けても同じ）
+          // PLAN_LIMIT なら残りの塊は送らずシート（枠が無いので続けても同じ）
           stopOn: (error) => error instanceof ORPCError && error.code === "PLAN_LIMIT",
         },
       );
@@ -309,7 +302,7 @@ export default function AlbumDetailScreen() {
         setNotice(`${result.failed} 枚は入れられませんでした`);
       }
     } catch (error) {
-      // 045: 相手が同時に足した等でサーバが PLAN_LIMIT を返したら同じシート（枠の表示も読み直す）
+      // 相手が同時に足した等で PLAN_LIMIT なら同じシート（枠の表示も読み直す）
       if (error instanceof ORPCError && error.code === "PLAN_LIMIT") {
         setPlanLimitOpen(true);
         void queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() });
@@ -338,9 +331,8 @@ export default function AlbumDetailScreen() {
     }
   }
 
-  // 契約の上限（1 回 100 枚）を超える選択は 100 ずつに分けて順に送る（R の段階1レビュー。
-  // 60 枚読み込み → 「もっと見る」で 100 枚を超えて選べる）。途中で失敗したら残りは送らず、
-  // 消えた分は消えたまま（invalidate で画面に反映される）
+  // 契約の上限（1 回 100 枚）を超える選択は 100 ずつ順に送る（「もっと見る」で 100 枚を超えて選べる）。
+  // 途中で失敗したら残りは送らず、消えた分は消えたまま（invalidate で画面に出る）
   async function handleRemoveSelected() {
     if (selectedIds.length === 0) return;
     setNotice(null);
@@ -407,7 +399,7 @@ export default function AlbumDetailScreen() {
       <ScrollView
         contentContainerStyle={{
           padding: space.lg,
-          // 045: 警告のカードが FAB の上に固定で乗るときは、その分も空ける（B が決めた: 120）
+          // 警告のカードが FAB の上に乗るときは、その分も空ける
           paddingBottom: TAB_BAR_CLEARANCE + FAB_SIZE + (showQuotaWarning ? QUOTA_WARNING_CLEARANCE : 0),
           gap: space.md,
         }}
@@ -448,8 +440,7 @@ export default function AlbumDetailScreen() {
               <Text color="muted" testID="album-detail-summary">
                 {heading.summary}
               </Text>
-              {/* 045: 無料枠「27 / 30 枚」。上限なら「30 / 30 枚 - 上限に達しています」（絵 03 の上の行）。
-                  free のときだけ（paid・ゲスト・タイムラインには無い） */}
+              {/* 無料枠「27 / 30 枚」。上限なら「30 / 30 枚 - 上限に達しています」。free のときだけ */}
               {canWrite && albumQuota && (
                 <Text size="sm" color="brand" testID="album-detail-quota">
                   {albumQuotaHeadingLabel(albumQuota)}
@@ -462,7 +453,7 @@ export default function AlbumDetailScreen() {
               )}
             </View>
 
-            {/* 047: 猶予・鍵の帯（短く）。「ZIP で保存」はこのアルバムの写真 */}
+            {/* 猶予・鍵の帯（短く）。「ZIP で保存」はこのアルバムの写真（047） */}
             {canWrite && lockNoticeFor && (
               <LockBand
                 notice={lockNoticeFor}
@@ -477,7 +468,7 @@ export default function AlbumDetailScreen() {
                 <Text color="muted" align="center" testID="album-detail-progress">
                   {`${uploadProgress.done} / ${uploadProgress.total} 枚を送っています…`}
                 </Text>
-                {/* 049: 20 枚超のときだけ「やめる」（送り終えた塊は残る。閉じたら「N 枚まで入りました」） */}
+                {/* 20 枚超のときだけ「やめる」（送り終えた塊は残る。閉じたら「N 枚まで入りました」） */}
                 {uploadProgress.total > MAX_PHOTOS_PER_ADD && (
                   <Button variant="ghost" onPress={handleAbortUpload} testID="album-detail-upload-abort">
                     やめる
@@ -509,7 +500,7 @@ export default function AlbumDetailScreen() {
                 {photos.map((photo, index) => {
                   const key = photoKey(photo);
                   const isSelected = selected.has(key);
-                  // 047: 鍵のマス（絵 03）。押すと 045 のシート（選択モードでは選べる = 削除はできる）。ビューアは開かない
+                  // 鍵のマス。押すと無料枠のシート（選択モードでは選べる = 削除はできる）。ビューアは開かない（047）
                   const isLockedPhoto = photo.url === null;
                   const viewerIndexOf = isLockedPhoto ? -1 : viewablePhotos.indexOf(photo);
                   return (
@@ -626,16 +617,15 @@ export default function AlbumDetailScreen() {
             </>
           ) : (
             <>
-              {/* 042 1節: 21 枚以上選んでいるときは「保存」を押せなくして 1 行。選択には上限を掛けない（削除は何枚でも） */}
+              {/* 21 枚以上なら「保存」を押せなくして 1 行（選択には上限を掛けない） */}
               {tooManyToShare && (
                 <Text color="muted" align="center" testID="album-detail-share-limit">
                   {`一度に保存できるのは ${MAX_SHARE_FILES} 枚までです`}
                 </Text>
               )}
               <View style={{ flexDirection: "row", gap: space.sm }}>
-                {/* 042: 共有シートで保存できる環境だけ。タイムライン・ゲストはこれだけ。
-                    ラベルは「保存」「カバー」「削除」（iPhone の幅では「保存（7 枚）」「カバーにする」が折れた。
-                    枚数はヘッダーの「N 枚を選択中」にある。人間の決定 2026-09-14） */}
+                {/* 共有シートで保存できる環境だけ（タイムライン・ゲストはこれだけ）。ラベルは「保存」「カバー」
+                    「削除」（「保存（7 枚）」だと iPhone の幅で折れる。枚数はヘッダーにある） */}
                 {canShare && (
                   <View style={{ flex: 1 }}>
                     <Button
@@ -668,8 +658,8 @@ export default function AlbumDetailScreen() {
         </View>
       )}
 
-      {/* 045: 残りの警告（絵 01）。free で残りが 5 枚以下のとき、FAB の上に固定で出す
-          （アルバムの写真は FAB から入れるので FAB の上。paid・ゲスト・タイムライン・選択中には出さない） */}
+      {/* 残りの警告。free で残りが 5 枚以下のとき FAB の上に固定で出す（写真は FAB から入れるので
+          FAB の上。paid・ゲスト・タイムライン・選択中には出さない。045） */}
       {showQuotaWarning && albumQuota && (
         <View
           style={{
@@ -683,7 +673,7 @@ export default function AlbumDetailScreen() {
         </View>
       )}
 
-      {/* + FAB: 写真を追加（アップロード）。このタスクではここだけ FAB を使う。タイムライン・ゲストには無い */}
+      {/* + FAB: 写真を追加。タイムライン・ゲストには無い */}
       {canWrite && !isSelecting && (
         <Pressable
           onPress={handleAddPhotos}
@@ -721,7 +711,7 @@ export default function AlbumDetailScreen() {
         onEditCaption={canWrite ? openCaptionEditor : undefined}
       />
 
-      {/* 048: ⋯ メニュー: ZIP で保存（タイムライン以外。ゲストも） */}
+      {/* ⋯ メニュー: ZIP で保存（タイムライン以外。ゲストも。048） */}
       <Sheet visible={menuOpen} onClose={() => setMenuOpen(false)} title={title}>
         <View style={{ gap: space.sm }}>
           <Button
@@ -742,7 +732,7 @@ export default function AlbumDetailScreen() {
 
       <ZipExportSheet source={zipSource} onClose={() => setZipSource(null)} />
 
-      {/* 049: 20 枚超を選んだときの確認（送る前に 1 つ） */}
+      {/* 20 枚超を選んだときの送る前の確認（049） */}
       <Sheet visible={uploadConfirm !== null} onClose={() => setUploadConfirm(null)} title="写真を追加">
         {uploadConfirm && (
           <View style={{ gap: space.md }}>

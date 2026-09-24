@@ -6,20 +6,15 @@ import { useGuestMode } from "../lib/guest-mode";
 
 const ICON_SIZE = 14;
 
-// 未認証のデモ閲覧中、常時表示するバナー（docs/tasks/014-guest-demo.md）。
-// ルートレイアウトに置き、どの画面へ移動しても消えない
-// （architecture.md 7節「画面の外枠は常に出す」と同じ考え方）。
-// 035視覚仕様2節: ピル型に。上の濃い帯（brand-ink全幅）が画面最上部で
-// 唯一の濃色ブロックとなり、視線が主役（記念日カード）より先にここへ
-// 吸われていた（診断1）ため、淡い地に変える
+// 未認証のデモ閲覧中に常に出すバナー（014）。ルートに置き、どの画面でも消えない（architecture.md 7節）。
+// 淡い地のピル（濃い全幅の帯だと、視線が主役の記念日カードより先にここへ吸われる）
 export function DemoBanner() {
   const { colors, gradients } = useTheme();
   const { exitGuestMode } = useGuestMode();
 
   return (
     <SafeAreaView edges={["top"]}>
-      {/* デスクトップで全幅に伸ばさない。layout.maxWidthの列の中に収める
-          （035視覚仕様2節。全幅の帯はデスクトップで最も悪く見える、という指摘） */}
+      {/* デスクトップで全幅に伸ばさず、layout.maxWidth の列に収める */}
       <View style={{ width: "100%", maxWidth: layout.maxWidth, alignSelf: "center" }}>
         <LinearGradient
           colors={gradients.card}
@@ -50,8 +45,7 @@ export function DemoBanner() {
             これはデモです。ログインで記録を残せます
           </RNText>
           <Pressable onPress={exitGuestMode} accessibilityRole="button" testID="demo-banner-login">
-            {/* 035書体仕様: ボタン相当の文字はweight600〜700・字間0.04em
-                （11pt×0.04=0.44） */}
+            {/* ボタン相当の文字は weight 600〜700・字間 0.04em（0.44） */}
             <RNText
               style={{
                 fontFamily: fontFamily.ja,

@@ -39,31 +39,28 @@ const MAX_NAME_LENGTH = 20;
 
 type PrimaryDate = Couple["primaryDate"];
 
-// ホーム上部に何を表示するか（019）。ラベルはこの画面だけで使うため
-// event-kind.tsのような共有libには出さない
+// ホーム上部に何を表示するか。ラベルはこの画面だけで使うので共有の lib に出さない（019）
 const PRIMARY_DATE_LABELS: Record<PrimaryDate, string> = {
   dating: "付き合った日",
   married: "結婚した日",
   none: "非表示",
 };
 
-// 039: 見た目（ピンク/ホワイト）。ラベルはこの画面だけで使う
+// 見た目（ピンク/ホワイト）。ラベルはこの画面だけで使う（039）
 const APPEARANCE_LABELS: Record<Appearance, string> = {
   pink: "ピンク",
   white: "ホワイト",
 };
 
-// 039: 見た目の切り替え。端末の設定なので保存ボタンは無く、押した瞬間に全画面が
-// 変わる（記念日の「保存」と同じ列に置かない）。選択肢は「ホーム上部の表示」と
-// 同じ部品・同じ見た目（選ばれている方が primary、他方が secondary。flexWrap）。
-// ゲストにも出す（ログイン不要の設定。ADR-014）
+// 見た目の切り替え。端末の設定なので保存ボタンは無く、押した瞬間に変わる（記念日の「保存」と同じ列に
+// 置かない）。選択肢は「ホーム上部の表示」と同じ部品・見た目。ゲストにも出す（ログイン不要。ADR-014）
 function AppearanceCard() {
   const { appearance, setAppearance } = useAppearance();
   return (
     <Card>
       <View style={{ gap: space.md }}>
         <Text weight="bold">見た目</Text>
-        {/* 相手には反映されないことを、聞かれる前に言う（タスク定義4節） */}
+        {/* 相手には反映されないことを、聞かれる前に言う */}
         <Text size="xs" color="muted">
           この端末だけの設定です。相手には反映されません
         </Text>
@@ -88,14 +85,9 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { isGuestMode, exitGuestMode } = useGuestMode();
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）。
-  // この画面はguestMode中もフックだけは実行される（早期returnより後で
-  // couple.get/me.getを使うため）ため、両方に同じ対策が要る。
-  // me.getはreadProcedureを使わない（005の認可基底の唯一の例外。
-  // apps/api/src/router.ts）が、名前・メールアドレス・アイコン画像という
-  // 利用者ごとのデータを返すため、couple.get等5つと同じ理由でT9の対象
-  // （Rレビュー指摘: 走査ロジックがreadProcedureだけを見るため、この1本は
-  // 網羅テストに構造的に映らない。抜けたまま気づけなかった）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）。ゲスト中もフックは走るので両方に要る。
+  // me.get は readProcedure を使わない唯一の例外だが、利用者ごとのデータ（名前・メール・画像）を返すので
+  // 同じく対象（網羅テストは readProcedure を走査するので、この 1 本は映らない）
   const viewerKey = useViewerQueryKey();
   const meQuery = useQuery({
     ...orpc.me.get.queryOptions(),
@@ -105,36 +97,30 @@ export default function ProfileScreen() {
     ...orpc.couple.get.queryOptions(),
     queryKey: [...orpc.couple.get.queryOptions().queryKey, viewerKey],
   });
-  // 025: 招待コードの再発行導線を「ペアが1人のときだけ」出すため、
-  // 相手が参加済みかをstats.getのmembersで見る（他の問い合わせと同じくT9対応）
+  // 招待コードの再発行を「ペアが 1 人のときだけ」出すため、相手が参加済みかを stats.get の members で見る（025）
   const statsQuery = useQuery({
     ...orpc.stats.get.queryOptions(),
     queryKey: [...orpc.stats.get.queryOptions().queryKey, viewerKey],
   });
 
   const [name, setName] = useState("");
-  // 選び直した画像はここに置き、保存を押すまでアップロードしない
-  // （compose.tsxと同じ形。キャンセルすればアップロードされずに済む）
+  // 選び直した画像は保存を押すまでアップロードしない（キャンセルすれば上がらない）
   const [pendingImage, setPendingImage] = useState<SourceImage | null>(null);
-  // 023: 付き合った日はNULL許容になった（登録時に聞かなくなったため）。
-  // marriedDateと同じく""で「未設定」を表す
+  // 付き合った日は NULL 許容（登録時に聞かない。023）。"" で未設定を表す
   const [datingDate, setDatingDate] = useState("");
   const [marriedDate, setMarriedDate] = useState("");
   const [primaryDate, setPrimaryDate] = useState<PrimaryDate>("dating");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
-  // 025: 招待コードの再発行。この画面の中だけで完結する（onboardingのcreate→invite
-  // のように別画面へ渡す必要が無いため、PENDING_INVITE_QUERY_KEYは使わない）
+  // 招待コードの再発行。この画面の中で完結するので PENDING_INVITE_QUERY_KEY は使わない（025）
   const [reissuedInvite, setReissuedInvite] = useState<{ code: string; expiresAt: number } | null>(null);
   const [inviteErrorMessage, setInviteErrorMessage] = useState<string | null>(null);
-  // 048: 「アルバムの写真をまとめて保存」（すべての写真を ZIP で）のシート
+  // 「アルバムの写真をまとめて保存」（すべての写真を ZIP で。048）のシート
   const [zipSource, setZipSource] = useState<ZipSource | null>(null);
-  // 047: 猶予・鍵の帯
+  // 猶予・鍵の帯（047）
   const lockNoticeFor = lockNotice(coupleQuery.data?.planState, coupleQuery.data?.albumQuota ?? null);
 
-  // サーバのデータが届いた最初の1回だけフォームへ反映する。以降は
-  // 利用者の入力をサーバ再取得で上書きしない（event-form.tsxのvisible再初期化とは
-  // 違い、この画面は開いたままなので「初回のみ」で揃える）
+  // サーバのデータは最初の 1 回だけフォームへ入れる（開いたままの画面なので、再取得で入力を上書きしない）
   const initializedRef = useRef(false);
   useEffect(() => {
     if (initializedRef.current) return;
@@ -155,7 +141,7 @@ export default function ProfileScreen() {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.me.get.key() }),
     }),
   );
-  // 058: 天気の地域（couple_members.weather_area）。couple.get の weatherArea を読み直す
+  // 天気の地域（058）。couple.get の weatherArea を読み直す
   const [weatherSheetOpen, setWeatherSheetOpen] = useState(false);
   const updateWeatherArea = useMutation(
     orpc.me.updateWeatherArea.mutationOptions({
@@ -167,7 +153,7 @@ export default function ProfileScreen() {
         ]),
     }),
   );
-  // 048 段階2: 「プランを管理 ›」→ Stripe の Billing Portal（解約・カード変更）。同じタブで移動する
+  // 「プランを管理 ›」→ Stripe の Billing Portal（解約・カード変更）。同じタブで移動する（048）
   const portal = useMutation(
     orpc.billing.createPortalSession.mutationOptions({
       onSuccess: ({ url }) => {
@@ -177,9 +163,7 @@ export default function ProfileScreen() {
   );
   const isSubmitting = requestUploadUrl.isPending || updateMe.isPending || updateCouple.isPending;
 
-  // 相手が参加済み（2人揃っている）かどうか。statsQuery.dataが届くまでは
-  // まだ判断できないため、招待コードのカード自体を出さない（読み込み中に
-  // 「1人だけ」と誤って決めつけて発行導線を出してしまうことを防ぐ）
+  // 相手が参加済みか。stats が届くまでは判断できないので、カードを出さない（1 人と決めつけて発行の導線を出さない）
   const isPairComplete = (statsQuery.data?.members.length ?? 0) >= 2;
   const inviteExpiresAtLabel = reissuedInvite ? formatJstDateTime(reissuedInvite.expiresAt) : "";
 
@@ -189,14 +173,9 @@ export default function ProfileScreen() {
       const issued = await issueInvite.mutateAsync();
       setReissuedInvite(issued);
     } catch (error) {
-      // 【Rレビュー指摘】この画面に到達している時点で認証済みのため
-      // （isGuestModeの早期returnより後）、ここで返るFORBIDDENは
-      // 「満員」以外にありえない（writeProcedureのreadonly判定は通過済み）。
-      // 「もう一度お試しください」は構造的に成功しない操作を勧めることになる
-      // ため、この画面の文脈だけで理由を確定して案内し、statsQueryを
-      // 再取得してカード自体も正しい表示（相手が参加済みです）に戻す。
-      // isDefinedErrorはcatch節のerror（unknown）だと型がneverに潰れて
-      // 絞り込めないため、ORPCErrorのinstanceofで判定する（calendar.tsxと同じ理由）
+      // ここにいるのは認証済み（ゲストは上で return）なので、FORBIDDEN は「満員」しかない。
+      // 「もう一度お試しください」は成功しない操作を勧めるので、理由を案内して stats を読み直す。
+      // catch の error（unknown）では isDefinedError が never に潰れるので instanceof で見る
       if (error instanceof ORPCError && error.code === "FORBIDDEN") {
         setInviteErrorMessage("相手が参加済みです");
         void statsQuery.refetch();
@@ -219,8 +198,7 @@ export default function ProfileScreen() {
   const trimmedMarriedDate = marriedDate.trim();
   const marriedDateValid = trimmedMarriedDate.length === 0 || DATE_PATTERN.test(trimmedMarriedDate);
   const marriedDateRequired = primaryDate === "married" && trimmedMarriedDate.length === 0;
-  // 023: datingDateが空でも保存できる（「マイページであとから設定する」が
-  // このタスクの目的なのに、そのマイページが日付前提だと矛盾する）
+  // 付き合った日が空でも保存できる（「あとから設定する」場所が日付前提だと矛盾する。023）
   const canSave =
     trimmedName.length > 0 &&
     trimmedName.length <= MAX_NAME_LENGTH &&
@@ -261,8 +239,7 @@ export default function ProfileScreen() {
       }
 
       await updateMe.mutateAsync({ name: trimmedName, imageId });
-      // 記念日はふたりの共有データ。変更した本人以外にも影響することが
-      // 分かるよう、保存後の文言で明示する（019タスク定義）
+      // 記念日はふたりの共有データ。相手にも影響することを保存後の文言で言う
       await updateCouple.mutateAsync({
         datingDate: trimmedDatingDate.length > 0 ? trimmedDatingDate : null,
         marriedDate: trimmedMarriedDate.length > 0 ? trimmedMarriedDate : null,
@@ -283,13 +260,9 @@ export default function ProfileScreen() {
 
   const avatarImageUrl = pendingImage?.uri ?? meQuery.data?.image ?? undefined;
 
-  // 014: デモ閲覧中は「自分」が存在しない（未認証。me.getはnullを返す）ため、
-  // プロフィール編集フォームを出さずログインを促す
-  // 039: 「見た目」だけはログイン不要の設定なので、ゲストにもその上に出す。
-  // ログイン案内のブロック自体は 014 のまま（余白・中央寄せ・折り返し幅を変えない。
-  // カードのぶんだけ下へ寄る）。ScrollView にしない: 014 と同じ View のままの方が
-  // 構造の差が小さい（合成レイヤーが増えるとタブバーの影のにじみ方が数階調変わる。
-  // B が画素比較で確認）。カード + 案内は 568pt の画面にも収まる
+  // ゲストには「自分」が居ない（me.get は null）ので、編集フォームを出さずログインを促す。
+  // 「見た目」はログイン不要の設定なので、その上に出す（039）。ScrollView にせず View のまま
+  // （合成レイヤーが増えるとタブバーの影のにじみが変わる。カード + 案内は 568pt の画面にも収まる）
   if (isGuestMode) {
     return (
       <Screen>
@@ -303,7 +276,7 @@ export default function ProfileScreen() {
               名前やアイコン、記念日を設定するには、Googleアカウントでログインしてください
             </Text>
             <Button onPress={exitGuestMode}>ログイン</Button>
-            {/* 052: ゲストにもプライバシーポリシー・利用規約は読める */}
+            {/* ゲストにもプライバシーポリシー・利用規約は読める */}
             <LegalLinks />
           </View>
         </View>
@@ -311,8 +284,7 @@ export default function ProfileScreen() {
     );
   }
 
-  // 読み込み中: サーバの値が届く前にフォームを空欄のまま表示しない
-  // （calendar.tsxと同じ「データが無い間はローディング表示」の方針）
+  // 読み込み中: 値が届く前に空欄のフォームを出さない
   if ((meQuery.isLoading || coupleQuery.isLoading) && (!meQuery.data || !coupleQuery.data)) {
     return (
       <Screen>
@@ -323,8 +295,7 @@ export default function ProfileScreen() {
     );
   }
 
-  // エラー: 何も表示せず永久にフォームが空欄のまま止まって見えることを防ぐ
-  // （calendar.tsxと同じ「再試行ボタン付きのエラー表示」の方針）
+  // エラー: 空欄のまま止まって見えないよう、再試行ボタン付きで出す
   if ((meQuery.isError || coupleQuery.isError) && (!meQuery.data || !coupleQuery.data)) {
     return (
       <Screen>
@@ -386,7 +357,7 @@ export default function ProfileScreen() {
             </View>
           </Card>
 
-          {/* 039: 記念日カードの上、プロフィールカードの下（タスク定義4節） */}
+          {/* 記念日カードの上、プロフィールカードの下（039） */}
           <AppearanceCard />
 
           <Card>
@@ -419,10 +390,8 @@ export default function ProfileScreen() {
                 <Text size="sm" color="muted">
                   ホーム上部の表示
                 </Text>
-                {/* flex:1で等分すると、iPhone幅ではボタンの中で文字が
-                    「付き合」「った日」のように単語の途中で折り返されて
-                    見苦しくなる（人間の実機確認で発覚）。ボタンを内容の幅で
-                    並べ、収まらない分だけ次の行へ折り返す形にした */}
+                {/* flex:1 で等分すると iPhone 幅で「付き合」「った日」のように単語の途中で折れる。
+                    内容の幅で並べ、収まらない分だけ次の行へ折る */}
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
                   {PRIMARY_DATE_VALUES.map((value) => (
                     <Button
@@ -439,12 +408,9 @@ export default function ProfileScreen() {
             </View>
           </Card>
 
-          {/* 025: 招待コードの再発行。ペアが1人のときだけ出す（2人揃っていたら
-              出さず、理由を書く。020「押せないボタンを置かない」の方針）。
-              満員のペアではサーバ側（invite.issue）も拒むため、これは
-              UI側の見せ方に過ぎない（security-requirements.md T5と同じ考え方）。
-              statsQuery.dataが届くまではメンバー数を判断できないため、
-              カード自体を出さない */}
+          {/* 招待コードの再発行。ペアが 1 人のときだけ出す（揃っていたら出さず理由を書く。押せないボタンを
+              置かない）。満員ならサーバも拒むので、これは見せ方だけ（security-requirements.md T5）。
+              stats が届くまではカードを出さない（025） */}
           {statsQuery.data && (
           <Card>
             <View style={{ gap: space.md }}>
@@ -455,7 +421,7 @@ export default function ProfileScreen() {
                 </Text>
               ) : (
                 <>
-                  {/* 押す前に伝える（押したあとに気づく形にしない。025タスク定義） */}
+                  {/* 押す前に伝える（押したあとに気づく形にしない） */}
                   <Text size="xs" color="muted">
                     発行すると、以前発行した招待コードは無効になります。相手に渡し済みの場合は注意してください
                   </Text>
@@ -503,7 +469,7 @@ export default function ProfileScreen() {
             {isSubmitting ? "保存中…" : "保存する"}
           </Button>
 
-          {/* 058: 天気の地域（個人ごと。位置情報は取らない）。押すと都道府県 → 予報区のシート */}
+          {/* 天気の地域（個人ごと。位置情報は取らない）。押すと都道府県 → 予報区のシート（058） */}
           <Card>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
               <View style={{ gap: 2 }}>
@@ -527,8 +493,7 @@ export default function ProfileScreen() {
             </View>
           </Card>
 
-          {/* 037: 同意は設定であって、機能の一部ではない。ai-summary.tsxの
-              画面の中に埋めず、ここに置く（タスク定義9節） */}
+          {/* 同意は設定であって機能の一部ではないので、AI まとめの画面に埋めずここに置く（037） */}
           <Card>
             <View style={{ gap: space.sm }}>
               <Text weight="bold">AIまとめ</Text>
@@ -549,15 +514,14 @@ export default function ProfileScreen() {
             </View>
           </Card>
 
-          {/* 047: プレミアムをやめたあとの猶予・鍵の帯（プランの行の上）。「ZIP で保存」は下と同じシート */}
+          {/* プレミアムをやめたあとの猶予・鍵の帯（プランの行の上。047） */}
           {lockNoticeFor && (
             <LockBand notice={lockNoticeFor} onZip={() => setZipSource({ kind: "all" })} onPremium={() => router.push("/premium")} />
           )}
 
-          {/* 045: 「プラン: 無料／プレミアム」の 1 行。無料のときだけ右に「プレミアムについて ›」（→ /premium）。
-              couple.get の plan から。「お試し」は使わない。
-              048 段階2: paid は「プレミアム（9月15日に更新）」（planExpiresAt。無期限なら日付無し）。
-              stripe の行なら右に「プランを管理 ›」（Billing Portal）。manual は表示だけ */}
+          {/* 「プラン: 無料／プレミアム」の 1 行。無料なら右に「プレミアムについて ›」。paid は
+              「プレミアム（9月15日に更新）」（無期限なら日付無し）で、stripe の行なら右に「プランを管理 ›」。
+              manual は表示だけ。「お試し」は使わない（045・048） */}
           <Card>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md }}>
               <Text weight="bold">
@@ -598,8 +562,7 @@ export default function ProfileScreen() {
                 </Pressable>
               )}
             </View>
-            {/* 048: プランの行の下に「アルバムの写真をまとめて保存」（一覧の ⋯ と同じ「すべての写真を ZIP で保存」。
-                047 の猶予の案内から飛ぶ先） */}
+            {/* 「アルバムの写真をまとめて保存」（一覧の ⋯ と同じ。猶予の案内から飛ぶ先。048） */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="アルバムの写真をまとめて保存"
@@ -623,14 +586,12 @@ export default function ProfileScreen() {
             ログアウト
           </Button>
 
-          {/* 024: 「アカウントを削除」だけを書かない。ここは入口の1行なので
-              簡潔にするが、実際に消えるのがふたりのデータであることは
-              delete-account.tsxの2段階の確認で詳しく説明する */}
+          {/* ここは入口の 1 行。消えるのがふたりのデータであることは delete-account.tsx の 2 段階の確認で言う */}
           <Button variant="ghost" onPress={() => router.push("/delete-account")}>
             アカウントを削除
           </Button>
 
-          {/* 057: 運営（ADMIN_EMAILS に含まれる）のときだけ「運営 ›」（→ /admin）。他の人には入口が見えない */}
+          {/* 運営のときだけ「運営 ›」。他の人には入口が見えない（057） */}
           {coupleQuery.data?.isAdmin && (
             <Pressable accessibilityRole="button" accessibilityLabel="運営" onPress={() => router.push("/admin")} hitSlop={space.sm} testID="profile-admin">
               <Text size="sm" weight="medium" color="brand" align="center">
@@ -639,7 +600,7 @@ export default function ProfileScreen() {
             </Pressable>
           )}
 
-          {/* 052: マイページの一番下にプライバシーポリシー・利用規約（タスク定義 0節 4） */}
+          {/* 一番下にプライバシーポリシー・利用規約（052） */}
           <LegalLinks />
       </ScrollView>
 

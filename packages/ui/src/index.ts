@@ -1,7 +1,5 @@
-// colors・shadow・gradients は静的に export しない（039）。`useTheme()` から取る。
-// themes（パレットの実体）も export しない: 出すと `themes.pink.colors` で
-// 静的に取れてしまい、静的 export を消した意味（留め金）が無くなる。
-// 値の凍結テスト（T1）は packages/ui/test から ./theme を直接読む
+// colors・shadow・gradients・themes は静的に export しない（`useTheme()` から取る）。themes を出すと
+// `themes.pink.colors` で静的に取れてしまう。値の凍結テスト（T1）は ./theme を直接読む（039）
 export * from "./tokens";
 export {
   APPEARANCE_VALUES,

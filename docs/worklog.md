@@ -13908,6 +13908,14 @@ Session: B
 
 Session: B
 
+## 2026-09-25 セッションB: 063 段階2（apps/app・packages/ui・apps/landing のコメント）
+
+- 96 ファイル。コメント行 1,904 → 1,117。T2 は TS/TSX を `compare-code.mjs`、LP を `compare-landing.mjs`（本番のビルドと同じ strip で除いて空白を詰めて比べる）で確かめた
+- `viewer-key-coverage.test.ts` が免除の場所を行番号で固定していて、`timeline.tsx` のコメントを縮めたら赤くなった。上の方の行数を保って書き直した
+- `+html.tsx` の隣り合う JSX コメントを 1 つにまとめたら空の JSX 式が減ったのを比較の道具が拾ったので、2 つに戻した
+- `weather-codes.ts` は生成物（見出しも生成スクリプトが書く）なので触らない
+
+Session: B
 ## 2026-09-25 セッションA: audit の無視リストから image-size の 2 件を外す
 
 - R の連絡: #432 のマージ直後から main の「無視リストの陳腐化検出」が赤（GHSA-w3rx-r6r6-pgpr・GHSA-5p2g-fcmc-qvqq）

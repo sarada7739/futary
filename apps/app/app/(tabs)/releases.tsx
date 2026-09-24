@@ -7,13 +7,11 @@ import { markReleaseSeen } from "../../lib/release-seen";
 import { formatReleaseDate, RELEASES, type Release } from "../../lib/releases";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 
-// 043: リリース履歴（タスク定義 3節。見本 02）。データは lib/releases.ts の配列だけ（11 項目で固定長。
-// ページングは無い）。開いた時点で「見た」にする（ホームのバッジも消える。0節 #7）。
-// 最新の 1 枚だけ枠を primary にして NEW!（見た・見ないに関係なく。0節 #8）。
-// 戻るは `/` に固定（Tabs の中の href: null の画面同士では router.back() の行き先が安定しない。
-// album-detail.tsx と同じ理由）。右の × は置かない（戻るが 1 つあれば足りる）
+// リリース履歴（043）。データは lib/releases.ts の配列だけ（ページング無し）。開いた時点で「見た」にする
+// （ホームのバッジも消える）。最新の 1 枚だけ枠を primary にして NEW!（見た・見ないに関係なく）。
+// 戻るは `/` に固定（Tabs の中の href: null の画面同士では router.back() の行き先が安定しない）。× は置かない
 
-// 数値は B が決めた: 日付は Poppins 18pt bold（数字だけの行）・版のチップは高さ 22・箇条書きの点は 6px
+// 日付は Poppins 18pt bold（数字だけの行）・版のチップは高さ 22・箇条書きの点は 6px
 const DATE_FONT_SIZE = 18;
 const CHIP_HEIGHT = 22;
 const BULLET_SIZE = 6;
@@ -118,7 +116,7 @@ export default function ReleasesScreen() {
   const router = useRouter();
   const navigation = useNavigation();
 
-  // 一覧を開いた = 見た（0節 #7）
+  // 一覧を開いた = 見た
   useEffect(() => {
     markReleaseSeen();
   }, []);

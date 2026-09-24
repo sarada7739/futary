@@ -2,11 +2,9 @@ import { Linking, Platform } from "react-native";
 import type { PhotoRef } from "@futary/contract";
 import { client } from "./orpc";
 
-// 041 タスク定義4節 (a): サーバが返す保存用の署名付き URL（Content-Disposition: attachment 付き。
-// 5 分）を `<a href download>` で開く。新しいタブを開かない（Linking.openURL は空のタブが残る）。
-// download 属性はクロスオリジンの URL では無視されるが、R2 が返す Content-Disposition: attachment
-// がブラウザに保存させる（artifacts/041/download.md で実測）。filename はサーバが組み立てたもので、
-// ここでは表示名として同じ値を付けるだけ
+// サーバが返す保存用の署名付き URL（attachment 付き。5 分）を `<a href download>` で開く（新しいタブは開かない。
+// Linking.openURL だと空のタブが残る）。download 属性はクロスオリジンでは無視されるが、R2 の
+// Content-Disposition: attachment が保存させる（artifacts/041/download.md）
 export function saveFromUrl(url: string, filename: string): void {
   if (Platform.OS === "web" && typeof document !== "undefined") {
     const anchor = document.createElement("a");
@@ -18,42 +16,37 @@ export function saveFromUrl(url: string, filename: string): void {
     anchor.remove();
     return;
   }
-  // ネイティブは 033 と同じく今回は出さない（Web だけ）。届いたときのために URL を開く経路だけ残す
+  // ネイティブはまだ出さない（Web だけ）。届いたときのために URL を開く経路だけ残す
   void Linking.openURL(url);
 }
 
 const JPEG_MIME = "image/jpeg";
 
-// 041 段階2（8節）: iPhone・Android のブラウザは Web Share API に File を渡せる。共有シートの
-// 「画像を保存」で 1 タップで写真ライブラリに入る（段階1の <a download> は iOS Safari では
-// 「ダウンロード」に落ち、写真ライブラリまで遠い。人間の実機の要望）。
-// canShare({ files }) で判定する。PC は偽になり、今までどおり <a download>
+// iPhone・Android のブラウザは Web Share API に File を渡せ、共有シートの「画像を保存」で写真ライブラリに
+// 入る（iOS Safari の <a download> は「ダウンロード」に落ちて遠い）。canShare({ files }) で判定し、PC は <a download>
 export function canShareFiles(): boolean {
   if (Platform.OS !== "web" || typeof navigator === "undefined") return false;
   const nav = navigator as Navigator & { canShare?: (data: ShareData) => boolean; share?: (data: ShareData) => Promise<void> };
   if (typeof nav.canShare !== "function" || typeof nav.share !== "function") return false;
   try {
-    // 判定用のダミーの File。中身は見られない（canShare は型と形だけを見る）
+    // 判定用のダミーの File（canShare は型と形だけを見る）
     return nav.canShare({ files: [new File([], "probe.jpg", { type: JPEG_MIME })] });
   } catch {
     return false;
   }
 }
 
-// 署名付き URL を fetch → File（filename・image/jpeg）。fetch は <img> と違って CORS が要る
-// （本番 R2 の CORS にアプリのオリジンと GET がある。人間が r2:cors:list で確認済み）
+// 署名付き URL を fetch → File。fetch は <img> と違って CORS が要る（本番 R2 の CORS にアプリのオリジンと GET がある）
 export async function fetchPhotoFile(url: string, filename: string): Promise<File> {
   const response = await fetch(url);
   if (!response.ok) throw new Error("画像の取得に失敗しました");
-  // Blob ではなく ArrayBuffer を渡す。Blob は実行環境（realm）が違うと File が中身ではなく
-  // 文字列 "[object Blob]" を包んでしまう（CI の Node 22 + jsdom で実測。ブラウザでは起きないが、
-  // ArrayBuffer はどの環境でも同じに扱われる）
+  // Blob でなく ArrayBuffer を渡す（realm が違うと File が中身でなく文字列 "[object Blob]" を包む。
+  // CI の Node 22 + jsdom で起きた）
   const bytes = await response.arrayBuffer();
   return new File([bytes], filename, { type: JPEG_MIME });
 }
 
-// 共有シートに File を渡す。利用者が閉じた（AbortError）ときは "aborted" を返して何もしない。
-// それ以外の失敗は例外のまま投げる（呼び出し側が <a download> に倒す）
+// 共有シートに File を渡す。閉じた（AbortError）ら "aborted"。他の失敗は投げる（呼び出し側が <a download> に倒す）
 export type ShareOutcome = "shared" | "aborted";
 
 export async function shareFiles(files: File[]): Promise<ShareOutcome> {
@@ -61,7 +54,7 @@ export async function shareFiles(files: File[]): Promise<ShareOutcome> {
     await navigator.share({ files });
     return "shared";
   } catch (error) {
-    // DOMException は環境によって Error を継承しない（jsdom で実測）。name だけで判定する
+    // DOMException は環境によって Error を継承しない（jsdom）ので name だけで見る
     if (typeof error === "object" && error !== null && (error as { name?: unknown }).name === "AbortError") {
       return "aborted";
     }
@@ -69,10 +62,8 @@ export async function shareFiles(files: File[]): Promise<ShareOutcome> {
   }
 }
 
-// ビューアの保存ボタンが呼ぶ 1 本。photo.downloadUrl → 共有シート（できる環境）か <a download>。
-// 共有の経路で fetch や share が失敗したら（AbortError を除く）<a download> に倒す（8節）。
-// 段階0（人間の iPhone）: await fetch のあとの share が NotAllowedError にならないか。駄目なら
-// 表示中の 1 枚を先読みして押下で share だけ呼ぶ形に変える
+// ビューアの保存ボタンが呼ぶ。photo.downloadUrl → 共有シート（できる環境）か <a download>。
+// 共有の経路で fetch や share が失敗したら（AbortError を除く）<a download> に倒す
 export async function downloadPhoto(ref: PhotoRef): Promise<void> {
   const { url, filename } = await client.photo.downloadUrl(ref);
   if (canShareFiles()) {
@@ -81,30 +72,28 @@ export async function downloadPhoto(ref: PhotoRef): Promise<void> {
       await shareFiles([file]);
       return;
     } catch {
-      // 取得できない・共有シートが出せない（NotAllowedError 等）→ 段階1の経路に倒す
+      // 取れない・共有シートが出せない（NotAllowedError 等）→ <a download> に倒す
     }
   }
   saveFromUrl(url, filename);
 }
 
-// 042: 選んだ写真をまとめて写真ライブラリへ（同じ共有シートに複数の File）。
-// 1 回の共有は MAX_SHARE_FILES 枚まで（1600px の JPEG は 1 枚 300〜600KB。共有シートに渡す File は
-// ブラウザのメモリに乗る。iOS で何枚まで安定するかは段階0で人間の iPhone が測る。通れば 50 に上げる）
+// 選んだ写真をまとめて写真ライブラリへ（同じ共有シートに複数の File。042）。1 回 MAX_SHARE_FILES 枚まで
+// （1600px の JPEG は 1 枚 300〜600KB で、渡す File はブラウザのメモリに乗る）
 export const MAX_SHARE_FILES = 20;
 
 export type ShareProgress = { done: number; total: number };
 
 export type SharePhotosResult = {
-  // shared: 共有シートで保存した / aborted: 閉じた / nothing: 1 枚も取得できず共有シートを出していない
+  // shared: 保存した / aborted: 閉じた / nothing: 1 枚も取れず共有シートを出していない
   outcome: ShareOutcome | "nothing";
-  // 取得できなかった枚数（飛ばして残りで共有シートを出す。全部やり直しにしない。042 3節）
+  // 取れなかった枚数（飛ばして残りで共有シートを出す。全部やり直しにしない）
   failed: number;
 };
 
-// 写真の ref を順に photo.downloadUrl → fetch → File にして、揃った分を 1 回の navigator.share に渡す。
-// photo.downloadUrl は枚数ぶん呼ぶ（1 リクエスト 1 署名。専用の手続きを足さない。042 3節）。
-// 1 枚でも失敗したらその枚を飛ばす。AbortError は "aborted"。他の失敗は例外のまま投げる。
-// MAX_SHARE_FILES 超は例外（保険。画面が「保存」を無効にして守る。画面の判定が外れても lib で止まる）
+// ref を順に photo.downloadUrl → fetch → File にし、揃った分を 1 回の navigator.share に渡す
+// （専用の手続きを足さず、1 枚ずつ署名する）。失敗した枚は飛ばす。AbortError は "aborted"、他は投げる。
+// MAX_SHARE_FILES 超は例外（画面が「保存」を無効にして守るが、外れても lib で止める）
 export async function sharePhotos(
   refs: readonly PhotoRef[],
   onProgress?: (progress: ShareProgress) => void,

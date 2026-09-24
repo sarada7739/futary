@@ -10,55 +10,43 @@ import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
-// sign-in.tsxのresolveCallbackURLと同じ理由（ローカル開発でのポート違い・
-// 015でアプリ本体が/app/*に分かれたこと）。戻り先だけこの画面にする
+// sign-in.tsx の resolveCallbackURL と同じ理由（ローカルのポート違い・アプリ本体は /app/*）。戻り先だけこの画面
 function resolveReauthCallbackURL(): string {
   if (Platform.OS === "web" && typeof window !== "undefined") return `${window.location.origin}/app/delete-account`;
   return "/delete-account";
 }
 
-// 024: アカウント削除と退会。
-//
-// 「あなたのアカウントを削除します」では足りない。消えるのは相手の分も
-// 含めた全部である（Candle型。docs/tasks/024-account-deletion.md）。
-// 確認を2段階に分ける:
-//   1段階目: 何が消えるかを列挙する
-//   2段階目: 相手のデータも消えること・相手に事前に知らせないことを明記する。
-//            ここで初めて「削除する」が押せる
-//
-// 既定で押せる状態にしない（020「押しても何も起きない、にしない」の逆で、
-// ここは押しにくくする）。チェックを入れないと最終ボタンが押せない形にした
+// アカウント削除と退会（024）。消えるのは相手の分も含めた全部なので、確認を 2 段階に分ける:
+//   1 段階目: 何が消えるかを並べる
+//   2 段階目: 相手のデータも消えること・相手に事前に知らせないことを書き、ここで初めて「削除する」が押せる
+// 既定で押せる状態にしない（チェックを入れないと最終ボタンが押せない）
 export default function DeleteAccountScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const [stage, setStage] = useState<1 | 2>(1);
   const [acknowledged, setAcknowledged] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // サーバがREAUTH_REQUIREDで拒んだとき（下のhandleDelete参照）に立てる。
-  // 通常はmeQuery.data.sessionIsFreshで先に弾くため、ここに来るのは
-  // 確認をやり切る間に5分を跨いだときだけ（Aの決定。T5: 止めているのは
-  // サーバである）
+  // サーバが REAUTH_REQUIRED で拒んだときに立てる。普段は sessionIsFresh で先に弾くので、ここに来るのは
+  // 確認の途中で 5 分を跨いだときだけ（止めているのはサーバ。T5）
   const [serverRejectedReauth, setServerRejectedReauth] = useState(false);
   const isSigningInRef = useRef(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const deleteMe = useMutation(orpc.me.delete.mutationOptions());
-  // queryKeyにviewerKeyを含める理由はprofile.tsxと同じ（T9）
+  // queryKey に viewerKey を含める（profile.tsx と同じ。T9）
   const viewerKey = useViewerQueryKey();
   const meQuery = useQuery({
     ...orpc.me.get.queryOptions(),
     queryKey: [...orpc.me.get.queryOptions().queryKey, viewerKey],
   });
 
-  // 024・Aの決定: 「削除確認画面に入れるか」はサーバが真偽値で返す
-  // （sessionIsFresh）。判定はここでだけ行い、時刻を比べる計算はしない
+  // 確認画面に入れるかはサーバが真偽値で返す（sessionIsFresh）。ここで時刻を比べない
   const needsReauth = serverRejectedReauth || meQuery.data?.sessionIsFresh === false;
 
   function handleReauth() {
     if (isSigningInRef.current) return;
     isSigningInRef.current = true;
     setIsSigningIn(true);
-    // sign-in.tsxと同じ理由（signIn.socialのPromiseはredirect開始直後に
-    // resolveするため、成功時は遷移完了までボタンを戻さない）
+    // signIn.social の Promise は redirect の開始直後に resolve するので、成功時は遷移まで戻さない
     void signIn.social({ provider: "google", callbackURL: resolveReauthCallbackURL() }).then((result) => {
       if (result?.error) {
         isSigningInRef.current = false;
@@ -81,17 +69,9 @@ export default function DeleteAccountScreen() {
       return;
     }
 
-    // 【security-auditor指摘】削除自体は成功したのに、signOut()側の失敗を
-    // 同じtryで拾うと「削除できませんでした」と誤って表示してしまう
-    // （実際には既に消えている）。削除の成否とsignOut()の成否を別に扱う。
-    //
-    // サーバ側では既にsession/userが消えているが、画面はまだ知らない
-    // （024タスク定義「サインアウトする。セッションはサーバ側で消えている
-    // が、画面が知らない」）。signOut()でクライアント側の状態を切り替える。
-    // 識別が変わればStack.Protectedのguardが自然にサインイン画面へ導く
-    // （明示的なnavigateは要らない。PR #177の教訓）。
-    // 【security-auditor指摘】削除は「見えなくする」ではなく「消す」操作
-    // なので、viewerKeyでの隔離（T9）に加えてキャッシュ自体も明示的に破棄する
+    // 削除の成否と signOut() の成否を分ける（同じ try だと、消えたのに「削除できませんでした」と出る）。
+    // セッションはサーバで消えているが画面は知らないので、signOut() で切り替える（guard がサインイン画面へ
+    // 導くので navigate は要らない）。削除は「消す」操作なので、viewerKey の隔離に加えてキャッシュも破棄する
     queryClient.clear();
     await signOut();
   }
@@ -104,8 +84,7 @@ export default function DeleteAccountScreen() {
         </Text>
 
         {meQuery.isPending ? (
-          // 読み込み中はsessionIsFreshが分からず、確認画面に入れるかを
-          // 判定できない（profile.tsxと同じ理由。空欄のまま表示しない）
+          // 読み込み中は sessionIsFresh が分からず、入れるかを判定できない
           <Text color="muted">読み込み中…</Text>
         ) : needsReauth ? (
           <>
@@ -191,8 +170,7 @@ export default function DeleteAccountScreen() {
             )}
 
             <View style={{ gap: space.sm }}>
-              {/* 036: 取り返しのつかない操作（物理削除）のためdanger
-                  （architecture.md 7節。塗りつぶしにしない＝押しやすくしない） */}
+              {/* 取り返しのつかない操作なので danger（塗りつぶしにしない = 押しやすくしない。architecture.md 7節） */}
               <Button
                 variant="danger"
                 onPress={handleDelete}

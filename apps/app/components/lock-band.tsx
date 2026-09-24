@@ -2,9 +2,8 @@ import { Pressable, View } from "react-native";
 import { Card, space, Text } from "@futary/ui";
 import type { LockNotice } from "../lib/plan";
 
-// 047: プレミアムをやめたあとの帯（タスク定義 2節）。アルバム一覧（使用量のカードの上）・アルバム詳細・
-// マイページの 3 箇所で同じものを出す。
-// 猶予中: 文 + 「ZIP で保存」（048 段階1 のシート）+ 「プレミアムについて」。鍵の後: 文 + 「プレミアムについて」
+// プレミアムをやめたあとの帯（047）。アルバム一覧・アルバム詳細・マイページの 3 箇所で同じものを出す。
+// 猶予中: 文 +「ZIP で保存」+「プレミアムについて」。鍵の後: 文 +「プレミアムについて」
 
 export type LockBandProps = {
   notice: LockNotice;

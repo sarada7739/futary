@@ -22,14 +22,11 @@ import type { Release } from "../lib/releases";
 import { NewBadge } from "./new-badge";
 import { Sheet } from "./sheet";
 
-// 043: ホームを開いたときの「新機能のお知らせ」（タスク定義 3節。見本 04）。最新の 1 項目だけ。
-// 上に絵（ホワイトは見本の贈り物を切り出した releaseGift、ピンクは既存の sparkle。分岐はこの部品の中）、
-// NEW、題名、副題、機能のカード（ホームのそのパネルの写真タイルを流用。新しい絵は作らない）、
-// 「使ってみる ›」（route があるときだけ）、「後で通知する」、「閉じる ×」。
-// 振る舞い（見た・後で）は呼び出し側（ホーム）が持つ。この部品は押されたことを伝えるだけ
+// ホームを開いたときの「新機能のお知らせ」（043）。最新の 1 項目だけ。上に絵（ホワイトは贈り物、ピンクは sparkle。
+// 分岐はこの部品の中）、NEW、題名、副題、機能のカード（パネルの写真タイルを流用）、「使ってみる ›」（route が
+// あるときだけ）、「後で通知する」、「閉じる ×」。見た・後での振る舞いはホームが持ち、ここは押されたことを伝えるだけ
 
-// route → ホームのパネルの写真タイル（ホワイトの絵。ピンクでも同じ写真を使う。写真は外観で変わらない）。
-// 無い route（/profile 等）は絵無し
+// route → パネルの写真タイル（写真は外観で変わらない）。無い route（/profile 等）は絵無し
 const PHOTO_BY_ROUTE: Readonly<Record<string, ImageSourcePropType>> = {
   "/timeline": panelPhotoTimeline,
   "/calendar": panelPhotoCalendar,
@@ -42,8 +39,7 @@ const PHOTO_BY_ROUTE: Readonly<Record<string, ImageSourcePropType>> = {
   "/ai-summary": panelPhotoAi,
 };
 
-// 数値は B が決めた: 贈り物の絵は幅いっぱい（元 736×290）で高さ 100 に収める。
-// sparkle（122×169）は高さ 56。写真タイルは 88 の正方形（角丸 radius.input）
+// 贈り物の絵は幅いっぱい（元 736×290）で高さ 100 に収める。sparkle は高さ 56。写真タイルは 88 の正方形
 const GIFT_HEIGHT = 100;
 const SPARKLE_HEIGHT = 56;
 const SPARKLE_WIDTH = Math.round((SPARKLE_HEIGHT * 122) / 169);

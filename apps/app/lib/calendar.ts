@@ -1,7 +1,5 @@
-// 011: 月グリッドの構築（表示に関わるものだけ。architecture.md 5節
-// 「日付計算は packages/date に置く」）。日付そのものの計算（今日・曜日・
-// 日数の加減算）は @futary/date に集約し、ここでは新しい Date を作らない。
-// 日〜土の実測値はAのPR #84（`docs/tasks/011-calendar-ui.md`）に基づく
+// 月グリッドの構築（表示に関わるものだけ）。日付の計算（今日・曜日・加減算）は @futary/date に置き、
+// ここでは Date を作らない（architecture.md 5節）
 
 import { addDays, daysInMonth, dayOfWeek, formatDate } from "@futary/date";
 
@@ -24,15 +22,14 @@ export function monthGridRange(year: number, month: number): { from: string; to:
 
 export type GridDay = { date: string; inMonth: boolean };
 
-// グリッドの各日を日付順のフラット配列で返す（28〜42件。一定しない）。
-// 7件ずつで折り返すと週になる
+// グリッドの各日を日付順に並べる（28〜42 件）。7 件ずつで折り返すと週になる
 export function buildMonthGrid(year: number, month: number): GridDay[] {
   const { from, to } = monthGridRange(year, month);
 
   const days: GridDay[] = [];
   let cursor = from;
   while (cursor <= to) {
-    // YYYY-MM-DD は零埋めのため文字列比較がそのまま日付順になる
+    // YYYY-MM-DD はゼロ埋めなので文字列の比較がそのまま日付順
     const cursorYear = Number(cursor.slice(0, 4));
     const cursorMonth = Number(cursor.slice(5, 7));
     days.push({ date: cursor, inMonth: cursorYear === year && cursorMonth === month });

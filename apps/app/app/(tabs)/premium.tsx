@@ -12,23 +12,17 @@ import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
-// 045: プレミアムの画面。048 段階2 で申し込み（Stripe Checkout）が本物になった（タスク定義 3節 画面）。
-// 上に絵（ピンクはハートの線画 iconPanelWant、ホワイトは ✦ の線画 iconReleases。どちらも primary で塗る）・
-// 「プレミアムプラン」・「大切な思い出を、もっと自由に。」・
-// 「できること」のカード（**「写真 50 万枚まで」「アルバムはいくつでも」の 2 行だけ**。他は書かない）・
-// 月額／年額の切り替えと価格（billing.prices。Stripe から。直書きしない）・
-// 「プレミアムを始める →」（→ billing.createCheckoutSession の url へ window.location.assign）・
-// 「いつでも解約できます・自動更新」・下に「特定商取引法に基づく表記」「利用規約」（ランディングのページ）。
-// 既に paid なら「プレミアムです」と「プランを管理」（Billing Portal。stripe の行のときだけ。manual は出さない）。
-// ゲストは価格を見られるがボタンは「ログインして始める」。
-// 「無料トライアル」「無制限」の文言はどこにも出さない（人間の指示・P7）。
-// 戻る: 3 箇所から来るので来た画面に固定できない。ここだけ router.back()。履歴が無ければ /album
+// プレミアムの画面（045・048）。上に絵（ピンクはハート、ホワイトは ✦。どちらも primary で塗る）・題・
+// 「できること」のカード（「写真 50 万枚まで」「アルバムはいくつでも」の 2 行だけ）・月額／年額の切り替えと
+// 価格（billing.prices。直書きしない）・「プレミアムを始める →」（Checkout の url へ）・下に特商法と利用規約。
+// paid なら「プレミアムです」と「プランを管理」（stripe の行のときだけ）。ゲストは価格を見られ、ボタンは
+// 「ログインして始める」。「無料トライアル」「無制限」は出さない。
+// 戻る: 3 箇所から来るので固定できず、ここだけ router.back()（履歴が無ければ /album）。
 //
-// ?status=success で戻ったとき（Checkout の success_url）: 「反映しています…」を出して couple.get を
-// 3 秒ごとに読み直す（最大 30 秒）。paid になったら「プレミアムになりました」。ならなければ
-// 「少し時間がかかることがあります。マイページで確かめてください」（Webhook が遅れることはある）
+// ?status=success で戻ったら「反映しています…」を出し、couple.get を 3 秒ごとに読み直す（最大 30 秒。
+// Webhook は遅れることがある）
 
-// 数値は B が決めた: 絵は 56
+// 絵の大きさ
 const PICTURE_SIZE = 56;
 const CONFIRM_INTERVAL_MS = 3000;
 const CONFIRM_TIMEOUT_MS = 30_000;
@@ -48,7 +42,7 @@ function HeaderTextButton({ label, onPress, testID }: { label: string; onPress: 
   );
 }
 
-// Checkout / Portal は Stripe のページ。同じタブで移動する（戻り先は success_url / return_url）
+// Checkout・Portal は Stripe のページ。同じタブで移動する（戻り先は success_url・return_url）
 function goToExternal(url: string) {
   if (Platform.OS === "web" && typeof window !== "undefined") window.location.assign(url);
 }
@@ -67,7 +61,7 @@ export default function PremiumScreen() {
   const [confirm, setConfirm] = useState<"idle" | "waiting" | "done" | "timeout">(returnedFromCheckout ? "waiting" : "idle");
   const confirmStartedAt = useRef(Date.now());
 
-  // 価格は誰が見ても同じだが、キャッシュのキーは他と同じく viewerKey を含める（規約 T9。免除を増やさない）
+  // 価格は誰でも同じだが、キーは他と同じく viewerKey を含める（免除を増やさない。T9）
   const pricesOptions = orpc.billing.prices.queryOptions({ input: {} });
   const pricesQuery = useQuery({ ...pricesOptions, queryKey: [...pricesOptions.queryKey, viewerKey] });
   const coupleQuery = useQuery({

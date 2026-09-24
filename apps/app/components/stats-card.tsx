@@ -8,21 +8,19 @@ import { daysTogetherParts } from "../lib/stats";
 import { orpc } from "../lib/orpc";
 import { useViewerQueryKey } from "../lib/viewer-key";
 
-// 035視覚仕様1節「アバター」表の数値
+// アバターの寸法（035）
 const AVATAR_SIZE = 80;
 const AVATAR_GLOW_RING = 3; // packages/ui Avatarのglow時の縁の太さと同じ値（86=80+3*2）
 const AVATAR_CENTER_DISTANCE = 128;
 const HEART_SIZE = 40;
 const HEART_ICON_SIZE = 22;
 const SPARKLE_SIZE = 16;
-// 039 段階2-b（ホワイト）: ハートもリングも無いので、アバターの外径は 80 のまま。
-// 中心間 128（視覚仕様1節）を保つと隙間は 128-80=48
+// ホワイトはハートもリングも無いので外径 80 のまま。中心間 128 を保つと隙間は 48（039）
 const WHITE_AVATAR_GAP = AVATAR_CENTER_DISTANCE - AVATAR_SIZE;
 
 type Member = Stats["members"][number];
 
-// 相手が未参加（招待中）のときは点線の枠だけを出す。実在するアバターと
-// 混同しないよう、Avatarコンポーネントは使わずここだけ別の見た目にする
+// 相手が未参加（招待中）なら点線の枠だけ。実在のアバターと混同しないよう Avatar は使わない
 function InvitingAvatar() {
   const { colors } = useTheme();
   return (
@@ -48,18 +46,17 @@ function InvitingAvatar() {
   );
 }
 
-// 035視覚仕様1節: 名前は12pt/weight500/text（mutedは薄すぎる）、アバター下8
+// 名前は 12pt・weight 500・text（muted は薄すぎる）。アバターの下 8
 function MemberAvatar({ member }: { member?: Member }) {
   const { appearance, colors } = useTheme();
   if (!member) return <InvitingAvatar />;
 
   const name = member.name ?? "（名前未設定）";
-  // 039 段階2-b: ホワイトはリング無し・素の円（glow はピンクの語彙）
+  // ホワイトはリング無しの素の円（glow はピンクの語彙）
   return (
     <View style={{ alignItems: "center" }}>
       <Avatar name={name} imageUrl={member.image ?? undefined} size={AVATAR_SIZE} glow={appearance === "pink"} />
-      {/* 035書体仕様3節: 「ゆい／れん」はweight400（Poppinsを混植しない
-          日本語要素）*/}
+      {/* 名前は weight 400（日本語。Poppins を混ぜない） */}
       <RNText style={{ fontFamily: fontFamily.ja, fontSize: 12, fontWeight: "400", color: colors.text, marginTop: space.sm }}>
         {name}
       </RNText>
@@ -67,13 +64,11 @@ function MemberAvatar({ member }: { member?: Member }) {
   );
 }
 
-// 記念日カードの地。`Card`はpaddingが固定（space.lg）でここには合わないため
-// 使わず、同じトークン（radius.card・shadow.card）に035の値（半透明・上端の縁）
-// を足して直接組み立てる
+// 記念日カードの地。Card は padding が固定で合わないので、同じトークン（radius.card・shadow.card）に
+// 半透明・上端の縁を足して組む
 function CardShell({ children }: { children: ReactNode }) {
   const { appearance, colors, shadow } = useTheme();
-  // 039 段階2-b: ホワイトは半透明の地・上端の縁・影を使わず、Card と同じ
-  // 「surface の地 + border 1px」（影は値で 0）
+  // ホワイトは半透明の地・縁・影を使わず、Card と同じ「surface の地 + border 1px」（影は値で 0）
   const surface =
     appearance === "white"
       ? { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }
@@ -103,18 +98,15 @@ export function StatsCard() {
   const { appearance, colors, shadow } = useTheme();
   const isWhite = appearance === "white";
   const router = useRouter();
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）
   const viewerKey = useViewerQueryKey();
   const query = useQuery({
     ...orpc.stats.get.queryOptions(),
     queryKey: [...orpc.stats.get.queryOptions().queryKey, viewerKey],
   });
 
-  // 016: 以前は通信エラー時にカード自体を消していたが、それだと利用者に
-  // 何も知らされないまま統計情報だけが欠ける（security-auditor全体監査・
-  // 3状態レビュー指摘）。カードは出したまま再試行できる表示に変える。
-  // ホーム画面の他の要素（機能パネル）は取得状態に依存しないため、
-  // このカードの失敗が画面全体を止めることはない
+  // 通信エラーでもカードは消さず、再試行できる表示にする（消すと何も知らされず統計だけ欠ける）。
+  // 機能パネルは取得状態に依存しないので、この失敗が画面全体を止めない
   if (query.isError) {
     return (
       <Card>
@@ -178,17 +170,15 @@ export function StatsCard() {
             flexDirection: "row",
             alignItems: "flex-start",
             justifyContent: "center",
-            // 中心間128（視覚仕様1節）。アバター外径86（80+glowの縁3*2）なので
-            // 隙間は128-86=42。ハート40を挟んだ残りをavatar-heart間で等分する。
-            // 039 段階2-b: ホワイトはハートもリングも無いので 128-80=48 を1つの隙間に
+            // 中心間 128。外径 86（80 + glow の縁 3×2）なので隙間は 42 で、ハート 40 を挟んだ残りを等分する。
+            // ホワイトはハートもリングも無いので 48 を 1 つの隙間に
             columnGap: isWhite
               ? WHITE_AVATAR_GAP
               : (AVATAR_CENTER_DISTANCE - (AVATAR_SIZE + AVATAR_GLOW_RING * 2) - HEART_SIZE) / 2,
           }}
         >
           <MemberAvatar member={stats.members[0]} />
-          {/* 039 段階2-b: 2人の間のハートはピンクだけ。ホワイトは余白だけ
-              （モックの「・/」の記号はやらない。タスク定義6節） */}
+          {/* 2 人の間のハートはピンクだけ。ホワイトは余白だけ（039） */}
           {!isWhite && (
           <View
             testID="stats-card-heart"
@@ -199,7 +189,7 @@ export function StatsCard() {
               backgroundColor: "rgba(255, 255, 255, 0.85)", // surface opacity 0.85
               alignItems: "center",
               justifyContent: "center",
-              // アバター外径86の縦中央に来るよう、その半分からハート半分を引く
+              // 外径 86 の縦中央に来るよう、その半分からハートの半分を引く
               marginTop: (AVATAR_SIZE + AVATAR_GLOW_RING * 2 - HEART_SIZE) / 2,
               ...shadow.glow,
             }}
@@ -212,10 +202,8 @@ export function StatsCard() {
 
         {parts && (
           <>
-            {/* 035書体仕様3節: 「付き合って」はweight400（日本語。Poppins混植しない）。
-                039 段階2-b: ホワイトでは「付き合って」「結婚して」の小見出しを出さない
-                （モック）。「記念日まで あと」「結婚まで あと」は数字の意味そのもの
-                （未来の日付）なので、ホワイトでも残す */}
+            {/* 「付き合って」は weight 400（日本語。Poppins を混ぜない）。ホワイトは小見出しを出さないが、
+                「記念日まで あと」は数字の意味そのもの（未来の日付）なので残す */}
             {(!isWhite || (stats.daysTogether.status !== "dating" && stats.daysTogether.status !== "married")) && (
             <RNText
               testID="stats-card-days-prefix"
@@ -233,8 +221,7 @@ export function StatsCard() {
             )}
             <View style={{ flexDirection: "row", alignItems: "flex-end", marginTop: isWhite ? space.md : 0 }}>
               <View>
-                {/* 035書体仕様2節・4節: 「数字が主役の箱」。Poppins weight800
-                    （700との実測比較をAの指示で行い、800を採用した） */}
+                {/* 数字が主役の箱。Poppins weight 800 */}
                 <RNText
                   testID="stats-card-days-number"
                   style={{
@@ -250,7 +237,7 @@ export function StatsCard() {
                 >
                   {parts.days}
                 </RNText>
-                {/* 039 段階2-b: スパークルはピンクの装飾。ホワイトには無い */}
+                {/* スパークルはピンクの装飾。ホワイトには無い */}
                 {!isWhite && (
                   <Image
                     source={sparkle}
@@ -283,9 +270,8 @@ export function StatsCard() {
           </>
         )}
 
-        {/* 023: unset（まだ決めていない）のときだけマイページへの導線を出す。
-            hidden（本人が隠すと決めた）のときは何も出さない
-            （同じにすると隠すと決めた人に「設定してください」と出し続けることになる） */}
+        {/* unset（まだ決めていない）のときだけマイページへの導線を出す。hidden（本人が隠すと決めた）では
+            出さない（隠すと決めた人に「設定してください」と出し続けない。023） */}
         {stats.daysTogether.status === "unset" && (
           <Pressable onPress={() => router.push("/profile")} testID="stats-card-set-dating-date">
             <Text size="sm" color="brand">
@@ -294,9 +280,8 @@ export function StatsCard() {
           </Pressable>
         )}
 
-        {/* 035視覚仕様1節: 会った日数はピル。「94」だけprimary/weight700。
-            Badgeはstyleを受け取らないため、間隔は外側のViewで付ける。
-            039 段階2-b: ホワイトはピルではなく素の muted 文字（モック） */}
+        {/* 会った日数はピル（ホワイトは素の muted の文字）。「94」だけ primary・weight 700。
+            Badge は style を受け取らないので、間隔は外側の View で付ける */}
         {isWhite ? (
           <RNText
             testID="stats-card-meetup-plain"
@@ -307,8 +292,7 @@ export function StatsCard() {
         ) : (
         <View style={{ marginTop: space.sm }}>
           <Badge>
-            {/* 035書体仕様: 「会った日数」「日」はweight400（日本語）、
-                数字だけPoppins weight500（数字が主役の箱） */}
+            {/* 「会った日数」「日」は weight 400（日本語）、数字だけ Poppins weight 500 */}
             <RNText
               testID="stats-card-meetup-pill"
               style={{ fontFamily: fontFamily.ja, fontSize: 12, fontWeight: "400", color: colors.text }}

@@ -16,33 +16,22 @@ import { useViewerQueryKeyFrom } from "../lib/viewer-key";
 function RootNavigator() {
   const { colors } = useTheme();
   const { data: session, isPending: isSessionPending } = useSession();
-  // 056: LP のスマホの枠（iframe）の中では認証済みとして扱わない（二重の守り。本体は lib/demo-frame.ts の
-  // frameCredentials で Cookie を送らないこと）。万一セッションが見えても、框の中の画面は実ユーザーのものにしない
+  // LP のスマホの枠（iframe）の中では認証済みとして扱わない（二重の守り。本体は lib/demo-frame.ts が
+  // Cookie を送らないこと）。万一セッションが見えても、枠の中は実ユーザーの画面にしない（056）
   const inFrame = isInFrame();
   const isAuthenticated = !!session && !inFrame;
-  // 014: サインイン画面の「ゲストではじめる」で入る、未認証のデモ閲覧モード。
-  // 実際に認証済みになったら意味を持たない（isAuthenticatedが優先）。
-  // 056: `/app/?demo=1` で開いたら最初からゲストモード（LP のスマホの枠の中のデモ。Web だけ）
+  // 未認証のデモ閲覧（「ゲストではじめる」・LP の枠の `/app/?demo=1`）。認証済みなら意味を持たない
   const [isGuestMode, setIsGuestMode] = useState(() => isDemoEntry());
-  // デモの解決に失敗してサインイン画面へ戻された直後だけtrue。理由を1行
-  // 出すために使う（architecture.md 3節。Rレビュー指摘R-1・A決定）。
+  // デモの解決に失敗してサインイン画面へ戻された直後だけ true（理由を 1 行出す。architecture.md 3節）。
   // 次に「ゲストではじめる」を押したら消す
   const [demoUnavailable, setDemoUnavailable] = useState(false);
   const isDemoViewer = !isAuthenticated && isGuestMode;
 
-  // couple.get は未所属なら NEEDS_ONBOARDING を投げる（architecture.md 5節）。
-  // 未認証・非デモのときは呼ばない（enabled: isAuthenticated || isDemoViewer）。
-  //
-  // queryKeyにviewerKeyを含める理由: couple.getはcoupleIdを引数に取らない
-  // ため、TanStack Queryのキャッシュキーだけでは「誰が呼んだか」を区別
-  // できない。リロード無しで本物のログイン⇄ゲスト⇄未認証を切り替えると、
-  // 直前の別人のキャッシュ（データまたはエラー）がそのまま画面に一瞬出る
-  // 不具合が実機で発生した（security-requirements.md T9。共有端末では
-  // 実質的な情報漏洩になる）。`useEffect`でのqueryClient.clear()は
-  // レンダー後に走るため、識別が変わった最初のレンダーには間に合わず
-  // 窓を閉じきれない（Rレビュー指摘・A決定）。識別をキー自体に含めることで、
-  // 識別が変わった時点で必ず別のキャッシュ枠（＝isLoading:trueから開始）
-  // になり、他人のキャッシュを読む経路自体を無くす
+  // couple.get は未所属なら NEEDS_ONBOARDING を投げる（architecture.md 5節）。未認証・非デモでは呼ばない。
+  // queryKey に viewerKey を含める: couple.get は coupleId を引数に取らないので、キーだけでは誰が呼んだか
+  // 区別できず、ログイン⇄ゲスト⇄未認証を切り替えると直前の別人のキャッシュが一瞬出る（共有端末では
+  // 情報漏洩。security-requirements.md T9）。effect での clear() は最初のレンダーに間に合わないので、
+  // 識別をキーに含めて他人のキャッシュを読む経路自体を無くす
   const viewerKey = useViewerQueryKeyFrom(isDemoViewer);
   const coupleQuery = useQuery({
     ...orpc.couple.get.queryOptions(),
@@ -52,10 +41,8 @@ function RootNavigator() {
   });
   const { data: couple, error: coupleError, isLoading: isCoupleLoading, refetch: refetchCouple } = coupleQuery;
 
-  // ガード判定はlib/root-route.tsの純関数に切り出してある（Rレビュー指摘R-1:
-  // デモ閲覧中にcouple.getが失敗すると、3つのguardのどれもtrueにならず
-  // バナーだけ出た空白画面から再読み込みでしか戻れなくなっていた。
-  // demoFailedがそれを拾い、サインイン画面へ落とす）
+  // 判定は lib/root-route.ts の純関数。デモ閲覧中に couple.get が失敗すると 3 つの guard がどれも true に
+  // ならず空白になるので、demoFailed が拾ってサインイン画面へ落とす
   const { hasCouple, needsOnboarding, showAuth, demoFailed } = resolveRootRoute({
     isAuthenticated,
     isDemoViewer,
@@ -72,33 +59,13 @@ function RootNavigator() {
   }, [demoFailed]);
 
 
-  // 【発見: ゲストではじめる→/composeに飛んで読み込み中のまま止まる不具合の真因】
-  // 以前はここで識別変化のたびに`queryClient.clear()`を呼んでいた
-  // （016でA決定・訂正時点では「正しさの担保ではなく容量のため」と位置づけ、
-  // 無くても正しさは壊れないはずだった）。しかし実測すると、識別が変わった
-  // 直後・couple.getが新しいviewerKeyで発火した直後にこの`clear()`が走ると、
-  // 発火したばかりの問い合わせがキャッシュごと消され、`retry:false`のため
-  // 二度と再試行されずに`fetchStatus:"fetching"`のまま永久に止まっていた
-  // （ローカルで`queryClient.getQueryCache().getAll()`が空であることまで
-  // 実測して確認した）。正しさは各問い合わせのqueryKeyにviewerKeyを含める
-  // ことで既に担保されているため（apps/app/lib/viewer-key.ts）、この
-  // `clear()`は無くても正しさは壊れない。容量のための最適化のつもりが
-  // 実害のあるバグを生んでいたため、削除した
+  // 識別が変わったときに queryClient.clear() を呼ばない。新しい viewerKey で発火した直後の問い合わせを
+  // キャッシュごと消し、retry:false なので fetching のまま止まる（ゲストではじめる → 読み込み中で止まる）。
+  // 正しさは queryKey の viewerKey が担保している（lib/viewer-key.ts）
 
-  // isSessionPendingはアプリ起動直後の一度だけtrue（このときはまだStackを
-  // 一度も出していないので、早期returnで置き換えても失うものが無い）。
-  //
-  // 一方、識別を切り替えた直後のisCoupleLoadingはStackが既にサインイン画面等を
-  // 表示済みの状態で一瞬trueになる。以前はここも早期returnで<Stack>そのものを
-  // 消して<Screen>に差し替えていたが、識別変化のたびにナビゲータ全体を
-  // 作り直す形は壊れやすい（実際に「ゲストではじめる→/composeに飛んで
-  // 読み込み中のまま止まる」不具合を調査した際、この早期returnが原因の
-  // 候補として疑われた。実測では真因は別にあった——後述の`queryClient.clear()`
-  // ——が、識別変化のたびにStackを消したり戻したりする構造自体が不要な
-  // リスクであることに変わりはないため、Stackは常にマウントしたままにし、
-  // ローディング・「読み込めませんでした」はオーバーレイとして重ねる形に
-  // 直した（Stack.Protectedの3つのguardが全部falseになる一瞬はStackの
-  // 中身が空になるだけで、Stackそのものは消えない）
+  // isSessionPending は起動直後の一度だけ true（まだ Stack を出していないので早期 return でよい）。
+  // 識別を切り替えた直後の読み込みでは Stack を消さない（ナビゲータを作り直す形は壊れやすい）。
+  // Stack は常にマウントしたままにし、読み込み中・「読み込めませんでした」はオーバーレイで重ねる
   if (isSessionPending) {
     return (
       <Screen>
@@ -111,46 +78,26 @@ function RootNavigator() {
 
   const isTransitionLoading = (isAuthenticated || isDemoViewer) && isCoupleLoading;
 
-  // 認証済み利用者がcouple.getでNEEDS_ONBOARDING以外のエラー（通信断等）を
-  // 受けると、hasCouple・needsOnboarding・showAuthのどれもtrueにならない
-  // （resolveRootRouteのコメント参照）。retry:falseのためreact-queryの
-  // 自動再試行も無く、このままでは再読み込みでしか戻れない空白画面のまま
-  // 止まる（実際に踏んだ不具合。security-auditor全体監査・3状態レビュー指摘で
-  // 発覚）。ゲストの失敗はdemoFailedが別に受け止めるため、ここに来るのは
-  // 認証済み利用者だけ
+  // 認証済みで couple.get が NEEDS_ONBOARDING 以外のエラー（通信断等）だと、どの guard も true にならず、
+  // retry:false なので再読み込みでしか戻れない空白で止まる。ゲストの失敗は demoFailed が受けるので、
+  // ここに来るのは認証済みだけ
   const isUnresolved = !isTransitionLoading && !hasCouple && !needsOnboarding && !showAuth;
 
   return (
     <GuestModeContext.Provider
       value={{
         isGuestMode: isDemoViewer,
-        // 押した時点のURLは"/sign-in"のまま変わらないが、明示的にnavigateしなくても
-        // guardがhasCouple:trueへ切り替わればStack.Protectedがその配下（(tabs)グループ）の
-        // 既定画面（(tabs)。compose ではない）へ自然に導く。
-        //
-        // 【Rレビュー指摘R-1】これが「たまたま」ではなく構造的に決まって
-        // いることを、ブラウザの`history.pushState`でURLだけを強制的に
-        // "/app/compose"へ書き換えてから（expo-router内部のナビゲータ状態は
-        // 書き換わらない）本ボタンを押す実験で確認した。結果は毎回"/app/"
-        // （(tabs)）だった。guardが新規に有効化される瞬間の画面決定は、
-        // ブラウザの生URLではなくexpo-router自身が保持する内部状態
-        // （直前にいた画面。ここでは常に"サインイン画面"のまま——URLを
-        // 書き換えないため）と、guard配下でのスクリーン宣言順に従う。
-        // "(tabs)"は"compose"よりJSX上で先に宣言されているため、
-        // どちらにも一致しない内部状態からは常に"(tabs)"が選ばれる。
-        // Stackを常にマウントしたままにしていることが前提（下のStack
-        // コメント参照）。明示的なnavigateを増やすほどexpo-routerの
-        // 内部状態とURLの整合を自分で管理する箇所が増えるため、自然に
-        // 導かれる形に任せられるならそちらを選ぶ
+        // 明示的に navigate しなくても、guard が hasCouple:true に変われば Stack.Protected が既定画面
+        // （(tabs)。compose ではない）へ導く。着地先はブラウザの URL でなく expo-router の内部状態と
+        // guard の中の宣言順で決まる（URL だけ /app/compose にしてから押しても毎回 (tabs) だった）。
+        // Stack を常にマウントしていることが前提。navigate を足すほど URL と内部状態の整合を自分で持つことになる
         enterGuestMode: () => {
           setDemoUnavailable(false);
           setIsGuestMode(true);
         },
-        // 上と同じ理由。(auth)グループの中身は"sign-in"1つだけなので、
-        // guardがshowAuth:trueへ切り替われば自然にそこへ着地する
-        // 056 0節 #3: 框（LP の iframe）の中では、サインイン画面に行く代わりに親ページを /app/ に飛ばす。
-        // 親を飛ばすのは利用者の操作（帯の「ログイン」・書き込みの UI から戻る）= ここの 1 箇所だけ。
-        // デモの読み込みの失敗（demoFailed）では飛ばさない（R の指摘: 何も押していないのに LP ごと飛んでいた）
+        // 上と同じ理由（(auth) の中身は sign-in 1 つだけ）。
+        // LP の枠の中では、サインイン画面の代わりに親ページを /app/ に飛ばす。飛ばすのは利用者の操作のとき
+        // だけで、デモの読み込みの失敗（demoFailed）では飛ばさない（何も押していないのに LP ごと飛ぶ。056）
         exitGuestMode: () => {
           setIsGuestMode(false);
           if (inFrame) leaveFrameToApp();
@@ -161,9 +108,8 @@ function RootNavigator() {
       {isDemoViewer && <DemoBanner />}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Protected guard={hasCouple}>
-          {/* composeより先に置くこと。宣言順が着地先を決める（実測。
-              上のenterGuestModeのコメント参照）。入れ替えるとゲストは
-              投稿モーダルに着地する */}
+          {/* compose より先に置く。宣言順が着地先を決める（上の enterGuestMode のコメント）。
+              入れ替えるとゲストは投稿モーダルに着地する */}
           <Stack.Screen name="(tabs)" />
           <Stack.Screen
             name="compose"
@@ -173,24 +119,16 @@ function RootNavigator() {
         <Stack.Protected guard={needsOnboarding}>
           <Stack.Screen name="(onboarding)" />
         </Stack.Protected>
-        {/* 056 0節 #3b: 框の中ではサインイン画面（Google のボタン・「ゲストではじめる」）を一切出さない。
-            その状態は下の 1 行の画面が受ける */}
+        {/* 枠の中ではサインイン画面（Google のボタン・「ゲストではじめる」）を出さない。その状態は下の 1 行の画面が受ける */}
         <Stack.Protected guard={showAuth && !inFrame}>
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
-        {/* 認証済みの利用者がcouple.getでNEEDS_ONBOARDING以外のエラー（通信断等）を
-            受けると、hasCouple・needsOnboarding・showAuthのどれもtrueにならない。
-            ゲストの失敗はここに含まれない。showAuthのdemoFailedが別に
-            受け止め、サインイン画面へ理由付きで戻す（architecture.md 3節）。
-            【016で訂正】ここは元々「再試行でじきに解消する一瞬」と説明していたが、
-            couple.getのuseQueryは`retry: false`のためreact-query側の自動再試行は
-            無く、実際には利用者が手動で再読み込みするまで空白画面のまま止まる
-            （Rレビュー全体監査R-3指摘。実際に踏んだ不具合）。上のガードが
-            全てfalseになるこの状態は、下のisUnresolvedオーバーレイが拾っている */}
+        {/* 認証済みで couple.get が NEEDS_ONBOARDING 以外のエラーだと、どの guard も true にならない
+            （retry:false なので空白のまま止まる）。この状態は下の isUnresolved のオーバーレイが拾う。
+            ゲストの失敗は showAuth の demoFailed がサインイン画面へ理由付きで戻す（architecture.md 3節） */}
       </Stack>
-      {/* Stack自体は常にマウントしたまま、ローディング・未解決の状態は
-          オーバーレイとして重ねる（上のコメント参照。Stackを条件分岐で
-          消すとexpo-routerのナビゲータが再生成され、URLとの整合を失う） */}
+      {/* Stack は常にマウントしたまま、読み込み中・未解決はオーバーレイで重ねる
+          （条件で消すとナビゲータが作り直され、URL との整合を失う） */}
       {isTransitionLoading && (
         <View
           style={{
@@ -207,7 +145,7 @@ function RootNavigator() {
           <Text color="muted">読み込み中…</Text>
         </View>
       )}
-      {/* 056 0節 #3b: 框の中で未認証・ゲストでもない状態（demoFailed のあと・exitGuestMode の直後の一瞬）は
+      {/* 枠の中で未認証・ゲストでもない状態（demoFailed のあと・exitGuestMode の直後の一瞬）は
           「デモを読み込めませんでした」+「アプリを開く」（親ページで /app/ を開く）だけ */}
       {showAuth && inFrame && (
         <View
@@ -267,8 +205,7 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    // 039: 外観（ピンク/ホワイト）の Provider はルートに1つ。保存値（localStorage）を
-    // 同期で読むため、最初のレンダーから選んだ外観で描ける
+    // 外観の Provider はルートに 1 つ。保存値を同期で読むので、最初のレンダーから選んだ外観で描ける（039）
     <AppearanceProvider>
       <QueryClientProvider client={queryClient}>
         <RootNavigator />

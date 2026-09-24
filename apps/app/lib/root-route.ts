@@ -1,14 +1,7 @@
-// RootNavigator（apps/app/app/_layout.tsx）のガード判定を、Reactの外に
-// 出して単体テストできるようにした純関数（Rレビュー指摘R-1を受けて分離）。
-// Stack.Protectedの3つのguardのうち、どれか1つは必ずtrueになることを
-// テストで固定する（apps/app/test/root-route.test.ts）。全部falseになると、
-// バナーだけ出た空白画面から再読み込みでしか戻れなくなる（実際に踏んだ不具合）。
-//
-// 前提（呼び出し側が保証する。この関数自身は検査しない）:
-// isDemoViewer は isAuthenticated=false のときしか true にならない
-// （呼び出し側で `!isAuthenticated && isGuestMode` として組み立てるため）。
-// isAuthenticated と isDemoViewer が両方 true の入力は想定外で、
-// needsOnboarding と showAuth が両方 true になりうる（不変条件が壊れる）
+// RootNavigator（app/_layout.tsx）のガードの判定を React の外に出した純関数。Stack.Protected の 3 つの guard の
+// どれか 1 つは必ず true になることをテストで固定する（全部 false だと、再読み込みでしか戻れない空白になる）。
+// 前提（呼び出し側が保証する）: isDemoViewer は isAuthenticated=false のときしか true にならない
+// （両方 true の入力では needsOnboarding と showAuth が両方 true になりうる）
 export interface RootRouteInput {
   isAuthenticated: boolean;
   isDemoViewer: boolean;
@@ -21,8 +14,7 @@ export interface RootRoute {
   hasCouple: boolean;
   needsOnboarding: boolean;
   showAuth: boolean;
-  // デモ閲覧中にcouple.getが失敗した（FORBIDDEN・通信断等）。isGuestModeを
-  // 元に戻すきっかけとして呼び出し側が使う
+  // デモ閲覧中に couple.get が失敗した（FORBIDDEN・通信断等）。呼び出し側が isGuestMode を戻すきっかけに使う
   demoFailed: boolean;
 }
 
@@ -31,8 +23,7 @@ export function resolveRootRoute(input: RootRouteInput): RootRoute {
 
   const hasCouple = (isAuthenticated || isDemoViewer) && hasCoupleData;
   const needsOnboarding = isAuthenticated && !hasCoupleData && isNeedsOnboardingError;
-  // ゲストでの失敗は「一瞬」ではなく「そのまま」なので、認証済み利用者の
-  // 通信断（どのguardも上げない意図的な空表示）と同じ扱いにしない
+  // ゲストの失敗は一瞬でなくそのまま続くので、認証済みの通信断（どの guard も上げない意図的な空表示）と同じにしない
   const demoFailed = isDemoViewer && !isCoupleLoading && !hasCoupleData;
   const showAuth = (!isAuthenticated && !isDemoViewer) || demoFailed;
 

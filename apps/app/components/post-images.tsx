@@ -6,29 +6,24 @@ import { ImageViewer, type ImageViewerImage } from "./image-viewer";
 
 export type PostImagesProps = {
   images: PostImage[];
-  // ライトボックスを開くPressableのaccessibilityLabel（画面ごとに文言を変える）
+  // ライトボックスを開く Pressable の accessibilityLabel（画面ごとに文言を変える）
   accessibilityLabel?: string;
-  // 041: 渡すとビューアに保存ボタンが出る（photo.downloadUrl の ref に投稿 ID と位置が要る）。
-  // 渡さなければ 033 までと同じ見え方（保存ボタン無し）
+  // 渡すとビューアに保存ボタンが出る（photo.downloadUrl の ref に投稿 ID と位置が要る。041）
   postId?: string;
 };
 
-// 033: 次の画像の端を見せるため、1枚をコンテナ幅より狭くする。
-// scroll-snap-align: start（pagingEnabledが付ける）は各要素自身の開始位置に
-// スナップするため、コンテナ幅より狭くしても送りは効いたまま次の端が覗く
-// （数値は033タスク定義2節「端がどれくらい見えれば気づくかは実機でしか
-// 分からない」により仮置き。人間の実機確認で調整する）
+// 次の画像の端を見せるため、1 枚をコンテナ幅より狭くする（pagingEnabled の scroll-snap-align: start は
+// 各要素の開始位置に吸着するので、狭くしても送りは効いたまま端が覗く）。値は実機で調整する仮置き（033）
 export const ROW_ITEM_WIDTH_RATIO = 0.88;
 
-// 050: 1 枚の画像の高さの上限（タスク定義 0節 #7）。幅いっぱいで収まればそのまま。収まらない縦長は
-// 高さをここまでにして幅を比率で縮め、左寄せ（X と同じ。中央に置かない）
+// 1 枚の画像の高さの上限。収まらない縦長は高さをここまでにして幅を比率で縮め、左寄せ（中央に置かない。050）
 export const MAX_SINGLE_IMAGE_HEIGHT = 360;
 
 export type SingleImageLayout =
   | { kind: "full"; width: "100%"; aspectRatio: number }
   | { kind: "capped"; width: number; height: number; alignSelf: "flex-start" };
 
-// 1 枚の画像の置き方。コンテナ幅が分かる前（0）は幅いっぱい（今までどおり）
+// 1 枚の画像の置き方。コンテナ幅が分かる前（0）は幅いっぱい
 export function singleImageLayout(containerWidth: number, aspectRatio: number): SingleImageLayout {
   if (containerWidth > 0 && containerWidth / aspectRatio > MAX_SINGLE_IMAGE_HEIGHT) {
     return { kind: "capped", width: Math.round(MAX_SINGLE_IMAGE_HEIGHT * aspectRatio), height: MAX_SINGLE_IMAGE_HEIGHT, alignSelf: "flex-start" };
@@ -36,17 +31,12 @@ export function singleImageLayout(containerWidth: number, aspectRatio: number): 
   return { kind: "full", width: "100%", aspectRatio };
 }
 
-// 031: 1投稿の画像表示（1〜4枚）。post-card.tsx・memory-card.tsxの両方から
-// 使う（1枚のときの見え方はどちらの画面でも変えない。031・033の2回とも
-// 守る）。
-// - 1枚: 従来どおりアスペクト比を保って1枚表示
-// - 2枚以上（033で横一列に変更。正方形グリッドから覆した）: 横一列に並べ、
-//   指で送る。ドットのインジケータは置かない（最大4枚。端が見えていれば
-//   続きがあることは分かる。タスク定義2節）
+// 1 投稿の画像（1〜4 枚）。post-card.tsx・memory-card.tsx の両方から使う。
+// - 1 枚: アスペクト比を保って表示
+// - 2 枚以上: 横一列に並べて指で送る。ドットは置かない（最大 4 枚で、端が見えれば続きがあると分かる。033）
 export function PostImages({ images, accessibilityLabel = "画像を全画面表示", postId }: PostImagesProps) {
   const { colors } = useTheme();
-  // 041: 投稿カードからのビューアにも保存ボタンを渡す（人間の「タイムラインの写真も
-  // ダウンロードしたい」）。caption は渡さない（本文はカードに見えている。タスク定義3節）
+  // 投稿カードからのビューアにも保存ボタンを渡す。caption は渡さない（本文はカードに見えている）
   const viewerImages: ImageViewerImage[] = images.map((image, position) => ({
     url: image.url,
     width: image.width,
@@ -55,19 +45,11 @@ export function PostImages({ images, accessibilityLabel = "画像を全画面表
   }));
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
-  // 【033・security-auditor指摘】以前はposition（添字）をキーにしていたため、
-  // 署名付きURLが1時間で失効して読み込みに失敗したあと、post.listの
-  // 再取得で新しいURLが届いても同じ添字が「失敗」のまま固定されていた。
-  // URL自体をキーにすることで、URLが入れ替われば自然に読み込みを再挑戦する
-  // （明示的なリセット処理を持たずに済む）
+  // 失敗の記録は URL をキーにする（署名付き URL が失効して失敗したあと、再取得で新しい URL が届けば
+  // 自然に読み込み直す。添字だと失敗のまま固定される）
   const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
-  // 033・実機確認で発見: ScrollView（横スクロール）の中身は幅がコンテンツに
-  // 合わせて伸びる「幅が定まらない」コンテナになるため、子要素に
-  // width:"88%"のような文字列（相対）指定をしても、コンテナ自身の幅が
-  // 定まっていないため正しく解決されない（実測: 561px幅のコンテナに対し、
-  // 子要素が77pxほどにしかならない不具合を発見した）。外側の
-  // 幅が定まったViewをonLayoutで実測し、そこから算出したpx単位の幅を
-  // 子要素に渡す
+  // 横スクロールの中身は幅が定まらないので、子の width:"88%" のような相対指定が効かない（561px の
+  // コンテナで子が 77px になった）。外側の View を onLayout で測り、px の幅を子に渡す
   const [containerWidth, setContainerWidth] = useState(0);
 
   if (images.length === 0) return null;
@@ -106,9 +88,9 @@ export function PostImages({ images, accessibilityLabel = "画像を全画面表
     const layout = singleImageLayout(containerWidth, aspectRatio);
     return (
       <>
-        {/* 050: 幅を測ってから高さの上限を当てる（onLayout は 2 枚以上と同じ外側の View で） */}
+        {/* 幅を測ってから高さの上限を当てる（onLayout は 2 枚以上と同じ外側の View で） */}
         <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)} testID="post-images-single">
-          {/* 開く操作に副作用は無いため二重発火ガードは不要（conventions.md 4節。017の確認観点） */}
+          {/* 開く操作に副作用は無いので二重発火のガードは要らない（conventions.md 4節） */}
           <Pressable
             onPress={() => openAt(0)}
             accessibilityRole="button"
@@ -137,16 +119,10 @@ export function PostImages({ images, accessibilityLabel = "画像を全画面表
 
   return (
     <>
-      {/* 幅測定用。ScrollView自体はonLayoutが安定して発火しない場合があるため
-          （横スクロールの中身の幅計算と競合しうる）、外側のプレーンなViewで
-          コンテナ幅を測る */}
+      {/* 幅を測る用。ScrollView の onLayout は安定して発火しないことがあるので、外側のプレーンな View で測る */}
       <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
-        {/* horizontal + pagingEnabled はネイティブでは正しくページングするが、
-            Webではコンテナ幅ぴったりの子要素にしか使えない（033タスク定義0節で
-            実測確認済み）。子要素をROW_ITEM_WIDTH_RATIOで狭めているため、
-            ネイティブ（iOS/Android）ではこのままだとコンテナ幅とページ幅が
-            ずれてpagingEnabledの前提が崩れる。033はWebだけを出す判断のため
-            追わない（ネイティブは`snapToInterval`が要る。Aの判断） */}
+        {/* Web の pagingEnabled はコンテナ幅ぴったりの子にしか合わず、子を狭めているのでネイティブでは
+            ページ幅がずれる。Web だけを出しているので追わない（ネイティブは snapToInterval が要る） */}
         <ScrollView
           horizontal
           pagingEnabled
@@ -161,9 +137,7 @@ export function PostImages({ images, accessibilityLabel = "画像を全画面表
               accessibilityLabel={`${accessibilityLabel}（${index + 1}枚目）`}
               testID={`post-images-row-item-${index}`}
               style={{
-                // 未測定（containerWidth===0）の最初のフレームだけは古い
-                // レイアウト（親のflexに任せる）にせず、幅0で描画して
-                // レイアウトのガタつきを避ける
+                // 未測定の最初のフレームは幅 0 で描く（親の flex に任せるとガタつく）
                 width: itemWidth,
                 aspectRatio: 1,
                 marginRight: index < images.length - 1 ? space.xs : 0,

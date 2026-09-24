@@ -2,8 +2,8 @@ import { Platform } from "react-native";
 import type { WeatherDay } from "@futary/contract";
 import { addDays } from "@futary/date";
 
-// 058: カレンダーの天気（画面側の小さな計算と、「天気の地域を選ぶ ›」の帯を消した記憶）。
-// 天気は今日から 7 日先まで（0節 #4）。判定はサーバ（weather.get の days）で、画面はその範囲の表示だけ
+// カレンダーの天気の画面側の小さな計算と、「天気の地域を選ぶ ›」の帯を消した記憶（058）。
+// 天気は今日から 7 日先まで。判定はサーバ（weather.get の days）で、画面はその範囲を出すだけ
 
 export const WEATHER_DAYS = 7;
 
@@ -31,7 +31,7 @@ export function weatherDayLabel(name: string, day: WeatherDay): string {
   return temps.length === 0 ? name : `${name}・${temps.join(" / ")}`;
 }
 
-// 「天気の地域を選ぶ ›」の帯を × で消したら端末に記憶（localStorage。043 と同じ作法。0節 #4）
+// 「天気の地域を選ぶ ›」の帯を × で消したら端末に記憶する（localStorage）
 export const WEATHER_PROMPT_DISMISSED_STORAGE_KEY = "futary.weatherPromptDismissed";
 
 function localStorageOrNull(): Storage | null {

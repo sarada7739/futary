@@ -18,17 +18,14 @@ function monthKey(year: number, month: number): string {
 
 type PeriodKind = "month" | "week";
 
-// 037タスク定義4節: 週次を足した（人間の指示。当初「まず月次だけ」だったが
-// 実測ではなくAの見立てだったため訂正した）。週の計算はpackages/dateに
-// 集約し、ここでは計算しない（architecture.md 5節）。前週・翌週は7日ずらす
-// だけでよい（1週間=7日は暦によらず不変のため、月をまたぐ加減算のような
-// 特別扱いが要らない）
+// 月と週（037）。週の計算は packages/date に置く（architecture.md 5節）。前週・翌週は 7 日ずらすだけ
+// （1 週間 = 7 日は暦によらないので、月のような特別扱いは要らない）
 export default function AiSummaryScreen() {
   const router = useRouter();
   const { isGuestMode, exitGuestMode } = useGuestMode();
 
   const [periodKind, setPeriodKind] = useState<PeriodKind>("month");
-  // 既定は先月・先週（タスク定義9節「今月・今週はまだ終わっていない」）
+  // 既定は先月・先週（今月・今週はまだ終わっていない）
   const [{ year, month }, setYearMonth] = useState(() => {
     const today = todayJst();
     return addMonths(Number(today.slice(0, 4)), Number(today.slice(5, 7)), -1);
@@ -41,16 +38,9 @@ export default function AiSummaryScreen() {
     [periodKind, year, month, weekRefDate],
   );
 
-  // 【Rレビュー指摘R-3】既定が先月・先週のため、翌月・翌週ボタンを1回押すと
-  // 今月・今週に入ってしまい、サーバがINVALID_INPUTで拒む→「読み込めません
-  // でした」＋「再試行」になるが、今月・今週を指定している限り再試行は
-  // 永久に失敗する。初めて開いた人が1クリックで踏む詰まりだった。
-  // エラーにする代わりに、そもそも今月・今週へ進めないようボタン自体を
-  // 押せなくする（020「押せないボタンを置かない」）。サーバ側の拒否
-  // （isCurrentOrFuturePeriod）はそのまま残す（T5と同じ考え方。UI側の
-  // 制御に依存しない防御）。YYYY-MM/YYYY-Wwwはゼロ埋めのため、辞書順の
-  // 比較が数値順と一致する（apps/api/src/procedures/ai-summary.tsの
-  // isCurrentOrFuturePeriodと同じ比較）
+  // 今月・今週へは進めないようにボタン自体を押せなくする（押せるとサーバが INVALID_INPUT で拒み、
+  // 「再試行」が永久に失敗する）。サーバの拒否もそのまま残す。YYYY-MM・YYYY-Www はゼロ埋めなので
+  // 辞書順 = 数値順（サーバの isCurrentOrFuturePeriod と同じ比較）
   const nextPeriodKey = useMemo(() => {
     if (periodKind === "month") {
       const next = addMonths(year, month, 1);
@@ -61,7 +51,7 @@ export default function AiSummaryScreen() {
   const nextDisabled =
     periodKind === "month" ? nextPeriodKey >= currentMonthJst() : nextPeriodKey >= currentWeekJst();
 
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）
   const viewerKey = useViewerQueryKey();
   const meOptions = orpc.me.get.queryOptions();
   const meQuery = useQuery({ ...meOptions, queryKey: [...meOptions.queryKey, viewerKey] });
@@ -174,10 +164,10 @@ export default function AiSummaryScreen() {
           <Card>
             <View style={{ gap: space.md }}>
               {isGuestMode ? (
-                // 014の導線に合わせる（ゲストは生成できない。サーバ側でも拒む）
+                // ゲストは生成できない（サーバでも拒む）ので、ログインの導線に
                 <>
                   {summary ? (
-                    // タスク定義10節: デモはシードのまとめ（実際には生成していない）
+                    // デモはシードのまとめ（実際には生成していない）
                     <Text>{summary.body}</Text>
                   ) : (
                     <Text color="muted">この{periodLabel}のまとめはまだありません</Text>
@@ -191,8 +181,7 @@ export default function AiSummaryScreen() {
                 </>
               ) : summary ? (
                 <>
-                  {/* タスク定義8節: 出力を信用しない。リンク化・マークダウン解釈を
-                      しない。素のテキストとしてそのまま出す */}
+                  {/* 出力を信用しない。リンク化・マークダウン解釈をせず、素のテキストのまま出す */}
                   <Text>{summary.body}</Text>
                   <Text size="xs" color="muted">
                     {summary.provider} / {summary.model}

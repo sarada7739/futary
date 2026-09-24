@@ -6,11 +6,9 @@ export type BadgeProps = Omit<ViewProps, "style"> & {
   children: ReactNode;
 };
 
-// ピル型のバッジ。中身（Text）は呼び出し側が組み立てる（Cardと同じくstyleを
-// 受け取らない。architecture.md 7節）。いまの唯一の用途（記念日カードの
-// 「会った日数」ピル）に合わせた値（035視覚仕様1節: 高さ28・
-// paddingHorizontal16・地はsurface opacity 0.7。半透明はカード自体が
-// 半透明地のため、呼び出し側でopacityを含む背景色を指定する）
+// ピル型のバッジ。中身（Text）は呼び出し側が組む（Card と同じく style を受け取らない。architecture.md 7節）。
+// 値は記念日カードの「会った日数」に合わせる（高さ 28・横 16）。カード自体が半透明なので、
+// 半透明の背景色は呼び出し側が渡す
 export function Badge({ children, ...rest }: BadgeProps) {
   return (
     <View

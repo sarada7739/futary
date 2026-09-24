@@ -5,15 +5,13 @@ import { radius, space, Text, useTheme } from "@futary/ui";
 export type SheetProps = {
   visible: boolean;
   onClose: () => void;
-  // 043: 省略すると題を描かない（「新機能のお知らせ」は絵 → NEW → 題の順で中身が組む）
+  // 省略すると題を描かない（中身が自分で組むとき）
   title?: string;
   children: ReactNode;
 };
 
-// 画面の下から出る薄いシート（追加・編集・行のメニューで共用）。040 の want.tsx にあったものを
-// 041 でアルバムからも使うため部品に出した（見た目・振る舞いは変えていない）。
-// animationType="fade": react-native-web の Modal はアニメーション終了を animationend で検知するため、
-// jsdom でも閉じる操作の画面結合テストが書ける（image-viewer.tsx のコメント参照）
+// 画面の下から出る薄いシート（追加・編集・行のメニューで共用）。
+// animationType="fade": react-native-web の Modal はアニメーションの終わりを animationend で見る（image-viewer.tsx）
 export function Sheet({ visible, onClose, children, title }: SheetProps) {
   const { colors } = useTheme();
   return (

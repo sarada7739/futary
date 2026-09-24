@@ -33,46 +33,38 @@ import { deferRelease, hasUnseenRelease, isReleaseDeferred, markReleaseSeen, use
 import { LATEST_RELEASE } from "../../lib/releases";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 
-// 051: ロゴは両モードで同じワードマーク画像（600x159。比率 3.77。濃い茶はどちらの地でも読める）。
-// 039 の文字ロゴ（ホワイトだけ Poppins 300 の「futary」）はやめた
+// ロゴは両外観で同じワードマーク（600×159。濃い茶はどちらの地でも読める。051）
 const LOGO_WIDTH = 120;
 const LOGO_HEIGHT = 32;
 
-// 040: 9 枚目（ほしいもの）が入り 4 列では 4+4+1 で崩れるため 3 列 × 3 行に
-// （タスク定義5節。039 で凍結したピンクも変わる。機能が増えれば入口は変わる）
+// 9 枚なので 3 列 × 3 行（4 列だと 4+4+1 で崩れる。040）
 const PANEL_COLUMNS = 3;
 const PANEL_COLUMN_GAP = 10;
 
-// 020: ホームを投稿一覧（タイムラインへ独立）から、状態を見て各機能へ入る画面へ
-// 変えた。並び順は上から: ロゴ → 記念日カード（ふたりのアバター・記念日・
-// 会った日数。stats-card.tsxがこの2つをまとめて持つ） → 機能パネル。
-// 014のデモで最初に出る画面でもある
+// ホーム: 状態を見て各機能へ入る画面。上から ロゴ → 記念日カード（stats-card.tsx）→ 機能パネル。
+// デモで最初に出る画面でもある（020）
 export default function HomeScreen() {
   const router = useRouter();
-  // 039 段階2-a でここは appearance を読んでよい 2 箇所の 1 つ（ホームのロゴ）だったが、
-  // 051 でロゴが両モード同じ画像になり読まなくなった（残るは統計のヒーローだけ）
-  // react-native-webはcolumnGapと"25%"のようなパーセント幅を併用しても
-  // 幅を自動で詰め直さない（4列×25%+3個ぶんのgapがコンテナ幅を超え、
-  // 4列目が折り返して3列になる不具合を実測で発見した。035）。実測した幅から
-  // pxで算出してFeaturePanelへ渡す
+  // react-native-web は columnGap とパーセント幅を併用しても詰め直さない（列ぶんの gap がはみ出して折り返す）。
+  // 実測した幅から px で出して FeaturePanel へ渡す
   const [panelGridWidth, setPanelGridWidth] = useState(0);
   const panelWidth =
     panelGridWidth > 0
       ? (panelGridWidth - PANEL_COLUMN_GAP * (PANEL_COLUMNS - 1)) / PANEL_COLUMNS
       : undefined;
 
-  // 043: リリース履歴の未読（ホームのボタンの NEW）。一覧の画面が markReleaseSeen() を呼ぶと消える
+  // リリース履歴の未読（ボタンの NEW）。一覧の画面が markReleaseSeen() を呼ぶと消える（043）
   const hasUnseen = useHasUnseenRelease();
-  // 043: 「新機能のお知らせ」。ホームを開いたときに 1 度（未読で、この起動で「後で」を押していないとき）。
-  // 描いたあとに開く（静的書き出しのサーバ側の描画では window が無く、初期値で開くと hydrate と食い違う）
+  // 「新機能のお知らせ」。未読で、この起動で「後で」を押していなければ 1 度開く。描いたあとに開く
+  // （静的書き出しでは window が無く、初期値で開くと hydrate と食い違う）
   const [isReleaseSheetOpen, setIsReleaseSheetOpen] = useState(false);
-  // 056 0節 #3c: LP のスマホの枠（iframe）の中では出さない（デモが見えなくなる。releaseSeen も書かない）
+  // LP のスマホの枠の中では出さない（デモが見えなくなる。releaseSeen も書かない。056）
   useEffect(() => {
     if (!isInFrame() && hasUnseenRelease() && !isReleaseDeferred()) setIsReleaseSheetOpen(true);
   }, []);
 
-  // 「閉じる ×」・シートの外 = 見た（0節 #5）。「使ってみる」= 見た + その画面へ（#6）。
-  // 「後で通知する」= 閉じるだけ。見たことにしない。同じ起動では出し直さない（#4）
+  // 「閉じる ×」・シートの外 = 見た。「使ってみる」= 見た + その画面へ。
+  // 「後で通知する」= 閉じるだけ（見たことにしない。同じ起動では出し直さない）
   function closeReleaseSheet() {
     markReleaseSeen();
     setIsReleaseSheetOpen(false);
@@ -91,7 +83,7 @@ export default function HomeScreen() {
       <ScrollView
         contentContainerStyle={{
           paddingTop: space.lg,
-          // 035視覚仕様3節: 機能パネルのグリッドに合わせ横余白を20に
+          // 機能パネルのグリッドに合わせ横の余白を 20 に
           paddingHorizontal: 20,
           paddingBottom: TAB_BAR_CLEARANCE,
           gap: space.md,
@@ -108,10 +100,7 @@ export default function HomeScreen() {
 
         <StatsCard />
 
-        {/* パネルは常に出す。データの取得に失敗しても入口が消えてはいけない
-            （タスク定義「状態の網羅」）。取得状態に依存しないため、
-            StatsCardのようにquery状態を気にする必要が無い。
-            3列×3行のグリッド（040。4列×2行の8枚に「ほしいもの」が加わった） */}
+        {/* パネルは常に出す（取得に失敗しても入口を消さない）。取得状態に依存しないので query の状態を見ない */}
         <View
           onLayout={(e) => setPanelGridWidth(e.nativeEvent.layout.width)}
           style={{ flexDirection: "row", flexWrap: "wrap", columnGap: PANEL_COLUMN_GAP, rowGap: 12 }}
@@ -139,9 +128,7 @@ export default function HomeScreen() {
           />
           <FeaturePanel label="統計" icon={iconPanelStats}
             photo={panelPhotoStats} onPress={() => router.push("/stats")} width={panelWidth} />
-          {/* 041: 「今日どうだった？」（押しても何も起きない次フェーズの枠）を「アルバム」に
-              置き換えた。位置はそのまま（2 行目の真ん中）。他の 8 枚は動かさない。panel-today.png
-              と写真タイルは消していない（次フェーズで戻す。タスク定義3節） */}
+          {/* 2 行目の真ん中。panel-today.png と写真タイルは消していない（次フェーズで戻す。041） */}
           <FeaturePanel
             label="アルバム"
             icon={iconPanelAlbum}
@@ -151,7 +138,7 @@ export default function HomeScreen() {
           />
           <FeaturePanel label="リスト" icon={iconPanelList}
             photo={panelPhotoList} onPress={() => router.push("/list")} width={panelWidth} />
-          {/* 040: 「リスト」の隣（近い意味のものを隣に。タスク定義5節） */}
+          {/* 「リスト」の隣（近い意味のものを隣に） */}
           <FeaturePanel
             label="ほしいもの"
             icon={iconPanelWant}
@@ -175,11 +162,11 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* 043: 3×3 の下に全幅 1 本。未読なら NEW */}
+        {/* 3×3 の下に全幅 1 本。未読なら NEW（043） */}
         <ReleaseButton hasNew={hasUnseen} onPress={() => router.push("/releases")} />
       </ScrollView>
 
-      {/* 043: 最新の 1 項目だけ。ゲストにも出す。オンボーディングにはこの画面が無いので出ない */}
+      {/* 最新の 1 項目だけ。ゲストにも出す。オンボーディングにはこの画面が無いので出ない */}
       <ReleaseSheet
         visible={isReleaseSheetOpen}
         release={LATEST_RELEASE}

@@ -4,9 +4,8 @@ import { WEATHER_AREAS, WEATHER_PREFECTURES } from "@futary/contract";
 import { Button, radius, space, Text, useTheme } from "@futary/ui";
 import { Sheet } from "./sheet";
 
-// 058: マイページの「天気の地域」のシート（タスク定義 2節）。都道府県 → 予報区の 2 段（表は契約に同梱。
-// API に一覧を取りに行かない）。多くの県は予報区が 1 つなので、県を押した時点で決まる。
-// 「設定しない」で null（位置情報は取らない。選ばなくても使える）
+// マイページの「天気の地域」のシート（058）。都道府県 → 予報区の 2 段（表は契約に同梱で、API に取りに行かない）。
+// 予報区が 1 つの県は押した時点で決まる。「設定しない」で null（位置情報は取らない）
 
 export type WeatherAreaSheetProps = {
   visible: boolean;
