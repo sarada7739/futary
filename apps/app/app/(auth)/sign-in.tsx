@@ -5,43 +5,25 @@ import { LegalLinks } from "../../components/legal-links";
 import { signIn } from "../../lib/auth-client";
 import { useGuestMode } from "../../lib/guest-mode";
 
-// callbackURL は Better Auth サーバー（apps/api）のオリジンを起点に相対解決される。
-// ローカル開発では apps/app（Expo, 8081）と apps/api（wrangler dev, 8787）が
-// 別ポートで動くため、"/" のような相対パスを渡すと apps/api 側の "/" に
-// リダイレクトされ 404 になる（apps/api は /api/* しか公開していない）。
-// Web は自身のオリジンへの絶対URLを渡す。本番は同一Workerから配信されるため、
-// この絶対URL化はローカル開発時のみ意味を持つ。
-//
-// 【016で発見・修正】以前は `window.location.origin`（末尾に /app/ を
-// 付けない、ドメインのルート）を返していた。015より前は「/」がアプリ本体
-// だったためこれで正しかったが、015でランディングページを「/」に、
-// アプリ本体を「/app/*」に分けたときにここを直し忘れていた
-// （実機確認で発覚: ログイン完了後、アプリではなくランディングページ
-// 〈「デモを見る」ボタンがある画面〉へ戻される）。ログイン後は必ず
-// アプリ本体へ戻すため、/app/ を明示的に付ける
+// callbackURL は Better Auth サーバ（apps/api）のオリジンから相対解決される。ローカルでは apps/app（8081）と
+// apps/api（8787）が別ポートなので、相対パスだと apps/api の "/" に飛んで 404 になる。Web は自分のオリジンの
+// 絶対 URL を渡す（本番は同一オリジンなのでローカルでだけ意味がある）。
+// ログイン後はアプリ本体へ戻すので /app/ を付ける（付けないとランディングページに戻る）
 function resolveCallbackURL(): string {
   if (Platform.OS === "web" && typeof window !== "undefined") return `${window.location.origin}/app/`;
   return "/";
 }
 
-// 035タスク定義4節「中央に大きなロゴ」。logoMark は 051 で Nisoine のワードマーク（600x159。比率 3.77）になった。
-// ホーム上部の96x34より大きく出す。ラスター画像のため、これ以上大きくすると
-// 粗さが目立つ（`docs/sample/README.md`に元画像の出どころの記載あり）
+// 中央に大きなロゴ（ワードマーク。比率 3.77）。ラスター画像なので、これ以上大きくすると粗さが目立つ
 const LOGO_WIDTH = 240;
 const LOGO_HEIGHT = 64;
 
 export default function SignInScreen() {
   const { colors } = useTheme();
-  // react-native-web の Pressable は環境によって onPress が1クリックで2回発火する
-  // （pointer系イベントと click イベントの両方が反応する既知の挙動）。
-  // signIn.social は Better Auth 側に OAuth の state を新規発行させるため、
-  // 2回呼ぶと2つの state が競合し、Google から戻ってきた時点で
-  // "State not persisted correctly" として弾かれる（実機確認で発生を確認）。
-  //
-  // ガード判定は useRef で同期的に行う。useState の更新は非同期のため、
-  // 同一 tick で2回 onPress が発火すると2回目の判定時点でもまだ false のままで
-  // 両方通ってしまう可能性がある（Rレビュー指摘）。UI の disabled 表示だけは
-  // useState で持ち、両ボタンに反映する
+  // react-native-web の Pressable は環境によって onPress が 1 クリックで 2 回発火する（pointer と click の両方）。
+  // signIn.social は OAuth の state を新しく作るので、2 回呼ぶと state が競合して Google から戻ったときに
+  // "State not persisted correctly" で弾かれる。判定は useRef で同期に行う（useState だと同じ tick の
+  // 2 回目がまだ false）。disabled の表示だけ useState
   const isSigningInRef = useRef(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const { enterGuestMode, demoUnavailable } = useGuestMode();
@@ -50,10 +32,8 @@ export default function SignInScreen() {
     if (isSigningInRef.current) return;
     isSigningInRef.current = true;
     setIsSigningIn(true);
-    // 成功時はページ遷移が始まるまでボタンを無効のままにする（signIn.social の
-    // Promise は redirect 開始直後に resolve するため、即座に戻すと遷移完了までの
-    // 間にもう一度クリックされる余地が残る。security-auditor指摘）。
-    // 失敗時のみ再試行できるよう戻す
+    // 成功時は遷移が始まるまで無効のまま（Promise は redirect の開始直後に resolve するので、戻すと遷移までに
+    // もう一度押せる）。失敗時だけ戻す
     void signIn.social({ provider: "google", callbackURL: resolveCallbackURL() }).then((result) => {
       if (result?.error) {
         isSigningInRef.current = false;
@@ -74,9 +54,7 @@ export default function SignInScreen() {
         }}
       >
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: space.sm }}>
-          {/* 035タスク定義4節「中央に大きなロゴ」。ホーム上部と同じ
-              logoMark（既存のブランドの手書き風ロゴ画像）を大きく出す。
-              新しいフォント・新しい画像は増やさない */}
+          {/* 中央に大きなロゴ（ホーム上部と同じ logoMark。新しいフォント・画像は増やさない） */}
           <Image
             source={logoMark}
             style={{ width: LOGO_WIDTH, height: LOGO_HEIGHT }}
@@ -84,9 +62,8 @@ export default function SignInScreen() {
             accessibilityRole="image"
             accessibilityLabel="Nisoine"
           />
-          {/* 035書体仕様: タグラインはweight400・字間0.15em（16pt×0.15=2.4）・
-              行送り1.9（16pt×1.9=30.4）。共有Textはletterspacing/この
-              行送りを持たないため、ここだけ生Textで組む */}
+          {/* タグラインは weight 400・字間 0.15em（2.4）・行送り 1.9（30.4）。共有の Text はこの字間・
+              行送りを持たないので、ここだけ生の Text で組む */}
           <RNText
             style={{
               fontFamily: fontFamily.ja,
@@ -125,14 +102,13 @@ export default function SignInScreen() {
           <Button variant="ghost" onPress={enterGuestMode} disabled={isSigningIn}>
             ゲストではじめる
           </Button>
-          {/* デモの解決に失敗してここへ戻された直後だけ出す（黙って空白に
-              しない。architecture.md 3節。Rレビュー指摘R-1・A決定） */}
+          {/* デモの解決に失敗してここへ戻された直後だけ出す（黙って空白にしない。architecture.md 3節） */}
           {demoUnavailable && (
             <Text size="sm" color="muted" align="center">
               いまデモを見られません。しばらくしてからお試しください
             </Text>
           )}
-          {/* 052: 入る前にプライバシーポリシー・利用規約を読める（タスク定義 0節 4） */}
+          {/* 入る前にプライバシーポリシー・利用規約を読める（052） */}
           <LegalLinks />
         </View>
       </View>

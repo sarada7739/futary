@@ -1,9 +1,5 @@
-// 061: ガラスのタブバーのピル（選択中の印）の位置の計算。
-// 描画から切り離して単体で検証できる形にしてある（components/glass-tab-bar.tsx が
-// 使う。lib/calendar.ts・lib/root-route.ts と同じ方針で、純粋な計算はここに置く）。
-//
-// 座標はすべてタブバーの左端からの px。ピルはスロットの中で左右に inset の
-// 余白を残すため、休む位置は「スロットの左端 + inset」になる。
+// ガラスのタブバーのピル（選択中の印）の位置の計算（061）。描画から切り離して単体で試せる形にする。
+// 座標はタブバーの左端からの px。ピルはスロットの中で左右に inset を残すので、休む位置は「左端 + inset」
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -20,12 +16,8 @@ export function maxPillX(barWidth: number, slotWidth: number, inset: number): nu
 }
 
 /**
- * 指を離した位置と速さから、寄せる先のタブを決める。
- *
- * 速く振ったぶんだけ先を見る（`velocityX * slotWidth * LOOK_AHEAD`）。
- * 位置だけで決めると、勢いよく振っても隣までしか動かず「指に付いてこない」
- * と感じるため（要件5「離すと最寄りのタブにスプリングでスナップ」の最寄りを、
- * 静止位置ではなく投げ先で測る）。
+ * 指を離した位置と速さから寄せる先のタブを決める。速く振ったぶんだけ先を見る
+ * （`velocityX * slotWidth * LOOK_AHEAD`）。位置だけだと勢いよく振っても隣までしか動かず、指に付いてこない。
  */
 const LOOK_AHEAD = 0.4;
 
@@ -53,18 +45,10 @@ export function stretchForVelocity(velocityX: number): number {
 }
 
 /**
- * ピルが乗ってよいスロットの中から、一番近いものを選ぶ。
- *
- * ＋投稿（FAB）はタブではなく、選ばれた状態になることが無い（tabPress が
- * preventDefault され /compose が開く）。そのスロットへ寄せてしまうと、
- * 選択は変わらないのにピルだけがそこへ取り残される。ドラッグの寄せ先からは
- * 最初から外す。
- *
- * 同じ距離に2つある（＝ちょうど FAB のスロットを指した）ときは、動いていた
- * 向きの側を選ぶ。常に左を選ぶと、カレンダーからタイムラインへ投げたときに
- * カレンダーへ戻ってしまう。direction が 0 なら左を選ぶ。
- *
- * allowed は昇順で渡す。空なら index をそのまま返す（寄せ先が無い）。
+ * ピルが乗ってよいスロットの中から一番近いものを選ぶ。＋投稿（FAB）は選ばれた状態にならない
+ * （tabPress が preventDefault され /compose が開く）ので、寄せるとピルだけ取り残される。
+ * 同じ距離に 2 つある（ちょうど FAB を指した）ときは動いていた向きの側（常に左だと、カレンダーから
+ * タイムラインへ投げたとき戻ってしまう）。direction が 0 なら左。allowed は昇順。空なら index をそのまま返す。
  */
 export function nearestAllowedIndex(
   index: number,
