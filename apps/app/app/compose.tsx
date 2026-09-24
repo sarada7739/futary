@@ -18,7 +18,7 @@ export default function ComposeScreen() {
   const router = useRouter();
   const { isGuestMode, exitGuestMode } = useGuestMode();
   const [body, setBody] = useState("");
-  // 031: 1投稿に画像を4枚まで。選んだ順がそのまま並び順になる
+  // 1 投稿に画像 4 枚まで。選んだ順がそのまま並び順
   const [images, setImages] = useState<SourceImage[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -35,10 +35,8 @@ export default function ComposeScreen() {
   const isSubmitting = requestUploadUrl.isPending || createPost.isPending;
   const canAddMore = images.length < MAX_POST_IMAGES;
 
-  // 014: FAB・タイムラインの空状態からはゲスト閲覧中にここへ来ないよう
-  // ガード済みだが、Webでは /compose を直接開かれる経路が残る
-  // （security-auditor指摘）。サーバ側のFORBIDDENが唯一の防御線であることに
-  // 変わりはないが、他の画面と同じくログイン導線に差し替える
+  // 導線は塞いであるが、Web では /compose を直接開ける。防御線はサーバの FORBIDDEN だが、他の画面と同じく
+  // ログインの導線に替える
   if (isGuestMode) {
     return (
       <Screen>
@@ -50,8 +48,7 @@ export default function ComposeScreen() {
     );
   }
 
-  // 031: 上限（4枚）まで、複数選択した分だけ足す。省略を作らない設計
-  // （タスク定義1節）と対になり、そもそも4枚を超えて選ばせない
+  // 4 枚まで、複数選択した分だけ足す（4 枚を超えて選ばせない）
   async function pickImages() {
     const remaining = MAX_POST_IMAGES - images.length;
     if (remaining <= 0) return;
@@ -77,14 +74,13 @@ export default function ComposeScreen() {
     setImages((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Button 自体が二重発火を防ぐ（conventions.md 4節）。ここでは
-  // アップロード〜投稿作成の一連の流れをまとめて1つの onPress にする
+  // Button 自体が二重発火を防ぐ（conventions.md 4節）。アップロードから投稿の作成までを 1 つの onPress にする
   async function handleSubmit() {
     if (!canSubmit) return;
     setErrorMessage(null);
 
     try {
-      // 031: post.uploadUrl は枚数ぶん呼ぶ。並行してよい（タスク定義5節）
+      // post.uploadUrl は枚数ぶん呼ぶ（並行でよい）
       const uploaded = await Promise.all(
         images.map(async (image) => {
           const compressed = await compressImage(image);
@@ -108,9 +104,7 @@ export default function ComposeScreen() {
   return (
     <Screen>
       <View style={{ flex: 1 }}>
-        {/* 画像プレビュー（特に縦長写真）が画面の高さを超えると、下の投稿ボタンが
-            画面外に押し出されて押せなくなっていた。スクロール可能にし、
-            投稿ボタンは常に押せる位置（画面下部固定）に分離する */}
+        {/* 縦長の写真で投稿ボタンが画面外に押し出されないよう、中身はスクロールさせ、ボタンは下に固定する */}
         <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
           <TextInput
             value={body}
@@ -176,9 +170,7 @@ export default function ComposeScreen() {
         </ScrollView>
 
         <View style={{ flexDirection: "row", gap: space.sm, padding: space.lg }}>
-          {/* モーダルは閉じる導線を自前で持つ（headerShownのヘッダー戻るに
-              依存しない。Webでは確実に出るとは限らないため。
-              architecture.md「画面の外枠は常に出す」の規則と同じ考え方） */}
+          {/* モーダルは閉じる導線を自分で持つ（Web ではヘッダーの戻るが出るとは限らない） */}
           <View style={{ flex: 1 }}>
             <Button variant="ghost" onPress={() => router.back()}>
               キャンセル

@@ -16,8 +16,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-// 039 段階2-f（ホワイト）: 行は gap ではなく区切り線で分ける（モックの統計）。
-// 最後の行には線を引かない
+// ホワイトは行を gap でなく区切り線で分ける（最後の行には引かない。039）
 function WhiteStatRows({ children }: { children: React.ReactNode[] }) {
   const { colors } = useTheme();
   const rows = children.filter(Boolean);
@@ -39,19 +38,14 @@ function WhiteStatRows({ children }: { children: React.ReactNode[] }) {
   );
 }
 
-// 020: 012の統計カードが持っていた4つの数字を、ホームから独立したページで
-// すべて出す（ホームの記念日カードはそのうち2つ〈記念日・会った日数〉の要約）。
-// primary_date='none'（hidden）のときは記念日の行だけを出さず3つになる
-// （4つ全部は書けない。stats.getがdaysを返さないため。Aの決定・PR #126）。
-// 023: unset（まだ決めていない）も同じく3つだが、マイページへの導線を足す
-// （hiddenは本人が隠すと決めたので何も促さない。同じ分け方をホームの
-// 記念日カードとも揃える。docs/tasks/023-anniversary-optional.md 4節）
+// 統計の 4 つの数字を全部出す（ホームの記念日カードはその 2 つの要約。020）。
+// hidden（本人が隠すと決めた）は記念日の行を出さず 3 つ。unset（まだ決めていない）も 3 つだが、マイページへの
+// 導線を足す（hidden には何も促さない。ホームの記念日カードと揃える。023）
 export default function StatsScreen() {
   const router = useRouter();
-  // 039 段階2-f: 画面ファイルで appearance を読んでよい2箇所のうちの1つ（統計の
-  // ヒーロー。もう1つはホームのロゴ）。タスク定義 5-2「分岐は部品の中に閉じる」
+  // 画面で appearance を読んでよい唯一の箇所（統計のヒーロー。039）
   const { appearance } = useTheme();
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）
   const viewerKey = useViewerQueryKey();
   const query = useQuery({
     ...orpc.stats.get.queryOptions(),
@@ -95,21 +89,16 @@ export default function StatsScreen() {
     <StatRow key="photos" label="写真の枚数" value={`${stats.photoCount}枚`} />,
   ];
 
-  // 039 段階2-f: ホワイトはモックの統計の形。上にヒーロー写真（角丸・幅いっぱい・4:3）、
-  // その下に小さく muted で「統計」、大きく bold で「統計」（二段の見出し。この形は
-  // モックの統計にしか無く、他画面には足さない。タスク定義 5-2 g・A の判断）。
-  // ヒーロー写真は仮（docs/sample/風景 の1枚。packages/ui/src/assets.ts のコメント参照）
+  // ホワイトは上にヒーロー写真（角丸・幅いっぱい・4:3）、その下に muted の小さい「統計」と bold の大きい
+  // 「統計」（二段の見出しはこの画面だけ）。写真は仮（assets.ts）
   if (appearance === "white") {
     return (
       <Screen>
-        {/* A の指摘: ホワイトでは Tabs のヘッダ「統計」+ 二段見出しの「統計」で
-            「統計」が3回並ぶ。モックにヘッダは無い。この画面は Tabs の中（href: null）で
-            ヘッダには題しか無く戻るボタンも無いので、ホワイトのときだけヘッダごと消す
-            （題を空にするだけだと空の帯が約 65pt 残った。A の訂正）。ピンクは変えない */}
+        {/* ホワイトでは Tabs のヘッダ「統計」+ 二段見出しで「統計」が 3 回並ぶので、ホワイトのときだけヘッダごと
+            消す（題を空にするだけだと空の帯が約 65pt 残る。戻るボタンは無い画面）。ピンクは変えない */}
         <Tabs.Screen options={{ headerShown: false }} />
         <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.lg }}>
-          {/* 4:3 の箱は View で作る（react-native-web の Image に直接 aspectRatio を
-              当てると効かず、縦長に伸びた。B が実機で確認。機能パネルのタイルと同じ形） */}
+          {/* 4:3 の箱は View で作る（react-native-web の Image に aspectRatio を当てると効かず縦に伸びる） */}
           <View style={{ width: "100%", aspectRatio: 4 / 3, borderRadius: radius.card, overflow: "hidden" }}>
             <Image
               testID="stats-hero"

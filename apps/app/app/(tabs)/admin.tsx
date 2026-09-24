@@ -12,10 +12,9 @@ import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
-// 057: 運営の画面（docs/tasks/057-admin.md 2節）。/app/admin（タブに出さない。マイページの「運営 ›」から）。
-// 上から: 見出し + 運営のメール / 全体の数（5 つ）/ メールで探す → 利用者の箱とペアの箱 + 切り替え /
-// 直近の操作。線: 出すのは数とプランの行だけ（名前・本文・写真は API が返さない）。
-// 運営以外は admin.* が FORBIDDEN なので、画面は「見られません」の 1 行
+// 運営の画面（057）。/app/admin（タブに出さず、マイページの「運営 ›」から）。
+// 上から: 見出し + 運営のメール / 全体の数 / メールで探す → 利用者とペアの箱 + 切り替え / 直近の操作。
+// 出すのは数とプランの行だけ（名前・本文・写真は API が返さない）。運営以外は FORBIDDEN で「見られません」の 1 行
 
 const STAT_LABELS: Record<AdminStatKey, string> = {
   couples: "ペア",

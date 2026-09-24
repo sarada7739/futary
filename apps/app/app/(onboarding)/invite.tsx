@@ -9,15 +9,9 @@ import { useViewerQueryKey } from "../../lib/viewer-key";
 
 type IssuedInvite = { code: string; expiresAt: number };
 
-// create.tsx がペア作成直後に発行したコードを渡すためのキャッシュキー。
-// ルーティングパラメータに乗せない理由は下記コメント参照。
-//
-// 【A決定・PR #178】T9の対象は「手続きの戻り値」に限らない。ここは
-// サーバの手続きではなくTanStack Queryをただの置き場として使っており、
-// 中身は招待コード（ペアに入るための鍵。T2より直接的な開示になる）
-// のため、他の識別子付きキャッシュと同じくviewerKeyを含める
-// （apps/app/test/viewer-key-coverage.test.tsのMANUALLY_PLACED_CACHE_KEYSで
-// 検知を強制する）
+// create.tsx がペア作成直後に発行したコードを渡すキャッシュのキー（ルートのパラメータに乗せない理由は下）。
+// 手続きの戻り値ではないが、中身は招待コード（ペアに入る鍵）なので viewerKey を含める
+// （viewer-key-coverage.test.ts の MANUALLY_PLACED_CACHE_KEYS が強制する。T9）
 export function pendingInviteQueryKey(viewerKey: string): QueryKey {
   return ["onboarding", "pendingInvite", viewerKey];
 }
@@ -33,14 +27,9 @@ export default function InviteCodeScreen() {
 
   const issueInvite = useMutation(orpc.invite.issue.mutationOptions());
 
-  // 画面表示（マウント・リロード・外部リンクからの遷移）だけで自動発行すると、
-  // 既に相手に渡した有効なコードを無条件で無効化してしまう
-  // （invite.issue は再発行のたびに前のコードを無効化する仕様のため）。
-  // SameSite=Lax ではトップレベル遷移にCookieが乗るため、この画面のURLを
-  // 踏ませるだけでペアリングを妨害できてしまう。発行は必ずユーザーの
-  // 明示的な操作（このボタン）からのみ起こす
-  // （security-auditor 004監査 Medium指摘。1回目の対応で自動発行にしたところ
-  // この副作用が新たに生まれたため、2回目の指摘を受けて修正）
+  // 画面を開いただけで自動発行しない。invite.issue は再発行のたびに前のコードを無効にするので、相手に渡した
+  // 有効なコードが消える（SameSite=Lax ではトップレベル遷移に Cookie が乗り、URL を踏ませるだけで妨害できる）。
+  // 発行は必ずこのボタンの操作から
   async function handleIssue() {
     const issued = await issueInvite.mutateAsync();
     queryClient.setQueryData(pendingInviteQueryKey(viewerKey), issued);
@@ -57,7 +46,7 @@ export default function InviteCodeScreen() {
   }
 
   function handleContinue() {
-    // couple.get を再取得させ、ルート側の判定で (tabs) へ切り替わるようにする
+    // couple.get を読み直させ、ルートの判定で (tabs) へ切り替える
     queryClient.removeQueries({ queryKey: pendingInviteQueryKey(viewerKey) });
     void queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() });
     router.replace("/");

@@ -1,28 +1,18 @@
 import { createContext, useContext } from "react";
 
-// ゲストデモ（未認証での閲覧）の状態（docs/tasks/014-guest-demo.md）。
-// サインイン画面の「ゲストではじめる」で入り、書き込み系のUIから
-// exitGuestMode() を呼ぶとサインイン画面へ戻る。
-//
-// サーバ側の拒否が唯一の防御線であり、このフラグは UI の見せ方だけを
-// 決める（architecture.md 5節・security-requirements.md 3節）。
-// このフラグを立てなくても、未認証アクセスは常にデモペアの読み取り専用
-// アクセスになる（005 の認可ミドルウェア）
+// ゲストデモ（未認証の閲覧）の状態（014）。「ゲストではじめる」で入り、書き込みの UI から exitGuestMode() で戻る。
+// このフラグは見せ方だけを決め、防御線はサーバの拒否（未認証は常にデモペアの読み取り専用。
+// architecture.md 5節・security-requirements.md 3節）
 export interface GuestModeState {
   isGuestMode: boolean;
   enterGuestMode: () => void;
   exitGuestMode: () => void;
-  // デモの解決に失敗して（couple.getがFORBIDDEN等）サインイン画面へ
-  // 戻された直後だけtrue。理由を1行出すために使う（architecture.md 3節
-  // 「ゲストの解決に失敗したら、サインイン画面へ戻す。理由を1行出す。
-  // 黙って空白にしない」。Rレビュー指摘R-1・A決定）
+  // デモの解決に失敗してサインイン画面へ戻された直後だけ true（理由を 1 行出す。黙って空白にしない。architecture.md 3節）
   demoUnavailable: boolean;
 }
 
-// 既定値はisGuestMode:false（通常の非デモ画面と同じ振る舞い）。
-// 画面結合テストの多くはRootLayoutを経由せず各画面を単体でレンダリングするため、
-// Providerが無い前提でも動く既定値にしている（Providerが無いことをエラーに
-// すると、テストごとにラップを増やす必要が出る）
+// 既定は isGuestMode:false。画面結合テストの多くは RootLayout を通らないので、Provider が無くても動く既定にする
+// （エラーにするとテストごとにラップが要る）
 const defaultGuestModeState: GuestModeState = {
   isGuestMode: false,
   enterGuestMode: () => {},

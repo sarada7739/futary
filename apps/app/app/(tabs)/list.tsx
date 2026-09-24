@@ -11,7 +11,7 @@ import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
-// post-card.tsxのDeleteMenuと同じ形。確認せず即削除しない
+// 確認せず即削除しない（post-card.tsx の DeleteMenu と同じ形）
 function WishDeleteControl({ onDelete }: { onDelete: () => void | Promise<void> }) {
   const [confirming, setConfirming] = useState(false);
 
@@ -35,7 +35,7 @@ function WishDeleteControl({ onDelete }: { onDelete: () => void | Promise<void> 
   );
 }
 
-// 039: 色は外観で変わるため、モジュール直下の定数ではなく描画時に組み立てる
+// 色は外観で変わるので、モジュール直下でなく描画時に組み立てる（039）
 function inputStyleOf(colors: Colors) {
   return {
     borderWidth: 1,
@@ -47,8 +47,7 @@ function inputStyleOf(colors: Colors) {
   } as const;
 }
 
-// 028: タイトル・メモを編集するインラインフォーム。モーダルにしない
-// （027の「入力はモーダルにしない」と同じ考え方を編集にも引き継ぐ）
+// タイトル・メモの編集はインライン（入力はモーダルにしない。028）
 function WishEditForm({
   wish,
   onSave,
@@ -119,10 +118,8 @@ function WishEditForm({
   );
 }
 
-// 021のcanEditのような行ごとの権限は無い（タスク定義2節。権限はペアで共有。
-// 名前を出しても「持ち主」に見せない——押せる/押せないの差を名前の横に
-// 作らない）。editableはisGuestModeだけで決まる。ゲストは押せる形にしない
-// （押してからサーバに拒まれる形にしない。014の導線に合わせる）
+// 行ごとの権限は無い（ペアで共有）。名前を出しても持ち主に見せない（押せる/押せないの差を名前の横に作らない）。
+// editable はゲストかどうかだけで決まる（押してからサーバに拒まれる形にしない）
 function WishRow({
   wish,
   editable,
@@ -167,12 +164,10 @@ function WishRow({
         ) : (
           <Text size="lg">{checkboxGlyph}</Text>
         )}
-        {/* @futary/ui のTextはstyleを持たない（design tokenの外から上書きさせない
-            設計。text.tsx参照）ため、取り消し線は使わず色だけで達成済みを示す */}
+        {/* 共有の Text は style を受けない（トークンの外から上書きさせない）ので、達成済みは取り消し線でなく色で示す */}
         <View style={{ flex: 1 }}>
           <Text color={isDone ? "muted" : undefined}>{wish.title}</Text>
-          {/* 設定者の名前（028）。誰が入れたかが読めるが、編集の可否には
-              一切関係しない（押せる/押せないの差を名前の横に作らない） */}
+          {/* 設定者の名前。編集の可否には関係しない */}
           {wish.createdByName && (
             <Text size="xs" color="muted">
               {wish.createdByName}
@@ -186,7 +181,7 @@ function WishRow({
         )}
         {editable && <WishDeleteControl onDelete={onDelete} />}
       </View>
-      {/* メモは一覧にそのまま出す。折りたたまない（028タスク定義3節） */}
+      {/* メモは一覧にそのまま出す（折りたたまない） */}
       {wish.note.length > 0 && (
         <Text testID="wish-note" size="sm" color="muted">
           {wish.note}
@@ -196,8 +191,7 @@ function WishRow({
   );
 }
 
-// 020のホーム機能パネル「リスト」の行き先。ボトムタブには出さない
-// （(tabs)の中に置き、memory.tsx・stats.tsxと同じ扱い。architecture.md 3節）
+// 機能パネル「リスト」の行き先。タブには出さない（architecture.md 3節）
 export default function ListScreen() {
   const { colors } = useTheme();
   const inputStyle = inputStyleOf(colors);
@@ -205,7 +199,7 @@ export default function ListScreen() {
   const [title, setTitle] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）
   const viewerKey = useViewerQueryKey();
   const listOptions = orpc.wish.list.queryOptions();
   const query = useQuery({ ...listOptions, queryKey: [...listOptions.queryKey, viewerKey] });
@@ -244,8 +238,7 @@ export default function ListScreen() {
   }
 
   async function handleUpdate(wish: Wish, values: { title: string; note: string }) {
-    // 変更されなかった項目もそのまま渡してよい（サーバはCOALESCEで
-    // 同じ値を書き戻すだけ。渡さない最適化はしない）
+    // 変わらなかった項目もそのまま渡す（サーバは COALESCE で同じ値を書き戻すだけ）
     await updateWish.mutateAsync({ id: wish.id, title: values.title, note: values.note });
   }
 
@@ -264,8 +257,7 @@ export default function ListScreen() {
     <Screen>
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, gap: space.md }}>
         {isGuestMode ? (
-          // 014の導線に合わせる。入力欄自体を出さず、押してからサーバに
-          // 拒まれる形にしない
+          // 入力欄自体を出さない（押してからサーバに拒まれる形にしない）
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <Text color="muted">追加はログインすると使えます</Text>
             <Button variant="ghost" onPress={exitGuestMode}>
@@ -282,10 +274,7 @@ export default function ListScreen() {
               maxLength={MAX_WISH_TITLE_LENGTH}
               style={{ ...inputStyle, flex: 1 }}
             />
-            {/* Button自体が同一クリック内の二重発火を防ぐが（button.tsx参照）、
-                応答待ちの間は見た目でも押せない状態を示す
-                （conventions.md「副作用を伴うボタンは二重発火を防ぐ」・
-                security-auditor指摘。compose.tsx/calendar.tsxと同じ形） */}
+            {/* Button 自体も二重発火を防ぐが、応答待ちの間は見た目でも押せない状態を示す（conventions.md 4節） */}
             <Button onPress={handleAdd} disabled={!canSubmit || createWish.isPending}>
               追加
             </Button>
