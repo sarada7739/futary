@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-25 / セッションB。**063 段階1: R 受け入れ（必須修正なし）→ #432 を squash merge（main fa7aeca）。B は段階2（apps/app・packages/ui/src・apps/landing のコメント）を進行中。その後 段階3（テスト）。**
+**最終更新**: 2026-09-25 / セッションB。**063 段階2（apps/app・packages/ui/src・apps/landing のコメント）: PR #434（`task/063-stage2`）。R の手番。次は段階3（テスト）。**
+- コメント行 1,904 → 1,117。TS/TSX 93 ファイルは `compare-code.mjs`、LP 6 ファイルは本番と同じ除き方の `compare-landing.mjs` で「コメント以外が同じ」。テスト 1,539 のまま全部緑。報告 `artifacts/063/stage2.md`
+- 気づき: `viewer-key-coverage.test.ts` が免除の場所を行番号で固定しているので `timeline.tsx` の上の方は行数を保った（段階3 で中身で固定する形にするかは A・R）。生成物 `weather-codes.ts` は触らない
+- 人間の手番（続き）: 061 段階3・062 のデプロイ → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-25 / セッションB。**063 段階1: R 受け入れ（必須修正なし）→ #432 を squash merge（main fa7aeca）。B は段階2（apps/app・packages/ui/src・apps/landing のコメント）を進行中。その後 段階3（テスト）。**
 - 判定 `artifacts/063/review-stage1.md`（R は構文木の葉の列を比べる別の道具で T2 を確かめた）
 - 人間の手番（続き）: 061 段階3・062 のデプロイ → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price。開いている PR: Dependabot の fflate（#340・#382）
 
