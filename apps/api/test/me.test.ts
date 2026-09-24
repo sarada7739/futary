@@ -54,8 +54,7 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
         "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
       )
       .bind(id, name, email, now),
-    // invite.acceptがaccount_id（Googleの識別子）を引く（024）。このファイルは
-    // ペア成立にinvite.acceptを使うため、account行が無いと失敗する
+    // ペア成立に使う invite.accept が account_id（Google の識別子）を引く（024）
     db
       .prepare(
         "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
@@ -65,9 +64,8 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
   return { id, name, email };
 }
 
-// 024: me.deleteの再認証チェック（sessionIsFresh）をテストするため、
-// sessionCreatedAtを上書きできるようにする。省略時は「たった今サインインした」
-// ことにする（既定の経路が邪魔をしない）
+// me.delete の再認証（sessionIsFresh）を試すため、sessionCreatedAt を上書きできる。
+// 省略時は「たった今サインインした」
 function contextFor(
   user: { id: string; name: string; email: string } | null,
   options: { sessionCreatedAt?: number | null } = {},
@@ -85,8 +83,7 @@ function contextFor(
   };
 }
 
-// me.uploadImageUrl を経由せず R2 に直接オブジェクトを置く。「アップロード済み」を
-// 模擬する（post.test.ts の uploadTestImage と同じ形）
+// me.uploadImageUrl を経由せず R2 に直接置いて「アップロード済み」を模擬する
 async function uploadTestUserImage(userId: string, sizeBytes = 100, contentType = "image/jpeg"): Promise<string> {
   const imageId = generateImageId();
   await bucket.put(userImageKeyFor(userId, imageId), new Uint8Array(sizeBytes), {
@@ -95,7 +92,7 @@ async function uploadTestUserImage(userId: string, sizeBytes = 100, contentType 
   return imageId;
 }
 
-// 024: me.delete のテストで使う。post.test.ts / event.test.ts / invite.test.ts と同じ形
+// me.delete のテストで使う（024）
 async function createCouple(user: { id: string; name: string; email: string }) {
   return call(router.couple.create, {}, { context: contextFor(user) });
 }
@@ -117,8 +114,8 @@ describe("me.get", () => {
     expect(result).toBeNull();
   });
 
-  // 024・Aの決定: 削除確認画面に入れるかの判定はサーバが真偽値で返す
-  // （時刻を返してクライアントに比べさせない。event.tsのcanEditと同じ理由）
+  // 削除確認画面に入れるかはサーバが真偽値で返す（時刻を返してクライアントに比べさせない。
+  // event.ts の canEdit と同じ理由。024）
   it("直近5分以内にサインインしていればsessionIsFreshはtrue", async () => {
     const user = await createUser();
 
@@ -138,7 +135,7 @@ describe("me.get", () => {
     expect(result?.sessionIsFresh).toBe(false);
   });
 
-  // 037: ペア未所属ならcouple_membersに行が無いため、両方false
+  // ペア未所属なら couple_members に行が無いので両方 false（037）
   it("ペア未所属ならaiOptIn/partnerAiOptInは両方false", async () => {
     const user = await createUser();
 
@@ -191,8 +188,7 @@ describe("me.setAiOptIn", () => {
     expect(result).toEqual({ aiOptIn: false });
   });
 
-  // couple_membersに行が無いと更新対象が無いため、writeProcedureが
-  // NEEDS_ONBOARDINGで弾く
+  // couple_members に行が無いと writeProcedure が NEEDS_ONBOARDING で弾く
   it("ペア未所属だとNEEDS_ONBOARDING", async () => {
     const user = await createUser();
 
@@ -254,7 +250,7 @@ describe("/api/auth/*", () => {
   });
 });
 
-// 019: 名前とアイコン画像の変更
+// 名前とアイコン画像の変更（019）
 describe("me.update", () => {
   it("名前を変更できる", async () => {
     const user = await createUser();
@@ -290,7 +286,7 @@ describe("me.update", () => {
 
   it("アップロードされていないimageId（形式は正規）を指定するとINVALID_INPUT", async () => {
     const user = await createUser();
-    // generateImageIdと同じ形式（26文字のULID）だが実際にはアップロードしていない
+    // ULID の形式だが、実際にはアップロードしていない
     const notUploadedImageId = generateImageId();
 
     await expect(
@@ -298,9 +294,8 @@ describe("me.update", () => {
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 
-  // Rレビュー指摘: post.createのimageId（007 security-auditor指摘）と同じ形で
-  // 鍵を組み立てる以上、形式検証も共有する（packages/contract/src/post.tsの
-  // IMAGE_ID_PATTERN）。パス区切り等を混入させる形式は入力段階で拒否される
+  // post.create の imageId と同じ形で鍵を組み立てるので、形式検証も共有する
+  // （packages/contract/src/post.ts の IMAGE_ID_PATTERN）。パス区切り等は入力段階で拒む
   it("不正な形式のimageIdは入力バリデーションで弾かれる", async () => {
     const user = await createUser();
 
@@ -368,7 +363,7 @@ describe("me.uploadImageUrl", () => {
   });
 });
 
-// 024: アカウント削除と退会
+// アカウント削除と退会（024）
 describe("me.delete", () => {
   it("未認証なら FORBIDDEN", async () => {
     await expect(call(router.me.delete, undefined, { context: contextFor(null) })).rejects.toMatchObject({
@@ -412,12 +407,11 @@ describe("me.delete", () => {
       { date: "2020-01-01", title: "予定", kind: "plan", repeatYearly: false, startTime: null, endTime: null, isShared: false },
       { context: contextFor(owner) },
     );
-    // 027・security-auditor指摘: wishes.couple_idもcouples(id)を参照するため、
-    // これを消さずにcouplesを消そうとするとFK違反でbatch全体が失敗し、
-    // アカウント削除が恒久的にできなくなる不具合があった（修正済み）
+    // wishes.couple_id も couples(id) を参照する。消さずに couples を消すと FK 違反で batch 全体が
+    // 失敗し、アカウント削除が恒久的にできなくなる（027）
     await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
-    // 040・T7: wants.couple_id / owner_id も couples / user を参照する。画像は wants/ 接頭辞の
-    // R2 オブジェクトとして置く（自動取得の経路は使わず、実体を直接置いて行に紐づける）
+    // wants.couple_id / owner_id も couples / user を参照する。画像は wants/ 接頭辞の R2
+    // オブジェクトとして直接置く（040 T7）
     const wantImageId = generateImageId();
     await bucket.put(wantImageKeyFor(couple.id, wantImageId, "jpg"), new Uint8Array(100), {
       httpMetadata: { contentType: "image/jpeg" },
@@ -425,8 +419,8 @@ describe("me.delete", () => {
     await call(router.want.create, { title: "テストのほしいもの", imageId: wantImageId }, { context: contextFor(owner) });
     // 相手の分も（owner_id が相手）
     await call(router.want.create, { title: "相手のほしいもの" }, { context: contextFor(partner) });
-    // 041・T8: albums.couple_id / created_by が couples / user を、album_photos.album_id が albums を
-    // 参照する。写真は albums/ 接頭辞の R2 オブジェクトとして置く
+    // albums.couple_id / created_by が couples / user を、album_photos.album_id が albums を参照する。
+    // 写真は albums/ 接頭辞の R2 オブジェクトとして置く（041 T8）
     const albumImageId = generateImageId();
     await bucket.put(albumImageKeyFor(couple.id, albumImageId), new Uint8Array(100), {
       httpMetadata: { contentType: "image/jpeg" },
@@ -436,11 +430,10 @@ describe("me.delete", () => {
       { title: "テストのアルバム", cover: { imageId: albumImageId, width: 100, height: 100 } },
       { context: contextFor(owner) },
     );
-    // 029: moods.couple_idも同じ理由でcouplesを参照する
+    // moods.couple_id も couples を参照する（029）
     await call(router.mood.setToday, { level: 5 }, { context: contextFor(owner) });
-    // 037: ai_summaries.couple_idも同じ理由でcouplesを参照する。
-    // aiSummary.generateは本物のAPIを呼ぶため使わず、行を直接作る
-    // （タスク定義「テストで本物のAPIを叩かない」）
+    // ai_summaries.couple_id も couples を参照する。aiSummary.generate は本物の API を呼ぶので
+    // 使わず、行を直接作る（037）
     await db
       .prepare(
         `INSERT INTO ai_summaries (couple_id, period_kind, period_key, body, provider, model, generated_count, created_at, updated_at)
@@ -459,8 +452,8 @@ describe("me.delete", () => {
     ).toBeNull();
     expect(await db.prepare("SELECT id FROM posts WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT 1 FROM reactions WHERE post_id = ?1").bind(post.id).first()).toBeNull();
-    // 031: post_imagesはcouple_id列を持たない（postsをpost_idで参照する側）
-    // ため、下の機械的走査には拾われない。reactionsと同じ理由で手で確認する
+    // post_images は couple_id 列を持たない（posts を post_id で参照する側）ので、下の機械的な
+    // 走査には拾われない。手で確認する
     expect(await db.prepare("SELECT 1 FROM post_images WHERE post_id = ?1").bind(post.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM events WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT code FROM invites WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
@@ -468,12 +461,11 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT 1 FROM moods WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT 1 FROM ai_summaries WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT 1 FROM wants WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
-    // 041・T8: album_photos は couple_id 列を持たない（albums を album_id で参照する側）ため、
-    // post_images と同じく手で確認する
+    // album_photos も couple_id 列を持たないので手で確認する（041 T8）
     expect(await db.prepare("SELECT 1 FROM albums WHERE couple_id = ?1").bind(couple.id).first()).toBeNull();
     expect(await db.prepare("SELECT 1 FROM album_photos WHERE album_id = ?1").bind(album.id).first()).toBeNull();
 
-    // 自分のuser行は消え、相手のuser行はCandle型として残る（消えるのはペアのデータだけ）
+    // 自分の user 行は消え、相手の user 行は Candle 型として残る（消えるのはペアのデータだけ）
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(partner.id).first()).not.toBeNull();
 
@@ -481,10 +473,10 @@ describe("me.delete", () => {
     expect(await bucket.head(imageKeyFor(couple.id, postImageId))).toBeNull();
     expect(await bucket.head(userImageKeyFor(owner.id, ownerImageId))).toBeNull();
     expect(await bucket.head(userImageKeyFor(partner.id, partnerImageId))).toBeNull();
-    // 040・T7: wants/ に孤児が残らない
+    // wants/ に孤児が残らない（040 T7）
     expect(await bucket.head(wantImageKeyFor(couple.id, wantImageId, "jpg"))).toBeNull();
     expect((await bucket.list({ prefix: wantImagePrefixFor(couple.id) })).objects).toHaveLength(0);
-    // 041・T8: albums/ に孤児が残らない
+    // albums/ に孤児が残らない（041 T8）
     expect(await bucket.head(albumImageKeyFor(couple.id, albumImageId))).toBeNull();
     expect((await bucket.list({ prefix: albumImagePrefixFor(couple.id) })).objects).toHaveLength(0);
 
@@ -494,9 +486,8 @@ describe("me.delete", () => {
     });
   });
 
-  // 024タスク定義「couple_membersを消した時点で、両方の利用者がどの手続きからも
-  // ペアのデータを読めない（残りの行が残っている状態で）」。手続きの途中の
-  // 状態を直接作るため、実際の削除手順（1〜5）をSQLで直接再現する
+  // couple_members を消した時点で、残りの行が残っていても両方の利用者がどの手続きからも
+  // ペアのデータを読めない（024）。途中の状態を作るため、削除手順（1〜5）を SQL で再現する
   it("couple_membersを消した時点で、残りの行が残っていても両方の利用者がペアを読めなくなる", async () => {
     const owner = await createUser();
     const couple = await createCouple(owner);
@@ -516,8 +507,7 @@ describe("me.delete", () => {
     await db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(couple.id).run();
     await db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(couple.id).run();
 
-    // couplesの行はまだ残っている（読めなくなることの証明であり、
-    // 消えていることの証明ではない）
+    // couples の行はまだ残っている（読めなくなることの証明で、消えていることの証明ではない）
     expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(couple.id).first()).not.toBeNull();
 
     await expect(call(router.couple.get, undefined, { context: contextFor(owner) })).rejects.toMatchObject({
@@ -528,16 +518,10 @@ describe("me.delete", () => {
     });
   });
 
-  // 024タスク定義「途中で止めて再実行しても、同じ結果になる（各段で1回止めて
-  // 再開する）」。
-  // 【security-auditor指摘で訂正】reactions〜couples（手順1〜6）は
-  // db.batch()1本にまとめてある（下のmeDeleteのコメント参照。並行書き込みが
-  // 途中に着地して回収不能な孤児が残る、という指摘を受けての変更）ため、
-  // このテストが元々シミュレートしていた「途中経過」は、実際にはme.delete
-  // 自身の実行中には起こり得ない。ここでは「一部の行が既に無い状態で
-  // me.deleteを呼んでも、残りを正しく片付けて完走する」という、
-  // batch()のWHERE句の冪等性そのものを確認する形として残す（例えば
-  // 過去の失敗した試行やバグで一部だけ消えていた場合の後始末を担保する）
+  // reactions〜couples（手順1〜6）は db.batch() 1 本なので、me.delete の実行中に途中経過は
+  // 起こらない。ここでは「一部の行が既に無い状態で me.delete を呼んでも、残りを片付けて
+  // 完走する」（WHERE 句の冪等性。過去の失敗した試行やバグで一部だけ消えていた場合の後始末）
+  // を確かめる
   it.each([
     ["何も止めない", 0],
     ["reactions削除後で止める", 1],
@@ -582,14 +566,9 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(owner.id).first()).toBeNull();
   });
 
-  // 【security-auditor指摘・027】027でwishesを足した際、me.deleteのbatchに
-  // 削除文を足し忘れ、wishを1件でも持つペアはDELETE FROM couples実行時に
-  // FK違反で恒久的に削除が失敗する不具合があった（修正済み）。手で表の
-  // 一覧を並べたテストだけでは「次の表」で同じ漏れ方をするため、
-  // couple_id列を持つ表をsqlite_masterから機械的に検出し、その全表で
-  // me.delete後にペアの行が0件であることを確認する（authorization.test.tsの
-  // collectProcedures走査・viewer-key-coverage.test.tsのfindReadScopedProcedures
-  // と同じ「手で維持する一覧に頼らない」考え方）
+  // couple_id 列を持つ表を sqlite_master から機械的に見つけ、その全表で me.delete 後にペアの行が
+  // 0 件であることを確かめる。手で並べた一覧だと、表を足したときに削除文の足し忘れ（FK 違反で
+  // 削除が恒久的に失敗する）を見逃す（authorization.test.ts の collectProcedures と同じ考え方）
   it("couple_id列を持つ全ての表で、me.delete後にそのペアの行が0件になる", async () => {
     const owner = await createUser();
     const couple = await createCouple(owner);
@@ -603,21 +582,18 @@ describe("me.delete", () => {
       { context: contextFor(owner) },
     );
     await call(router.wish.create, { title: "行きたい場所" }, { context: contextFor(owner) });
-    // 040: wantsも同じ理由でこの機械的走査に自動的に拾われる
+    // wants・albums・moods も couple_id を持つ表として機械的に拾われる
     await call(router.want.create, { title: "ほしいもの" }, { context: contextFor(owner) });
-    // 041: albumsも同じ理由でこの機械的走査に自動的に拾われる
     await call(router.album.create, { title: "アルバム" }, { context: contextFor(owner) });
-    // 029: moodsもcouple_idを持つ表として、この機械的走査に自動的に拾われる
     await call(router.mood.setToday, { level: 3 }, { context: contextFor(owner) });
-    // 045・T6: couple_plans.couple_id も couples を参照する。運営の切り替え SQL と同じ文で行を作る
+    // couple_plans.couple_id も couples を参照する。運営の切り替え SQL と同じ文で行を作る（045 T6）
     await db
       .prepare(
         "INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES (?1, 'paid', 'manual', unixepoch()) ON CONFLICT(couple_id) DO UPDATE SET plan = 'paid', updated_at = unixepoch()",
       )
       .bind(couple.id)
       .run();
-    // 037: ai_summariesも同じ理由でこの機械的走査に自動的に拾われる。
-    // aiSummary.generateは本物のAPIを呼ぶため使わず、行を直接作る
+    // ai_summaries も機械的に拾われる。aiSummary.generate は本物の API を呼ぶので行を直接作る
     await db
       .prepare(
         `INSERT INTO ai_summaries (couple_id, period_kind, period_key, body, provider, model, generated_count, created_at, updated_at)
@@ -626,20 +602,16 @@ describe("me.delete", () => {
       .bind(couple.id, Math.floor(Date.now() / 1000))
       .run();
 
-    // D1はPRAGMA文を許可しない（SQLITE_AUTH。実測で確認）ため、
-    // schema-integrity.test.tsのextractNamedChecksと同じ方式で、
-    // sqlite_masterのCREATE TABLE文字列から列名を直接拾う
+    // D1 は PRAGMA を許さない（SQLITE_AUTH）ので、schema-integrity.test.ts の extractNamedChecks と
+    // 同じく sqlite_master の CREATE TABLE 文字列から列名を拾う
     const { results: tables } = await db
       .prepare(`SELECT name AS name, sql AS sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> 'couples'`)
       .all<{ name: string; sql: string }>();
 
-    // 【Rレビュー指摘】バッククォート必須（`couple_id`）だと、手書きの
-    // マイグレーションでバッククォート無しに書かれた表を静かに見逃す。
-    // 緩めても誤検知は増えない（couple_idを含むのに実際は
-    // `WHERE couple_id = ?`が通らない表があれば、下のbeforeチェックで
-    // 例外として落ちる。fail-closed）
-    // 057: admin_actions は couple_id を持つが FK は無く、退会しても残す（運営の操作の記録。0節 #10。
-    // couple_id は消えたペアの id のまま）。この網からは外し、残ることを別に見る
+    // バッククォートを必須にすると、バッククォート無しで書いた表を静かに見逃す。緩めても誤検知は
+    // 増えない（`WHERE couple_id = ?` が通らない表があれば下の before チェックで落ちる。fail-closed）。
+    // admin_actions は couple_id を持つが FK は無く、退会しても残す（運営の操作の記録。057 0節 #10）。
+    // この網からは外し、残ることを別に見る
     const KEPT_AFTER_DELETE = new Set(["admin_actions"]);
     const allCoupleIdTables = tables.filter((t) => /couple_id/.test(t.sql)).map((t) => t.name);
     expect(allCoupleIdTables).toContain("admin_actions");
@@ -649,17 +621,13 @@ describe("me.delete", () => {
       .bind(crypto.randomUUID(), owner.id, couple.id)
       .run();
 
-    // 検出ロジック自体の健全性: 既知の表が最低限含まれていることを保証する
-    // （0件だと下のループが何もチェックせず成功してしまう）
+    // 既知の表が含まれている（0 件だと下のループが何も確かめずに通る）
     expect(coupleIdTables).toEqual(
       expect.arrayContaining(["posts", "events", "invites", "couple_members", "wishes", "moods", "ai_summaries", "wants", "albums", "couple_plans"]),
     );
 
-    // 【Rレビュー指摘R-1】削除前チェックが無いと、将来「couple_idを持つ新しい表」
-    // が増えたときにこのテストがその表へ行を作らないため、削除後の0件確認が
-    // 常に（もともと0件で）通ってしまい、削除文を足し忘れても検知できない
-    // 「空振りの緑」になる。viewer-key-coverage.test.tsのtotalMatches>0と
-    // 同じ形で、消す前に行が実在することを要求する
+    // 消す前に行が実在することを要求する。これが無いと、couple_id を持つ表が増えたときに
+    // このテストがその表へ行を作らず、削除後の 0 件確認がもともと 0 件で通る（空振りの緑）
     for (const table of coupleIdTables) {
       const before = await db.prepare(`SELECT 1 FROM ${table} WHERE couple_id = ?1`).bind(couple.id).first();
       expect(
@@ -675,26 +643,18 @@ describe("me.delete", () => {
       const row = await db.prepare(`SELECT 1 FROM ${table} WHERE couple_id = ?1`).bind(couple.id).first();
       expect(row, `${table} にペアの行が残っています`).toBeNull();
     }
-    // 057: 記録は残る
+    // 記録は残る（057）
     const kept = await db.prepare("SELECT 1 FROM admin_actions WHERE couple_id = ?1").bind(couple.id).first();
     expect(kept, "admin_actions の記録が退会で消えている（残す決まり。057 0節 #10）").not.toBeNull();
   });
 
-  // 【032】上のテストは`couple_id`という列名に頼っているため、その列を
-  // 持たない表（`reactions`・`post_images`。ともに`post_id`で参照する側）が
-  // 網に映らない。031のレビューで実際にこの2つが漏れていた（R指摘）。
-  // 「`post_id`も見る」に足すと次の列名でまた漏れる（列名を並べる一覧に
-  // 戻ってしまう）ため、列名ではなく「me.delete後、登録の無い表は全部
-  // 0件」に変える。テストのDBにはこのペアのデータしか無いため、joinの経路を
-  // 辿らずに「0件かどうか」だけを見れば足りる（032タスク定義3節）
+  // 上のテストは couple_id という列名に頼るので、その列を持たない表（reactions・post_images。
+  // post_id で参照する側）が網に映らない。列名を足すと次の列名でまた漏れるので、列名ではなく
+  // 「me.delete 後、登録の無い表は全部このテストの増分が 0 に戻る」で見る（032 3節）
   it("me.delete後、登録の無い全表が0件になる（列名ではなく表全体で見る）", async () => {
-    // `sqlite_%`はSQLiteの内部表（032タスク定義3節。`invite_failures`が
-    // AUTOINCREMENTのため`sqlite_sequence`が存在する）。`d1_migrations`
-    // （drizzle-kitのマイグレーション適用記録）・`_cf_METADATA`（D1が内部で
-    // 使う表）はアプリの表ではなく、D1がクエリ自体を拒む
-    // （実行して確認: `SQLITE_AUTH: not authorized`）。いずれも免除の
-    // 一覧には入れない。アプリの表ではないものをアプリの判断として登録すると、
-    // 次に読む人が「これは消すべきなのか」と考える
+    // sqlite_% は SQLite の内部表（invite_failures が AUTOINCREMENT なので sqlite_sequence がある）。
+    // d1_migrations・_cf_METADATA は D1 がクエリ自体を拒む（SQLITE_AUTH）。いずれもアプリの表では
+    // ないので免除の一覧には入れない（入れると「これは消すべきなのか」と読む人が迷う）
     const { results: tables } = await db
       .prepare(
         `SELECT name AS name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('d1_migrations', '_cf_METADATA')`,
@@ -702,7 +662,7 @@ describe("me.delete", () => {
       .all<{ name: string }>();
     const tableNames = tables.map((t) => t.name);
 
-    // 検出ロジック自体の健全性（上のcoupleIdTablesの健全性チェックと同じ形）
+    // 検出の健全性（上の coupleIdTables と同じ形）
     expect(tableNames).toEqual(
       expect.arrayContaining([
         "user",
@@ -723,15 +683,9 @@ describe("me.delete", () => {
       ]),
     );
 
-    // 【実測して分かったこと】このテストファイルはD1の状態がit()をまたいで
-    // 共有されている。「isolated per-test storage」を謳うプラグインだが、
-    // このテスト単体では通り、フルスイートで実行すると`couples`に他の
-    // テストが残した行が既に1件見える（`SELECT COUNT(*) FROM couples`を
-    // このテストの先頭で実行して確認した）。よって「削除後は0件」という
-    // 032タスク定義3節の前提（「DBにはこのペアしか居ない」）は、この
-    // テストファイル内では成立しない。「このテストが増やした分が、
-    // 削除後にちょうど元へ戻ったか」（件数の差分）で見る。件数だけを見る
-    // ため、他のテストが残した行の中身を読む必要はない
+    // このファイルでは D1 の状態が it() をまたいで共有される（フルスイートでは他のテストが残した
+    // couples の行が見える）。「DB にはこのペアしか居ない」前提は成り立たないので、このテストが
+    // 増やした分が削除後にちょうど元へ戻ったか（件数の差分）で見る
     const baselineCounts = new Map<string, number>();
     for (const name of tableNames) {
       const row = await db.prepare(`SELECT COUNT(*) AS c FROM ${name}`).first<{ c: number }>();
@@ -744,9 +698,8 @@ describe("me.delete", () => {
     const partner = await createUser();
     await call(router.invite.accept, { code: invite.code }, { context: contextFor(partner) });
 
-    // sessionはBetter Authの実テーブルだが、contextForは実際の行を経由せず
-    // RpcContextを直接組み立てているため、この網に映すには手で行を作る
-    // （自分のsessionが残っていたら落ちる、を証明するために必要。下記）
+    // contextFor は session 行を経由しないので、この網に映すには手で行を作る
+    // （自分の session が残っていたら落ちる、を確かめるため）
     const now = Math.floor(Date.now() / 1000);
     await db.batch([
       db
@@ -774,8 +727,7 @@ describe("me.delete", () => {
       { context: contextFor(owner) },
     );
     await call(router.wish.create, { title: "テストの行きたい場所" }, { context: contextFor(owner) });
-    // 040・T7: wants.couple_id / owner_id も couples / user を参照する。画像は wants/ 接頭辞の
-    // R2 オブジェクトとして置く（自動取得の経路は使わず、実体を直接置いて行に紐づける）
+    // wants（040 T7）。画像は wants/ 接頭辞の R2 オブジェクトとして直接置く
     const wantImageId = generateImageId();
     await bucket.put(wantImageKeyFor(couple.id, wantImageId, "jpg"), new Uint8Array(100), {
       httpMetadata: { contentType: "image/jpeg" },
@@ -794,7 +746,7 @@ describe("me.delete", () => {
       { context: contextFor(owner) },
     );
     await call(router.mood.setToday, { level: 5 }, { context: contextFor(owner) });
-    // 037: aiSummary.generateは本物のAPIを呼ぶため使わず、行を直接作る
+    // aiSummary.generate は本物の API を呼ぶので行を直接作る
     await db
       .prepare(
         `INSERT INTO ai_summaries (couple_id, period_kind, period_key, body, provider, model, generated_count, created_at, updated_at)
@@ -802,7 +754,7 @@ describe("me.delete", () => {
       )
       .bind(couple.id, now)
       .run();
-    // 045・T6: couple_plans（couple_id で couples を参照する側）。運営の切り替え SQL と同じ文
+    // couple_plans。運営の切り替え SQL と同じ文（045 T6）
     await db
       .prepare(
         "INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES (?1, 'paid', 'manual', unixepoch()) ON CONFLICT(couple_id) DO UPDATE SET plan = 'paid', updated_at = unixepoch()",
@@ -810,12 +762,9 @@ describe("me.delete", () => {
       .bind(couple.id)
       .run();
 
-    // 免除は「表」ではなく「残ってよい行の条件」で登録する（Rレビュー指摘。
-    // 032タスク定義3節）。表ごと免除にすると、自分のsessionが残っていても
-    // 鳴らない（ログアウトされていないことを見逃す。T8・024の再認証に直結）。
-    // ここに無い表は「このテストが増やした分がちょうど0へ戻ること」が既定
-    // （下のループ参照）。値はB自身が1ペア・2人で実測して確かめた
-    // （`couples`はこのテストの増分がちょうど0へ戻った）
+    // 免除は「表」ではなく「残ってよい行の条件」で書く（032 3節）。表ごと免除にすると、自分の
+    // session が残っていても鳴らない（ログアウトされていないことを見逃す。T8・024 の再認証）。
+    // ここに無い表は「このテストが増やした分がちょうど 0 へ戻ること」が既定
     const ALLOWED_TO_REMAIN: Record<string, string | null> = {
       user: "id <> ?1", // 相手のuser行は残る（Candle型。024）
       session: "user_id <> ?1", // 自分のsessionはCASCADEで消える。相手の分は残る
@@ -825,10 +774,8 @@ describe("me.delete", () => {
       admin_actions: null, // 057: 運営の操作の記録。退会しても残す（0節 #10）
     };
 
-    // 消す前チェック（空振りの緑を防ぐ）。couple_id列を持つ表は既存の網と
-    // 同じ考え方、それ以外（reactions・post_images等）は「baselineより
-    // 増えていること」だけを要求する（032タスク定義4節。どのペアの行かを
-    // 判定しなくてよい。このテストが作った分の増減だけを見る）
+    // 消す前チェック（空振りの緑を防ぐ）。couple_id を持つ表は既存の網と同じ、それ以外
+    // （reactions・post_images 等）は baseline より増えていることだけを求める（032 4節）
     for (const name of tableNames) {
       if (name in ALLOWED_TO_REMAIN) continue;
       const row = await db.prepare(`SELECT COUNT(*) AS c FROM ${name}`).first<{ c: number }>();
@@ -858,24 +805,18 @@ describe("me.delete", () => {
     }
   });
 
-  // 【記録: 受け入れている制約。security-auditor指摘を受けて範囲を訂正】
-  // reactions〜couplesはdb.batch()1本にまとめたため（下のmeDeleteのコメント
-  // 参照）、me.delete自身の実行中にcouple_membersだけが消えてcouplesが
-  // 残る、という中間状態はもう起こらない。この状態が起こりうるのは、
-  // このテストのようにme.deleteの外側（別の失敗した試行・バグ等）で
-  // couple_membersが消えた場合だけである。resolveCoupleContextに削除専用の
-  // 例外を作らないと決めた（conventions.md「守る相手のいない要件のために、
-  // 認可の中心を触らない」）以上、couple_membersが無ければcoupleIdを
-  // 引く手段が無い、という制約自体は変わらないため、その挙動をそのまま
-  // 固定する（挙動が変わったら、この判断自体を見直す必要がある）
+  // 【受け入れている制約】reactions〜couples は db.batch() 1 本なので、me.delete の実行中に
+  // couple_members だけ消えて couples が残る状態は起こらない。起こるのは me.delete の外側
+  // （失敗した試行・バグ等）で couple_members が消えた場合だけ。resolveCoupleContext に削除専用の
+  // 例外を作らない（conventions.md「守る相手のいない要件のために、認可の中心を触らない」）ので、
+  // couple_members が無ければ coupleId を引けない。その挙動を固定する（変わったら判断を見直す）
   it("【受け入れている制約】me.deleteの外でcouple_membersが消えていると、couplesの行は孤児として残る", async () => {
     const owner = await createUser();
     const couple = await createCouple(owner);
 
     await db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(couple.id).run();
 
-    // この時点でme.deleteを呼んでも、coupleIdを引けないため
-    // couplesの行を消せない（ユーザー自身は消える）
+    // coupleId を引けないので couples の行は消せない（ユーザー自身は消える）
     const result = await call(router.me.delete, undefined, { context: contextFor(owner) });
     expect(result.ok).toBe(true);
 
@@ -883,9 +824,8 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(couple.id).first()).not.toBeNull();
   });
 
-  // 【security-auditor指摘】me.deleteが起こしうる最悪のバグ（WHERE couple_id
-  // の欠落＝全ペア一括削除）を検知するテストが無かった。無関係な第2の
-  // ペアのデータ・R2オブジェクトが影響を受けないことを直接確認する
+  // me.delete の最悪のバグ（WHERE couple_id の欠落＝全ペア一括削除）を検知する。無関係な
+  // 第2のペアのデータ・R2 オブジェクトが影響を受けないことを直接確かめる
   it("別のペアのデータ・R2オブジェクトは削除の影響を受けない", async () => {
     const owner = await createUser();
     const couple = await createCouple(owner);
@@ -913,12 +853,9 @@ describe("me.delete", () => {
     expect(await bucket.head(imageKeyFor(otherCouple.id, otherImageId))).not.toBeNull();
   });
 
-  // 【security-auditor指摘】デモペア（is_demo=1）はGoogleログイン経路が
-  // 塞がれているため現状は到達不能（seed.tsのemail_verified=0・
-  // @example.com判定）だが、その到達不能性がseedの都合1つに依存する
-  // 状態にしない。ここでは実際には起こりえない組み合わせ
-  // （実在の認証ユーザーがデモペアに所属している）を直接作って、
-  // 手続き自身の防御を確認する
+  // デモペア（is_demo=1）は Google ログインの経路が塞がれていて現状は到達できないが、それを
+  // seed の都合 1 つに頼らない。実在の認証ユーザーがデモペアに所属する組み合わせを直接作り、
+  // 手続き自身の防御を確かめる
   it("is_demoのペアからは削除できない（手続き自身でも拒む）", async () => {
     const user = await createUser();
     const coupleId = crypto.randomUUID();
@@ -937,9 +874,8 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT id FROM user WHERE id = ?1").bind(user.id).first()).not.toBeNull();
   });
 
-  // 【security-auditor指摘】相手のプロフィール画像はR2から消すが、相手の
-  // user行は残す（Candle型）。me.ts先頭の不変条件「image列が非NULLなら
-  // 実体がある」を保つため、相手のimageもNULLへ戻す
+  // 相手のプロフィール画像は R2 から消すが、相手の user 行は残す（Candle 型）。me.ts 先頭の
+  // 不変条件「image 列が非 NULL なら実体がある」を保つため、相手の image も NULL に戻す
   it("相手のプロフィール画像を消すと、相手のuser.imageもNULLに戻る", async () => {
     const owner = await createUser();
     await createCouple(owner);
@@ -980,10 +916,8 @@ describe("me.delete", () => {
     expect(await db.prepare("SELECT id FROM account WHERE user_id = ?1").bind(user.id).first()).toBeNull();
   });
 
-  // 【Aの決定・024で訂正】以前はinvite_failures.user_idがuserへのFKで、
-  // 消す順序を証明するテストがここにあった。account_hash（Googleアカウントの
-  // 塩付きハッシュ）に差し替えてFK自体を無くしたため、消さなくてもuserの
-  // 削除は落ちない。この逆（FKが無くなったこと）を直接確かめる
+  // invite_failures は user_id ではなく account_hash（Google アカウントの塩付きハッシュ）を持ち、
+  // user への FK が無い。消さなくても user の削除は落ちないことを確かめる（024）
   it("invite_failuresはuserへのFKを持たない: 残っていてもme.deleteに影響しない", async () => {
     const user = await createUser();
     await db
@@ -1005,9 +939,8 @@ describe("me.delete", () => {
 
     await call(router.me.delete, undefined, { context: contextFor(owner) });
 
-    // Better Authは account 行が無くなっているため、同じGoogleアカウントでも
-    // 新しいuser.idで登録する（024タスク定義）。ここでは新しいuser行を
-    // 作ることでそれを模擬する
+    // account 行が無くなっているので、同じ Google アカウントでも新しい user.id で登録される
+    // （024）。新しい user 行を作ってそれを模擬する
     const reregistered = await createUser();
 
     await expect(call(router.couple.get, undefined, { context: contextFor(reregistered) })).rejects.toMatchObject({
@@ -1018,11 +951,9 @@ describe("me.delete", () => {
     ).toBeNull();
   });
 
-  // 024・Aの決定: 不可逆で相手のデータまで消す操作のため、直近5分以内の
-  // サインインを要求する（session.createdAtが動かないことをBetter Auth本体の
-  // ソースで確認済み。context.tsのコメント参照）。画面側（delete-account.tsx）が
-  // me.get().sessionIsFreshを見て確認フローに入る前に弾くのが基本経路だが、
-  // ここではサーバ側の最終防御そのものを確認する
+  // 不可逆で相手のデータまで消す操作なので、直近 5 分以内のサインインを要求する（024。
+  // session.createdAt は動かない。context.ts 参照）。画面側が sessionIsFresh を見て先に弾くのが
+  // 基本の経路だが、ここではサーバ側の最終防御を確かめる
   it("サインインから5分を超えているとREAUTH_REQUIRED", async () => {
     const user = await createUser();
     const staleSessionCreatedAt = Date.now() - REAUTH_WINDOW_MS - 1000;

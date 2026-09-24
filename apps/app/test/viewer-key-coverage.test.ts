@@ -4,47 +4,24 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-// ペアのデータ・利用者ごとのデータを読む問い合わせは、クライアント側で
-// queryKeyに閲覧者の識別子（viewerKey。apps/app/lib/viewer-key.ts）を
-// 含めなければならない。含めないと、リロード無しで本物のログイン⇄ゲスト⇄
-// 未認証を切り替えたときに、直前の別人のキャッシュが一瞬そのまま画面に
-// 出る（security-requirements.md T9。共有端末では実質的な情報漏洩になる。
-// 実機で発生した不具合）。
+// ペアのデータ・利用者ごとのデータを読む問い合わせは、queryKey に閲覧者の識別子
+// （viewerKey。apps/app/lib/viewer-key.ts）を含めなければならない。含めないと、リロード
+// 無しでログイン⇄ゲスト⇄未認証を切り替えたときに、直前の別人のキャッシュが一瞬画面に出る
+// （security-requirements.md T9。共有端末では情報漏洩になる）。
 //
-// 【設計の経緯（5回、同じ側で穴が見つかった）】
-// このテストは何度も作り直された: 手で並べた一覧 → readProcedureの走査 →
-// 近傍N文字 → AST2段 → orpc識別子起点 → import文の形。だが5回とも
-// 「orpcへどうやって辿り着いたか」を留め金にしていた。R曰く「orpcを配って
-// いるモジュールを字面で名指しする限り、名指しの外側はいくらでも作れる
-// （開いた集合）」。実際、名前空間import・再エクスポート・オプショナル
-// チェイン・型アサーション等、6通り以上の逃げ道が見つかり続けた。
-//
-// 【最終形（Aの判断）: 留め金の位置を変える】
-// 「orpcへどうやって辿り着いたか」を追うのをやめ、「TanStack Query の
-// キャッシュのキーを取るAPI」という**閉じた集合**（ライブラリの関数名。
-// 増えるとしたらライブラリのバージョンアップ時で、そのときは差分に出る）
-// を起点にする。キャッシュ枠を作る・読む・書く・無効化する処理は必ず
-// useQuery/useInfiniteQuery/queryClient.setQueryData等のどれかを通る。
-// options（queryOptions()の戻り値等）をどう手に入れたかに関係なく、
-// 呼び出しの「名前」だけで機械的に見つかる。Rが実測: apps/app配下の
-// useQuery/useInfiniteQuery 15件、呼び出し式の中にviewerKeyがあるもの
-// 15件・無いもの0件（このAPI名を起点にする形は既に閉じている）。
-//
-// queryKeyの中身をどう構文的に辿るか（変数へのspread・短縮記法1段辿り等）
-// という「精密な判定」自体は従来のまま残す（メッセージがqueryKeyの中身
-// まで具体的に示せるため。Aの指示で「捨てない」）。変わったのは
-// 「どの呼び出しをこの精密な判定にかけるか」を数える側だけである。
+// 起点は「orpc へどう辿り着いたか」ではなく「TanStack Query のキャッシュのキーを取る API」
+// という閉じた集合（ライブラリの関数名。増えるのはバージョンアップ時で、差分に出る）。
+// キャッシュ枠を作る・読む・書く・無効化する処理は必ずこのどれかを通るので、options を
+// どう手に入れたかに関係なく、呼び出しの名前だけで機械的に見つかる。
+// queryKey の中身を構文的に辿る精密な判定は、失敗メッセージで queryKey の中身まで示せる
+// ように残している
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(testDir, "..");
 const repoRoot = path.resolve(appDir, "../..");
 
-// 【Rレビュー指摘】ディレクトリ名だけで一致させると、`apps/app/app/test/`
-// のような「たまたま同じ名前のネストしたディレクトリ」まで除外して
-// しまう（実測時点でそのようなディレクトリは無く実害は無いが、次に
-// 誰かが作ったら黙って視界の外になる）。除外は「apps/app直下のこの
-// パス1つ」に限定する（絶対パスの完全一致だけで比較し、名前の再帰的な
-// 一致はしない）
+// 除外は apps/app 直下のこのパスだけ（絶対パスの完全一致）。名前だけで一致させると
+// apps/app/app/test/ のような同名のネストしたディレクトリまで黙って視界の外になる
 const EXCLUDED_TOP_LEVEL_DIR_NAMES = [
   "node_modules", // 依存パッケージ。自分のソースではない
   ".expo", // Expoのキャッシュ・生成物（.gitignore済み）
@@ -70,18 +47,13 @@ function listFilesExcluding(dir: string): string[] {
 }
 
 // 【守る範囲（conventions.md 6節「検証の範囲から外したものは、結果に書く」）】
-// この網が走査するのは`apps/app`配下全体から、上のEXCLUDED_ABSOLUTE_DIRS
-// （`apps/app`直下のこの8パスだけ）を除いたもの。`apps/app`の外
-// （他のアプリ・パッケージ。例えば`apps/api`や`packages/*`）は範囲外。
-// TanStack Queryのキャッシュキー生成をこのアプリの外（別パッケージ）で
-// 組み立てる形も範囲外（いまはそのような書き方が無いため対応しない）
+// 走査するのは apps/app 配下から EXCLUDED_ABSOLUTE_DIRS を除いたもの。apps/app の外
+// （apps/api・packages/*）と、キャッシュキーを別パッケージで組み立てる形は範囲外
 function listAppSourceFiles(): string[] {
   return listFilesExcluding(appDir).filter((f) => (f.endsWith(".tsx") || f.endsWith(".ts")) && !f.endsWith(".d.ts"));
 }
 
-// 【Rレビュー指摘・小さいもの】失敗メッセージに文字位置（例: 1940）を
-// そのまま出していたが、行番号ではなく文字位置だったため、次に踏む人が
-// ファイルを開いてすぐ辿れなかった。1-indexedの行:桁に変換する
+// 失敗メッセージは文字位置ではなく 1 始まりの行:桁で出す（開いてすぐ辿れるように）
 function formatLocation(sourceFile: ts.SourceFile, pos: number): string {
   const { line, character } = ts.getLineAndCharacterOfPosition(sourceFile, pos);
   return `${line + 1}:${character + 1}`;
@@ -113,11 +85,9 @@ function containsIdentifierNamed(node: ts.Node, name: string): boolean {
   return found;
 }
 
-// nameという名前の変数を、fromNodeを含む直近のスコープ（関数・ファイル）
-// の中から1つだけ探す。fail-closedのため、見つからなければnullを返す
-// （それ以上広いスコープや複数候補の曖昧な解決はしない。分割代入等の
-// 束縛は対象外——動的な実キーを扱う正当な理由がある箇所は
-// viewer-key-coverage-ignoreコメントで別途免除する）
+// name という変数を、fromNode を含む直近のスコープ（関数・ファイル）から 1 つだけ探す。
+// 見つからなければ null（fail-closed。広いスコープや分割代入は辿らない。動的な実キーを
+// 扱う正当な箇所は viewer-key-coverage-ignore で免除する）
 function findVariableInitializerInScope(fromNode: ts.Node, name: string): ts.Node | null {
   let scope: ts.Node = fromNode.getSourceFile();
   let current: ts.Node = fromNode;
@@ -150,16 +120,10 @@ function queryKeyInitializer(objectLiteral: ts.ObjectLiteralExpression): ts.Node
   );
   if (prop) return prop.initializer;
 
-  // 【Rレビュー指摘・Aの判断「短縮記法を許す」】
-  // `const queryKey = [...]; useQuery({ ...options, queryKey })`という
-  // 短縮記法（ES2015のオブジェクト省略記法）だと、queryKeyプロパティは
-  // PropertyAssignmentではなくShorthandPropertyAssignmentになり、上の
-  // findは常にnullを返していた。「viewerKeyが確認できません」という
-  // メッセージは、実際には2行上にあるのに嘘をつくことになる（Rの指摘。
-  // 一番悪い壊れ方）。長い式を変数に出すのは普通のリファクタであり、
-  // 禁じて正しいコードを規約違反にすべきではない（Aの判断）。同じ
-  // スコープの変数宣言を1段だけ辿る（それ以上は追わない。辿れなければ
-  // fail-closedのままnullを返す）
+  // 短縮記法（`const queryKey = [...]; useQuery({ ...options, queryKey })`）は
+  // ShorthandPropertyAssignment になり、上の find では拾えない。拾えないと「viewerKey が
+  // 確認できません」と嘘のメッセージになるので、同じスコープの変数宣言を 1 段だけ辿る
+  // （辿れなければ fail-closed のまま null）
   const shorthand = objectLiteral.properties.find(
     (p): p is ts.ShorthandPropertyAssignment => ts.isShorthandPropertyAssignment(p) && p.name.text === "queryKey",
   );
@@ -167,17 +131,9 @@ function queryKeyInitializer(objectLiteral: ts.ObjectLiteralExpression): ts.Node
   return findVariableInitializerInScope(shorthand, "queryKey");
 }
 
-// 【038: Aの判断「閉じた集合を、手で写さない。出どころから引く」】
-// 037で「TanStack Queryのキャッシュのキーを取るAPI」という閉じた集合へ
-// 留め金を移したこと自体は正しかった（Rの判定）。だが実際には手で9件を
-// 書き写しただけで、ライブラリの実物とは突き合わせていなかった。Rが
-// `@tanstack/react-query@5.102.3`の公開面を読んだところ、13通り当てて
-// 12通りが素通りした（useSuspenseQuery・useQueries・ensureQueryData・
-// fetchQuery・getQueryState等）。「閉じた集合であることと、その集合を
-// 正しく持っていることは別だった」（Aの言葉）。
-//
-// テスト実行時に実際のモジュールを読み、そこから列挙する
-// （`ts.createProgram`は使わない。読むのはモジュールの値そのもの）
+// 閉じた集合を手で写さず、出どころ（ライブラリの実際のモジュール）から引く。手で写すと
+// useSuspenseQuery・useQueries・ensureQueryData・fetchQuery・getQueryState 等が漏れる。
+// ts.createProgram は使わず、モジュールの値そのものを読む
 import * as ReactQueryModule from "@tanstack/react-query";
 
 // ライブラリの公開面をそのまま列挙する（手で書かない）。バージョンを
@@ -190,9 +146,8 @@ const RAW_QUERY_CLIENT_METHODS = Object.getOwnPropertyNames(ReactQueryModule.Que
 interface Classification {
   // "exact": 1件の値を読む・書くため、viewerKeyを厳密に要求する
   // "prefix": 既定で前方一致のフィルタとして効くため、viewerKeyを要求しない
-  // "conditional": 「前方一致だから安全」ではなく「使い方に条件がついた
-  //   安全」（038。Rが実装を読んで発見）。条件が崩れたらexactと同じ
-  //   扱いにする。CONDITIONAL_METHOD_CHECKSに対応する条件関数を持つ
+  // "conditional": 前方一致だから安全ではなく、使い方に条件がついた安全。条件が崩れたら
+  //   exact と同じ扱い。CONDITIONAL_METHOD_CHECKS に対応する条件関数を持つ
   // "excluded": データそのものを読み書きしない（件数・設定・ライフサイクル等）ため対象外
   bucket: "exact" | "prefix" | "conditional" | "excluded";
   reason: string;
@@ -283,11 +238,8 @@ const QUERY_CLIENT_METHOD_CLASSIFICATION: Record<string, Classification> = {
   removeQueries: { bucket: "prefix", reason: "前方一致のフィルタでキャッシュから削除するだけ。値を返さない" },
   refetchQueries: { bucket: "prefix", reason: "前方一致のフィルタで再取得を発火するだけ。呼び出し側へ値を返さない" },
   resetQueries: { bucket: "prefix", reason: "前方一致のフィルタで初期状態へ戻すだけ。値を返さない" },
-  // 【Rレビュー指摘・訂正】以前は「前方一致だから安全」（prefix）と
-  // 書いていたが、実装（下記コメント参照）を読んだRの指摘により誤りと
-  // 判明した。「前方一致だから安全」ではなく「使い方に条件がついた
-  // 安全」であり、条件が崩れると別人の枠を覗く・別人の枠へ書く事故に
-  // なりうる（T9）。条件はCONDITIONAL_METHOD_CHECKSで機械的に検査する
+  // 前方一致だから安全ではなく、使い方に条件がついた安全。条件が崩れると別人の枠を覗く・
+  // 別人の枠へ書く事故になりうる（T9）。条件は CONDITIONAL_METHOD_CHECKS で検査する
   setQueriesData: {
     bucket: "conditional",
     reason:
@@ -337,11 +289,8 @@ const CONDITIONAL_METHODS = new Set([
 ]);
 const ALL_CACHE_KEY_METHODS = new Set([...EXACT_KEY_REQUIRED_METHODS, ...PREFIX_MATCH_METHODS, ...CONDITIONAL_METHODS]);
 
-// 【038: Rレビュー指摘】getQueriesData/setQueriesDataは「前方一致だから
-// 安全」ではなく「使い方に条件がついた安全」だった。条件が崩れたら、
-// queryKeyにviewerKeyがあるかとは別の理由で別人のデータを覗く・
-// 別人のデータへ書く事故になりうる（T9）。条件を機械的に検査する
-// （conventions.md「条件は検査する。書くだけにしない」）
+// getQueriesData・setQueriesData の条件を機械的に検査する（T9。conventions.md
+// 「条件は検査する。書くだけにしない」）
 
 // getQueriesDataの戻り値が「消費されていない」か（呼び出しが式文として
 // だけ存在し、結果をどこにも渡していないか）を見る。変数へ代入・
@@ -365,13 +314,9 @@ const CONDITIONAL_METHOD_CHECKS: Record<string, (call: ts.CallExpression) => boo
   setQueriesData: isSetQueriesDataUpdaterFunction,
 };
 
-// 【Rレビュー指摘・訂正】conditionalな2つが条件を満たさず赤くなった
-// とき、他の呼び出しと同じ「viewerKeyが確認できません」という文言を
-// 出していた。だがこの2つが崩れているのはviewerKeyの有無ではなく
-// 条件そのもの（戻り値を消費していない／updaterが関数式である）で
-// あり、この文言を読んだ人がviewerKeyを足しても直らない
-// （短縮記法のときと同じ「一番悪い壊れ方」。メッセージが嘘をつく）。
-// 対象のAPIごとに、何が壊れているかを言う文言に分ける
+// conditional な 2 つが崩れているのは viewerKey の有無ではなく条件そのもの。「viewerKey が
+// 確認できません」と出すと、読んだ人が viewerKey を足しても直らない。API ごとに何が壊れて
+// いるかを言う
 function describeMissingReason(methodName: string): string {
   if (methodName === "getQueriesData") {
     return "戻り値を消費しています。このAPIは他人のデータを返すため、戻り値を使うならviewerKeyの話ではなく別の設計が要ります（consumeしない形にするか、viewer-key-coverage-ignoreで理由を明記してください）";
@@ -390,12 +335,9 @@ const DIRECT_KEY_SHAPE_METHODS = new Set(["setQueryData", "getQueryData", "getQu
 // それ以外のEXACT_KEY_REQUIRED_METHODSは、第1引数が`{ queryKey, ... }`と
 // いうオプションオブジェクト（useQueryと同じ形）
 
-// 呼び出しの callee がキャッシュキーAPIの名前と一致するか見る。
-// `useQuery(...)`のような裸の関数呼び出しと、`queryClient.setQueryData(...)`
-// のようなメンバー呼び出しの両方を受け付ける。受け手（`queryClient`という
-// 変数名等）は問わない——ライブラリのメソッド名という閉じた集合で
-// 判定するため、型チェッカーによる受け手の型検証は不要（Aの判断。遅く、
-// いま閉じたい穴は型の追跡ではないため）
+// 呼び出しの callee がキャッシュキー API の名前と一致するか見る。裸の関数呼び出しと
+// メンバー呼び出しの両方を受け付ける。受け手（変数名等）は問わない（メソッド名という
+// 閉じた集合で判定するので、型チェッカーでの受け手の検証はしない）
 function cacheKeyMethodNameOf(call: ts.CallExpression): string | null {
   if (ts.isIdentifier(call.expression) && ALL_CACHE_KEY_METHODS.has(call.expression.text)) {
     return call.expression.text;
@@ -406,11 +348,9 @@ function cacheKeyMethodNameOf(call: ts.CallExpression): string | null {
   return null;
 }
 
-// 【038: Rの指摘】ブラケット記法（`queryClient["setQueryData"](...)`）は
-// 上のcacheKeyMethodNameOfに一致しない（PropertyAccessExpressionではなく
-// ElementAccessExpressionのため）。ドット記法に限る、という入口の形を
-// 決めた結果、これは「使い方が違反している」呼び出しとして別途検知する
-// （lib/orpcを名前付きimportに限ったのと同じ考え方）
+// ブラケット記法（`queryClient["setQueryData"](...)`）は ElementAccessExpression なので
+// 上の cacheKeyMethodNameOf に一致しない。入口はドット記法に限り、ブラケット記法は
+// 違反として別に検知する
 function bracketCacheKeyMethodNameOf(call: ts.CallExpression): string | null {
   const callee = call.expression;
   if (
@@ -512,13 +452,10 @@ interface CacheKeySite {
   checkRange: [number, number] | null;
 }
 
-// ファイル1つから、キャッシュのキーを取る呼び出しを全て見つけ、それぞれを
-// 分類する。PREFIX_MATCH_METHODSは構造的に免除（viewerKey不要）、
-// EXACT_KEY_REQUIRED_METHODSはqueryKeyの中身を精密に判定し、
-// viewerKeyが無ければ直前のignoreコメントの有無で赤/免除を分ける。
-// ブラケット記法（`queryClient["setQueryData"](...)`）はドット記法に
-// 限るという入口の形に反するため、viewerKeyの有無に関わらず赤にする
-// （038: Aの判断「入口の形を1つに決める」）
+// ファイル 1 つから、キャッシュのキーを取る呼び出しを全て見つけて分類する。
+// PREFIX_MATCH_METHODS は免除、EXACT_KEY_REQUIRED_METHODS は queryKey の中身を判定し、
+// viewerKey が無ければ直前の ignore コメントの有無で赤/免除を分ける。ブラケット記法は
+// viewerKey の有無に関わらず赤
 function scanCacheKeySites(file: string, content: string, sourceFile: ts.SourceFile): CacheKeySite[] {
   const sites: CacheKeySite[] = [];
   function visit(node: ts.Node): void {
@@ -539,12 +476,9 @@ function scanCacheKeySites(file: string, content: string, sourceFile: ts.SourceF
         if (PREFIX_MATCH_METHODS.has(methodName)) {
           sites.push({ file, location, methodName, status: "prefix-exempt", checkRange: null });
         } else if (CONDITIONAL_METHODS.has(methodName)) {
-          // 【038: Rレビュー指摘】条件（getQueriesDataなら戻り値を消費
-          // しないこと、setQueriesDataならupdaterが関数式であること）を
-          // 満たしていれば前方一致と同じ扱い（安全）。満たしていなければ、
-          // ignoreコメントが無い限り赤にする（queryKeyのviewerKeyの
-          // 有無ではなく、条件そのものが崩れていることが問題のため、
-          // checkRangeは呼び出し全体を指す）
+          // 条件（getQueriesData は戻り値を消費しない・setQueriesData は updater が関数式）を
+          // 満たせば前方一致と同じ扱い。満たさなければ ignore コメントが無い限り赤。
+          // 崩れているのは条件そのものなので、checkRange は呼び出し全体を指す
           const check = CONDITIONAL_METHOD_CHECKS[methodName];
           const conditionMet = check ? check(node) : false;
           if (conditionMet) {
@@ -587,13 +521,8 @@ function scanCacheKeySites(file: string, content: string, sourceFile: ts.SourceF
 }
 
 describe("TanStack Queryのキャッシュのキーを取る呼び出しは、viewerKeyを含むか明示的に免除されている（T9）", () => {
-  // 【038: 受け入れの形「ライブラリから引いた一覧がtoEqualで固定されている」】
-  // ライブラリの公開面（RAW_REACT_QUERY_EXPORTS・RAW_QUERY_CLIENT_METHODS）
-  // が、分類マップ（REACT_QUERY_EXPORT_CLASSIFICATION・
-  // QUERY_CLIENT_METHOD_CLASSIFICATION）にちょうど一致することを固定する。
-  // ライブラリを上げて公開面が増減すると、この2つが必ず赤くなる
-  // （増えたものは分類マップに無いので欠け、減ったものは分類マップに
-  // 余分に残るため、どちらの方向でも診断で気づける）
+  // ライブラリの公開面が分類マップにちょうど一致することを固定する。ライブラリを上げて
+  // 公開面が増減すると、どちらの方向でもこの 2 つが赤くなる
   it("react-queryパッケージの公開exportが、分類マップと過不足なく一致する（バージョンを上げると赤くなる）", () => {
     expect(RAW_REACT_QUERY_EXPORTS).toEqual(Object.keys(REACT_QUERY_EXPORT_CLASSIFICATION).sort());
   });
@@ -619,19 +548,10 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     return sites;
   }
 
-  // 検出ロジック自体の健全性: 実際に今日のapp内で使われている9種については
-  // 呼び出しが最低1件は見つかることを固定する。0件のまま「対象が無いので
-  // 緑」というテストの見せかけの安全を防ぐ（#245「逃げ道の側を数える」と
-  // 同じ考え方）。残り17種（useSuspenseQuery・ensureQueryData等。038で
-  // ライブラリから新たに引いたもの）は今日のappでは未使用のため、ここでは
-  // 求めない。それらの判定ロジックが機能することは後段の合成スニペットの
-  // テスト（Rが挙げた12通り等）で別途確認する。
-  // 【Rの注文】この一覧は手書きであり、セキュリティの検査ではなく
-  // 「今日実際に使われているものが消えていないか」の確認である。
-  // 例えばリファクタで`cancelQueries`の呼び出しを1件削除すると、
-  // T9とは無関係にこのテストが赤くなる——それは意図どおりであり、
-  // 一覧をその時点の実際の使用状況に合わせて更新すればよい
-  // （「なぜ赤いのか」を探させないためにここに書く）
+  // 今日の app で使われている 9 種は、呼び出しが最低 1 件見つかることを固定する（0 件のまま
+  // 「対象が無いので緑」を防ぐ）。残りの未使用の種類は後段の合成スニペットで確かめる。
+  // この一覧は手書きで、セキュリティの検査ではない。リファクタで最後の cancelQueries を
+  // 消せば T9 と無関係に赤くなるが、それは意図どおりで、一覧を今の使い方に合わせればよい
   it("今日のappで実際に使われている9種のAPIは、呼び出しが最低1件は見つかる（検出ロジック自体の健全性）", () => {
     const KNOWN_USED_METHODS = [
       "useQuery",
@@ -651,14 +571,8 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     }
   });
 
-  // 【受け入れの形】キャッシュのキーを取る呼び出しのうち、精密な判定の
-  // 対象になっていないもの（要求される条件——exact系ならviewerKey、
-  // conditional系なら戻り値の消費/updaterの形——を満たさず、免除も
-  // されていない）が0件であることを固定する。
-  // 【Rの注文・採用】以前の題名「viewerKeyが無く...」は、失敗時に
-  // まず目に入る見出し自体がviewerKeyの話をしていた。conditionalな
-  // 2つのメッセージ本文を条件の話に直したのに、見出しが揃っていな
-  // かった（実害は小さいが、中身と見出しは揃える）
+  // キャッシュのキーを取る呼び出しのうち、要求される条件（exact 系なら viewerKey、conditional
+  // 系なら戻り値の消費・updater の形）を満たさず、免除もされていないものが 0 件
   it("要求される条件を満たさず、免除もされていない呼び出しは0件である", () => {
     const missing = scanRealFiles().filter((s) => s.status === "exact-missing");
     expect(
@@ -689,8 +603,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     ]);
   });
 
-  // 対になる確認: 免除コメントに「-- 理由」が無ければ免除として扱われない
-  // （規約として書くなら、規約が守られていることも検査する）
+  // 免除コメントに「-- 理由」が無ければ免除として扱われない
   it("「-- 理由」の無いviewer-key-coverage-ignoreは免除として扱われない", () => {
     const content =
       'import { useQuery } from "@tanstack/react-query";\n' +
@@ -701,15 +614,13 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(sites.some((s) => s.status === "exact-missing")).toBe(true);
   });
 
-  // 【受け入れの形「別名import・ブラケット記法が赤」】ブラケット記法は
-  // 今日のappでは使われていないことを固定する
+  // ブラケット記法は今日の app では使われていない
   it("ブラケット記法での呼び出しは今日のappに存在しない", () => {
     const bracketSites = scanRealFiles().filter((s) => s.status === "bracket-notation");
     expect(bracketSites).toEqual([]);
   });
 
-  // 対になる確認: ブラケット記法を実際に検出できることを合成コード
-  // （Rの逃げ道例）で確かめる
+  // ブラケット記法を実際に検出できることを合成コードで確かめる
   it("ブラケット記法（queryClient[\"setQueryData\"](...)）は検出され、viewerKeyの有無に関わらず赤になる", () => {
     const withViewerKey =
       'queryClient["setQueryData"](["couple", "get", viewerKey], data);\n';
@@ -721,16 +632,10 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     }
   });
 
-  // 【038: Aの判断「入口の形を1つに決める」。037でlib/orpcに対して
-  // やったのと同じ形をreact-query自体のimportにも適用する】
-  // `import { useQuery as uq } from "@tanstack/react-query"`のように
-  // 別名でimportされると、cacheKeyMethodNameOfは識別子の名前（"uq"）
-  // でしか判定できないため、以降の呼び出しが一切検出できなくなる
-  // （Rが実測: profile.tsxで穴を開けた状態で、テスト・app・lint・
-  // type-checkの4つとも黙って通った）。名前空間importも同様に、
-  // メンバー名が識別子として現れないため検出できない。
-  // 「@tanstack/react-queryからのimportは、別名なしの名前付きimportに
-  // 限る」という入口の形を決め、違反そのものを検出する
+  // `import { useQuery as uq } from "@tanstack/react-query"` のような別名 import だと、
+  // cacheKeyMethodNameOf は識別子の名前（"uq"）でしか判定できず、以降の呼び出しを一切
+  // 検出できない（テスト・lint・type-check も黙って通る）。名前空間 import も同じ。
+  // @tanstack/react-query からの import は別名なしの名前付き import に限り、違反を検出する
   function findReactQueryImportStatements(sourceFile: ts.SourceFile): ts.ImportDeclaration[] {
     return sourceFile.statements.filter(
       (stmt): stmt is ts.ImportDeclaration =>
@@ -773,7 +678,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     ).toEqual([]);
   });
 
-  // 【Rの受け入れ条件】別名import・名前空間importが違反として検知される
+  // 別名 import・名前空間 import が違反として検知される
   it.each([
     ["別名import（import { useQuery as uq }）", 'import { useQuery as uq } from "@tanstack/react-query";\n'],
     ["名前空間import（import * as RQ）", 'import * as RQ from "@tanstack/react-query";\n'],
@@ -796,18 +701,10 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(violations).toEqual([]);
   });
 
-  // 【038: 受け入れの形「Rが素通りさせた12通りが全部赤」】
-  // Rが`@tanstack/react-query@5.102.3`の公開面を読んで実測した12通り
-  // （useSuspenseQuery・useSuspenseInfiniteQuery・useQueries・
-  // useSuspenseQueries・usePrefetchQuery・ensureQueryData・fetchQuery・
-  // getQueryState・prefetchQuery・setQueryDefaults・ブラケット記法・
-  // 別名import）を1つずつ当てる。ブラケット記法・別名importは既に
-  // 上のテストで確認済みのため、ここでは残り10通り（データを返す
-  // フック・メソッド）を確かめる。038のtoEqual完全性テストにより、
-  // これらは全て分類マップに載っている（見えなくなることはない）。
-  // うちsetQueryDefaultsは「データではなく既定オプションを設定する
-  // だけ」という理由で対象外に分類しており、赤にはならない——それも
-  // 含めて、全て理由つきで説明できることを示す
+  // データを返すフック・メソッド（useSuspenseQuery・useSuspenseInfiniteQuery・useQueries・
+  // useSuspenseQueries・usePrefetchQuery・ensureQueryData・fetchQuery・getQueryState・
+  // prefetchQuery）を 1 つずつ当てる。setQueryDefaults は既定オプションを設定するだけなので
+  // 対象外（下で理由つきで確かめる）
   describe("Rが素通りさせた12通りのうち、データを返すもの（オプションオブジェクト形）", () => {
     const cases: Array<[string, string]> = [
       ["useSuspenseQuery", "useSuspenseQuery"],
@@ -835,8 +732,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     });
   });
 
-  // getQueryStateは第1引数がqueryKeyそのもの（setQueryData/getQueryDataと
-  // 同じ直接キー形）
+  // getQueryState は第1引数が queryKey そのもの（setQueryData・getQueryData と同じ形）
   describe("Rが素通りさせた12通りのうち、getQueryState（直接キー形）", () => {
     it("viewerKeyの無いqueryKeyを渡すと赤になる", () => {
       const code = 'const state = queryClient.getQueryState(["couple", "get"]);\n';
@@ -882,10 +778,8 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     });
   });
 
-  // setQueryDefaults/getQueryDefaultsは「データではなく既定オプションを
-  // 読み書きするだけ」という理由で対象外（excluded）に分類した。
-  // 分類マップに載っている（見えなくなっていない）ことと、その理由を
-  // 明示的に確認する
+  // setQueryDefaults・getQueryDefaults はデータではなく既定オプションを読み書きするだけなので
+  // 対象外（excluded）。分類マップに載っている（見えなくなっていない）ことを確かめる
   it("setQueryDefaults/getQueryDefaultsは、理由つきで対象外に分類されている（見えなくなってはいない）", () => {
     expect(QUERY_CLIENT_METHOD_CLASSIFICATION.setQueryDefaults?.bucket).toBe("excluded");
     expect(QUERY_CLIENT_METHOD_CLASSIFICATION.setQueryDefaults?.reason.length).toBeGreaterThan(0);
@@ -896,13 +790,8 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(ALL_CACHE_KEY_METHODS.has("getQueryDefaults")).toBe(false);
   });
 
-  // 【受け入れの形】Rが開けた逃げ道（名前空間import・orpc自身のエイリアス・
-  // namespace段のエイリアス・ブラケット記法等）を色々混ぜても、
-  // useQuery側の数えは外れない——という頑健性を、実際にこれらの書き方を
-  // 使ったuseQuery呼び出しで確かめる。以前はorpcの参照経路そのものを
-  // 追っていたためこれらが逃げ道になったが、いまは呼び出しの「名前」
-  // （useQuery）だけを起点にするため、内部でoptionsをどう組み立てたかに
-  // 関係なく検出できる
+  // 名前空間 import・orpc 自身の別名・namespace 段の別名等を混ぜても、呼び出しの名前
+  // （useQuery）を起点にしているので、options をどう組み立てたかに関係なく検出できる
   describe("orpcの取得経路をどう書いても、useQuery呼び出し自体は検出される（検出ロジック自体の健全性）", () => {
     const cases: Array<[string, string]> = [
       [
@@ -924,12 +813,8 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
           "const options = o.couple.get.queryOptions();\n" +
           "const query = useQuery({ ...options, queryKey: options.queryKey });\n",
       ],
-      // 【留め金を移す前の最後の3つの逃げ道（Rが実測。PR #255）】
-      // 再エクスポート・`export *`・拡張子つきimportは、いずれも「orpcを
-      // どうやって取得したか」を追う旧仕組みでは検出できなかった
-      // （うち1つはAが名指しした`export { orpc } from ...`そのもの）。
-      // 新仕組みはorpcの取得経路を一切見ないため、これらは構造的に
-      // 無関係になる——それを実際に確かめる
+      // 再エクスポート・`export *`・拡張子つき import。orpc の取得経路は見ないので、
+      // これらでも検出できることを確かめる
       [
         "再エクスポート経由（export { orpc } from \"./orpc\" を別ファイルに置き、そこから import * as m）",
         'import * as m from "./reexported-orpc";\n' +
@@ -969,7 +854,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     });
   });
 
-  // 【Rの受け入れ条件「短縮記法の正当な書き方が緑になる」】
+  // 短縮記法の正当な書き方は緑になる
   it("queryKeyを変数に出す短縮記法（stats.tsxで実際に指摘された形）は、viewerKeyがあれば緑になる", () => {
     const code =
       'import { orpc } from "../../lib/orpc";\n' +
@@ -985,7 +870,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(sites.every((s) => s.status === "exact-ok")).toBe(true);
   });
 
-  // 対になる確認: 短縮記法でも、実際にviewerKeyが無ければきちんと赤になる
+  // 短縮記法でも、viewerKey が無ければ赤になる
   it("同じ短縮記法でも、viewerKeyが無ければ赤のまま（fail-closed）", () => {
     const code =
       'import { orpc } from "../../lib/orpc";\n' +
@@ -1000,8 +885,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(sites.every((s) => s.status === "exact-missing")).toBe(true);
   });
 
-  // 対になる確認: queryKey変数そのものが見つからない（1段辿っても
-  // 解決できない）場合はfail-closedのまま赤になる
+  // queryKey 変数そのものが見つからない（1 段辿っても解決できない）場合は fail-closed で赤
   it("queryKey変数が見つからない場合はfail-closedのまま赤になる", () => {
     const code =
       'import { orpc } from "../../lib/orpc";\n' +
@@ -1015,8 +899,8 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(sites.every((s) => s.status === "exact-missing")).toBe(true);
   });
 
-  // setQueryData/getQueryDataも同じ精密さで判定されることを確かめる
-  // （#179のpendingInviteQueryKeyがまさにこの形。orpcを経由しない）
+  // setQueryData・getQueryData も同じ精密さで判定される（pendingInviteQueryKey がこの形。
+  // orpc を経由しない）
   it("setQueryData/getQueryDataは、queryKey引数（またはそれを1段だけ辿った変数）にviewerKeyがあれば緑になる", () => {
     const code =
       "function usePendingInvite(viewerKey) {\n" +
@@ -1038,11 +922,9 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(sites.some((s) => s.methodName === "setQueryData" && s.status === "exact-missing")).toBe(true);
   });
 
-  // invalidateQueries/cancelQueries/removeQueriesは、viewerKeyが無くても
-  // 無条件に免除される（前方一致で複数のviewerKey付き枠をまとめて
-  // 対象にすることが設計上正しいため）ことを確かめる。setQueriesData/
-  // getQueriesDataは条件つきのため、このテストからは外し、下の専用の
-  // describeで確かめる
+  // invalidateQueries・cancelQueries・removeQueries は viewerKey が無くても無条件に免除
+  // （前方一致で複数の viewerKey 付きの枠をまとめて対象にするのが正しい）。条件つきの
+  // setQueriesData・getQueriesData は下の describe で確かめる
   it("invalidateQueries/cancelQueries/removeQueriesはviewerKeyが無くても無条件に免除される", () => {
     const code =
       "queryClient.invalidateQueries({ queryKey: orpc.me.get.key() });\n" +
@@ -1054,16 +936,10 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     expect(sites.every((s) => s.status === "prefix-exempt")).toBe(true);
   });
 
-  // 【038: Rレビュー指摘・訂正】getQueriesData/setQueriesDataは「前方一致
-  // だから安全」ではなく「使い方に条件がついた安全」だった
-  // （conventions.md「条件つきの2つ」）。以前は無条件でprefix-exempt
-  // としていたが、実装を読んだRの指摘で誤りと判明した:
-  //   getQueriesData: 前方一致に一致した全員のstate.dataをそのまま
-  //     配列に入れて返す。呼び出し側が消費すれば別人のデータを読む
-  //   setQueriesData: updaterが関数でなければ、その値をそのまま全員の
-  //     枠へ書き込む（functionalUpdateの実装）
-  // 「理由が違うと、次にgetQueriesData(...)[0][1]を読んで画面に出す人が
-  // 止まらない」（Rの指摘）。条件そのものを機械的に検査する
+  // getQueriesData・setQueriesData は、使い方に条件がついた安全（conventions.md「条件つきの2つ」）:
+  //   getQueriesData: 前方一致した全員の state.data を配列で返す。消費すれば別人のデータを読む
+  //   setQueriesData: updater が関数でなければ、その値をそのまま全員の枠へ書き込む
+  // 条件そのものを機械的に検査する
   describe("getQueriesData/setQueriesDataは「条件つきで安全」（038。Rが実装を読んで発見）", () => {
     it("getQueriesDataは戻り値を消費しなければ免除される（式文としてだけ呼ぶ）", () => {
       const code = 'queryClient.getQueriesData({ queryKey: orpc.post.list.key() });\n';
@@ -1083,10 +959,8 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
       expect(sites.some((s) => s.methodName === "getQueriesData" && s.status === "exact-missing")).toBe(true);
     });
 
-    // 【Rレビュー指摘・訂正】メッセージが「viewerKeyが確認できません」だと
-    // 読んだ人がviewerKeyを足してしまう（条件が崩れているだけなので、
-    // 足しても直らない。「一番悪い壊れ方」）。壊れている条件そのものを
-    // 言う文言になっていることを確かめる
+    // 「viewerKey が確認できません」だと、読んだ人が viewerKey を足してしまう（足しても
+    // 直らない）。壊れている条件そのものを言う文言になっていることを確かめる
     it("getQueriesDataが赤いときのメッセージは、viewerKeyを足せと誘導せず、戻り値を消費していることを言う", () => {
       const message = describeMissingReason("getQueriesData");
       expect(message).not.toBe(describeMissingReason("useQuery")); // 汎用文言のままではない
@@ -1126,13 +1000,9 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     });
   });
 
-  // 【Rレビュー指摘R-2の実証】判定ロジック自体が「効いていること」を、
-  // 実際にviewerKeyを1つ外した状態を作って確かめる（#246「測定を足したら、
-  // 両側から当てる」）。実ファイルの中でexact-okになっている全ての
-  // checkRangeについて、そこだけを狙って"viewerKey"を書き換え、(1)その
-  // 箇所自身がexact-missing/exact-ignoredのどちらかに変わること
-  // （＝status: exact-okのまま緑を保たないこと）(2)同じファイル内の
-  // 他の呼び出しが巻き添えで壊れないことを確認する
+  // 判定が効いていることを、実際に viewerKey を 1 つ外して確かめる。実ファイルで exact-ok の
+  // 全ての checkRange について、そこだけ "viewerKey" を書き換え、(1) その箇所が exact-ok の
+  // まま緑を保たないこと (2) 同じファイルの他の呼び出しが巻き添えで壊れないことを見る
   it("実ファイルのexact-okな呼び出しは、そのqueryKeyからviewerKeyを外すと緑を保たない", () => {
     const files = listAppSourceFiles();
     let injectionCount = 0;
@@ -1172,10 +1042,8 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
   });
 });
 
-// 【Rレビュー指摘】ディレクトリ名だけの除外だと`apps/app/app/test/`の
-// ような同名のネストしたディレクトリまで巻き込む。除外は`apps/app`直下の
-// 1パスだけに限定したことを、実際に`apps/app/app/test/`へファイルを
-// 置いて確かめる（作業後は必ず削除する）
+// 除外は apps/app 直下の 1 パスだけ。実際に apps/app/app/test/ へファイルを置いて確かめる
+// （作業後は必ず削除する）
 describe("走査対象は apps/app 配下全体（除外は apps/app 直下の1パスだけ）", () => {
   it("apps/app/test は除外されるが、apps/app/app/test は除外されない", () => {
     expect(EXCLUDED_ABSOLUTE_DIRS.has(path.join(appDir, "test"))).toBe(true);
