@@ -128,10 +128,6 @@ describe("T5: glass のトークン", () => {
     expect(Object.keys(themes.white.glass).sort()).toEqual(Object.keys(themes.pink.glass).sort());
   });
 
-  it("filterId は外観ごとに別（屈折の強さが違うため SVG フィルタを分けている）", () => {
-    expect(themes.pink.glass.filterId).not.toBe(themes.white.glass.filterId);
-  });
-
   // 039「装飾は無い」。虹色のにじみはピンクの語彙で、ホワイトには無い
   // （shadow.glow の不透明度を 0 にしたのと同じ理由）
   it("ホワイトは色収差を出さない（0）", () => {

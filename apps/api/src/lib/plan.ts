@@ -109,10 +109,6 @@ export async function unlockedPhotos(db: D1Database, coupleId: string): Promise<
   return results;
 }
 
-export async function unlockedPhotoIds(db: D1Database, coupleId: string): Promise<Set<string>> {
-  return new Set((await unlockedPhotos(db, coupleId)).map((p) => p.id));
-}
-
 // 無料枠の使用量: ペアの未削除のアルバムに入っている album_photos の行数を 1 文で数える
 // （albums.deleted_at IS NULL を JOIN に含める。タイムライン post_images は数えない。
 // 別ペアの写真は albums.couple_id で切れる）。album_photos は album_id の索引

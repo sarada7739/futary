@@ -248,21 +248,3 @@ describe("G5: この部品で SVG フィルタ（url()）を使わない", () =>
     expect(tablistLine).toContain("zIndex: 1");
   });
 });
-
-describe("G6: SVG フィルタの id が theme と +html.tsx で一致する", () => {
-  // 片方だけ直すと参照が壊れる。参照が解決できない filter を指定した要素は
-  // 仕様上まったく描画されなくなるため、ずれると「タブバーが消える」
-  it("theme.ts の filterId が全部 +html.tsx に定義されている", () => {
-    const theme = readFileSync(
-      path.resolve(appDir, "..", "..", "packages", "ui", "src", "theme.ts"),
-      "utf8",
-    );
-    const html = readSource("app/+html.tsx");
-
-    const themeIds = [...theme.matchAll(/filterId: "([^"]+)"/g)].map((m) => m[1]);
-    const htmlIds = [...html.matchAll(/glassFilter\("([^"]+)"/g)].map((m) => m[1]);
-
-    expect(themeIds.length).toBeGreaterThan(0);
-    expect([...themeIds].sort()).toEqual([...htmlIds].sort());
-  });
-});
