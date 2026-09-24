@@ -114,72 +114,22 @@ function couple(
   };
 }
 
-// 判別可能なunion（{status:"dating"} | {status:"dating_upcoming"} |
-// {status:"married"} | {status:"married_upcoming"} | {status:"hidden"} |
-// {status:"unset"}）の境界。「dating」の下端（今日→1日目）と
-// 「dating_upcoming」の下端（明日→あと1日。0日にならない）の両方を押さえる
-// （Rレビュー指摘: 片側だけだとoff-by-oneを見逃す）。019でprimary_dateの
-// 分岐を追加した。dating/marriedそれぞれにupcomingの対を持たせる形に改名
-// した（Aの決定・PR #123。旧together→dating、旧upcoming→dating_upcoming）。
-// 023でunset（primary_dateが指している方の日付がまだ無い）を追加した
+// dating・married それぞれの下端（今日 → 1 日目）と upcoming の下端（明日 → あと 1 日。
+// 0 日にならない）の両方を押さえる。片側だけだと off-by-one を見逃す
 describe("computeDaysTogether", () => {
-  it("primary_date='dating'・記念日が今日なら1日目", () => {
-    expect(computeDaysTogether(couple({ datingDate: "2026-01-01" }), "2026-01-01")).toEqual({
-      status: "dating",
-      days: 1,
-    });
-  });
-
-  it("primary_date='dating'・記念日が昨日なら2日目", () => {
-    expect(computeDaysTogether(couple({ datingDate: "2025-12-31" }), "2026-01-01")).toEqual({
-      status: "dating",
-      days: 2,
-    });
-  });
-
-  it("primary_date='dating'・記念日が明日なら「あと1日」（0日にならない）", () => {
-    expect(computeDaysTogether(couple({ datingDate: "2026-01-02" }), "2026-01-01")).toEqual({
-      status: "dating_upcoming",
-      days: 1,
-    });
-  });
-
-  it("primary_date='dating'・記念日が2日後なら「あと2日」", () => {
-    expect(computeDaysTogether(couple({ datingDate: "2026-01-03" }), "2026-01-01")).toEqual({
-      status: "dating_upcoming",
-      days: 2,
-    });
-  });
-
-  it("primary_date='dating'・年をまたいでも正しい", () => {
-    expect(computeDaysTogether(couple({ datingDate: "2025-12-31" }), "2026-01-02")).toEqual({
-      status: "dating",
-      days: 3,
-    });
-  });
-
-  it("primary_date='married'・結婚した日が今日なら1日目", () => {
-    expect(
-      computeDaysTogether(couple({ primaryDate: "married", marriedDate: "2026-01-01" }), "2026-01-01"),
-    ).toEqual({ status: "married", days: 1 });
-  });
-
-  it("primary_date='married'・結婚した日が昨日なら2日目", () => {
-    expect(
-      computeDaysTogether(couple({ primaryDate: "married", marriedDate: "2025-12-31" }), "2026-01-01"),
-    ).toEqual({ status: "married", days: 2 });
-  });
-
-  it("primary_date='married'・結婚した日が明日なら「結婚まであと1日」（married_upcoming。0日にならない）", () => {
-    expect(
-      computeDaysTogether(couple({ primaryDate: "married", marriedDate: "2026-01-02" }), "2026-01-01"),
-    ).toEqual({ status: "married_upcoming", days: 1 });
-  });
-
-  it("primary_date='married'・結婚した日が2日後なら「結婚まであと2日」", () => {
-    expect(
-      computeDaysTogether(couple({ primaryDate: "married", marriedDate: "2026-01-03" }), "2026-01-01"),
-    ).toEqual({ status: "married_upcoming", days: 2 });
+  it.each([
+    ["dating・記念日が今日なら1日目", "dating", "2026-01-01", "2026-01-01", { status: "dating", days: 1 }],
+    ["dating・記念日が昨日なら2日目", "dating", "2025-12-31", "2026-01-01", { status: "dating", days: 2 }],
+    ["dating・記念日が明日なら「あと1日」（0日にならない）", "dating", "2026-01-02", "2026-01-01", { status: "dating_upcoming", days: 1 }],
+    ["dating・記念日が2日後なら「あと2日」", "dating", "2026-01-03", "2026-01-01", { status: "dating_upcoming", days: 2 }],
+    ["dating・年をまたいでも正しい", "dating", "2025-12-31", "2026-01-02", { status: "dating", days: 3 }],
+    ["married・結婚した日が今日なら1日目", "married", "2026-01-01", "2026-01-01", { status: "married", days: 1 }],
+    ["married・結婚した日が昨日なら2日目", "married", "2025-12-31", "2026-01-01", { status: "married", days: 2 }],
+    ["married・結婚した日が明日なら「結婚まであと1日」（0日にならない）", "married", "2026-01-02", "2026-01-01", { status: "married_upcoming", days: 1 }],
+    ["married・結婚した日が2日後なら「結婚まであと2日」", "married", "2026-01-03", "2026-01-01", { status: "married_upcoming", days: 2 }],
+  ] as const)("primary_date=%s", (_label, primaryDate, date, today, expected) => {
+    const row = primaryDate === "dating" ? couple({ datingDate: date }) : couple({ primaryDate, marriedDate: date });
+    expect(computeDaysTogether(row, today)).toEqual(expected);
   });
 
   it("primary_date='none'ならhidden（daysを含まない）", () => {

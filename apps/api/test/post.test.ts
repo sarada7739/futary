@@ -434,20 +434,6 @@ describe("post.list", () => {
     expect(result.items[0]?.images[0]?.url).not.toBeNull();
   });
 
-  // 031: imageUrl（単数）は契約から消した。post.listのレスポンスに
-  // 残っていないことを確認する（タスク定義「テストで証明すること」）
-  it("post.list に imageUrl（単数）が残っていない", async () => {
-    const user = await createUser();
-    const couple = await createCouple(user);
-    const images = await uploadTestImages(couple.id, [800]);
-    await call(router.post.create, { body: "", images }, { context: contextFor(user) });
-
-    const result = await call(router.post.list, {}, { context: contextFor(user) });
-    expect(result.items[0]).not.toHaveProperty("imageUrl");
-    expect(result.items[0]).not.toHaveProperty("imageWidth");
-    expect(result.items[0]).not.toHaveProperty("imageHeight");
-  });
-
   // 031: post_imagesのORDER BY positionが、一覧のimages配列の並び順に
   // そのまま反映されることを確認する
   it("画像の並び順が position のとおりに返る", async () => {

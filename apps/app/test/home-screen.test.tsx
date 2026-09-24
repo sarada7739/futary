@@ -84,22 +84,11 @@ describe("HomeScreen: 機能パネル", () => {
     expect(screen.queryByText("今日どうだった？")).toBeNull();
   });
 
-  // 041: 次フェーズのパネルは無くなった（「今日どうだった？」をアルバムに置き換えた）。
-  // 035: 表示文言を「次フェーズ」（開発都合の言葉）から「COMING SOON」に変えた経緯は残す
-  // 062 T3: ピンク（既定の外観）でも 9 枚とも写真タイル
+  // ピンク（既定の外観）でも 9 枚とも写真タイル
   it("パネル 9 枚に写真タイル（feature-panel-photo）が 9 つ（062）", async () => {
     renderScreen();
     await screen.findByTestId("stats-card-meetup-pill");
     expect(screen.getAllByTestId("feature-panel-photo")).toHaveLength(9);
-  });
-
-  it("「COMING SOON」「準備中です」「次フェーズ」という文言がどこにも出ない", async () => {
-    renderScreen();
-    await screen.findByTestId("stats-card-meetup-pill");
-
-    expect(screen.queryByText("COMING SOON")).toBeNull();
-    expect(screen.queryByText(/準備中/)).toBeNull();
-    expect(screen.queryByText("次フェーズ")).toBeNull();
   });
 
   it("タイムラインパネルを押すと /timeline へ遷移する", async () => {

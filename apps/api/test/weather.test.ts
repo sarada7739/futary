@@ -113,6 +113,8 @@ async function createDemoPair(): Promise<string> {
 
 // 写しは 2026-09-16 17:00 発表（短期は 09-16〜18、週間は 09-17〜23）。「今」は 2026-09-17 12:00 JST に固定
 const NOW_MS = Date.UTC(2026, 8, 17, 3, 0, 0);
+// 祝日の年も本物の今日ではなく写しの年で引く（同梱の表は 2026・2027 年の分）
+const NOW_YEAR = new Date(NOW_MS).getUTCFullYear();
 
 beforeEach(() => {
   resetWeatherCache();
@@ -346,15 +348,15 @@ describe("058 T4・T6: weather.getForDate（予定の詳細）", () => {
 });
 
 describe("058 T5: holiday.list（同梱の表 + holidays-jp で上書き）", () => {
-  it("同梱の表に今年と来年の祝日がある（元日・成人の日 …）", () => {
-    const year = new Date().getFullYear();
+  it("同梱の表に写しの年（2026）と翌年の祝日がある（元日・成人の日 …）", () => {
+    const year = NOW_YEAR;
     expect(BUNDLED_HOLIDAYS[`${year}-01-01`]).toBe("元日");
     expect(BUNDLED_HOLIDAYS[`${year + 1}-01-01`]).toBe("元日");
     expect(Object.keys(BUNDLED_HOLIDAYS).filter((d) => d.startsWith(`${year}-`)).length).toBeGreaterThanOrEqual(15);
   });
 
   it("外部の JSON が取れれば上書き（名前が変わる・同梱に無い日が足される）。取れなければ同梱のまま。1 日 1 回", async () => {
-    const year = new Date().getFullYear();
+    const year = NOW_YEAR;
     const failing = fakeFetch(() => new Response("bad", { status: 500 }));
     const fromBundle = await loadHolidays(year, NOW_MS, failing.impl);
     expect(fromBundle[`${year}-01-01`]).toBe("元日");
@@ -381,7 +383,7 @@ describe("058 T5: holiday.list（同梱の表 + holidays-jp で上書き）", ()
   it("holiday.list（手続き）: ゲストも通る", async () => {
     const demo = await createDemoPair();
     const { impl } = fakeFetch(() => new Response("bad", { status: 500 }));
-    const year = new Date().getFullYear();
+    const year = NOW_YEAR;
     const r = await call(router.holiday.list, { year }, { context: contextFor(null, impl, demo) });
     expect(r.holidays[`${year}-01-01`]).toBe("元日");
   });

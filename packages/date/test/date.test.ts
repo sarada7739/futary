@@ -252,52 +252,30 @@ describe("formatJstDate / formatJstDateTime", () => {
   });
 });
 
+// packages/contract の anniversaryDateSchema（couple.ts）が使う。packages/date の外では
+// new Date() を書けない（ESLint のルール）ので、daysInMonth で判定する
 describe("isValidDate", () => {
-  // packages/contract の anniversaryDateSchema（couple.ts）が使う。
-  // 従来はISO文字列をnew Date()でパースしてNaN判定していたが、
-  // packages/date外でnew Date()を書けなくなった（L63のESLintルール）ため
-  // daysInMonthベースの判定に置き換えた
-  it("実在する日付はtrue", () => {
-    expect(isValidDate("2026-01-15")).toBe(true);
-  });
-
-  it("31日を持たない月の31日はfalse", () => {
-    expect(isValidDate("2026-04-31")).toBe(false);
-  });
-
-  it("平年の02-29はfalse", () => {
-    expect(isValidDate("2026-02-29")).toBe(false);
-  });
-
-  it("うるう年の02-29はtrue", () => {
-    expect(isValidDate("2024-02-29")).toBe(true);
-  });
-
-  it("月が範囲外はfalse", () => {
-    expect(isValidDate("2026-13-01")).toBe(false);
-    expect(isValidDate("2026-00-01")).toBe(false);
-  });
-
-  it("日が0以下はfalse", () => {
-    expect(isValidDate("2026-01-00")).toBe(false);
+  it.each([
+    ["実在する日付", "2026-01-15", true],
+    ["31日を持たない月の31日", "2026-04-31", false],
+    ["平年の02-29", "2026-02-29", false],
+    ["うるう年の02-29", "2024-02-29", true],
+    ["月が範囲外（13）", "2026-13-01", false],
+    ["月が範囲外（0）", "2026-00-01", false],
+    ["日が0", "2026-01-00", false],
+  ] as const)("%s（%s）は %s", (_label, date, expected) => {
+    expect(isValidDate(date)).toBe(expected);
   });
 });
 
 describe("isLeapYear", () => {
-  it("4で割り切れる年はうるう年", () => {
-    expect(isLeapYear(2024)).toBe(true);
-  });
-
-  it("4で割り切れない年はうるう年でない", () => {
-    expect(isLeapYear(2026)).toBe(false);
-  });
-
-  it("100で割り切れるが400で割り切れない年はうるう年でない", () => {
-    expect(isLeapYear(1900)).toBe(false);
-  });
-
-  it("400で割り切れる年はうるう年", () => {
-    expect(isLeapYear(2000)).toBe(true);
+  it.each([
+    ["4で割り切れる年はうるう年", 2024, true],
+    ["4で割り切れない年はうるう年でない", 2026, false],
+    ["100で割り切れるが400で割り切れない年はうるう年でない", 1900, false],
+    ["400で割り切れる年はうるう年", 2000, true],
+  ] as const)("%s（%i）", (_label, year, expected) => {
+    expect(isLeapYear(year)).toBe(expected);
   });
 });
 

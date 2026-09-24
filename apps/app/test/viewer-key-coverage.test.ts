@@ -672,16 +672,20 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
     ).toEqual([]);
   });
 
-  // 【受け入れの形】免除は理由つきで一覧に載り、載っていない免除は赤。
-  // 免除箇所そのものを名指しで固定する（合計数だけを見ると、免除が
-  // 増えても対象が同じだけ減れば埋め合わされて気づけないため）
+  // 免除箇所そのものを名指しで固定する（合計数だけを見ると、免除が増えても対象が同じだけ
+  // 減れば埋め合わされて気づけない）。場所は行番号ではなく呼び出しのある行の中身で書く
+  // （コメントの増減で行がずれても赤くしない）
   it("viewer-key-coverage-ignoreで免除されているのは想定どおり2箇所だけである", () => {
     const ignored = scanRealFiles().filter((s) => s.status === "exact-ignored");
+    const lineText = (file: string, location: string) =>
+      readFileSync(file, "utf8").split(/\r?\n/)[Number(location.split(":")[0]) - 1]?.trim();
     expect(
-      ignored.map((s) => `${path.relative(repoRoot, s.file).replace(/\\/g, "/")}:${s.location} (${s.methodName})`),
+      ignored.map(
+        (s) => `${path.relative(repoRoot, s.file).replace(/\\/g, "/")} (${s.methodName}): ${lineText(s.file, s.location)}`,
+      ),
     ).toEqual([
-      "apps/app/app/(tabs)/timeline.tsx:55:33 (getQueriesData)",
-      "apps/app/app/(tabs)/timeline.tsx:76:59 (setQueryData)",
+      "apps/app/app/(tabs)/timeline.tsx (getQueriesData): const previousQueries = queryClient.getQueriesData<InfiniteData<PostListPage>>({",
+      "apps/app/app/(tabs)/timeline.tsx (setQueryData): context?.previousQueries.forEach(([key, data]) => queryClient.setQueryData(key, data));",
     ]);
   });
 

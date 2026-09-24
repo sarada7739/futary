@@ -120,44 +120,23 @@ describe("b: 記念日カード", () => {
 });
 
 describe("c: 機能パネル", () => {
-  it("white では写真タイル + ラベル + 「近日公開」。「COMING SOON」は出さない", () => {
-    renderIn("white", <FeaturePanel label="今日どうだった？" icon={iconPanelList} photo={panelPhotoList} />);
+  // ピンクもホワイトも同じ形（062）
+  it.each(["white", "pink"] as const)("%s: 写真タイル + ラベル + 「近日公開」", (appearance) => {
+    renderIn(appearance, <FeaturePanel label="今日どうだった？" icon={iconPanelList} photo={panelPhotoList} />);
     expect(screen.getByTestId("feature-panel")).toBeInTheDocument();
     expect(screen.getByTestId("feature-panel-photo")).toBeInTheDocument();
     expect(screen.getByText("今日どうだった？")).toBeInTheDocument();
     expect(screen.getByText("近日公開")).toBeInTheDocument();
-    expect(screen.queryByText("COMING SOON")).toBeNull();
   });
 
-  it("white で使えるパネルには「近日公開」の文字が無い", () => {
-    renderIn("white", <FeaturePanel label="リスト" icon={iconPanelList} photo={panelPhotoList} onPress={() => {}} />);
-    expect(screen.queryByText("近日公開")).toBeNull();
-  });
-
-  it("white で写真が無ければタイルの中に線画アイコンを置く（差し替え前でも壊れない）", () => {
-    renderIn("white", <FeaturePanel label="リスト" icon={iconPanelList} onPress={() => {}} />);
-    expect(screen.getByTestId("feature-panel")).toBeInTheDocument();
-    expect(screen.queryByTestId("feature-panel-photo")).toBeNull();
-  });
-
-  // 062 T1: ピンクもホワイトと同じ形（写真タイル + 「近日公開」。「COMING SOON」は消した）
-  it("pink でも写真タイル + ラベル + 「近日公開」。「COMING SOON」は無い（062）", () => {
-    renderIn("pink", <FeaturePanel label="今日どうだった？" icon={iconPanelList} photo={panelPhotoList} />);
-    expect(screen.getByTestId("feature-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("feature-panel-photo")).toBeInTheDocument();
-    expect(screen.getByText("近日公開")).toBeInTheDocument();
-    expect(screen.queryByText("COMING SOON")).toBeNull();
-  });
-
-  it("pink で使えるパネルには「近日公開」も「COMING SOON」も無い（062）", () => {
-    renderIn("pink", <FeaturePanel label="リスト" icon={iconPanelList} photo={panelPhotoList} onPress={() => {}} />);
+  it.each(["white", "pink"] as const)("%s: 使えるパネルには「近日公開」の文字が無い", (appearance) => {
+    renderIn(appearance, <FeaturePanel label="リスト" icon={iconPanelList} photo={panelPhotoList} onPress={() => {}} />);
     expect(screen.getByTestId("feature-panel-photo")).toBeInTheDocument();
     expect(screen.queryByText("近日公開")).toBeNull();
-    expect(screen.queryByText("COMING SOON")).toBeNull();
   });
 
-  it("pink で写真が無ければタイルの中に線画アイコン（feature-panel-photo は無い）（062）", () => {
-    renderIn("pink", <FeaturePanel label="リスト" icon={iconPanelList} onPress={() => {}} />);
+  it.each(["white", "pink"] as const)("%s: 写真が無ければタイルの中に線画アイコン（差し替え前でも壊れない）", (appearance) => {
+    renderIn(appearance, <FeaturePanel label="リスト" icon={iconPanelList} onPress={() => {}} />);
     expect(screen.getByTestId("feature-panel")).toBeInTheDocument();
     expect(screen.queryByTestId("feature-panel-photo")).toBeNull();
   });

@@ -33,28 +33,13 @@ describe("createAuth の fail-fast 検証", () => {
     ).toThrow(/https 必須/);
   });
 
-  it("BETTER_AUTH_URL が http://localhost なら許可される", () => {
-    expect(() =>
-      createAuth({ ...baseEnv, BETTER_AUTH_URL: "http://localhost:8787" }),
-    ).not.toThrow();
-  });
-
-  it("BETTER_AUTH_URL が http://127.0.0.1 なら許可される", () => {
-    expect(() =>
-      createAuth({ ...baseEnv, BETTER_AUTH_URL: "http://127.0.0.1:8787" }),
-    ).not.toThrow();
-  });
-
-  it("BETTER_AUTH_URL が https なら許可される", () => {
-    expect(() =>
-      createAuth({ ...baseEnv, BETTER_AUTH_URL: "https://futary.example.com" }),
-    ).not.toThrow();
-  });
-
-  it("BETTER_AUTH_URL が http://[::1] なら許可される", () => {
-    expect(() =>
-      createAuth({ ...baseEnv, BETTER_AUTH_URL: "http://[::1]:8787" }),
-    ).not.toThrow();
+  it.each([
+    "http://localhost:8787",
+    "http://127.0.0.1:8787",
+    "https://futary.example.com",
+    "http://[::1]:8787",
+  ])("BETTER_AUTH_URL が %s なら許可される", (url) => {
+    expect(() => createAuth({ ...baseEnv, BETTER_AUTH_URL: url })).not.toThrow();
   });
 });
 
