@@ -3,7 +3,13 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-25 / セッションB。**063 段階1（使われなくなったコード + apps/api/src・packages/db/src・scripts のコメント）: PR #432（`task/063-stage1`）。R の手番。その後 段階2（apps/app・packages/ui/src・apps/landing のコメント）・段階3（テスト）。**
+**最終更新**: 2026-09-25 / セッションB。**063 段階1: R 受け入れ（必須修正なし）→ #432 を squash merge（main fa7aeca）。B は段階2（apps/app・packages/ui/src・apps/landing のコメント）を進行中。その後 段階3（テスト）。**
+- 判定 `artifacts/063/review-stage1.md`（R は構文木の葉の列を比べる別の道具で T2 を確かめた）
+- 人間の手番（続き）: 061 段階3・062 のデプロイ → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-25 / セッションB。**063 段階1（使われなくなったコード + apps/api/src・packages/db/src・scripts のコメント）: PR #432（`task/063-stage1`）。R の手番。その後 段階2（apps/app・packages/ui/src・apps/landing のコメント）・段階3（テスト）。**
 - main の CI の赤（weather テストの日付依存）は #431 で直した（R 受け入れ → マージ。main 460742e）
 - デッドコード: 061 の SVG フィルタ一式と `filterId`・`lens*` 3 つ・`unlockedPhotoIds`・`type Db`・`tab-album.png`（`artifacts/063/removed-code.md`）。一緒に消えたテスト 2 本（G6・theme T5 の 1 本。`removed-tests.md`）
 - コメント行 1,887 → 948。57 ファイルともコメントを除いたコードは同じ（`artifacts/063/scripts/compare-code.mjs`）。テスト 1,541 → 1,539（減ったのは上の 2 本だけ）。報告 `artifacts/063/stage1.md`
