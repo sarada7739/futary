@@ -2,16 +2,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 020: 012の統計カードの4つの数字を、ホームから独立したページですべて出す。
-// primary_date='none'（hidden）のときは記念日の行を出さず3つになる
-// （4つ全部は書けない。Aの決定・PR #126）
+// 統計の 4 つの数字をホームから独立したページで出す（020）。primary_date='none'（hidden）のときは
+// 記念日の行を出さず 3 つ
 const { statsGetMock, pushMock } = vi.hoisted(() => ({
   statsGetMock: vi.fn(),
   pushMock: vi.fn(),
 }));
 
-// 023: unsetのときマイページへ遷移するuseRouterを使うようになったため、
-// home-screen.test.tsxと同じ形でモックする
+// unset のときマイページへ遷移する useRouter をモックする
 vi.mock("expo-router", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
@@ -22,8 +20,7 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-// useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由で
-// useSessionを参照するためモックする
+// useViewerQueryKey が auth-client 経由で useSession を参照するのでモックする
 vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
@@ -82,8 +79,7 @@ describe("StatsScreen", () => {
     expect(await screen.findByText("結婚して 100日目")).toBeTruthy();
   });
 
-  // Aの決定（PR #126）: hiddenのとき記念日の行だけ出さず3つになる。
-  // 「4つ全部」は書けない（stats.getがdaysを返さないため）
+  // hidden のときは記念日の行だけ出さず 3 つ（stats.get が days を返さない）
   it("primary_date='none'（hidden）なら記念日の行を出さず3つになる", async () => {
     statsGetMock.mockResolvedValue(
       makeStats({ daysTogether: { status: "hidden" }, meetupDays: 5, postCount: 10, photoCount: 3 }),
@@ -101,8 +97,7 @@ describe("StatsScreen", () => {
     expect(screen.queryByText("付き合った日を設定する")).toBeNull();
   });
 
-  // 023: unset（まだ決めていない）はhiddenと違い、記念日の行を出さず3つ＋
-  // マイページへの導線が出る
+  // unset（まだ決めていない）は hidden と違い、記念日の行を出さず 3 つ＋マイページへの導線（023）
   it("daysTogetherが'unset'なら記念日の行を出さず、マイページへの導線が出る", async () => {
     statsGetMock.mockResolvedValue(
       makeStats({ daysTogether: { status: "unset" }, meetupDays: 5, postCount: 10, photoCount: 3 }),
@@ -125,8 +120,7 @@ describe("StatsScreen", () => {
 
       renderScreen();
 
-      // 既定のリトライ（3回・指数バックオフ）が尽きるまでisErrorにならないため
-      // 通常より長いタイムアウトを与える（stats-card.test.tsxと同じ理由）
+      // 既定のリトライ（3 回・指数バックオフ）が尽きるまで isError にならないので長めに待つ
       expect(
         await screen.findByText("統計を読み込めませんでした", {}, { timeout: 10000 }),
       ).toBeTruthy();

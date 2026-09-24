@@ -2,15 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 012: 統計カードの画面結合テスト。home-timeline.test.tsx と同じ形で
-// oRPC クライアントをモックする
+// 統計カードの画面結合テスト（012）。oRPC クライアントはモックする
 const { statsGetMock, pushMock } = vi.hoisted(() => ({
   statsGetMock: vi.fn(),
   pushMock: vi.fn(),
 }));
 
-// 023: unsetのときマイページへ遷移するuseRouterを使うようになったため、
-// home-screen.test.tsxと同じ形でモックする
+// unset のときマイページへ遷移する useRouter をモックする
 vi.mock("expo-router", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
@@ -21,8 +19,7 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-// useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由で
-// useSessionを参照するためモックする
+// useViewerQueryKey が auth-client 経由で useSession を参照するのでモックする
 vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
@@ -43,10 +40,8 @@ function renderCard() {
   );
 }
 
-// 035: 記念日の数字を大きく見せるため、「付き合って」「365」「日目」は
-// 別々のTextに分けて描画している（daysTogetherParts）。1つの文字列として
-// getByTextできないため、testID（stats-card-days-prefix/-number/-suffix）で
-// 個別に確認する
+// 記念日の数字を大きく見せるため「付き合って」「365」「日目」は別々の Text（daysTogetherParts）。
+// 1 つの文字列として getByText できないので、testID で個別に見る
 describe("StatsCard", () => {
   it("記念日が今日以前なら「付き合って○日目」を表示する", async () => {
     statsGetMock.mockResolvedValue({
@@ -116,7 +111,7 @@ describe("StatsCard", () => {
     expect(await screen.findByText("招待中")).toBeTruthy();
   });
 
-  // 019: primary_dateに従ってdaysTogetherの表示を出し分ける
+  // primary_date に従って daysTogether の表示を出し分ける（019）
   it("primaryDate='married'（結婚した日）なら「結婚して○日目」を表示する", async () => {
     statsGetMock.mockResolvedValue({
       daysTogether: { status: "married", days: 100 },
@@ -160,15 +155,14 @@ describe("StatsCard", () => {
 
     renderCard();
 
-    // 「会った日数：3日」は出る（daysTogetherだけが隠れる）ため、
-    // カードの読み込みを待つのはこちらで行う
+    // 「会った日数：3日」は出る（daysTogether だけが隠れる）ので、読み込みはこちらで待つ
     await screen.findByTestId("stats-card-meetup-pill");
     expect(screen.queryByTestId("stats-card-days-prefix")).toBeNull();
     // hiddenは本人が隠すと決めたので、マイページへの導線は出さない（023）
     expect(screen.queryByText("付き合った日を設定する")).toBeNull();
   });
 
-  // 023: unset（まだ決めていない）はhiddenと違い、マイページへの導線を出す
+  // unset（まだ決めていない）は hidden と違い、マイページへの導線を出す（023）
   it("daysTogetherが'unset'なら日数の表示は出ず、マイページへの導線が出る", async () => {
     statsGetMock.mockResolvedValue({
       daysTogether: { status: "unset" },
@@ -187,9 +181,7 @@ describe("StatsCard", () => {
     expect(pushMock).toHaveBeenCalledWith("/profile");
   });
 
-  // 016: 以前はカード自体を非表示にしていたが、利用者に何も知らされないまま
-  // 情報が欠けるのを避けるため、エラー文と再試行ボタンを表示する形に変更した
-  // （security-auditor全体監査・3状態レビュー指摘）
+  // 取れなければエラー文と再試行ボタンを出す（何も知らせないまま情報が欠けないように。016）
   it(
     "通信エラー時はエラー文と再試行ボタンを表示する",
     async () => {
@@ -197,8 +189,7 @@ describe("StatsCard", () => {
 
       renderCard();
 
-      // 既定のリトライ（3回・指数バックオフ）が尽きるまでisErrorにならないため
-      // 通常より長いタイムアウトを与える（011のcalendar-screen.test.tsxと同じ理由）
+      // 既定のリトライ（3 回・指数バックオフ）が尽きるまで isError にならないので長めに待つ
       expect(await screen.findByText("記念日を読み込めませんでした", {}, { timeout: 10000 })).toBeTruthy();
       expect(screen.getByText("再試行")).toBeTruthy();
     },

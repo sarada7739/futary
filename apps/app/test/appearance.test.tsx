@@ -15,9 +15,8 @@ import {
   useTheme,
 } from "@futary/ui";
 
-// 039: 外観（ピンク/ホワイト）の Provider と Screen の検査（タスク定義8節 T3〜T5）。
-// packages/ui には jsdom・testing-library・react-native-web が無く、レンダリングを
-// 伴う検査はここに置く（screen.test.tsx と同じ理由。7節「入れる依存: 無し」）
+// 外観（ピンク/ホワイト）の Provider と Screen（039 8節 T3〜T5）。packages/ui には jsdom・testing-library・
+// react-native-web が無いので、描画を伴う検査はここに置く
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <AppearanceProvider>{children}</AppearanceProvider>;
@@ -59,9 +58,8 @@ describe("T3: AppearanceProvider と localStorage", () => {
         <Probe />
       </AppearanceProvider>
     );
-    // 本物の SSR 出力を使う（jsdom の innerHTML は style を正規化してしまい、
-    // React のクライアント props と字面が変わって偽の不一致になる。B が実測）。
-    // Provider は保存値を最初の描画で読まないため、localStorage に white が
+    // 本物の SSR 出力を使う（jsdom の innerHTML は style を正規化し、React のクライアント props と字面が
+    // 変わって偽の不一致になる）。Provider は保存値を最初の描画で読まないので、localStorage に white が
     // 入っていても SSR と同じく pink で描く
     window.localStorage.setItem(APPEARANCE_STORAGE_KEY, "white");
     const serverHtml = renderToString(ui);

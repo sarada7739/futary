@@ -2,13 +2,9 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 008: タイムライン画面・投稿作成画面の画面結合テスト。020でホームから
-// 独立したタブになった（旧home-timeline.test.tsx。統計カード・思い出しカードは
-// ホームへ移り、それぞれhome-screen.test.tsx・stats-card.test.tsx・
-// memory-card.test.tsxで検証する）。Playwright は014まで入れない
-// （007の決定。conventions.md 6節）ため、oRPC クライアントをモックして
-// react-native-web + jsdom 上でTanStack Queryの実挙動と組み合わせて検証する。
-// モックする以上サーバとの契約自体は検証していない（実機確認で見る）
+// タイムライン画面・投稿作成画面の画面結合テスト（008）。oRPC クライアントをモックし、
+// react-native-web + jsdom 上で TanStack Query の実際の動きと組み合わせて確かめる（サーバとの契約は
+// 見ない。conventions.md 6節）
 const { listMock, createMock, deleteMock, toggleReactionMock, pushMock, backMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
@@ -22,17 +18,14 @@ vi.mock("expo-router", () => ({
   useRouter: () => ({ push: pushMock, back: backMock }),
 }));
 
-// expo-image-picker は "expo" パッケージの副作用のあるセットアップ（__DEV__ を
-// 参照する async-require）を経由でロードし、Vitest（jsdom）環境では
-// __DEV__ 未定義でクラッシュする。今回のテストでは画像選択を操作しないため、
-// 実体は使わず最小のスタブに差し替える
+// expo-image-picker は "expo" の副作用のあるセットアップ（__DEV__ を参照する async-require）経由で
+// 読まれ、jsdom では __DEV__ 未定義で落ちる。画像選択は操作しないので最小のスタブにする
 vi.mock("expo-image-picker", () => ({
   requestMediaLibraryPermissionsAsync: vi.fn(),
   launchImageLibraryAsync: vi.fn(),
 }));
 
-// ../lib/image が読み込む expo-image-manipulator も同じ理由（__DEV__未定義）で
-// 素の import では落ちる。image.test.ts と同じ最小スタブに差し替える
+// ../lib/image が読む expo-image-manipulator も同じ理由で最小のスタブにする（image.test.ts と同じ）
 vi.mock("expo-image-manipulator", () => ({
   ImageManipulator: { manipulate: vi.fn() },
   SaveFormat: { JPEG: "jpeg", PNG: "png", WEBP: "webp" },
@@ -45,8 +38,7 @@ vi.mock("../lib/auth-client", () => ({
   }),
 }));
 
-// client（生のoRPC呼び出し）だけを差し替え、createTanstackQueryUtilsは本物を使う。
-// queryOptions/infiniteOptions/mutationOptionsの実装自体はモックしない
+// client（生の oRPC 呼び出し）だけを差し替え、createTanstackQueryUtils は本物を使う
 vi.mock("../lib/orpc", async () => {
   const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
   const client = {
@@ -154,8 +146,8 @@ describe("投稿作成 → 一覧反映", () => {
     expect(await screen.findByText("新しい投稿")).toBeTruthy();
   });
 
-  // fix/persistent-tab-bar: モーダルは閉じる導線を自前で持つ（ヘッダーの
-  // 戻る/閉じるに依存しない。architecture.md「画面の外枠は常に出す」と同じ考え方）
+  // モーダルは閉じる導線を自前で持つ（ヘッダーの戻る・閉じるに頼らない。architecture.md「画面の外枠は
+  // 常に出す」と同じ考え方）
   it("「キャンセル」ボタンで投稿せずに閉じる（router.back）", async () => {
     render(
       <QueryClientProvider client={queryClient}>
@@ -171,12 +163,7 @@ describe("投稿作成 → 一覧反映", () => {
 });
 
 describe("投稿の削除", () => {
-  // 008 完了条件「自分の投稿を削除できる」の唯一の自動検証。Rレビュー指摘:
-  // artifacts/008/manual-check.md が「UIからの削除操作は未確認」と正直に書いた
-  // ことで、削除メニュー押下 → post.delete 呼び出し → 一覧から消える、という
-  // 一連の流れを検証するテストが1件も無いことが判明した（スクリーンショット
-  // 要件の撤回〈conventions.md 8節〉により、UIの担保は自動テストに寄せる
-  // 方針になったため、この穴は埋める必要がある）
+  // 「自分の投稿を削除できる」: 削除メニュー → post.delete → 一覧から消える、の一連の流れ（008）
   it("「…」→「削除」の操作で post.delete が呼ばれ、一覧から消える", async () => {
     const post = makePost({ id: "post-to-delete", body: "消される投稿" });
     listMock.mockResolvedValueOnce({ items: [post], nextCursor: null });

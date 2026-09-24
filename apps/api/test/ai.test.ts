@@ -9,8 +9,7 @@ import {
   type PostEntry,
 } from "../src/lib/ai";
 
-// 037タスク定義3節: AI_PROVIDERが指すプロバイダのキーが無ければ落とす
-// （BETTER_AUTH_SECRETと同じfail-closed）
+// AI_PROVIDER が指すプロバイダのキーが無ければ落とす（BETTER_AUTH_SECRET と同じ fail-closed。037 3節）
 describe("resolveAiConfig", () => {
   it("providerがopenai/anthropicのどちらでもなければ落ちる", () => {
     expect(() => resolveAiConfig({ provider: undefined })).toThrow(/AI_PROVIDER/);
@@ -26,8 +25,7 @@ describe("resolveAiConfig", () => {
   });
 
   it("両方揃っていても、AI_PROVIDERが指さない方のキーは見ない", () => {
-    // openaiを指しているのにopenaiキーが無く、anthropicキーだけあっても落ちる
-    // （タスク定義3節「両方のキーを同時に読まない」の裏側の確認）
+    // openai を指しているのに openai のキーが無ければ、anthropic のキーがあっても落ちる（両方を同時に読まない）
     expect(() =>
       resolveAiConfig({ provider: "openai", anthropicApiKey: "anthropic-key-only" }),
     ).toThrow(/OPENAI_API_KEY|APIキー/);
@@ -39,10 +37,8 @@ describe("resolveAiConfig", () => {
   });
 });
 
-// タスク定義「テストで証明すること: AI_PROVIDERを切り替えると、呼ばれる先が
-// 変わる（プロバイダは差し替えて確かめる。本物のAPIをテストで叩かない）」。
-// buildProviderRequestは実際にfetchしない純粋関数のため、これだけで
-// 宛先・認証ヘッダ・モデル名がプロバイダごとに変わることを確認できる
+// AI_PROVIDER を切り替えると呼ばれる先が変わる（本物の API は叩かない）。buildProviderRequest は
+// fetch しない純粋関数なので、宛先・認証ヘッダ・モデル名がプロバイダごとに変わることをこれで見られる
 describe("buildProviderRequest（本物のAPIは叩かない）", () => {
   it("openaiとanthropicで宛先URLが異なる", () => {
     const openaiConfig = resolveAiConfig({ provider: "openai", openaiApiKey: "sk-openai" });
@@ -82,13 +78,8 @@ describe("buildProviderRequest（本物のAPIは叩かない）", () => {
     expect(openaiRequest.body.model).not.toBe(anthropicRequest.body.model);
   });
 
-  // security-auditor指摘（Medium）: Anthropicはmax_tokensを指定していたが
-  // OpenAI側に出力の上限が無かった。投稿本文に埋め込んだ指示
-  // （プロンプトインジェクション）で出力トークンを膨らませられる経路が
-  // あったため、両プロバイダに同じ上限を入れて揃えた
-  // fix/ai-summary-max-completion-tokens: OpenAI 側の名前は max_completion_tokens。
-  // gpt-5 系は max_tokens を 400（unsupported_parameter）で拒む（本番で AI まとめが
-  // 全件失敗していた原因。B が同じ body で再現した）
+  // 出力トークンの上限は両プロバイダに入れる（投稿本文に埋め込んだ指示で出力を膨らませられないように）。
+  // OpenAI 側の名前は max_completion_tokens（gpt-5 系は max_tokens を 400 unsupported_parameter で拒む）
   it("出力トークンの上限は、OpenAI は max_completion_tokens（max_tokens は送らない）、Anthropic は max_tokens", () => {
     const openaiConfig = resolveAiConfig({ provider: "openai", openaiApiKey: "sk-openai" });
     const anthropicConfig = resolveAiConfig({ provider: "anthropic", anthropicApiKey: "sk-anthropic" });
@@ -116,11 +107,8 @@ describe("buildProviderRequest（本物のAPIは叩かない）", () => {
   });
 });
 
-// fix/ai-summary-max-completion-tokens: !response.ok のとき、status だけでなく
-// プロバイダのエラー本文の先頭がサーバログ（withErrorId が console.error に渡す
-// Error の message）に残る。status だけでは原因を当てられなかった。
-// クライアントには出ない（withErrorId が ID だけを返す。そちらは error-id の
-// 既存テストが固定している）
+// !response.ok のとき、status だけでなくプロバイダのエラー本文の先頭がサーバログ（withErrorId が
+// console.error に渡す Error の message）に残る。クライアントには出ない（ID だけ。error-id のテストが固定）
 describe("generateSummary: プロバイダが失敗したときのエラー本文（fetch は差し替える）", () => {
   const env = { provider: "openai", openaiApiKey: "sk-openai-secret-key" };
   const entries: PostEntry[] = [
@@ -175,7 +163,7 @@ describe("generateSummary: プロバイダが失敗したときのエラー本�
   });
 });
 
-// タスク定義5節: その月の投稿本文の合計を8000文字で切る。超えたら古い方から落とす
+// その月の投稿本文の合計を 8000 文字で切る。超えたら古い方から落とす（5節）
 describe("buildPrompt", () => {
   it("合計が上限以内ならそのまま全部含む", () => {
     const entries: PostEntry[] = [
@@ -187,9 +175,8 @@ describe("buildPrompt", () => {
     expect(prompt).toContain("新しい投稿");
   });
 
-  // 人間の指摘: AIがどちらの投稿者かを区別できた方がよいが、実名は渡さない
-  // （タスク定義8節）。couple_membersのslotから機械的に決まる記号（A/B）だけを
-  // 渡す
+  // どちらの投稿者かは区別できるようにするが、実名は渡さない（8節）。couple_members の slot から
+  // 機械的に決まる記号（A/B）だけを渡す
   it("投稿ごとにA/Bの記号が付く（実名は渡さない）", () => {
     const entries: PostEntry[] = [
       { label: "A", body: "わたしの投稿" },
@@ -206,10 +193,10 @@ describe("buildPrompt", () => {
     const newest: PostEntry = { label: "A", body: "newest".repeat(100) };
     const prompt = buildPrompt([old1, old2, newest]);
 
-    // 上限を超えるため何かが落ちているはずで、最新のものは必ず残る
+    // 上限を超えるので何かが落ち、最新のものは必ず残る
     expect(prompt.length).toBeLessThanOrEqual(MAX_INPUT_CHARS);
     expect(prompt).toContain(newest.body);
-    // 一番古いものから落ちる（old1が真っ先に落ち、old2より先に消える）
+    // 一番古いものから落ちる
     expect(prompt).not.toContain(old1.body);
   });
 
@@ -227,8 +214,8 @@ describe("buildPrompt", () => {
   });
 });
 
-// 044 T5: OpenAI のモデルは gpt-5.6-luna（人間の指示。2026-09-14）。
-// 環境変数ではなくコードの既定値なので、実際に外へ出るリクエスト本文で確かめる
+// OpenAI の既定モデルは gpt-5.6-luna（044 T5）。環境変数ではなくコードの既定値なので、外へ出る
+// リクエスト本文で確かめる
 describe("044: 既定モデル", () => {
   it("openai の既定モデルは gpt-5.6-luna", () => {
     const config = resolveAiConfig({ provider: "openai", openaiApiKey: "sk-openai" });
@@ -237,8 +224,8 @@ describe("044: 既定モデル", () => {
   });
 });
 
-// 044 T1（プロンプト側）: system プロンプトに {{A}} {{B}} で書く指示がある。
-// 表示名は入力のどこにも入らない（手続き側の確認は ai-summary.test.ts）
+// system プロンプトに {{A}} {{B}} で書く指示がある（044 T1）。表示名は入力のどこにも入らない
+// （手続き側は ai-summary.test.ts）
 describe("044: system プロンプトの {{A}} {{B}} の指示", () => {
   it("openai・anthropic の両方で system に {{A}} {{B}} の指示が入る", () => {
     const openaiConfig = resolveAiConfig({ provider: "openai", openaiApiKey: "sk-openai" });
@@ -254,8 +241,8 @@ describe("044: system プロンプトの {{A}} {{B}} の指示", () => {
   });
 });
 
-// 044 T3（関数側）: 置き換えは substituteNames の 1 関数に閉じる。
-// 完全一致の印（5 文字）だけを、何度出ても全部置き換える
+// 置き換えは substituteNames の 1 関数に閉じる（044 T3）。完全一致の印（5 文字）だけを、何度出ても
+// 全部置き換える
 describe("044: substituteNames", () => {
   const names = { A: "はな", B: "たろう" };
 

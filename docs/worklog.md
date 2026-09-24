@@ -13930,3 +13930,13 @@ Session: A
 - 段階3 は `task/063-stage3` で進めている（不要なテスト 7 本・it.each 4 か所・祝日の年の固定・免除の場所を行の中身で固定。テストのコメントは途中）
 
 Session: B
+
+## 2026-09-25 セッションB: 063 段階3（テストとテストファイルのコメント）
+
+- 消した 7 本: home-screen の「COMING SOON 等が出ない」・post の「imageUrl が残っていない」・landing の 059 の 5 本（054・056 と重なる／消したものが無いだけ）。`it.each` に 5 か所（auth の許可 URL・stats の computeDaysTogether・white-stage2 のパネルの white/pink・date の isValidDate・isLeapYear）
+- 迷って残したもの 6 本（猶予 30 日・12 秒の値の固定など）は stage3.md に理由つき
+- `weather.test.ts` の祝日 3 本が `new Date().getFullYear()` で、同梱の表（2026・2027）を 2027-01-01 に外れる時限式だった → 写しの年で引く
+- `viewer-key-coverage.test.ts` の免除 2 箇所を行の中身で固定。timeline.tsx に 1 行足しても緑・呼び出しの行を変えると赤を確かめて戻した
+- テストのコメント 2,167 → 1,485 行。`pnpm -r test` 1,533 緑・type-check・lint 緑
+
+Session: B

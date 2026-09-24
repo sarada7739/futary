@@ -9,8 +9,7 @@ import type { RpcContext } from "../src/context";
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
 
-// 実際の R2 API トークンの設定有無にテストの合否が左右されないよう、
-// 署名鍵はテスト固有の固定値を使う（post.test.ts と同じ理由）
+// 実際の R2 API トークンの設定有無に合否を左右させないよう、署名鍵はテスト固有の固定値（post.test.ts と同じ）
 const r2Sign: RpcContext["r2Sign"] = {
   accountId: "test-account",
   accessKeyId: "test-access-key-id",
@@ -53,7 +52,7 @@ function contextFor(
   };
 }
 
-// 023: couple.createは日付を一切受け取らない（答えられない質問を必須にしない）
+// couple.create は日付を受け取らない（答えられない質問を必須にしない。023）
 describe("couple.create", () => {
   it("認証済みユーザーがペアを作成し、自分がスロット1で参加する。datingDateはnull", async () => {
     const user = await createUser();
@@ -96,10 +95,8 @@ describe("couple.get", () => {
     });
   });
 
-  // 005: couple.get は readProcedure の上に載っており、未認証でも
-  // DEMO_COUPLE_ID が設定されていれば通る（デモペアの読み取り）。
-  // ここでは demoCoupleId 未設定（デフォルト null）のケースを見ている。
-  // fail-closed の網羅的な検証は test/authorization.test.ts の5番目の項目を参照
+  // couple.get は readProcedure に載り、未認証でも DEMO_COUPLE_ID があれば通る（デモペアの読み取り）。
+  // ここは demoCoupleId 未設定のケース。fail-closed の網羅は authorization.test.ts の 5 番目
   it("未認証かつ DEMO_COUPLE_ID 未設定なら FORBIDDEN", async () => {
     await expect(call(router.couple.get, undefined, { context: contextFor(null) })).rejects.toMatchObject({
       code: "FORBIDDEN",
@@ -112,9 +109,8 @@ describe("couple.get", () => {
 
     const fetched = await call(router.couple.get, undefined, { context: contextFor(user) });
 
-    // 045: couple.get だけが plan と albumQuota を足して返す（create は変えない）。
-    // 行なし = free。まだ写真が無いので used は 0
-    // 048 段階2: 行なしなら planSource / planExpiresAt も null。047: planState は free・lockAt null（鍵は掛からない）
+    // couple.get だけが plan と albumQuota を足して返す（045）。行なし = free・used 0。
+    // planSource・planExpiresAt も null（048）。planState は free・lockAt null（047）
     expect(fetched).toEqual({
       ...created,
       plan: "free",
@@ -123,9 +119,9 @@ describe("couple.get", () => {
       planSource: null,
       planExpiresAt: null,
       planCancelAt: null,
-      // 057: 運営でない（ADMIN_EMAILS 無し）
+      // 運営でない（ADMIN_EMAILS 無し。057）
       isAdmin: false,
-      // 058: 天気の地域は未設定
+      // 天気の地域は未設定（058）
       weatherArea: null,
     });
   });
@@ -157,8 +153,8 @@ describe("couple.update", () => {
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 
-  // 005: writeProcedure が mode === 'readonly'（未認証）を一律 FORBIDDEN にする。
-  // DEMO_COUPLE_ID の設定有無に関係ない（test/authorization.test.ts の2番目の項目）
+  // writeProcedure は未認証（mode === 'readonly'）を一律 FORBIDDEN にする。DEMO_COUPLE_ID の有無に
+  // 関係ない（authorization.test.ts の 2 番目）
   it("未認証なら FORBIDDEN", async () => {
     await expect(
       call(
@@ -169,7 +165,7 @@ describe("couple.update", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  // 023の要望本体: 付き合った日を覚えていない人が、結婚した日だけ設定できること
+  // 付き合った日を覚えていない人が、結婚した日だけ設定できる（023）
   it("datingDateをnullのまま、marriedDateだけ設定できる", async () => {
     const user = await createUser();
     await call(router.couple.create, {}, { context: contextFor(user) });
@@ -198,8 +194,7 @@ describe("couple.update", () => {
   });
 });
 
-// datingDateの日付形式・範囲検証（旧couple.createのテストをcouple.updateへ移設。
-// 023でdatingDateはcreateではなくupdateでしか受け取らなくなったため）
+// datingDate の日付の形式・範囲（datingDate は couple.update でだけ受け取る）
 describe("couple.update のdatingDate検証", () => {
   it("不正な日付形式は入力バリデーションで弾かれる", async () => {
     const user = await createUser();
@@ -227,9 +222,8 @@ describe("couple.update のdatingDate検証", () => {
     ).rejects.toThrow();
   });
 
-  // L66（Aの決定）: 人間が「記念日が未来の日付なら『あと○日』を出す」と決めたため、
-  // 未来の記念日を登録できる必要がある。上限は「1年後まで」（打ち間違いの歯止め。
-  // 業務上の意味は無い）。この境界を上下両方でテストする
+  // 記念日が未来なら「あと○日」を出すので、未来の記念日を登録できる。上限は 1 年後まで（打ち間違いの
+  // 歯止め）。境界を上下両方で見る
   it("近い未来（1ヶ月後）の記念日は登録できる（012: upcoming に到達させるため）", async () => {
     const user = await createUser();
     await call(router.couple.create, {}, { context: contextFor(user) });
@@ -368,12 +362,9 @@ describe("couple.update のmarried_date・primary_date検証（019）", () => {
   });
 });
 
-// Rレビュー指摘: 上のdescribeはすべてZodのrefineを経由しており、DBのTRIGGER
-// （couples_married_date_required_insert/update。packages/db/src/schema/couple.ts）
-// が実際に効いているかを検証していなかった。TRIGGERが消えても壊れても全部緑に
-// なりうる状態だったため、Zodを経由せず`couples`へ直接INSERT/UPDATEして確かめる
-// （018の重複解消テストと同じ形）。シードのような入力スキーマを通らない
-// 書き込み口を想定したTRIGGERである以上、この検証には意味がある
+// 上の describe は全部 Zod の refine を通る。DB の TRIGGER（couples_married_date_required_insert/update。
+// packages/db/src/schema/couple.ts）が効いていることは、Zod を通さず couples へ直接 INSERT/UPDATE して
+// 確かめる（入力スキーマを通らない書き込み口のための TRIGGER なので）
 describe("couplesのTRIGGER（DB側の不変条件を直接確かめる）", () => {
   it("INSERTでprimary_date='married'かつmarried_dateがNULLだと弾かれる", async () => {
     await expect(
@@ -420,9 +411,8 @@ describe("couplesのTRIGGER（DB側の不変条件を直接確かめる）", () 
     ).rejects.toThrow(/constraint failed/i);
   });
 
-  // 019・Aの決定（PR #123タスク定義の更新）: married_dateがdating_dateより
-  // 前にならない制約も、married_date_required と同じ理由（シードは入力スキーマを
-  // 通らない書き込み口）でDB側にも表す
+  // married_date が dating_date より前にならない制約も、同じ理由（シードは入力スキーマを通らない）で
+  // DB 側にも表す（019）
   it("INSERTでmarried_dateがdating_dateより前だと弾かれる", async () => {
     await expect(
       db
@@ -460,8 +450,8 @@ describe("couplesのTRIGGER（DB側の不変条件を直接確かめる）", () 
     ).resolves.not.toThrow();
   });
 
-  // 023: dating_dateがNULL（まだ設定していない）でも、married_dateだけは
-  // DB側でも設定できる（比較しようがないため通す。TRIGGERのWHEN句の判断）
+  // dating_date が NULL（未設定）でも married_date だけは DB 側でも設定できる（比べようが無いので通す。
+  // TRIGGER の WHEN 句。023）
   it("INSERTでdating_dateがNULLでもmarried_dateを設定できる", async () => {
     await expect(
       db

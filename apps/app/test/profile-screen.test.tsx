@@ -5,8 +5,7 @@ import { APPEARANCE_STORAGE_KEY, AppearanceProvider, useAppearance } from "@futa
 import { Text as RNText } from "react-native";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 019: プロフィール画面（記念日設定・名前とアイコン変更）の画面結合テスト。
-// calendar-screen.test.tsxと同じ形でoRPCクライアントをモックする
+// プロフィール画面の画面結合テスト（019）。oRPC クライアントは calendar-screen.test.tsx と同じ形でモックする
 const {
   meGetMock,
   meUpdateMock,
@@ -31,25 +30,23 @@ const {
   coupleUpdateMock: vi.fn(),
   statsGetMock: vi.fn(),
   inviteIssueMock: vi.fn(),
-  // 048: 「アルバムの写真をまとめて保存」がアルバムを辿って数える
+  // 「アルバムの写真をまとめて保存」がアルバムを辿って数える（048）
   albumListMock: vi.fn(),
   photoListMock: vi.fn(),
   signOutMock: vi.fn(),
   pushMock: vi.fn(),
   updateWeatherAreaMock: vi.fn(),
-  // 048 段階2: 「プランを管理 ›」
+  // 「プランを管理 ›」（048）
   billingPortalMock: vi.fn(),
 }));
 
-// 024: 「アカウントを削除」導線がuseRouterを使うようになったため、
-// home-screen.test.tsxと同じ形でモックする
+// 「アカウントを削除」の導線が useRouter を使う
 vi.mock("expo-router", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
-// home-timeline.test.tsxと同じ理由（expo-image-picker/expo-image-manipulatorは
-// "expo"パッケージの副作用のあるセットアップ経由でロードされ、jsdom環境で
-// __DEV__未定義のままクラッシュする）。画像選択自体は操作しないため最小スタブに差し替える
+// expo-image-picker・expo-image-manipulator は "expo" の副作用のあるセットアップ経由で読まれ、jsdom
+// では __DEV__ 未定義で落ちる。画像選択は操作しないので最小のスタブにする
 vi.mock("expo-image-picker", () => ({
   requestMediaLibraryPermissionsAsync: vi.fn(),
   launchImageLibraryAsync: vi.fn(),
@@ -62,8 +59,7 @@ vi.mock("expo-image-manipulator", () => ({
 
 vi.mock("../lib/auth-client", () => ({
   signOut: signOutMock,
-  // useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由で参照する。
-  // このテストでは識別の中身自体は検証しないため固定値を返す
+  // useViewerQueryKey が auth-client 経由で参照する。識別の中身は見ないので固定値
   useSession: () => ({ data: null }),
 }));
 
@@ -75,7 +71,7 @@ vi.mock("../lib/orpc", async () => {
       update: meUpdateMock,
       uploadImageUrl: meUploadImageUrlMock,
       setAiOptIn: meSetAiOptInMock,
-      // 058: 天気の地域
+      // 天気の地域（058）
       updateWeatherArea: updateWeatherAreaMock,
     },
     weather: { get: vi.fn(), getForDate: vi.fn() },
@@ -119,10 +115,10 @@ function makeCouple(overrides: Partial<Record<string, unknown>> = {}) {
     marriedDate: null,
     primaryDate: "dating",
     createdAt: 0,
-    // 045: couple.get は plan と albumQuota も返す。既定は free（行なし）
+    // couple.get は plan と albumQuota も返す。既定は free（行なし。045）
     plan: "free",
     albumQuota: { limit: 30, used: 0 },
-    // 048 段階2
+    // 048
     planSource: null,
     planExpiresAt: null,
     planCancelAt: null,
@@ -130,8 +126,8 @@ function makeCouple(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-// 025: 招待コードの再発行はstats.get().membersでペアが1人か2人かを見る。
-// 既定は1人（相手が未参加）にしておき、025固有のテストでのみ2人に上書きする
+// 招待コードの再発行は stats.get().members でペアの人数を見る。既定は 1 人（相手が未参加）で、
+// 再発行のテストでだけ 2 人に上書きする（025）
 function makeStats(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     daysTogether: { status: "dating", days: 1 },
@@ -171,10 +167,8 @@ function renderScreenAsGuest(exitGuestMode: () => void) {
   );
 }
 
-// me.get/couple.getの読み込み完了（フォームへの初期反映）を待つ。
-// 入力欄自体はデータ到着前から存在するため、findByTestIdだけでは
-// 読み込み完了を保証できない（初期化useEffectがクリック後に走ると
-// 入力内容が上書きされてしまう）
+// me.get・couple.get の読み込み完了（フォームへの初期反映）を待つ。入力欄はデータ到着前からあるので
+// findByTestId だけでは足りない（初期化の useEffect がクリック後に走ると入力が上書きされる）
 async function waitForLoaded() {
   const dateInput = (await screen.findByTestId("profile-dating-date")) as HTMLInputElement;
   await waitFor(() => expect(dateInput.value).toBe("2020-01-01"));
@@ -199,9 +193,7 @@ describe("ProfileScreen: 初期表示", () => {
     await waitFor(() => expect(marriedInput.value).toBe("2023-05-01"));
   });
 
-  // 016: 以前はme.get/couple.getのisLoading/isErrorを一切見ておらず、
-  // 取得中・失敗時ともフォームが空欄のまま何も知らせず止まって見えた
-  // （security-auditor全体監査・3状態レビュー指摘）
+  // 取得中・失敗を知らせる（フォームが空欄のまま止まって見えないように。016）
   it("読み込み中はローディング表示を出し、フォームは出さない", async () => {
     let resolveMe: (value: ReturnType<typeof makeMe>) => void = () => {};
     meGetMock.mockReturnValue(new Promise((resolve) => (resolveMe = resolve)));
@@ -223,8 +215,7 @@ describe("ProfileScreen: 初期表示", () => {
 
       renderScreen();
 
-      // 既定のリトライ（3回・指数バックオフ）が尽きるまでisErrorにならないため
-      // 通常より長いタイムアウトを与える（calendar-screen.test.tsxと同じ理由）
+      // 既定のリトライ（3 回・指数バックオフ）が尽きるまで isError にならないので長めに待つ
       expect(await screen.findByText("マイページを読み込めませんでした", {}, { timeout: 10000 })).toBeTruthy();
       expect(screen.queryByTestId("profile-name")).toBeNull();
 
@@ -317,9 +308,8 @@ describe("ProfileScreen: ホーム上部の表示（primaryDate）", () => {
 
     expect(await screen.findByText(/結婚した日」を表示するには/)).toBeTruthy();
 
-    // Buttonのdisabled表現はreact-native-webのPressableに依存し、
-    // toBeDisabled()で確実に検出できるとは限らない（calendar-screen.test.tsxの
-    // meetup衝突時と同じ理由で、実際に送信されないことで確認する）
+    // Button の disabled は react-native-web の Pressable 次第で toBeDisabled() では確実に拾えないので、
+    // 実際に送信されないことで確かめる
     await act(async () => {
       fireEvent.click(screen.getByTestId("profile-save"));
       await Promise.resolve();
@@ -373,9 +363,8 @@ describe("ProfileScreen: ホーム上部の表示（primaryDate）", () => {
   });
 });
 
-// 023: 登録時に付き合った日を聞かなくなったため、datingDateがnullのまま届く
-// ケースが生じる。「マイページであとから設定する」が目的なので、そのマイページが
-// 日付前提で動かなくなってはいけない（タスク定義の要望本体）
+// 登録時に付き合った日を聞かないので、datingDate が null のまま届く。マイページはあとから設定する
+// 場所なので、日付が無くても動かなければならない（023）
 describe("ProfileScreen: datingDateが未設定（023）", () => {
   it("datingDateがnullのまま、名前だけ変更して保存できる", async () => {
     coupleGetMock.mockResolvedValue(makeCouple({ datingDate: null }));
@@ -431,14 +420,14 @@ describe("ProfileScreen: datingDateが未設定（023）", () => {
   });
 });
 
-// 025: 招待コードの再発行
+// 招待コードの再発行（025）
 describe("025: 招待コードの再発行", () => {
   it("ペアが1人のとき、押す前の注意書きと発行ボタンが出る。相手が参加済みの文言は出ない", async () => {
     statsGetMock.mockResolvedValue(makeStats({ members: [{ userId: "me", name: "自分", image: null }] }));
     renderScreen();
 
     expect(await screen.findByTestId("profile-reissue-invite")).toBeTruthy();
-    // 押す前に伝える（025タスク定義。押したあとに気づく形にしない）
+    // 押す前に伝える（押したあとに気づく形にしない）
     expect(screen.getByText(/発行すると、以前発行した招待コードは無効になります/)).toBeTruthy();
     expect(screen.queryByText("相手が参加済みです")).toBeNull();
   });
@@ -484,11 +473,9 @@ describe("025: 招待コードの再発行", () => {
     expect(await screen.findByText("発行できませんでした。もう一度お試しください")).toBeTruthy();
   });
 
-  // 【Rレビュー指摘R-1】この画面に到達している時点で認証済みのため、
-  // ここで返るFORBIDDENは「満員」以外にありえない。「もう一度お試し
-  // ください」は構造的に成功しない操作を勧めることになるため、
-  // この文脈だけで理由を確定して案内し、statsQueryを再取得してカード
-  // 自体も正しい表示（相手が参加済みです）に戻す
+  // この画面に居る時点で認証済みなので、FORBIDDEN は「満員」しかない。「もう一度お試しください」は
+  // 成功しない操作を勧めることになるので、理由を確定して案内し、stats を再取得してカードも
+  // 「相手が参加済みです」に戻す
   it("発行時にFORBIDDEN（満員）が返ると、専用の文言が出てstatsが再取得される", async () => {
     inviteIssueMock.mockRejectedValue(new ORPCError("FORBIDDEN", { defined: true }));
     renderScreen();
@@ -505,7 +492,7 @@ describe("025: 招待コードの再発行", () => {
   });
 });
 
-// 024: 「アカウントを削除」の入口
+// 「アカウントを削除」の入口（024）
 describe("024: アカウントを削除の導線", () => {
   it("「アカウントを削除」を押すとdelete-accountへ遷移する", async () => {
     renderScreen();
@@ -516,8 +503,7 @@ describe("024: アカウントを削除の導線", () => {
   });
 });
 
-// 014: デモ閲覧中は「自分」が存在しない（me.getがnullを返す）ため、
-// 編集フォームを出さずログインを促す
+// デモ閲覧中は「自分」が居ない（me.get が null）ので、編集フォームを出さずログインを促す（014）
 describe("014: デモ閲覧中はプロフィール編集フォームの代わりにログイン導線が出る", () => {
   it("名前入力欄が無く、ログインボタンを押すとexitGuestModeが呼ばれる", async () => {
     meGetMock.mockResolvedValue(null);
@@ -533,8 +519,8 @@ describe("014: デモ閲覧中はプロフィール編集フォームの代わ�
   });
 });
 
-// 039 T6: マイページの「見た目」カード。押すと useAppearance().appearance が変わり、
-// ゲストでもカードが出る。Provider 配下の別の部品（プローブ）で観測する
+// マイページの「見た目」カード（039 T6）。押すと useAppearance().appearance が変わり、ゲストでも出る。
+// Provider 配下の別の部品（プローブ）で観測する
 function AppearanceProbe() {
   const { appearance } = useAppearance();
   return <RNText testID="appearance-probe">{appearance}</RNText>;
@@ -604,8 +590,8 @@ describe("039: 見た目（ピンク/ホワイト）の切り替え（T6）", ()
   });
 });
 
-// 045・T8: マイページに「プラン: 無料／プレミアム」の 1 行（couple.get の plan から）。
-// 無料のときだけ「プレミアムについて ›」（→ /premium）
+// 「プラン: 無料／プレミアム」の 1 行（couple.get の plan から）。無料のときだけ「プレミアムについて ›」
+// （→ /premium。045 T8）
 describe("ProfileScreen: プラン（045）", () => {
   it("free なら「プラン: 無料」と「プレミアムについて ›」（→ /premium）", async () => {
     renderScreen();
@@ -627,7 +613,7 @@ describe("ProfileScreen: プラン（045）", () => {
     expect(screen.queryByTestId("profile-manage-plan")).toBeNull();
   });
 
-  // 048 段階2: stripe の paid は「プレミアム（9月15日に更新）」と「プランを管理 ›」（→ Billing Portal）
+  // stripe の paid は「プレミアム（9月15日に更新）」と「プランを管理 ›」（→ Billing Portal。048）
   it("paid（stripe）なら「プレミアム（〇月〇日に更新）」と「プランを管理 ›」。押すと Portal の URL へ", async () => {
     // 2026-09-15 00:00 JST = 2026-09-14 15:00 UTC
     const expiresAt = Date.UTC(2026, 8, 14, 15, 0, 0) / 1000;
@@ -670,7 +656,7 @@ describe("ProfileScreen: プラン（045）", () => {
   });
 });
 
-// 048: プランの行の下に「アルバムの写真をまとめて保存 ›」→ 「すべての写真を ZIP で保存」のシート（一覧の ⋯ と同じ）
+// プランの行の下の「アルバムの写真をまとめて保存 ›」→「すべての写真を ZIP で保存」のシート（048）
 describe("ProfileScreen: アルバムの写真をまとめて保存（048）", () => {
   it("押すとシートが開き、作ったアルバムの枚数を出す（paid でも出る）", async () => {
     coupleGetMock.mockResolvedValue(makeCouple({ plan: "paid", albumQuota: null }));
@@ -687,9 +673,8 @@ describe("ProfileScreen: アルバムの写真をまとめて保存（048）", (
   });
 });
 
-// 052: マイページの一番下にプライバシーポリシー・利用規約のリンク（T3）。
-// ログイン後・ゲストの両方に出す。押すとサイトのルートの /privacy・/terms を
-// Linking.openURL で開く（sign-in-screen.test.tsx と同じ形。apps/app/components/legal-links.tsx）
+// 一番下にプライバシーポリシー・利用規約のリンク（ログイン後・ゲストの両方。052 T3）。押すとサイトの
+// ルートの /privacy・/terms を Linking.openURL で開く（apps/app/components/legal-links.tsx）
 describe("ProfileScreen: プライバシーポリシー・利用規約（052）", () => {
   it("ログイン後: リンクがあり、押すと /privacy・/terms を開く", async () => {
     const { getApiOrigin } = await import("../lib/api-origin");
@@ -720,7 +705,7 @@ describe("ProfileScreen: プライバシーポリシー・利用規約（052）"
   });
 });
 
-// 047 T8: マイページの帯（プランの行の上）。「ZIP で保存」は「アルバムの写真をまとめて保存」と同じシート
+// マイページの帯（プランの行の上）。「ZIP で保存」は「アルバムの写真をまとめて保存」と同じシート（047 T8）
 describe("ProfileScreen: やめたあとの鍵の帯（047）", () => {
   const LOCK_AT = Date.UTC(2026, 9, 15, 15, 0, 0) / 1000;
 
@@ -748,7 +733,7 @@ describe("ProfileScreen: やめたあとの鍵の帯（047）", () => {
   });
 });
 
-// 057 T7: マイページの「運営 ›」は isAdmin のときだけ。押すと /admin
+// 「運営 ›」は isAdmin のときだけ。押すと /admin（057 T7）
 describe("ProfileScreen: 運営の入口（057）", () => {
   it("運営でなければ無い", async () => {
     coupleGetMock.mockResolvedValue(makeCouple({ isAdmin: false }));
@@ -766,7 +751,7 @@ describe("ProfileScreen: 運営の入口（057）", () => {
   });
 });
 
-// 058 T7: マイページの「天気の地域」（都道府県 → 予報区の 2 段。「設定しない」で null）
+// 「天気の地域」（都道府県 → 予報区の 2 段。「設定しない」で null。058 T7）
 describe("ProfileScreen: 天気の地域（058）", () => {
   it("未設定なら「未設定 ›」。押すと都道府県の一覧。予報区が 1 つの県（大阪府）はその場で決まり me.updateWeatherArea が呼ばれる", async () => {
     coupleGetMock.mockResolvedValue(makeCouple({ weatherArea: null }));

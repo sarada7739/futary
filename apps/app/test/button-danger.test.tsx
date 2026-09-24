@@ -13,13 +13,11 @@ function hexToRgb(hex: string): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-// 036: dangerバリアントは塗りつぶしにしない（枠だけ）。危険な操作を
-// 押しやすくしないため（architecture.md 7節）。実際に背景がsurfaceのまま
-// （primaryで塗っていない）で、danger色の枠線と文字色になっていることを確認する
+// danger バリアントは塗りつぶさない（枠だけ）。危険な操作を押しやすくしない（architecture.md 7節）。
+// 背景は surface のままで、danger 色の枠線と文字色になっていることを見る
 describe("Button の danger バリアント（036）", () => {
   it("背景は塗りつぶさず、danger色の枠線と文字になる", () => {
-    // 039: colors は静的 export ではなくなった。Provider 無しの既定（pink）の値を
-    // useTheme() から取る
+    // colors は useTheme() から取る（Provider 無しの既定は pink）
     const { colors } = renderHook(() => useTheme()).result.current;
     const { container } = render(<Button variant="danger">削除する</Button>);
     const label = screen.getByText("削除する");

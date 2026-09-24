@@ -100,7 +100,7 @@ describe("054 T3: `/` の <img> 全部に width と height がある", () => {
 describe("054 T4: apps/landing/assets/ の JPEG は 1 枚 250KB 以下・合計 1.5MB 以下", () => {
   const jpegs = landingAssets.filter((f) => f.name.endsWith(".jpg"));
 
-  it("054 で置いた 11 枚のうち、059 で hands-cafe.jpg を外した 10 枚がある（役割の名前）", () => {
+  it("10 枚がある（役割の名前）", () => {
     expect(jpegs.map((f) => f.name).sort()).toEqual(
       [
         "ai-network.jpg",
@@ -165,7 +165,7 @@ describe("054: 文言（3節）とリンク", () => {
   });
 
   it("絵にあって Nisoine に無いものは載せない（質問・みんなの声・30GB・通報・レビュー）", () => {
-    // HTML のコメント（030 の R レビューの注）は見せる文言ではないので外す
+    // HTML のコメントは見せる文言ではないので外す
     const visible = landingIndexHtml.replace(/<!--[\s\S]*?-->/g, "");
     for (const ng of ["1 日 3 回", "1日3回", "みんなの声", "30GB", "通報", "レビュー", "デッキ", "ブラインド"]) {
       expect(visible, ng).not.toContain(ng);
@@ -253,22 +253,8 @@ describe("056 T6: assets/phone-frame.png の画面部分が透明で、縁は不
 });
 
 // 059: LP の「さわってみる」を 2 列に・AI まとめの帯の写真を外す・写真カードの余白（docs/tasks/059-landing-demo-two-columns.md 2節）
-describe("059 T1: hands-cafe.jpg を外した", () => {
-  it("`/` の HTML に hands-cafe が無い。assets/ に hands-cafe.jpg が無い（054 T4 の一覧は 10 枚）", () => {
-    expect(landingIndexHtml).not.toContain("hands-cafe");
-    expect(landingAssets.some((f) => f.name === "hands-cafe.jpg")).toBe(false);
-    expect(landingAssets.filter((f) => f.name.endsWith(".jpg"))).toHaveLength(10);
-  });
-});
-
-describe("059 T2: 節「さわってみる」の中身（iframe・文言・案内の 3 行・ボタン）", () => {
+describe("059 T2: 節「さわってみる」の案内の 3 行", () => {
   const section = landingIndexHtml.match(/<section class="demo" id="demo"[\s\S]*?<\/section>/)?.[0] ?? "";
-
-  it("iframe（056 T5 のまま）と、説明の文言（「ゆいとれん」は無い）", () => {
-    expect(section).toMatch(/<iframe\b[^>]*src="\/app\/\?demo=1"/);
-    expect(section).toContain("デモ画面です。投稿は見るだけで、書き込みはできません。");
-    expect(landingIndexHtml).not.toContain("ゆいとれんのデモです");
-  });
 
   it("<h3>枠の中を、そのまま触れます</h3> と <ul class=\"demo-guide\"> の <li> が 3 つ（0節 #5 の文言のとおり）", () => {
     expect(section).toContain("<h3>枠の中を、そのまま触れます</h3>");
@@ -280,26 +266,11 @@ describe("059 T2: 節「さわってみる」の中身（iframe・文言・案�
       "<strong>タイムライン</strong> — 写真と言葉の投稿と、リアクション",
     ]);
   });
-
-  it("ボタン <a class=\"btn btn-primary\" href=\"/app/\">自分たちで始める</a>。<script は無いまま", () => {
-    expect(section).toContain('<a class="btn btn-primary" href="/app/">自分たちで始める</a>');
-    expect(section).not.toContain("自分たちで始める →");
-    expect(landingIndexHtml).not.toMatch(/<script/i);
-  });
 });
 
-describe("059 T3: style.css の 2 列の grid と、帯の写真の CSS の削除", () => {
+describe("059 T3: style.css の 2 列の grid", () => {
   it(".demo-inner の grid-template-columns: 527px 1fr", () => {
     expect(landingStyleCss).toMatch(/\.demo-inner \{[^}]*grid-template-columns: 527px 1fr;/);
-  });
-
-  it(".ai-band-photo が無い（PC・720px 未満の両方）。.demo-more も無い", () => {
-    expect(landingStyleCss).not.toContain(".ai-band-photo");
-    expect(landingStyleCss).not.toContain(".demo-more");
-  });
-
-  it("767px の .demo { display: none } はそのまま（056 T5）", () => {
-    expect(landingStyleCss).toMatch(/@media \(max-width: 767px\) \{\s*\.demo \{\s*display: none;/);
   });
 });
 

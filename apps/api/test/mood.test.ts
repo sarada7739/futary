@@ -9,7 +9,7 @@ import type { RpcContext } from "../src/context";
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
 
-// wish.test.tsと同じ理由（実際のR2 APIトークンの設定有無にテストの合否を左右させない）
+// 実際の R2 API トークンの設定有無に合否を左右させない
 const r2Sign: RpcContext["r2Sign"] = {
   accountId: "test-account",
   accessKeyId: "test-access-key-id",
@@ -31,7 +31,7 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
         "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
       )
       .bind(id, name, email, now),
-    // invite.acceptがaccount_id（Googleの識別子）を引く（024）
+    // ペア成立に使う invite.accept が account_id（Google の識別子）を引く（024）
     db
       .prepare(
         "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
@@ -89,8 +89,7 @@ describe("mood.setToday / mood.list", () => {
     expect(list.partner).toEqual({ name: partner.name, items: [] });
   });
 
-  // タスク定義6節「渡せないものは、間違えて渡せない」: user_idを引数に
-  // 取らないため、自分の分しか書けない
+  // user_id を引数に取らないので、自分の分しか書けない（6節「渡せないものは、間違えて渡せない」）
   it("相手が記録しても自分のmineには出ず、相手のpartner.itemsに出る", async () => {
     const { owner, partner } = await createCoupleOfTwo();
 
@@ -122,9 +121,8 @@ describe("mood.setToday / mood.list", () => {
     expect(results[0]?.level).toBe(5);
   });
 
-  // levelの範囲（1〜5）は入力だけで判定できるためZodで弾く（BAD_REQUEST。
-  // conventions.md 5節）。DB側の名前付きCHECK（moods_level_range_check）も
-  // schema-integrity.test.tsで別途固定する
+  // level の範囲（1〜5）は Zod で弾く（BAD_REQUEST。conventions.md 5節）。DB の名前付き CHECK は
+  // schema-integrity.test.ts で固定する
   it.each([0, 6, -1, 1.5])("levelが%sだとBAD_REQUEST", async (level) => {
     const { owner } = await createCoupleOfTwo();
 
@@ -163,7 +161,7 @@ describe("mood.setToday / mood.list", () => {
     expect(list.mine).toEqual([{ date: TODAY, level: 3 }]);
   });
 
-  // タスク定義11節: 相手が未参加（ペアが1人）ならpartnerはnull
+  // 相手が未参加（ペアが 1 人）なら partner は null（11節）
   it("相手が未参加のペアではpartnerがnull", async () => {
     const owner = await createUser();
     await createCouple(owner);

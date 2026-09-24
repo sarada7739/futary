@@ -9,8 +9,8 @@ describe("HOUR_OPTIONS", () => {
   });
 });
 
-// 022・Aの決定: 刻み（5分）に乗らない既存の値を丸めず、選択肢へ差し込む。
-// event.updateは全項目の置き換えのため、触っていない値を書き換えてはならない
+// 刻み（5 分）に乗らない既存の値を丸めず、選択肢へ差し込む。event.update は全項目の置き換えなので、
+// 触っていない値を書き換えてはならない（022）
 describe("buildMinuteOptions", () => {
   it("刻みに乗る値（05）は12個のまま", () => {
     const options = buildMinuteOptions("05");

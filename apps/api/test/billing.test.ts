@@ -10,9 +10,9 @@ import { applySubscriptionSnapshot, planFromStatus, resetPricesCache, type Billi
 import { createStripeGateway, summarizeEvent, type StripeGateway, type SubscriptionSnapshot } from "../src/lib/stripe";
 import { handleStripeWebhook } from "../src/stripe-webhook";
 
-// 048 段階2: 決済（P1〜P5・P8）。Stripe は偽の gateway（FakeStripe）で差し替える。
-// Webhook の署名だけは本物（stripe の Webhooks.constructEventAsync）で確かめる:
-// テストが HMAC で署名を作り、FakeStripe.constructWebhookEvent がそれを本物の検証に通す
+// 決済（048 P1〜P5・P8）。Stripe は偽の gateway（FakeStripe）で差し替える。Webhook の署名だけは本物
+// （stripe の Webhooks.constructEventAsync）で確かめる: テストが HMAC で署名を作り、
+// FakeStripe.constructWebhookEvent がそれを本物の検証に通す
 
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
@@ -426,7 +426,7 @@ describe("P2: 状態 → plan / expires_at", () => {
     const { owner, partner } = await createPair();
     const couple = await call(router.couple.get, undefined, { context: contextFor(owner) });
     const cus = await fake.createCustomer(couple.id);
-    // 時刻は 1 度だけ取る（Date.now() を 3 箇所で別々に呼ぶと、秒の境目をまたいで 1 秒ずれて赤になる。CI で 1 回）
+    // 時刻は 1 度だけ取る（Date.now() を別々に呼ぶと、秒の境目をまたいで 1 秒ずれることがある）
     const now = Math.floor(Date.now() / 1000);
     fake.putSubscription("sub_1", cus, "active", now + 86400);
     const body = subscriptionEvent("customer.subscription.created", "sub_1", cus);
@@ -480,7 +480,7 @@ describe("P3: source='manual' の行は Webhook が触らない", () => {
   });
 });
 
-// 0節 #9 の後半（R の指摘）: 行に付いた購読と違う購読の snapshot
+// 行に付いた購読と違う購読の snapshot（0節 #9 の後半）
 describe("P2b: 行に付いた購読と違う購読（2 本目・遅れて届いた古い event）", () => {
   async function pairWithSub1() {
     const { coupleId } = await createPair();

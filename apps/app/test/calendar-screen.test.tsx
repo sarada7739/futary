@@ -6,14 +6,14 @@ import type { Event } from "@futary/contract";
 import { todayJst } from "@futary/date";
 import { monthGridRange } from "../lib/calendar";
 
-// 011: カレンダー画面の画面結合テスト。home-timeline.test.tsx と同じ形で
-// oRPC クライアントをモックする（サーバとの契約自体は検証しない。conventions.md 6節）
+// カレンダー画面の画面結合テスト（011）。oRPC クライアントはモックする（サーバとの契約は見ない。
+// conventions.md 6節）
 const { listMock, createMock, updateMock, deleteMock, weatherGetMock, weatherForDateMock, holidayListMock, pushMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
   updateMock: vi.fn(),
   deleteMock: vi.fn(),
-  // 058: 天気と祝日（既定は地域未設定・祝日なし。T7 のテストで上書きする）
+  // 天気と祝日（既定は地域未設定・祝日なし。天気のテストで上書きする。058）
   weatherGetMock: vi.fn(),
   weatherForDateMock: vi.fn(),
   holidayListMock: vi.fn(),
@@ -39,10 +39,8 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-// useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由でuseSessionを
-// 参照する。本物のauth-client.tsを読み込むとexpo-secure-store等がロードされ
-// jsdom環境でクラッシュするため、他のexpoパッケージ（home-timeline.test.tsx参照）と
-// 同じ理由でモックする
+// useViewerQueryKey が auth-client 経由で useSession を参照する。本物の auth-client.ts は
+// expo-secure-store 等を読み込み jsdom で落ちるのでモックする
 vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
@@ -79,7 +77,7 @@ beforeEach(() => {
   weatherGetMock.mockResolvedValue({ area: null, days: [] });
   weatherForDateMock.mockResolvedValue({ mine: null, partner: null, same: false });
   holidayListMock.mockResolvedValue({ holidays: {} });
-  // 058: 地域未設定の帯は既定で「消した」扱い（既存のテストに影響させない。帯のテストで消す）
+  // 地域未設定の帯は既定で「消した」扱い（他のテストに影響させない。帯のテストで戻す。058）
   window.localStorage.setItem("futary.weatherPromptDismissed", "1");
 });
 
@@ -127,8 +125,7 @@ describe("CalendarScreen", () => {
 
       renderScreen();
 
-      // 既定のリトライ（3回・指数バックオフ）が尽きるまで isError にならないため
-      // 通常より長いタイムアウトを与える
+      // 既定のリトライ（3 回・指数バックオフ）が尽きるまで isError にならないので長めに待つ
       expect(await screen.findByText("カレンダーを読み込めませんでした", {}, { timeout: 10000 })).toBeTruthy();
       expect(screen.getByText("再試行")).toBeTruthy();
     },
@@ -270,9 +267,8 @@ describe("018: 設定者の名前・時間・会った日の一意化", () => {
   });
 });
 
-// 022・Aの決定: event.updateは部分更新ではなく全項目の置き換えのため、
-// ホイールの初期化で丸められると触っていないのに書き換わる。刻みに乗らない
-// 値は丸めず、選択肢の1行として差し込む形にした（docs/tasks/022-time-and-date-input.md）
+// event.update は部分更新ではなく全項目の置き換えなので、ホイールの初期化で丸めると触っていないのに
+// 書き換わる。刻みに乗らない値は丸めず、選択肢の 1 行として差し込む（022）
 describe("022: 刻みに乗らない時刻は丸めずに保存される", () => {
   it("12:07の予定をタイトルだけ変えて保存すると、startTimeが12:07のまま送られる", async () => {
     const existing = makeEvent({ id: "event-time-1", startTime: "12:07", title: "元のタイトル" });
@@ -385,7 +381,7 @@ describe("削除", () => {
   });
 });
 
-// 021: 予定の持ち主・「ふたりの予定」
+// 予定の持ち主・「ふたりの予定」（021）
 describe("021: 予定の持ち主・「ふたりの予定」", () => {
   it("種別が予定のときだけ「ふたりの予定にする」ボタンが出る", async () => {
     listMock.mockResolvedValue({ items: [] });
@@ -479,12 +475,8 @@ describe("021: 予定の持ち主・「ふたりの予定」", () => {
     expect(screen.getByText("✓ ふたりの予定")).toBeTruthy();
   });
 
-  // 021: 記念日・会った日〈どちらでも編集できる〉から非共有planへの変換で
-  // 相手（または自分）を締め出せる経路があったため、サーバのWHERE句で
-  // 区分をまたぐ変換自体を禁じた（docs/tasks/021-plan-ownership.md「権限の
-  // 条件を『操作』ではなく『状態遷移』で書く」）。画面側は「ふたりの予定」を
-  // 条件付きで固定する形をやめ、押しても拒まれる選択（元がplan以外のときの
-  // 「予定」への変更）そのものを選択肢から外す
+  // サーバは区分をまたぐ変換（plan 以外 → plan）を拒む（021「権限の条件を『操作』ではなく『状態遷移』で
+  // 書く」）。画面側は、押しても拒まれる選択（元が plan 以外のときの「予定」への変更）を選択肢から外す
   describe("元がplan以外のとき、種別の選択肢からplanを外す", () => {
     it("記念日を編集しているとき、「予定」の選択肢が無い", async () => {
       const anniversary = makeEvent({ id: "ann", title: "記念日", kind: "anniversary", repeatYearly: true, canEdit: true });
@@ -569,8 +561,7 @@ describe("021: 予定の持ち主・「ふたりの予定」", () => {
   });
 });
 
-// 014: デモ閲覧中は登録できない（サーバ側でFORBIDDENになる）ため、
-// 「＋追加」を押してもフォームを開かせずログイン導線に差し替える
+// デモ閲覧中は登録できない（サーバが FORBIDDEN）ので、「＋追加」でフォームを開かずログイン導線を出す（014）
 describe("014: デモ閲覧中の「＋追加」はログイン導線になる", () => {
   it("ボタンの文言が「ログインして追加」になり、押してもフォームが開かずexitGuestModeが呼ばれる", async () => {
     listMock.mockResolvedValue({ items: [] });
@@ -588,7 +579,7 @@ describe("014: デモ閲覧中の「＋追加」はログイン導線になる",
   });
 });
 
-// 058 T7: 天気と祝日
+// 天気と祝日（058 T7）
 describe("CalendarScreen: 天気と祝日（058 T7）", () => {
   const tomorrow = (() => {
     const [y, m, d] = today.split("-").map(Number) as [number, number, number];
@@ -687,7 +678,7 @@ describe("CalendarScreen: 天気と祝日（058 T7）", () => {
     third.unmount();
     queryClient.clear();
 
-    // 予定の無い日も出る（「この日の予定はありません」の下。人間の指示 2026-09-17）
+    // 予定の無い日も出る（「この日の予定はありません」の下）
     weatherForDateMock.mockResolvedValue({ mine: { area: TOKYO, day: days[0] }, partner: null, same: false });
     listMock.mockResolvedValue({ items: [] });
     renderScreen();

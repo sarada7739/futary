@@ -10,14 +10,10 @@ afterEach(() => {
   cleanup();
 });
 
-// 039: Node 22 以降は `localStorage` を global に持つが、`--localstorage-file` 無しでは
-// メソッドを持たない空のオブジェクトになる（Node 25.2 で実測。`clear is not a
-// function`）。vitest の jsdom 環境は既に global にある名前を jsdom のもので
-// 上書きしないため、`window.localStorage` もこの空のオブジェクトを指す。
-// jsdom が本来提供する Storage 相当を、メソッドが無いときだけ補う
-// （ブラウザ・jsdom が正しく提供する環境では触らない）
-// 043: sessionStorage も同じ形で補う（Node 25.2 では sessionStorage はメソッドを持つが、
-// 環境で変わりうる。無いときだけ補う）
+// Node 22 以降は `localStorage` を global に持つが、`--localstorage-file` 無しではメソッドを持たない空の
+// オブジェクトになる（`clear is not a function`）。vitest の jsdom 環境は既にある global を上書きしない
+// ので、`window.localStorage` もこれを指す。メソッドが無いときだけ Storage 相当を補う。sessionStorage も
+// 同じ形で補う（環境で変わりうる）
 function installMemoryStorage(name: "localStorage" | "sessionStorage") {
   const existing = (globalThis as unknown as Record<string, Partial<Storage> | undefined>)[name];
   if (existing && typeof existing.setItem === "function") return;

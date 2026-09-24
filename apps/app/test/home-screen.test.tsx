@@ -2,8 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 020: ホーム画面（記念日カード + 機能パネル）の画面結合テスト。
-// calendar-screen.test.tsxと同じ形でoRPCクライアントをモックする
+// ホーム画面（記念日カード + 機能パネル）の画面結合テスト（020）。oRPC クライアントはモックする
 const { statsGetMock, pushMock } = vi.hoisted(() => ({
   statsGetMock: vi.fn(),
   pushMock: vi.fn(),
@@ -19,8 +18,7 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-// useViewerQueryKey（apps/app/lib/viewer-key.ts。stats-card.tsx経由）が
-// auth-client経由でuseSessionを参照する。expo-router等と同じ理由でモックする
+// useViewerQueryKey が auth-client 経由で useSession を参照するのでモックする
 vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
@@ -59,8 +57,7 @@ describe("HomeScreen: 記念日カード", () => {
 
     renderScreen();
 
-    // 035: 「付き合って」「365」「日目」は別々のTextで描画される
-    // （daysTogetherParts。stats-card.test.tsxと同じ理由）
+    // 「付き合って」「365」「日目」は別々の Text（daysTogetherParts。stats-card.test.tsx と同じ）
     expect(await screen.findByTestId("stats-card-days-prefix")).toHaveTextContent("付き合って");
     expect(screen.getByTestId("stats-card-days-number")).toHaveTextContent("365");
     expect(screen.getByTestId("stats-card-days-suffix")).toHaveTextContent("日目");
@@ -69,13 +66,12 @@ describe("HomeScreen: 記念日カード", () => {
 });
 
 describe("HomeScreen: 機能パネル", () => {
-  // 041・T13: パネルは 9 枚で「アルバム」があり「今日どうだった？」が無い。他の 8 枚の並びは
-  // 変わっていない（「今日どうだった？」の位置〈2 行目の真ん中〉にアルバムが入っただけ）
+  // パネルは 9 枚で「アルバム」があり「今日どうだった？」が無い（041 T13）
   it("パネルが 9 枚で、並びは タイムライン・カレンダー・思い出・統計・アルバム・リスト・ほしいもの・気分の記録・AIまとめ", async () => {
     renderScreen();
     await screen.findByTestId("stats-card-meetup-pill");
 
-    // 043: 3×3 の下に「リリース履歴を見る」（全幅 1 本。パネルではない）が加わった。並びの末尾
+    // 3×3 の下に「リリース履歴を見る」（全幅 1 本。パネルではない。043）。並びの末尾
     const labels = screen.getAllByRole("button").map((el) => el.getAttribute("aria-label")).filter((l) => l !== null);
     expect(labels).toEqual([
       "タイムライン", "カレンダー", "思い出", "統計", "アルバム", "リスト", "ほしいもの", "気分の記録", "AIまとめ",
@@ -84,22 +80,11 @@ describe("HomeScreen: 機能パネル", () => {
     expect(screen.queryByText("今日どうだった？")).toBeNull();
   });
 
-  // 041: 次フェーズのパネルは無くなった（「今日どうだった？」をアルバムに置き換えた）。
-  // 035: 表示文言を「次フェーズ」（開発都合の言葉）から「COMING SOON」に変えた経緯は残す
-  // 062 T3: ピンク（既定の外観）でも 9 枚とも写真タイル
+  // ピンク（既定の外観）でも 9 枚とも写真タイル
   it("パネル 9 枚に写真タイル（feature-panel-photo）が 9 つ（062）", async () => {
     renderScreen();
     await screen.findByTestId("stats-card-meetup-pill");
     expect(screen.getAllByTestId("feature-panel-photo")).toHaveLength(9);
-  });
-
-  it("「COMING SOON」「準備中です」「次フェーズ」という文言がどこにも出ない", async () => {
-    renderScreen();
-    await screen.findByTestId("stats-card-meetup-pill");
-
-    expect(screen.queryByText("COMING SOON")).toBeNull();
-    expect(screen.queryByText(/準備中/)).toBeNull();
-    expect(screen.queryByText("次フェーズ")).toBeNull();
   });
 
   it("タイムラインパネルを押すと /timeline へ遷移する", async () => {
@@ -165,7 +150,7 @@ describe("HomeScreen: 機能パネル", () => {
   });
 });
 
-// 020「状態の網羅」: 統計の取得に失敗しても記念日カードだけ落ち、パネルは出る
+// 統計の取得に失敗しても記念日カードだけ落ち、パネルは出る（020「状態の網羅」）
 describe("HomeScreen: 統計取得の失敗", () => {
   it("stats.getが失敗しても、パネルは表示され続ける（入口が消えない）", async () => {
     statsGetMock.mockRejectedValue(new Error("network"));

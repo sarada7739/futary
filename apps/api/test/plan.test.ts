@@ -9,8 +9,8 @@ import { generateImageId } from "../src/lib/ulid";
 import { albumImageKeyFor, imageKeyFor } from "../src/lib/r2-signed-url";
 import { countAlbumPhotosUsed, resolvePlan } from "../src/lib/plan";
 
-// 045: プランの印（couple_plans）とアルバムの無料枠（T1〜T5）。
-// 写真は album.uploadUrl を経由せず R2 に直接置く（album.test.ts の uploadTestAlbumImage と同じ形）
+// プランの印（couple_plans）とアルバムの無料枠（045 T1〜T5）。写真は R2 に直接置く
+// （album.test.ts の uploadTestAlbumImage と同じ形）
 
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
@@ -315,9 +315,8 @@ describe("T4: used の数え方", () => {
     expect(album.photoCount).toBe(1);
   });
 
-  // 【R の記録・A の判断】album.delete は album_photos を物理削除するため、上のテストは
-  // `albums.deleted_at IS NULL` の条件を外しても緑のまま（到達不能）。041 の posts.deleted_at と同じ
-  // 扱い（#296）で、deleted_at を SQL で直接立てて写真行を残し、条件が効くことを見る（外すと赤）
+  // album.delete は album_photos を物理削除するので、上のテストは `albums.deleted_at IS NULL` を外しても
+  // 緑のまま。deleted_at を SQL で直接立てて写真行を残し、条件が効くことを見る（外すと赤）
   it("albums.deleted_at が立っていて写真行が残っていても、その写真は数えない（条件を外すと赤）", async () => {
     const { owner, coupleId } = await createPair();
     const doomed = await createAlbum(owner, "論理削除だけ");

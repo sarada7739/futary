@@ -175,10 +175,9 @@ describe("extractMeta: 段階0で取った本物の HTML（T2）", () => {
 // 実物の <img id="landingImage" …> をフィクスチャから取り出す（合成に使う）
 const LANDING_IMAGE_TAG = amazonHtml.match(/<img[^>]*id="landingImage"[^>]*>/)?.[0] ?? "";
 
-// 段階0の実測: Amazon の画像ブロックは応答ごとに 325〜612KB の位置にある。
-// `amazon-B07T35N29H-head512k.html` は画像ブロックが 512KB の外にあった応答の先頭 512KB。
-// その後ろに実物の <img id="landingImage"> を継ぎ足して「512KB では取れず、1MB なら取れる」
-// を固定する（A の指示。タスク定義「段階0の決定」）
+// Amazon の画像ブロックは応答ごとに 325〜612KB の位置にある。`amazon-B07T35N29H-head512k.html` は
+// 画像ブロックが 512KB の外にあった応答の先頭 512KB。後ろに実物の <img id="landingImage"> を継ぎ足して
+// 「512KB では取れず、1MB なら取れる」を固定する（段階0の決定）
 function amazonWithImageBeyond512k(): Uint8Array {
   expect(LANDING_IMAGE_TAG).toContain("data-old-hires");
   const head = new TextEncoder().encode(amazonHead512k);
@@ -281,7 +280,7 @@ describe("fetchLinkPreview: 画像の制限（T3。失敗しても例外にし�
     for (const call of calls) {
       const headers = call.init.headers as Record<string, string>;
       expect(headers["user-agent"]).toBe(LINK_PREVIEW_USER_AGENT);
-      // 051 T3: 名乗りは nisoine（URL は Worker のまま = 旧名のドメイン）
+      // 名乗りは nisoine（URL は Worker のまま = 旧名のドメイン。051 T3）
       expect(LINK_PREVIEW_USER_AGENT).toMatch(/^nisoine-link-preview\/1 \(\+https:\/\//);
       expect(Object.keys(headers).map((k) => k.toLowerCase())).not.toContain("cookie");
       expect(Object.keys(headers).map((k) => k.toLowerCase())).not.toContain("authorization");
@@ -473,9 +472,8 @@ describe("fetchLinkPreview: 全体で 12 秒（6節）", () => {
     }
   });
 
-  // R の必須（6節を 1 つずつ壊す検査で、画像側の期限共有だけをどのテストも捕まえていなかった）:
-  // ページは即 200 で返り、画像サーバが返さない（drip）ケース。画像の fetch がページと同じ
-  // AbortController を共有していなければ、12 秒を超えて待ち続けても誰も気づかない
+  // ページは即 200 で返り、画像サーバが返さない（drip）ケース。画像の fetch がページと同じ AbortController
+  // を共有していなければ、12 秒を超えて待ち続けても誰も気づかない（6節）
   it("画像の fetch もページと同じ 12 秒の期限を共有する（ページは即返り、画像が返らない）", async () => {
     vi.useFakeTimers();
     try {

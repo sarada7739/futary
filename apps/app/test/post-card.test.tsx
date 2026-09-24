@@ -5,7 +5,7 @@ import { PostCard } from "../components/post-card";
 import { ImageViewer } from "../components/image-viewer";
 import { MAX_SINGLE_IMAGE_HEIGHT, ROW_ITEM_WIDTH_RATIO, singleImageLayout } from "../components/post-images";
 
-// 041: ビューアの保存ボタンは photo.downloadUrl を呼ぶ。画面テストでは差し替える
+// ビューアの保存ボタンは photo.downloadUrl を呼ぶ。画面テストでは差し替える
 const { downloadUrlMock } = vi.hoisted(() => ({ downloadUrlMock: vi.fn() }));
 vi.mock("../lib/orpc", () => ({ client: { photo: { downloadUrl: downloadUrlMock } } }));
 
@@ -23,10 +23,8 @@ function makePost(overrides: Partial<Post> = {}): Post {
   };
 }
 
-// M2まとめ監査 Low指摘: 未認証（デモ閲覧）でもリアクションボタンが押せ、
-// サーバのFORBIDDENで黙って巻き戻る体験を避けるため、呼び出し側
-// （app/(tabs)/index.tsx）は未認証時に onToggleReaction を渡さない。
-// PostCard 自身は onToggleReaction が無ければボタンを出さないことをここで担保する
+// 未認証（デモ閲覧）で押せてサーバの FORBIDDEN で黙って巻き戻る体験を避けるため、呼び出し側は
+// 未認証のとき onToggleReaction を渡さない。PostCard は onToggleReaction が無ければボタンを出さない
 describe("PostCard のリアクションボタン", () => {
   it("onToggleReaction が渡されていれば表示される", () => {
     render(<PostCard post={makePost()} isOwn={false} onToggleReaction={vi.fn()} />);
@@ -62,7 +60,7 @@ function makePostWithImage(overrides: Partial<Post> = {}): Post {
   });
 }
 
-// 031: 複数枚（1〜4枚を並べたときに使う汎用ヘルパー）
+// 複数枚（1〜4 枚）を並べるときのヘルパー
 function makeImages(count: number): Post["images"] {
   return Array.from({ length: count }, (_, i) => ({
     url: `https://example.com/image-${i + 1}.jpg`,
@@ -71,7 +69,7 @@ function makeImages(count: number): Post["images"] {
   }));
 }
 
-// 017: 画像タップで全画面表示（ImageViewer）が開閉すること
+// 画像タップで全画面表示（ImageViewer）が開閉する（017）
 describe("PostCard の画像タップ（017: 全画面表示）", () => {
   it("画像をタップすると全画面表示が開く", () => {
     render(<PostCard post={makePostWithImage()} isOwn={false} />);
@@ -100,11 +98,8 @@ describe("PostCard の画像タップ（017: 全画面表示）", () => {
     expect(screen.queryByTestId("image-viewer-backdrop")).toBeNull();
   });
 
-  // 017: 当初「画像の外側のみ」を閉じる導線にしていたが、containによる
-  // レターボックス部分の当たり判定を画像側のPressableが覆ってしまい閉じない
-  // 不具合をRのレビューで指摘された。当たり判定という概念自体を無くし
-  // 「どこでも閉じる」に変更した（画像タップでバックドロップのonPressへ
-  // 自然にバブリングすることを確認する）
+  // どこを押しても閉じる（contain のレターボックス部分も画像側の Pressable が覆うので、当たり判定で
+  // 分けない）。画像タップがバックドロップの onPress へバブリングすることを確かめる
   it("画像自体をタップしても閉じる（どこでも閉じる仕様）", () => {
     render(<PostCard post={makePostWithImage()} isOwn={false} />);
     fireEvent.click(screen.getByLabelText("画像を全画面表示"));
@@ -119,8 +114,8 @@ describe("PostCard の画像タップ（017: 全画面表示）", () => {
     expect(screen.queryByLabelText("画像を全画面表示")).toBeNull();
   });
 
-  // Web版のEsc（react-native-webのModalが既定でdocumentのkeyupを見て
-  // onRequestCloseを呼ぶ。Androidの戻るボタンも同じonRequestCloseで扱われる）
+  // Web の Esc（react-native-web の Modal が document の keyup を見て onRequestClose を呼ぶ。Android の
+  // 戻るボタンも同じ onRequestClose）
   it("Escキーで閉じる", () => {
     render(<PostCard post={makePostWithImage()} isOwn={false} />);
     fireEvent.click(screen.getByLabelText("画像を全画面表示"));
@@ -132,7 +127,7 @@ describe("PostCard の画像タップ（017: 全画面表示）", () => {
   });
 });
 
-// 031: 1投稿に複数画像。グリッド表示・ライトボックスの左右送りを確認する
+// 1 投稿に複数画像（031）
 describe("PostCard の複数画像（031）", () => {
   it("2枚以上では各画像に別々のタップ入口ができる（枚数ぶんの見出し）", () => {
     render(<PostCard post={makePost({ images: makeImages(3) })} isOwn={false} />);
@@ -166,15 +161,10 @@ describe("PostCard の複数画像（031）", () => {
   });
 });
 
-// react-native-webのScrollViewは、発火したDOM `scroll` イベントの
-// `e.target.scrollLeft`/`e.target.offsetWidth`を直接読む
-// （image-viewer.tsxのhandleScrollのコメント参照）。fireEventの第二引数に
-// nativeEventを渡しても読まれないため、DOM要素自体のプロパティを
-// 差し替えてから素の'scroll'イベントを発火させる。
-// react-native-web内部はscrollEventThrottleとscrollイベント終了の検知に
-// 実時間のsetTimeoutを使っており、同一ミリ秒内で連続発火させると2件目以降が
-// 間引かれる（実測して判明）。フェイクタイマーで100ms以上進め、
-// 内部のデバウンス（handleScrollEnd）を確実に発火させる
+// react-native-web の ScrollView は、DOM の scroll イベントの e.target.scrollLeft・offsetWidth を
+// 直接読む（fireEvent の nativeEvent は読まれない）ので、DOM 要素のプロパティを差し替えてから素の
+// 'scroll' を発火させる。内部は実時間の setTimeout で間引き・終了検知をするので、フェイクタイマーで
+// 100ms 以上進めて handleScrollEnd を確実に発火させる
 function simulateSwipeTo(scrollNode: HTMLElement, scrollLeft: number, pageWidth: number) {
   Object.defineProperty(scrollNode, "offsetWidth", { value: pageWidth, configurable: true });
   Object.defineProperty(scrollNode, "scrollLeft", { value: scrollLeft, configurable: true, writable: true });
@@ -184,9 +174,7 @@ function simulateSwipeTo(scrollNode: HTMLElement, scrollLeft: number, pageWidth:
   });
 }
 
-// 033: 複数画像をXのように横一列に並べ、指で送れるようにした
-// （031の正方形グリッドを覆した）。ライトボックスもスワイプに対応した
-// （031のボタンのみから覆した。ボタンは残す）
+// 複数画像は横一列に並べて指で送る。ライトボックスもスワイプで送れる（ボタンも残す。033）
 describe("PostCard の複数画像（033: 横スワイプ）", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -204,21 +192,16 @@ describe("PostCard の複数画像（033: 横スワイプ）", () => {
   });
 
   it("各画像はコンテナ幅の一部（ROW_ITEM_WIDTH_RATIO）で、コンテナいっぱいではない", () => {
-    // 033・実機確認で発見: 横スクロールの中身は幅が定まらないコンテナに
-    // なるため、子要素の幅はpx換算でonLayoutの実測値から算出する
-    // （post-images.tsx）。onLayoutはjsdomでは発火しない（ResizeObserver
-    // 依存）ため、ここでは「コンテナいっぱいの1.0ではなく1未満の比率で
-    // 幅を決めている」という設計自体を固定する。実際に次の端が見える
-    // 見え方はBrowser paneでの実機確認・人間の実機確認で担保する
-    // （タスク定義2節「端がどれくらい見えれば気づくかは実機でしか分からない」）
+    // 横スクロールの中身は幅が定まらないので、子の幅は onLayout の実測値から px で出す（post-images.tsx）。
+    // jsdom では onLayout が発火しないので、「1.0 ではなく 1 未満の比率で幅を決める」ことを固定する
+    // （次の端がどれくらい見えるかは実機で確かめる。033 2節）
     expect(ROW_ITEM_WIDTH_RATIO).toBeLessThan(1);
     expect(ROW_ITEM_WIDTH_RATIO).toBeGreaterThan(0.5);
   });
 
   it("ドットのインジケータを置かない（一覧行に見出し数字・ドット要素が無い）", () => {
     render(<PostCard post={makePost({ images: makeImages(3) })} isOwn={false} />);
-    // 一覧行自体にはimage-viewer-counterに相当する要素を持たない
-    // （カウンターはライトボックス側だけに出す。タスク定義2節・3節）
+    // 一覧の行にはカウンターを持たない（ライトボックス側だけ）
     expect(screen.queryByTestId("image-viewer-counter")).toBeNull();
   });
 
@@ -257,8 +240,8 @@ describe("PostCard の複数画像（033: 横スワイプ）", () => {
   });
 });
 
-// 041・T12: ビューアの保存ボタン。download が無い画像には出ない。投稿カードからのビューアは
-// 保存ボタン以外が変わっていない（説明文・編集の導線が無い）
+// ビューアの保存ボタン。download が無い画像には出ない。投稿カードからのビューアは保存ボタン以外
+// 変わらない（説明文・編集の導線が無い。041 T12）
 describe("ImageViewer の保存ボタン（041）", () => {
   beforeEach(() => {
     downloadUrlMock.mockReset();
@@ -278,7 +261,7 @@ describe("ImageViewer の保存ボタン（041）", () => {
 
     expect(screen.getByTestId("image-viewer-download")).toHaveTextContent("保存");
     expect(screen.queryByTestId("image-viewer-caption")).toBeNull();
-    // 閉じる導線・カウンター（1 枚なら無し）は 033 のまま
+    // 閉じる導線・カウンター（1 枚なら無し）
     expect(screen.getByTestId("image-viewer-close")).toBeTruthy();
     expect(screen.queryByTestId("image-viewer-counter")).toBeNull();
   });
@@ -324,7 +307,7 @@ describe("ImageViewer の保存ボタン（041）", () => {
   });
 });
 
-// 050: タイムラインの密度（T1〜T3）。高さの実測（T5）は artifacts/050/
+// タイムラインの密度（050 T1〜T3。高さの実測 T5 は artifacts/050/）
 describe("PostCard: 密度（050）", () => {
   it("T1: 名前と時刻が 1 行（同じ row の中に「投稿者 · たった今」）で、本文はその直下", () => {
     render(<PostCard post={makePost({ body: "本文です" })} isOwn={false} />);

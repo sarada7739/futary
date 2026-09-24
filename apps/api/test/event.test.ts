@@ -8,7 +8,7 @@ import type { RpcContext } from "../src/context";
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
 
-// post.test.ts と同じ理由（実際の R2 API トークンの設定有無にテストの合否を左右させない）
+// 実際の R2 API トークンの設定有無に合否を左右させない（post.test.ts と同じ）
 const r2Sign: RpcContext["r2Sign"] = {
   accountId: "test-account",
   accessKeyId: "test-access-key-id",
@@ -30,8 +30,7 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
         "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
       )
       .bind(id, name, email, now),
-    // invite.acceptがaccount_id（Googleの識別子）を引く（024）。このファイルは
-    // ペア成立にinvite.acceptを使うため、account行が無いと失敗する
+    // ペア成立に使う invite.accept が account_id（Google の識別子）を引く（024）
     db
       .prepare(
         "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
@@ -118,8 +117,7 @@ describe("event.create / event.list（基本のCRUD）", () => {
     ]);
   });
 
-  // L67（Aの決定）: repeatYearlyはkind='anniversary'のときだけtrueにできる。
-  // 入力スキーマで拒否する（DBのCHECK制約は置かない）
+  // repeatYearly は kind='anniversary' のときだけ true にできる。入力スキーマで拒む（DB の CHECK は置かない）
   it("kind='meetup'にrepeatYearly:trueを指定すると入力バリデーションで弾かれる", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -294,12 +292,9 @@ describe("event.update / event.delete", () => {
   });
 });
 
-// 021: canEditはSQLのWHERE句とは別の言語（TypeScript）で計算される。
-// 「両方に同じことを書いた」ではなく「両方が同じ答えを出す」ことを固定する
-// （docs/tasks/021-plan-ownership.md）。組み合わせはkind3値×isShared2値×
-// 設定者かどうか2値の8通りだが、isSharedはkind='plan'のときしか立てられない
-// ため、anniversary/meetup×isShared=trueは作れない組み合わせとして除外する
-// （Rレビュー指摘: 作れない組み合わせを数えて「一致した」と主張しない）
+// canEdit は SQL の WHERE 句とは別に TypeScript で計算される。両方が同じ答えを出すことを固定する（021）。
+// kind 3 値 × isShared 2 値 × 設定者か 2 値のうち、isShared は plan のときしか立てられないので、
+// anniversary・meetup × isShared=true は作れない組み合わせとして数えない
 describe("021: event.list の canEdit と、event.update/delete の実際の可否が一致する", () => {
   type Case = {
     kind: "anniversary" | "plan" | "meetup";
@@ -359,7 +354,7 @@ describe("021: event.list の canEdit と、event.update/delete の実際の可�
         ).rejects.toMatchObject({ code: "NOT_FOUND" });
       }
 
-      // event.delete の実際の可否（updateで状態が変わった対象とは別のイベントで検証）
+      // event.delete の実際の可否（update で状態が変わった対象とは別のイベントで見る）
       const forDelete = await createEvent(owner, { date: "2026-06-02", kind, isShared, repeatYearly });
       if (expectedCanEdit) {
         const deleted = await call(router.event.delete, { id: forDelete.id }, { context: contextFor(viewer) });
@@ -373,9 +368,7 @@ describe("021: event.list の canEdit と、event.update/delete の実際の可�
   );
 });
 
-// 021: is_sharedはkind='plan'のときだけ立てられる。入力スキーマ・DBのCHECK
-// 制約の両方で保証する（docs/tasks/021-plan-ownership.md「テストで証明する
-// こと」。security-auditor指摘: どちらのテストも無かったため追加した）
+// is_shared は kind='plan' のときだけ立てられる。入力スキーマと DB の CHECK の両方で守る（021）
 describe("021: is_shared は kind='plan' 以外に立てられない", () => {
   it("event.create: kind='anniversary'にisShared:trueを指定すると入力バリデーションで弾かれる", async () => {
     const user = await createUser();
@@ -424,9 +417,8 @@ describe("021: is_shared は kind='plan' 以外に立てられない", () => {
     ).rejects.toThrow();
   });
 
-  // シードのような入力スキーマを通らない書き込み口を想定したCHECK制約である
-  // 以上、Zodを経由せずeventsへ直接INSERTして確かめる（couple.test.tsの
-  // TRIGGER検証・018の重複解消テストと同じ形）
+  // 入力スキーマを通らない書き込み口（シード等）のための CHECK なので、Zod を通さず events へ直接
+  // INSERT して確かめる
   it("DB: kind<>'plan' かつ is_shared=1 のINSERTはCHECK制約で弾かれる", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -460,9 +452,8 @@ describe("021: is_shared は kind='plan' 以外に立てられない", () => {
   });
 });
 
-// 021: 未認証（デモ）閲覧者はwriteProcedureが即FORBIDDENで弾くため、
-// kindに関わらずcanEditは常にfalseになる（computeCanEditの防御線が
-// 消えたときに気づけるよう固定する。security-auditor指摘）
+// 未認証（デモ）の閲覧者は writeProcedure が FORBIDDEN で弾くので、kind に関わらず canEdit は常に
+// false（computeCanEdit の防御線が消えたら気づけるように固定する。021）
 describe("021: 未認証（デモ）閲覧者のcanEditは常にfalse", () => {
   it("anniversary/meetup/plan いずれも canEdit:false で返る", async () => {
     const owner = await createUser();
@@ -486,8 +477,7 @@ describe("021: 未認証（デモ）閲覧者のcanEditは常にfalse", () => {
   });
 });
 
-// architecture.md 5節「繰り返し記念日の射影」。完了条件・タスクファイルの
-// 「テストで証明すること」に列挙された観点をそれぞれ1テストずつ対応させる
+// architecture.md 5節「繰り返し記念日の射影」
 describe("event.list の繰り返し記念日の射影", () => {
   it("repeat_yearly の記念日が、登録年と異なる年の照会で正しく返る", async () => {
     const user = await createUser();
@@ -542,8 +532,8 @@ describe("event.list の繰り返し記念日の射影", () => {
     await createCouple(user);
     await createEvent(user, { date: "2010-06-15", title: "6月15日の記念日", kind: "anniversary", repeatYearly: true });
 
-    // 2026-12-20 〜 2028-01-24 はちょうど400日で2026・2027・2028の3年に触れる
-    // （architecture.md 5節の実例）。06-15 は 2027-06-15 だけが窓に入る
+    // 2026-12-20 〜 2028-01-24 はちょうど 400 日で 2026・2027・2028 の 3 年に触れる（architecture.md 5節の
+    // 実例）。06-15 は 2027-06-15 だけが窓に入る
     const result = await call(
       router.event.list,
       { from: "2026-12-20", to: "2028-01-24" },
@@ -604,7 +594,7 @@ describe("event.list の繰り返し記念日の射影", () => {
   });
 });
 
-// 018・022: 設定者の名前・開始/終了時刻・会った日の一意化
+// 設定者の名前・開始/終了時刻・会った日の一意化（018・022）
 describe("event.create / event.update の startTime/endTime（018・022でtimeから改名）", () => {
   it("anniversaryにstartTimeを付けるとINVALID_INPUTになる", async () => {
     const user = await createUser();
@@ -694,7 +684,7 @@ describe("event.create / event.update の startTime/endTime（018・022でtime�
     ).rejects.toThrow();
   });
 
-  // 022: end_timeはstart_timeが無いと立てられない（入力スキーマ）
+  // end_time は start_time が無いと立てられない（入力スキーマ。022）
   it("startTimeが無いのにendTimeだけ指定するとINVALID_INPUTになる", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -708,7 +698,7 @@ describe("event.create / event.update の startTime/endTime（018・022でtime�
     ).rejects.toThrow();
   });
 
-  // 022: 終了は開始より後。同じ日の中だけで、日をまたがない
+  // 終了は開始より後。同じ日の中だけで、日をまたがない（022）
   it.each([
     ["同じ時刻", "10:00", "10:00"],
     ["開始より前", "10:00", "09:00"],
@@ -734,8 +724,7 @@ describe("event.create / event.update の startTime/endTime（018・022でtime�
     expect(created.endTime).toBe("10:05");
   });
 
-  // 022: シードのような入力スキーマを通らない書き込み口を想定したCHECK制約
-  // （021のis_shared検証と同じ理由。events直接INSERTで確かめる）
+  // 入力スキーマを通らない書き込み口のための CHECK（is_shared と同じ理由で events へ直接 INSERT する）
   it("DB: kind='anniversary'でstart_timeがあるINSERTはCHECK制約で弾かれる", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -797,9 +786,8 @@ describe("event.create / event.list の createdByName（018）", () => {
     expect(result.items[0]?.createdByName).toBe(user.name);
   });
 
-  // created_by は user(id) への外部キー（ON DELETE no action）であり、D1はFK違反を
-  // 常に拒否するため「userが存在しない」状態を実際には作れない（L35・posts.authorNameと
-  // 同じ制約。architecture.md 5節）。null許容にしていることはコードとスキーマで担保する
+  // created_by は user(id) への FK（ON DELETE no action）で、D1 は FK 違反を常に拒むので「user が
+  // 無い」状態は作れない（architecture.md 5節）。null 許容はコードとスキーマで守る
 });
 
 describe("「会った日」は1日1件（018）", () => {
@@ -822,8 +810,7 @@ describe("「会った日」は1日1件（018）", () => {
     expect(result.items[0]?.title).toBe("2件目");
   });
 
-  // 022・Rレビュー指摘: ON CONFLICT DO UPDATEのSET句にend_timeを含め忘れると、
-  // 前の「会った日」の終了時刻が上書きされずに残ってしまう
+  // ON CONFLICT DO UPDATE の SET に end_time を含め忘れると、前の「会った日」の終了時刻が残る
   it("同じ日に2件目のmeetupをcreateすると、endTimeも新しい値で上書きされる（前の終了時刻が残らない）", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -905,12 +892,9 @@ describe("「会った日」は1日1件（018）", () => {
   });
 });
 
-// 0008_event_time_and_meetup_unique.sql の重複解消（DELETE文）のロジックを
-// 単体で検証する。本番のevents表は部分UNIQUEインデックスが既に有効なため
-// 重複データをこの環境で再現できず、マイグレーションSQLそのものを実行する形の
-// テストは書けない（実際のマイグレーション適用はローカルD1で手動確認済み。
-// worklog.md参照）。同一のDELETE文を使い捨てのテーブルに対して実行し、
-// 「最新の1件（created_atが最大、同値ならidが大きい方）が残る」ことだけを検証する
+// 0008_event_time_and_meetup_unique.sql の重複解消（DELETE 文）のロジックを単体で確かめる。本番の
+// events は部分 UNIQUE 索引が有効で重複を再現できないので、同じ DELETE 文を使い捨てのテーブルに
+// 当て、最新の 1 件（created_at が最大、同値なら id が大きい方）が残ることだけを見る
 describe("重複したmeetupの解消ロジック（0008マイグレーションと同一のSQL）", () => {
   it("同じcouple_id・dateの複数meetupのうち、最新の1件だけが残る", async () => {
     await db.exec(
@@ -959,8 +943,7 @@ describe("重複したmeetupの解消ロジック（0008マイグレーション
     }
   });
 
-  // created_atが同値のときのタイブレーク（idが大きい方を残す）。Rレビュー指摘。
-  // この場合だけ大小が結果を左右するため、created_atに差がある上のテストとは別に確認する
+  // created_at が同値のときのタイブレーク（id が大きい方を残す）。この場合だけ大小が結果を左右する
   it("created_atが同値なら、idが大きい方が残る", async () => {
     await db.exec(
       "CREATE TABLE _dedupe_tiebreak_test (id TEXT PRIMARY KEY, couple_id TEXT NOT NULL, date TEXT NOT NULL, kind TEXT NOT NULL, created_at INTEGER NOT NULL)",

@@ -3,8 +3,7 @@ import { ORPCError } from "@orpc/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 024: アカウント削除画面の画面結合テスト。calendar-screen.test.tsxと
-// 同じ形でoRPCクライアントをモックする
+// アカウント削除画面の画面結合テスト（024）。oRPC クライアントはモックする
 const { deleteMeMock, meGetMock, signOutMock, signInSocialMock, backMock } = vi.hoisted(() => ({
   deleteMeMock: vi.fn(),
   meGetMock: vi.fn(),
@@ -26,16 +25,15 @@ vi.mock("../lib/orpc", async () => {
 vi.mock("../lib/auth-client", () => ({
   signOut: signOutMock,
   signIn: { social: signInSocialMock },
-  // useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由で参照する。
-  // このテストでは識別の中身自体は検証しないため固定値を返す（profile-screen.test.tsxと同じ形）
+  // useViewerQueryKey が auth-client 経由で参照する。識別の中身は見ないので固定値
   useSession: () => ({ data: null }),
 }));
 
 const { default: DeleteAccountScreen } = await import("../app/(tabs)/delete-account");
 const { queryClient } = await import("../lib/query");
 
-// 024・Aの決定: 削除確認画面に入れるかはme.get().sessionIsFreshで判定する。
-// 既定は「直近ログイン済み（fresh）」にしておき、reauth固有のテストでのみ上書きする
+// 削除確認画面に入れるかは me.get().sessionIsFresh で判定する。既定は fresh にしておき、再ログインの
+// テストでだけ上書きする
 function makeMe(overrides: Partial<Record<string, unknown>> = {}) {
   return { id: "me", name: "自分", email: "me@example.com", image: null, sessionIsFresh: true, ...overrides };
 }
@@ -55,8 +53,7 @@ function renderScreen() {
   );
 }
 
-// meQuery（me.get）の解決を待ってから段階1の画面が出る。sessionIsFreshが
-// 分かるまで確認フローに入れないため（下の「読み込み中」テスト参照）
+// me.get の解決を待ってから段階1 の画面が出る（sessionIsFresh が分かるまで確認フローに入れない）
 async function goToStage1() {
   renderScreen();
   await screen.findByText("削除すると、次が消えます");
@@ -76,9 +73,8 @@ describe("DeleteAccountScreen: 読み込み中・再認証", () => {
     expect(screen.queryByText("削除すると、次が消えます")).toBeNull();
   });
 
-  // 024・Aの決定: 「削除確認画面に入れるか」はサーバが真偽値で返す
-  // （me.get().sessionIsFresh）。falseなら確認フロー（段階1・2）に入れず、
-  // 先に再ログインを促す
+  // 削除確認画面に入れるかはサーバが真偽値で返す（me.get().sessionIsFresh）。false なら確認フロー
+  // （段階1・2）に入れず、先に再ログインを促す（024）
   it("sessionIsFreshがfalseなら確認フローに入れず、再ログインを促す", async () => {
     meGetMock.mockResolvedValue(makeMe({ sessionIsFresh: false }));
     renderScreen();
@@ -108,9 +104,8 @@ describe("DeleteAccountScreen: 読み込み中・再認証", () => {
     expect(backMock).toHaveBeenCalledTimes(1);
   });
 
-  // 024・Aの決定（T5）: 画面側の事前チェックは通る道を整えるためのもので、
-  // 止めているのはサーバである。確認をやり切る間に5分を跨いだ場合、
-  // me.deleteはREAUTH_REQUIREDで拒む。画面はこれも同じ再ログイン画面に落とす
+  // 画面の事前チェックは道を整えるためのもので、止めるのはサーバ。確認の途中で 5 分を跨ぐと me.delete は
+  // REAUTH_REQUIRED で拒む。画面はこれも同じ再ログイン画面に落とす（024 T5）
   it("確認をやり切った後にREAUTH_REQUIREDが返ると、再ログイン画面に切り替わる", async () => {
     deleteMeMock.mockRejectedValue(new ORPCError("REAUTH_REQUIRED", { defined: true }));
     await goToStage2();
@@ -154,8 +149,7 @@ describe("DeleteAccountScreen: 段階2（相手のデータも消えることの
     expect(warning.textContent).toContain("相手には事前に知らせません");
   });
 
-  // 024タスク定義「既定で押せる状態にしない」。チェックを入れるまで
-  // 最終ボタンが押せない
+  // 既定で押せる状態にしない。チェックを入れるまで最終ボタンは押せない（024）
   it("チェックを入れるまで最終ボタンが押せない", async () => {
     await goToStage2();
 
@@ -181,10 +175,8 @@ describe("DeleteAccountScreen: 段階2（相手のデータも消えることの
     expect(signOutMock).toHaveBeenCalledTimes(1);
   });
 
-  // 【security-auditor指摘】削除自体は成功したのにsignOut()側が失敗すると、
-  // 同じtryで拾っていた頃は「削除できませんでした」と誤って表示していた
-  // （実際には既に消えている）。削除の成否とsignOut()の成否を分けたことを
-  // 直接確認する
+  // 削除は成功して signOut() だけ失敗したときに「削除できませんでした」と出さない（実際には消えている）。
+  // 削除の成否と signOut() の成否を分けていることを見る
   it("me.deleteが成功していれば、signOutが失敗してもエラーメッセージは出ない", async () => {
     deleteMeMock.mockResolvedValue({ ok: true });
     signOutMock.mockRejectedValue(new Error("signOut failed"));

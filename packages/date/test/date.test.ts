@@ -88,7 +88,7 @@ describe("addDays", () => {
 });
 
 describe("dayOfWeek", () => {
-  // 2026-02-01 は日曜（011タスクファイル・AのPR #84の実測値の前提）
+  // 2026-02-01 は日曜
   it("日曜は0", () => {
     expect(dayOfWeek("2026-02-01")).toBe(0);
   });
@@ -150,9 +150,8 @@ describe("jstMonthRangeMs（037 aiSummary.generateの月範囲検索で使う）
   });
 });
 
-// 037: ISO 8601週（月曜始まり）。年またぎが一番ずれるため、Wikipediaの
-// ISO 8601記事に載っている検証済みの例をそのまま使う
-// （2005-01-01は2004-W53-6、2018-12-31は2019-W01-1）
+// ISO 8601 週（月曜始まり。037）。年またぎが一番ずれるので、ISO 8601 の記事に載っている検証済みの例を
+// 使う（2005-01-01 は 2004-W53-6、2018-12-31 は 2019-W01-1）
 describe("isoWeekKey（ISO 8601週。037 aiSummaryの週次で使う）", () => {
   it("通常の週（年をまたがない）", () => {
     // 2007-01-01は月曜で、2007-W01-1（ISOの教科書的な単純ケース）
@@ -212,11 +211,8 @@ describe("jstWeekRangeMs（037 aiSummary.generateの週範囲検索で使う）"
   });
 });
 
-// 037・security-auditor指摘: periodKeyの妥当性検証（例: 2025-W53は
-// 存在しない）に使う。特定の年が52週か53週かを暗記して決め打ちで
-// テストするのではなく、「その年の週1月曜から翌年の週1月曜までの日数」
-// という独立した計算と付き合わせることで正しさを確かめる
-// （測ってから書く。特定年の週数を記憶だけで断定しない）
+// periodKey の妥当性検証（2025-W53 は存在しない等）に使う。年ごとの週数を決め打ちせず、「その年の
+// 週1月曜から翌年の週1月曜までの日数」という独立した計算と突き合わせる
 describe("isoWeeksInYear", () => {
   it("その年の週1月曜から翌年の週1月曜までの日数と、7×週数が一致する", () => {
     for (const year of [2004, 2015, 2019, 2020, 2024, 2026, 2032]) {
@@ -238,9 +234,8 @@ describe("isoWeeksInYear", () => {
 });
 
 describe("formatJstDate / formatJstDateTime", () => {
-  // L64（Rレビュー指摘）: timeZoneを明示しないtoLocaleDateString/toLocaleStringは
-  // 端末のタイムゾーンで解釈され、JST基準の投稿日付が1日ずれる不具合があった。
-  // 2026-03-15T23:30:00Z はJSTでは2026-03-16 08:30（UTCでは前日のまま）
+  // timeZone を明示しない toLocaleDateString・toLocaleString は端末のタイムゾーンで解釈され、JST の日付が
+  // 1 日ずれる。2026-03-15T23:30:00Z は JST では 2026-03-16 08:30
   const unixSeconds = Date.UTC(2026, 2, 15, 23, 30, 0) / 1000;
 
   it("formatJstDate はUTCで前日でもJSTの日付を返す", () => {
@@ -252,52 +247,30 @@ describe("formatJstDate / formatJstDateTime", () => {
   });
 });
 
+// packages/contract の anniversaryDateSchema（couple.ts）が使う。packages/date の外では
+// new Date() を書けない（ESLint のルール）ので、daysInMonth で判定する
 describe("isValidDate", () => {
-  // packages/contract の anniversaryDateSchema（couple.ts）が使う。
-  // 従来はISO文字列をnew Date()でパースしてNaN判定していたが、
-  // packages/date外でnew Date()を書けなくなった（L63のESLintルール）ため
-  // daysInMonthベースの判定に置き換えた
-  it("実在する日付はtrue", () => {
-    expect(isValidDate("2026-01-15")).toBe(true);
-  });
-
-  it("31日を持たない月の31日はfalse", () => {
-    expect(isValidDate("2026-04-31")).toBe(false);
-  });
-
-  it("平年の02-29はfalse", () => {
-    expect(isValidDate("2026-02-29")).toBe(false);
-  });
-
-  it("うるう年の02-29はtrue", () => {
-    expect(isValidDate("2024-02-29")).toBe(true);
-  });
-
-  it("月が範囲外はfalse", () => {
-    expect(isValidDate("2026-13-01")).toBe(false);
-    expect(isValidDate("2026-00-01")).toBe(false);
-  });
-
-  it("日が0以下はfalse", () => {
-    expect(isValidDate("2026-01-00")).toBe(false);
+  it.each([
+    ["実在する日付", "2026-01-15", true],
+    ["31日を持たない月の31日", "2026-04-31", false],
+    ["平年の02-29", "2026-02-29", false],
+    ["うるう年の02-29", "2024-02-29", true],
+    ["月が範囲外（13）", "2026-13-01", false],
+    ["月が範囲外（0）", "2026-00-01", false],
+    ["日が0", "2026-01-00", false],
+  ] as const)("%s（%s）は %s", (_label, date, expected) => {
+    expect(isValidDate(date)).toBe(expected);
   });
 });
 
 describe("isLeapYear", () => {
-  it("4で割り切れる年はうるう年", () => {
-    expect(isLeapYear(2024)).toBe(true);
-  });
-
-  it("4で割り切れない年はうるう年でない", () => {
-    expect(isLeapYear(2026)).toBe(false);
-  });
-
-  it("100で割り切れるが400で割り切れない年はうるう年でない", () => {
-    expect(isLeapYear(1900)).toBe(false);
-  });
-
-  it("400で割り切れる年はうるう年", () => {
-    expect(isLeapYear(2000)).toBe(true);
+  it.each([
+    ["4で割り切れる年はうるう年", 2024, true],
+    ["4で割り切れない年はうるう年でない", 2026, false],
+    ["100で割り切れるが400で割り切れない年はうるう年でない", 1900, false],
+    ["400で割り切れる年はうるう年", 2000, true],
+  ] as const)("%s（%i）", (_label, year, expected) => {
+    expect(isLeapYear(year)).toBe(expected);
   });
 });
 
@@ -324,9 +297,8 @@ describe("monthsBefore / yearsBefore", () => {
     expect(monthsBefore("2026-01-15", 1)).toBe("2025-12-15");
   });
 
-  // 「存在しない日付は、その月の末日に寄せる」（architecture.md 5節。Aの決定)。
-  // 素のDateは翌月へ繰り上げる（2026-03-31の1ヶ月前が2026-03-03になる）が、
-  // それは採らない
+  // 存在しない日付は、その月の末日に寄せる（architecture.md 5節）。素の Date は翌月へ繰り上げる
+  // （2026-03-31 の 1 ヶ月前が 2026-03-03）が、それは採らない
   it("月末を超える日はその月の末日に寄せる（翌月へ繰り上げない）", () => {
     expect(monthsBefore("2026-03-31", 1)).toBe("2026-02-28");
   });
@@ -342,9 +314,8 @@ describe("monthsBefore / yearsBefore", () => {
     expect(yearsBefore("2026-03-15", 1)).toBe("2025-03-15");
   });
 
-  // yearsBefore は monthsBefore(date, n*12) として同じ規則に乗る。
-  // 個別実装すると、うるう日を平年へ寄せる規則が2箇所に分かれて食い違う
-  // 経路が生まれていた（Rレビュー指摘で実際に発生。architecture.md 5節）
+  // yearsBefore は monthsBefore(date, n*12) として同じ規則に乗る（個別に実装すると、うるう日を平年へ
+  // 寄せる規則が 2 箇所に分かれて食い違う。architecture.md 5節）
   it("うるう日から平年への1年前は02-28に寄せる", () => {
     expect(yearsBefore("2024-02-29", 1)).toBe("2023-02-28");
   });
@@ -353,7 +324,7 @@ describe("monthsBefore / yearsBefore", () => {
     expect(yearsBefore("2024-02-29", 4)).toBe("2020-02-29");
   });
 
-  // architecture.md 5節の実例そのもの（Aの決定に添えられた反例）
+  // architecture.md 5節の実例そのもの
   it("architecture.md 5節の実例: 2028-02-29の1年前は2027-02-28", () => {
     expect(yearsBefore("2028-02-29", 1)).toBe("2027-02-28");
   });
@@ -400,7 +371,7 @@ describe("projectMonthDay", () => {
   });
 });
 
-// 041: アルバムの表示用の整形
+// アルバムの表示用の整形（041）
 describe("formatDateJa / formatDateRangeJa", () => {
   it("YYYY-MM-DD を「2026年8月15日」にする（ゼロ埋めしない）", () => {
     expect(formatDateJa("2026-08-05")).toBe("2026年8月5日");
@@ -414,7 +385,7 @@ describe("formatDateJa / formatDateRangeJa", () => {
   });
 });
 
-// 048 段階2: マイページの「プレミアム（9月15日に更新）」
+// マイページの「プレミアム（9月15日に更新）」（048）
 describe("formatJstMonthDayJa", () => {
   it("JST の暦日の月日をゼロ埋め無しで。UTC 15:00 は JST 翌日", () => {
     expect(formatJstMonthDayJa(Date.UTC(2026, 8, 5, 14, 59, 59) / 1000)).toBe("9月5日");

@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildMonthGrid, monthGridRange } from "../lib/calendar";
 
-// 011タスクファイル・AのPR #84（docs/tasks/011-calendar-ui.md）が実測した値。
-// 日〜土始まりの月グリッド。todayJst・addMonths等の日付そのものの計算は
-// @futary/date（packages/date/test/date.test.ts）でテスト済み（architecture.md
-// 5節「日付計算は packages/date に置く」）。ここは表示用のグリッド構築のみを扱う
+// 日〜土始まりの月グリッド（011）。日付そのものの計算は @futary/date でテストしている（architecture.md
+// 5節「日付計算は packages/date に置く」）。ここは表示用のグリッド構築だけ
 describe("monthGridRange", () => {
   it("2026年12月: 年をまたいで翌年1月まで届く（35日）", () => {
     expect(monthGridRange(2026, 12)).toEqual({ from: "2026-11-29", to: "2027-01-02" });

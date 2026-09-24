@@ -3,16 +3,9 @@ import { describe, expect, it } from "vitest";
 import app from "../src/index";
 import type { Bindings } from "../src/index";
 
-// oRPC の RPCHandler は既定（strictGetMethodPluginEnabled を渡さない場合）で
-// StrictGetMethodPlugin を自動登録しており、GET経由での書き込み手続き実行は
-// 元々拒否されている（M2まとめ監査で「GETが通ってしまう」という誤ったHigh
-// 指摘が出たが、Rレビューで既定値を確認し誤りと判明した。詳細は
-// docs/security-report.md M2まとめ監査エントリのHigh行参照）。
-// apps/api/src/index.ts での明示登録（ライブラリの既定に依存しない防御。
-// 既定の自動登録と合わせて2重登録になるが実害は無い）がこの動作を固定して
-// いることを、実際に Hono の app.fetch を経由して検証する（call() 経由の
-// テストでは HTTP メソッドという概念自体が無いため、ここでは HTTP レイヤー
-// ごと確認する）
+// GET で書き込み手続きを実行できない。oRPC の RPCHandler は既定で StrictGetMethodPlugin を登録するが、
+// apps/api/src/index.ts でも明示的に登録して（ライブラリの既定に依存しない。2 重登録に実害は無い）固定する。
+// call() には HTTP メソッドが無いので、Hono の app.fetch を経由して HTTP レイヤーごと確かめる
 describe("書き込み手続きは GET で実行できない（fix/reject-get-writes）", () => {
   it("GET経由で couple.update を呼ぶと METHOD_NOT_SUPPORTED（405）になり、手続きは実行されない", async () => {
     const data = encodeURIComponent(JSON.stringify({ json: { datingDate: "2020-01-01" } }));

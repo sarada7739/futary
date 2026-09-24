@@ -10,9 +10,8 @@ import type { RpcContext } from "../src/context";
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
 
-// 実際の R2 API トークン（.dev.vars の R2_ACCOUNT_ID 等）の設定有無に
-// テストの合否が左右されないよう、署名鍵はテスト固有の固定値を使う。
-// 署名の生成自体はネットワークを伴わない計算のため、実在のキーでなくても動く
+// 実際の R2 API トークン（.dev.vars）の設定有無に合否を左右させないよう、署名鍵はテスト固有の
+// 固定値を使う（署名はネットワークを伴わない計算なので、実在のキーでなくても動く）
 const r2Sign: RpcContext["r2Sign"] = {
   accountId: "test-account",
   accessKeyId: "test-access-key-id",
@@ -58,8 +57,7 @@ async function createCouple(user: { id: string; name: string; email: string }) {
   return call(router.couple.create, {}, { context: contextFor(user) });
 }
 
-// created_at を直接指定して投稿を作る（同一秒の重複・欠落テストのため、
-// post.create の now() 依存を避けて直接DBへ挿入する）
+// created_at を指定して投稿を作る（同一秒の重複・欠落テストのため、post.create の now() を避けて直接 INSERT）
 async function insertPost(coupleId: string, authorId: string, createdAt: number, body = "テスト投稿"): Promise<string> {
   const id = crypto.randomUUID();
   await db
@@ -69,9 +67,8 @@ async function insertPost(coupleId: string, authorId: string, createdAt: number,
   return id;
 }
 
-// post.uploadUrl を経由せず R2 に直接オブジェクトを置く。「アップロード済み」を模擬する。
-// post.create は Content-Type も検証する（007 security-auditor 指摘）ため、
-// 正規のアップロードと同じ image/jpeg を付与する
+// post.uploadUrl を経由せず R2 に直接置いて「アップロード済み」を模擬する。post.create は
+// Content-Type も検証するので、正規のアップロードと同じ image/jpeg を付ける
 async function uploadTestImage(coupleId: string, sizeBytes = 100, contentType = "image/jpeg"): Promise<string> {
   const imageId = generateImageId();
   await bucket.put(imageKeyFor(coupleId, imageId), new Uint8Array(sizeBytes), {
@@ -80,8 +77,7 @@ async function uploadTestImage(coupleId: string, sizeBytes = 100, contentType = 
   return imageId;
 }
 
-// 031: post.create の images 入力を組み立てる。widthsの長さぶん、
-// アップロード済みのimageIdを発行して並べる
+// post.create の images 入力を組み立てる（widths の長さぶん、アップロード済みの imageId を並べる）
 async function uploadTestImages(
   coupleId: string,
   widths: number[],
@@ -123,7 +119,7 @@ describe("post.create", () => {
     expect(post.images[0]?.height).toBe(600);
   });
 
-  // 031: 1投稿に画像を4枚まで。並び順は渡した順（position 0..3）のまま返る
+  // 1 投稿に画像を 4 枚まで。並び順は渡した順（position 0..3）のまま返る（031）
   it("複数枚（4枚）を指定すると、渡した順に position 0..3 で保存され、その順で返る", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -174,7 +170,7 @@ describe("post.create", () => {
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 
-  // 031タスク定義5節「imagesが空配列のときは、無いものとして扱う（undefinedと分けない）」
+  // images が空配列のときは、無いものとして扱う（undefined と分けない。031 5節）
   it("imagesが空配列でも、本文が空なら省略時と同じくINVALID_INPUT", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -206,9 +202,8 @@ describe("post.create", () => {
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 
-  // 031タスク定義5節「1枚でも欠けていたら、投稿ごと拒む。部分的に作らない」。
-  // 1枚目はアップロード済み・2枚目は未アップロードという状態で、
-  // 1枚目すら書かれていないことまで確認する
+  // 1 枚でも欠けていたら投稿ごと拒む（031 5節）。1 枚目はアップロード済み・2 枚目は未アップロードで、
+  // 1 枚目すら書かれていないことまで見る
   it("複数枚のうち1枚でもR2に実体が無ければ、投稿ごと拒まれる（1枚も書かれていない）", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -294,7 +289,7 @@ describe("post.create", () => {
       ),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
 
-    // Bの実体自体は無事（Aの操作でBのオブジェクトが消えたりしない）
+    // B の実体は無事（A の操作で B のオブジェクトが消えたりしない）
     expect(await bucket.head(imageKeyFor(coupleB.id, imageIdOfB))).not.toBeNull();
     // coupleA 側には何も作られていない
     expect(await bucket.head(imageKeyFor(coupleA.id, imageIdOfB))).toBeNull();
@@ -372,9 +367,8 @@ describe("post.list", () => {
     expect(result.items.map((p) => p.body)).toEqual(["Aの投稿"]);
   });
 
-  // 完了条件: 同一秒に3件投稿してもページングで重複・欠落しない。
-  // 20件目/21件目の境界に同一 created_at のタイ集団をまたがせ、複合カーソル
-  // （created_at, id）が境界を正しく割ることを検証する
+  // 同一秒に 3 件投稿してもページングで重複・欠落しない。20 件目・21 件目の境界に同じ created_at の
+  // 集団をまたがせ、複合カーソル（created_at, id）が境界を正しく割ることを見る
   it("ページ境界に同一秒の投稿が重複しても、全ページを辿ると重複・欠落しない", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -434,22 +428,7 @@ describe("post.list", () => {
     expect(result.items[0]?.images[0]?.url).not.toBeNull();
   });
 
-  // 031: imageUrl（単数）は契約から消した。post.listのレスポンスに
-  // 残っていないことを確認する（タスク定義「テストで証明すること」）
-  it("post.list に imageUrl（単数）が残っていない", async () => {
-    const user = await createUser();
-    const couple = await createCouple(user);
-    const images = await uploadTestImages(couple.id, [800]);
-    await call(router.post.create, { body: "", images }, { context: contextFor(user) });
-
-    const result = await call(router.post.list, {}, { context: contextFor(user) });
-    expect(result.items[0]).not.toHaveProperty("imageUrl");
-    expect(result.items[0]).not.toHaveProperty("imageWidth");
-    expect(result.items[0]).not.toHaveProperty("imageHeight");
-  });
-
-  // 031: post_imagesのORDER BY positionが、一覧のimages配列の並び順に
-  // そのまま反映されることを確認する
+  // post_images の ORDER BY position が、一覧の images の並び順にそのまま出る（031）
   it("画像の並び順が position のとおりに返る", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -460,7 +439,7 @@ describe("post.list", () => {
     expect(result.items[0]?.images.map((i) => i.width)).toEqual([111, 222, 333]);
   });
 
-  // 008・architecture.md 5節: 投稿カードの投稿者名・アバターのため
+  // 投稿カードの投稿者名・アバターのため（architecture.md 5節）
   it("投稿者の名前・アバターを含む", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -472,10 +451,8 @@ describe("post.list", () => {
     expect(result.items[0]?.authorImage).toBeNull();
   });
 
-  // 「user 行が無くても投稿が落ちない」テストはここに置かない。
-  // posts.author_id は user への FK を持ち、その状態はクライアント可観測な
-  // 操作からは構築できない（到達不能）。設計上の理由は architecture.md 5節、
-  // 経緯は state.md L37 参照
+  // 「user 行が無くても投稿が落ちない」テストは置かない。posts.author_id は user への FK を持ち、
+  // その状態はクライアントから観測できる操作では作れない（architecture.md 5節）
 });
 
 describe("post.delete", () => {
@@ -494,12 +471,9 @@ describe("post.delete", () => {
     expect(row?.deleted_at).not.toBeNull();
   });
 
-  // 031・security-auditor指摘: post_imagesのDELETE文はEXISTS(posts WHERE
-  // id=?1 AND couple_id=?2)で他ペアを弾いているが、これを固定するテストが
-  // 無かった（reactionsと同じ形のEXISTS句が抜けると、UPDATEは0件でNOT_FOUND
-  // になる一方でDELETEだけが無条件で成立し「投稿は消せないが画像だけ消せる」
-  // 経路が生まれうる）。Aの画像付き投稿を持たせ、image_key（他ペアの
-  // post_images行・R2実体）に影響が無いことまで確認する
+  // post_images の DELETE は EXISTS(posts WHERE id=?1 AND couple_id=?2) で他ペアを弾く。この句が抜けると、
+  // UPDATE は 0 件で NOT_FOUND になる一方で DELETE だけが成立し、「投稿は消せないが画像だけ消せる」
+  // 経路ができる。A の画像付き投稿を持たせ、他ペアの post_images 行・R2 の実体に影響が無いことまで見る
   it("他ペアの投稿IDを指定すると NOT_FOUND になり、対象は削除されない（画像・post_imagesも含めて）", async () => {
     const userA = await createUser();
     const coupleA = await createCouple(userA);
@@ -559,8 +533,7 @@ describe("post.delete", () => {
     ).rejects.toMatchObject({ code: "NEEDS_ONBOARDING" });
   });
 
-  // 031タスク定義6節: 「枚数ぶん消す」「post_imagesの行も消す（論理削除を
-  // 持たせない）」。4枚とも消えることを確認する
+  // 枚数ぶん消し、post_images の行も消す（論理削除を持たせない。031 6節）
   it("画像付きの投稿を削除すると、枚数ぶんR2のオブジェクトも post_images の行も消える", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -580,9 +553,8 @@ describe("post.delete", () => {
     expect(row?.count).toBe(0);
   });
 
-  // 031: 論理削除を持たせない設計（post_imagesの行は物理削除される）ため、
-  // R2の削除に失敗してもDB側の行はposts更新と同じbatch()で既に消えている。
-  // R2に残った実体は孤児として受け入れる（architecture.md 6節の既定を変えない）
+  // post_images の行は posts の更新と同じ batch() で物理削除されるので、R2 の削除に失敗しても DB 側は
+  // 既に消えている。R2 に残った実体は孤児として受け入れる（architecture.md 6節）
   it("R2の削除に失敗しても post.delete は成功として返り、post_images の行は消える", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -598,13 +570,13 @@ describe("post.delete", () => {
     const result = await call(router.post.delete, { id: post.id }, { context: { ...contextFor(user), bucket: failingBucket } });
     expect(result.id).toBe(post.id);
 
-    // post_images の行は既に消えている（DB側はbatch()で先に確定する）
+    // post_images の行は既に消えている（DB 側は batch() で先に確定する）
     const row = await db
       .prepare("SELECT COUNT(*) AS count FROM post_images WHERE post_id = ?1")
       .bind(post.id)
       .first<{ count: number }>();
     expect(row?.count).toBe(0);
-    // 実際には削除を試みていない（failingBucket）ため実体はR2に孤児として残る
+    // 削除を試みていない（failingBucket）ので実体は R2 に孤児として残る
     expect(await bucket.head(key)).not.toBeNull();
   });
 });

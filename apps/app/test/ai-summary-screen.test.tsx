@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 037: AIまとめ画面の結合テスト。mood-screen.test.tsxと同じ形でoRPCクライアントをモックする
+// AI まとめ画面の結合テスト（037）。oRPC クライアントは mood-screen.test.tsx と同じ形でモックする
 const { meGetMock, getMock, generateMock, pushMock } = vi.hoisted(() => ({
   meGetMock: vi.fn(),
   getMock: vi.fn(),
@@ -15,8 +15,7 @@ vi.mock("expo-router", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
-// useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由でuseSessionを
-// 参照する。expo-router等と同じ理由でモックする（home-screen.test.tsxと同じ形）
+// useViewerQueryKey が auth-client 経由で useSession を参照するのでモックする
 vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
@@ -124,9 +123,8 @@ describe("AiSummaryScreen: 生成", () => {
       generatedCount: 1,
     };
     generateMock.mockResolvedValue(generated);
-    // 生成後、aiSummary.getのキャッシュを無効化して再取得する（画面側の実装）。
-    // 実際のサーバなら再取得結果が更新されているはずなので、テストでも
-    // 初回はnull・生成後の再取得ではgeneratedを返すようにする
+    // 生成後に aiSummary.get のキャッシュを無効化して再取得する。初回は null、生成後の再取得では
+    // generated を返す
     getMock.mockResolvedValueOnce(null).mockResolvedValue(generated);
 
     renderScreen();
@@ -230,12 +228,8 @@ describe("AiSummaryScreen: ゲスト（デモ）", () => {
 });
 
 describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
-  // 【Rレビュー指摘R-3】このテストの題名は「前月・翌月ボタンで」なのに
-  // 実際には前月しか押していなかった（conventions.md 6節「期待値と
-  // 突き合わせるテストが見ないもの」）。既定が先月のため、翌月へ1回
-  // 戻す（＝前月とは逆方向へ1回）操作を確かめないと、翌月ボタン自体は
-  // 一度も検証されないまま緑になる。前月へ移動してから翌月で元へ戻す
-  // 形で両方向を確かめる
+  // 既定は先月。前月へ移動してから翌月で元へ戻す形で、両方向のボタンを確かめる（前月だけだと翌月
+  // ボタンは一度も通らない）
   it("前月・翌月ボタンで表示される月が変わる（両方とも押す）", async () => {
     meGetMock.mockResolvedValue(makeMe({ aiOptIn: true, partnerAiOptIn: true }));
 
@@ -252,9 +246,7 @@ describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
       afterPrev = latest;
     });
 
-    // 翌月ボタンで前月移動を打ち消し、最初の（先月の）periodKeyへ戻ることを
-    // 確かめる。既定は先月＝翌月ボタンがまだ押せる位置なので、ここでは
-    // 無効化されていない
+    // 翌月ボタンで最初の（先月の）periodKey へ戻る。既定の先月では翌月ボタンはまだ押せる
     fireEvent.click(screen.getByLabelText("翌月"));
     await waitFor(() => {
       const latest = getMock.mock.calls.at(-1)?.[0] as { periodKind: string; periodKey: string };
@@ -263,11 +255,8 @@ describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
     });
   });
 
-  // 【Rレビュー指摘R-3の本題】既定の先月から翌月ボタンを1回押すと今月に
-  // 入り、サーバがINVALID_INPUTで拒む→「読み込めませんでした」になる
-  // （再試行しても今月を指定し続ける限り永久に失敗する）詰まりがあった。
-  // エラーにする代わりに、そもそも今月へは進めないようボタン自体を
-  // 押せなくする（020「押せないボタンを置かない」）
+  // 既定の先月から翌月を押すと今月に入り、サーバが INVALID_INPUT で拒み続ける。今月へは進めないよう
+  // ボタン自体を押せなくする（020「押せないボタンを置かない」）
   it("既定（先月）表示では翌月ボタンが押せない（今月へは進めない）", async () => {
     meGetMock.mockResolvedValue(makeMe({ aiOptIn: true, partnerAiOptIn: true }));
 
@@ -279,8 +268,7 @@ describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
     expect(nextButton.getAttribute("aria-disabled")).toBe("true");
 
     fireEvent.click(nextButton);
-    // disabledなPressableはonPressが発火しない。問い合わせ回数が
-    // 増えていない（＝今月へ進まなかった）ことで確認する
+    // disabled な Pressable は onPress が発火しない。問い合わせ回数が増えない（今月へ進まない）ことで見る
     expect(getMock.mock.calls.length).toBe(callCountBefore);
   });
 
@@ -297,7 +285,7 @@ describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
     });
   });
 
-  // 【Rレビュー指摘R-3】月と同じく、前週だけでなく翌週も押す
+  // 月と同じく、前週だけでなく翌週も押す
   it("週表示で前週・翌週ボタンを押すと表示される週が変わる（両方とも押す）", async () => {
     meGetMock.mockResolvedValue(makeMe({ aiOptIn: true, partnerAiOptIn: true }));
 
@@ -322,8 +310,7 @@ describe("AiSummaryScreen: 期間の移動と月/週の切り替え", () => {
     });
   });
 
-  // 月と同じ詰まりが週にもある（既定が先週のため、翌週ボタンを1回押すと
-  // 今週に入りINVALID_INPUTになる）
+  // 月と同じく、既定の先週から翌週を押すと今週に入る
   it("既定（先週）表示では翌週ボタンが押せない（今週へは進めない）", async () => {
     meGetMock.mockResolvedValue(makeMe({ aiOptIn: true, partnerAiOptIn: true }));
 

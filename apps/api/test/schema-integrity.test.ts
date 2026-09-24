@@ -4,29 +4,18 @@ import type { Bindings } from "../src/index";
 
 const db = (env as unknown as Bindings).DB;
 
-// architecture.md 4節「実体とファイルのずれを、1つのテストで固定する」
-// （018・019・Rの提案）。
+// architecture.md 4節「実体とファイルのずれを、1つのテストで固定する」。
+// DB に実在するものと drizzle のスキーマファイルから読めるものがずれる経路を、振る舞いのテストとは
+// 別に固定する:
+// - events_meetup_unique（部分 UNIQUE 索引）は表を作り直せば消え、誰も宣言していない状態になりうる
+// - couples_married_date_required_*（TRIGGER）は drizzle のスキーマに現れず、スナップショットでは
+//   CHECK と記録されるので drizzle-kit generate も差分を出さない
+// - 表を作り直すマイグレーションで CHECK が落ちても、名前だけの走査では気づけない（CHECK は
+//   CREATE TABLE 文の中にしか現れない。architecture.md 4節「CHECKには必ず名前を付ける」）
 //
-// これまでに見つかった「DBに実在するものと、drizzleのスキーマファイルから
-// 読めるものがずれる」経路を、振る舞いのテストとは別に固定する:
-// - 018: events_meetup_unique（部分UNIQUEインデックス）は表を作り直せば消える。
-//   誰も宣言していない状態になりうる
-// - 019: couples_married_date_required_*（TRIGGER）はdrizzleのスキーマに
-//   現れない
-// - 019: 上記のTRIGGERはdrizzleのスナップショットではCHECKと記録されるため、
-//   drizzle-kit generateは差分を検出しない
-// - 022: 表を作り直すマイグレーションでCHECK制約が落ちても、名前だけ見る
-//   走査では気づけない（CHECKはsqlite_masterではtype='table'のCREATE TABLE文
-//   の中にしか現れない。architecture.md 4節「CHECKには必ず名前を付ける」）
-// - 014: events_repeat_yearly_check は018で入れたつもりで実際には
-//   入っていなかった（Rが実測）。存在しない制約に仕様が乗っていた例
-//
-// 振る舞いのテスト（例: event.test.tsの「同じ日に2件目のmeetupを作ると
-// 1件のまま」）は制約が効くことを証明するが、制約が存在することは証明しない。
-// events_meetup_unique からWHERE句が落ちてもUNIQUE (couple_id, date)として
-// 生き残り、振る舞いのテストは通ったまま「記念日と予定を同じ日に1件ずつしか
-// 置けない」という別の壊れ方をする。sql列まで突き合わせる（名前だけでは
-// 足りない。Rの指摘）
+// 振る舞いのテストは制約が効くことを証明するが、存在することは証明しない。events_meetup_unique から
+// WHERE 句が落ちても UNIQUE (couple_id, date) として残り、振る舞いのテストは通ったまま「記念日と
+// 予定を同じ日に 1 件ずつしか置けない」別の壊れ方をする。なので sql 列まで突き合わせる
 interface SchemaObjectRow {
   type: "index" | "trigger";
   name: string;
@@ -45,11 +34,8 @@ async function listIndexesAndTriggers(): Promise<SchemaObjectRow[]> {
   return results;
 }
 
-// CREATE TABLE の全文は比較しない。列を1つ足すだけで落ち、「CHECKが消えた」
-// ではなく「本文が違う」という原因の分からない壊れ方になる（Aの指摘）。
-// 名前の付いたCHECK制約だけを CONSTRAINT "<name>" CHECK(...) の形で抜き出す
-// （sqlite_masterのsqlから拾えるのは名前の付いたCHECKだけ。architecture.md
-// 4節「CHECKには必ず名前を付ける」）
+// CREATE TABLE の全文は比べない（列を 1 つ足すだけで落ち、原因の分からない壊れ方になる）。
+// 名前の付いた CHECK だけを CONSTRAINT "<name>" CHECK(...) の形で抜き出す
 function extractNamedChecks(createTableSql: string): string[] {
   const pattern = /CONSTRAINT "([^"]+)" CHECK/g;
   return [...createTableSql.matchAll(pattern)]
@@ -71,7 +57,7 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     const objects = await listIndexesAndTriggers();
 
     expect(objects.map((o) => `${o.type}:${o.name}`)).toEqual([
-      // 057: 運営の操作の記録（直近 N 件を created_at 降順で）
+      // 運営の操作の記録（直近 N 件を created_at 降順で。057）
       "index:admin_actions_created_idx",
       "index:album_photos_album_taken_idx",
       "index:album_photos_key_unique",
@@ -96,9 +82,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     ]);
   });
 
-  // 045・T9: couple_plans は索引・TRIGGER・名前付き CHECK を持たない（PK の自動索引は sqlite_% で
-  // 除かれる）ため、上の一覧では拾えない。表の実体（列）を sqlite_master の CREATE TABLE 文から
-  // 確かめる。列が 1 つ消えても・型が変わっても赤になる
+  // couple_plans は索引・TRIGGER・名前付き CHECK を持たない（PK の自動索引は sqlite_% で除かれる）ので、
+  // 上の一覧では拾えない。列を CREATE TABLE 文から確かめる（列が消えても型が変わっても赤。045 T9）
   it("couple_plans の表が実体にあり、列が定義どおり（couple_id PK・plan・source DEFAULT 'manual'・expires_at・updated_at）", async () => {
     const row = await db
       .prepare(`SELECT sql AS sql FROM sqlite_master WHERE type = 'table' AND name = 'couple_plans'`)
@@ -115,8 +100,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(extractNamedChecks(sql)).toEqual([]);
   });
 
-  // 048 段階2・P9: 0024_couple_plans_stripe（ALTER TABLE ADD COLUMN × 2）が当たっている。
-  // sqlite_master の sql は CREATE 文に ADD COLUMN が追記された形になる
+  // 0024_couple_plans_stripe（ADD COLUMN × 2）が当たっている。sqlite_master の sql は CREATE 文に
+  // ADD COLUMN が追記された形になる（048）
   it("couple_plans に stripe_customer_id・stripe_subscription_id（text）・stripe_cancel_at（integer）がある。NULL 可・UNIQUE 無し", async () => {
     const columns = await db.prepare("PRAGMA table_info(couple_plans)").all<{ name: string; type: string; notnull: number }>();
     const byName = new Map(columns.results.map((c) => [c.name, c]));
@@ -129,8 +114,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(indexes.results).toEqual([]);
   });
 
-  // 057 T8: 0025_admin_actions。運営の操作の記録。FK を張らない（退会しても残す。couple_id は消えたペアの id のまま）。
-  // created_at の索引 1 つ
+  // 0025_admin_actions。FK を張らない（退会しても残す。couple_id は消えたペアの id のまま）。
+  // created_at の索引 1 つ（057 T8）
   it("admin_actions の表が実体にあり、列が定義どおり。FK 無し。created_at の索引がある", async () => {
     const columns = await db.prepare("PRAGMA table_info(admin_actions)").all<{ name: string; type: string; notnull: number; pk: number }>();
     expect(columns.results.map((c) => [c.name, c.type, c.notnull, c.pk])).toEqual([
@@ -148,9 +133,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(index?.sql).toContain("(`created_at`)");
   });
 
-  // events_couple_date_idxはこの一覧テストが固有に守る唯一の対象（Rレビュー指摘）。
-  // 振る舞いのテストからは捕まえられない: 列順が(date, couple_id)に変わっても
-  // 名前は変わらず、event.list等の振る舞いは（性能が落ちるだけで）通り続ける
+  // events_couple_date_idx はこの一覧テストだけが守る。列順が (date, couple_id) に変わっても名前は
+  // 同じで、event.list 等の振る舞いは（性能が落ちるだけで）通り続ける
   it("events_couple_date_idx の列順が (couple_id, date) のままである", async () => {
     const objects = await listIndexesAndTriggers();
     const index = objects.find((o) => o.name === "events_couple_date_idx");
@@ -158,9 +142,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(index?.sql).toContain("(`couple_id`,`date`)");
   });
 
-  // 018: 部分UNIQUEインデックスからWHERE句が落ちると、events_meetup_uniqueという
-  // 名前のまま単なるUNIQUE (couple_id, date)になり、記念日と予定を同じ日に
-  // 1件ずつしか置けなくなる（会った日の一意化テストは通ったまま壊れる）
+  // 部分 UNIQUE 索引から WHERE 句が落ちると、同じ名前のまま UNIQUE (couple_id, date) になり、記念日と
+  // 予定を同じ日に 1 件ずつしか置けなくなる（会った日の一意化テストは通ったまま。018）
   it("events_meetup_unique は kind='meetup' の部分インデックスのままである", async () => {
     const objects = await listIndexesAndTriggers();
     const index = objects.find((o) => o.name === "events_meetup_unique");
@@ -170,9 +153,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(index?.sql).toContain("WHERE \"events\".\"kind\" = 'meetup'");
   });
 
-  // 019: TRIGGERが消える（表の作り直しで飛ぶ等）と、couple.update以外の
-  // 書き込み口（将来のシード等）でprimary_date='married'かつmarried_date=NULLの
-  // 行を直接作れてしまう。WHEN句の条件そのものも確認する
+  // TRIGGER が消える（表の作り直しで飛ぶ等）と、couple.update 以外の書き込み口で primary_date='married'
+  // かつ married_date=NULL の行を作れる。WHEN 句の条件そのものも見る（019）
   it("couples_married_date_required の2本のTRIGGERが、INSERT/UPDATE両方に存在する", async () => {
     const objects = await listIndexesAndTriggers();
     const insertTrigger = objects.find((o) => o.name === "couples_married_date_required_insert");
@@ -184,9 +166,7 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     expect(updateTrigger?.sql).toContain("WHEN NEW.primary_date = 'married' AND NEW.married_date IS NULL");
   });
 
-  // 022: 表の作り直しでCHECKが1本でも落ちると、名前は変わらず制約だけが
-  // 消える（events_meetup_uniqueのWHERE句が落ちるのと同じ壊れ方）。
-  // events_kind_checkにはこれまでDBレベルのテストが1つも無かった（Aの指摘）
+  // 表の作り直しで CHECK が 1 本でも落ちると、名前は変わらず制約だけが消える（022）
   it("events のCHECK制約（名前の付いたもの）が全部そろっている", async () => {
     const checks = await listTableChecks("events");
 
@@ -202,10 +182,8 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     );
   });
 
-  // 019: married_dateがdating_dateより前にならない制約も同じ理由でTRIGGER。
-  // 023でanniversary_date→dating_date（NULL許容）に改名した際、この2本だけを
-  // 作り直した（couples_married_date_required_*はdating_dateを参照していない
-  // ため対象外。023タスク定義「作り直すのは2本であって4本ではない」）
+  // married_date が dating_date より前にならない制約も TRIGGER（019）。dating_date を参照するのは
+  // この 2 本だけ（couples_married_date_required_* は参照しない。023）
   it("couples_married_after_anniversary の2本のTRIGGERが、INSERT/UPDATE両方に存在する", async () => {
     const objects = await listIndexesAndTriggers();
     const insertTrigger = objects.find((o) => o.name === "couples_married_after_anniversary_insert");
@@ -221,17 +199,16 @@ describe("実際のマイグレーションが生成したindex/triggerの一覧
     );
   });
 
-  // 029: levelの範囲（1〜5）は入力だけで判定できるためZodで弾くが
-  // （conventions.md 5節）、DB側にも名前付きCHECKを置く二重の防御。
-  // 022と同じ壊れ方（表の作り直しでCHECKだけ落ちる）を防ぐ
+  // level の範囲（1〜5）は Zod で弾く（conventions.md 5節）うえで、DB にも名前付き CHECK を置く
+  // 二重の防御（029）
   it("moods のCHECK制約（名前の付いたもの）が全部そろっている", async () => {
     const checks = await listTableChecks("moods");
 
     expect(checks).toEqual(["moods_level_range_check"]);
   });
 
-  // 031: 枚数の上限（4枚）はposition(0..3)のCHECKと主キーでDB側にも表す。
-  // アプリの条件（Zodのmax(4)）だけに頼らない
+  // 枚数の上限（4 枚）は position(0..3) の CHECK と主キーで DB にも表す。Zod の max(4) だけに
+  // 頼らない（031）
   it("post_images のCHECK制約（名前の付いたもの）が全部そろっている", async () => {
     const checks = await listTableChecks("post_images");
 

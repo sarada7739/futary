@@ -1,40 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { resolveRootRoute, type RootRouteInput } from "../lib/root-route";
 
-// architecture.md「ルーティングは、必ずどれか1つが真になる」（Rレビュー
-// 指摘R-1・A決定）。014でデモペアを解決できないゲストがどのStack.Protected
-// のguardにも入れず、空白画面から再読み込みでしか戻れなくなる不具合を
-// 踏んだ。
+// architecture.md「ルーティングは、必ずどれか1つが真になる」。どの Stack.Protected の guard にも
+// 入れないと、空白画面から再読み込みでしか戻れなくなる。
 //
-// 手で並べたケースは、並べ忘れがあっても気づけない（Rの提案・A決定と
-// 同じ理由: conventions.md 6節「0件は範囲とセットでしか意味を持たない」）。
-// isAuthenticated × isDemoViewer × isCoupleLoading × hasCoupleData ×
-// isNeedsOnboardingError の2^5=32通りを総当たりし、
+// 手で並べたケースは並べ忘れに気づけない（conventions.md 6節「0件は範囲とセットでしか意味を
+// 持たない」）ので、isAuthenticated × isDemoViewer × isCoupleLoading × hasCoupleData ×
+// isNeedsOnboardingError の 2^5=32 通りを総当たりする。ただし:
+// - isAuthenticated && isDemoViewer は、呼び出し側（_layout.tsx）が `!isAuthenticated && isGuestMode`
+//   で組み立てるので到達しない（root-route.ts の前提）
+// - isCoupleLoading=true は、呼び出し側の早期 return がロード画面を出すので 3 つの guard は見ない
 //
-// - isAuthenticated && isDemoViewer が両方trueの組み合わせは、呼び出し側
-//   （_layout.tsx）が `!isAuthenticated && isGuestMode` として組み立てる
-//   ため到達しない。ここでは検査の対象外にする（root-route.tsの前提コメント参照）
-// - isCoupleLoading=true は、呼び出し側の早期return
-//   （`(isAuthenticated || isDemoViewer) && isCoupleLoading` でロード画面を
-//   出す）が拾うため、resolveRootRouteの3guardは検査しない
-//
-// 上記2つを除いた到達可能な組み合わせでは、guardがちょうど1つだけ真になる
-// ことを固定する。ただし「認証済み・NEEDS_ONBOARDING以外のエラー」
-// （hasCoupleData=false かつ isNeedsOnboardingError=false）は既知の
-// 受容済みギャップとして0個を許す（014の対象外。014が変えたのは
-// isDemoViewer=trueの経路だけで、この組み合わせの振る舞いはそれ以前から
-// 変わっていない）。
-//
-// 【016で訂正】014時点では「再試行でじきに解消する一時的な状態であり、
-// ゲストのdemoFailedのように『そのまま』ではない」としていたが、これは
-// 誤りだった。couple.getのuseQueryは`retry: false`を指定しており、
-// react-query側の自動再試行は無い。つまりこの状態は実際には「じきに
-// 解消する」のではなく、利用者が手動で再読み込みするまで止まったままになる
-// （Rレビュー全体監査R-3指摘。実際に踏んだ不具合として016のtest-results.md・
-// _layout.tsxのコメントに記録済み）。この関数（resolveRootRoute）自体の
-// 期待値（0個を許す）は変えていない——ここで直しているのは受容した理由の
-// 記述だけで、016では_layout.tsx側にこの状態を検知して再試行UIを出す
-// フォールバック描画を追加した（resolveRootRouteの契約や戻り値は変更していない）
+// 残りの組み合わせでは guard がちょうど 1 つ真になる。例外は「認証済み・NEEDS_ONBOARDING 以外の
+// エラー」（hasCoupleData=false かつ isNeedsOnboardingError=false）で、0 個を許す。couple.get は
+// retry: false なので、この状態は手で再読み込みするまで止まる。_layout.tsx 側がこの状態を検知して
+// 再試行の UI を出す（resolveRootRoute の契約は変えない。016）
 
 const BOOLS = [false, true] as const;
 
@@ -49,7 +29,7 @@ function isReachable(input: RootRouteInput): boolean {
 }
 
 function isKnownGap(input: RootRouteInput): boolean {
-  // 認証済み・NEEDS_ONBOARDING以外のエラー（既知・意図的。014の対象外）
+  // 認証済み・NEEDS_ONBOARDING 以外のエラー（既知・意図的）
   return input.isAuthenticated && !input.isDemoViewer && !input.hasCoupleData && !input.isNeedsOnboardingError;
 }
 
@@ -71,8 +51,7 @@ function allCombinations(): RootRouteInput[] {
 
 describe("resolveRootRoute: 到達可能な組み合わせは、既知のギャップを除き必ずguardが1つだけ真になる", () => {
   const combos = allCombinations();
-  // 到達可能な組み合わせが実在することを保証する（filterが空配列だと
-  // 下のit.eachが何も検査せず成功してしまう）
+  // 到達可能な組み合わせが実在する（空配列だと下の it.each が何も確かめずに通る）
   const reachable = combos.filter(isReachable);
   expect(reachable.length).toBeGreaterThan(0);
 

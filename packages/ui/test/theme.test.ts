@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { APPEARANCE_VALUES, COLOR_TOKEN_LIST, isAppearance, themes } from "../src/theme";
 
-// T1（039）: ピンクのトークンが 038 時点と1つも変わっていない。
-// 下の写しは 038 時点の packages/ui/src/tokens.ts から手で凍結したもの。
-// theme.ts を書き換えても、この写しは書き換えないこと（「ピンクは変えない」の留め金。
-// ピンクの値を変える設計判断が下りたときだけ、A の指示で両方を揃える）
+// ピンクのトークンが 038 時点と 1 つも変わっていない（039 T1）。下の写しは 038 時点の tokens.ts から手で
+// 凍結したもの。theme.ts を書き換えても、この写しは書き換えない（「ピンクは変えない」の留め金。ピンクの
+// 値を変える設計判断が下りたときだけ両方を揃える）
 const FROZEN_PINK_COLORS = {
   bg: "#FEF6F3",
   surface: "#FFFFFF",
@@ -128,8 +127,7 @@ describe("T5: glass のトークン", () => {
     expect(Object.keys(themes.white.glass).sort()).toEqual(Object.keys(themes.pink.glass).sort());
   });
 
-  // 039「装飾は無い」。虹色のにじみはピンクの語彙で、ホワイトには無い
-  // （shadow.glow の不透明度を 0 にしたのと同じ理由）
+  // 装飾は無い（039）。虹色のにじみはピンクの語彙で、ホワイトには無い（shadow.glow の不透明度 0 と同じ理由）
   it("ホワイトは色収差を出さない（0）", () => {
     expect(themes.white.glass.aberration).toBe(0);
     expect(themes.pink.glass.aberration).toBeGreaterThan(0);

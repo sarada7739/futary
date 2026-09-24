@@ -3,11 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-// 036: dangerバリアントは「取り返しがつかない操作」（退会）専用。
-// 投稿の削除は論理削除で行が残るため対象外（architecture.md 7節
-// 「danger を当てるのは、取り返しのつかないものだけ」）。
-// タスク定義「テストで証明すること: dangerがdelete-account.tsx以外から
-// 使われていない」を機械的に保証する
+// danger バリアントは取り返しがつかない操作（退会）専用（036）。投稿の削除は論理削除で行が残るので
+// 対象外（architecture.md 7節「danger を当てるのは、取り返しのつかないものだけ」）。delete-account.tsx
+// 以外から使われていないことを機械的に確かめる
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(testDir, "..");
@@ -28,13 +26,8 @@ function listAppSourceFiles(): string[] {
 
 describe("dangerバリアントはdelete-account.tsxだけで使う（036）", () => {
   it("variant=\"danger\"はdelete-account.tsxにしか出現しない", () => {
-    // 【Rレビュー指摘】gフラグ付きの正規表現を.test()で複数ファイルに
-    // 使い回すとlastIndexが前回の一致位置から進んだままになり、2件目以降の
-    // ファイルがその位置より手前でしか一致しない場合に取りこぼす
-    // （viewer-key-coverage.test.tsと同じ形のミュータブルな正規表現状態の
-    // バグ）。ファイルごとに新しい正規表現を作るか、gを外して都度先頭から
-    // 判定する。ここではgを使う理由が無い（1ファイルにつき有無だけ見る）
-    // ためgを外した
+    // g フラグ付きの正規表現を .test() で使い回すと lastIndex が進んだままになり、2 件目以降を取りこぼす。
+    // 1 ファイルにつき有無だけ見るので g は付けない
     const pattern = /variant="danger"/;
     const filesWithMatch: string[] = [];
 
