@@ -24,15 +24,7 @@ minimumReleaseAgeExclude:
 # 外した状態でも各項目がaudit結果に現れなくなったら赤にする）。
 # 016のリリース前に全項目を再評価する
 auditConfig:
-  ignoreGhsas:
-    # image-size（経路: @better-auth/expo -> expo -> @expo/cli -> react-native
-    # -> metro -> image-size）。ICNSパーサのDoS。修正版なし。Metro（開発時の
-    # バンドラ）経由のみで、デプロイ後のWorkerと配信アセットには含まれない。
-    # 修正版が出たら消すこと
-    - GHSA-w3rx-r6r6-pgpr
-    # image-size（同上の経路）。JXL/HEIFパーサのDoS。修正版なし。到達可能性・
-    # 削除条件は上と同じ
-    - GHSA-5p2g-fcmc-qvqq
+  ignoreGhsas: []
 # 推移的依存の既知脆弱性への追随（security-requirements.md 9節 T7）。
 # 修正版がある勧告は無視リストに入れず、ここで上げる。
 overrides:
