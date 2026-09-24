@@ -13916,3 +13916,10 @@ Session: B
 - `weather-codes.ts` は生成物（見出しも生成スクリプトが書く）なので触らない
 
 Session: B
+## 2026-09-25 セッションA: audit の無視リストから image-size の 2 件を外す
+
+- R の連絡: #432 のマージ直後から main の「無視リストの陳腐化検出」が赤（GHSA-w3rx-r6r6-pgpr・GHSA-5p2g-fcmc-qvqq）
+- 確かめた: lockfile は変わらず image-size 1.2.1。GitHub の勧告 DB は 2026-09-24 18:23Z・18:28Z に更新（修正版 2.0.3・撤回ではない）。無視リスト無しで `pnpm audit` を流すと 2 件は出ない（moderate 4 件だけ）
+- 決定: 無視リストを空に。2.x への override はしない（Metro が ^1.0.2）。`security-requirements.md` 9節の表に修正版と、再び出たら戻すことを書いた
+
+Session: A

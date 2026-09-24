@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-25 / セッションB。**063 段階2（apps/app・packages/ui/src・apps/landing のコメント）: PR #434（`task/063-stage2`）。R の手番。次は段階3（テスト）。**
+**最終更新**: 2026-09-25 / セッションA。**main の CI の赤（audit の陳腐化検出）を直す: 無視リストの image-size 2 件を外した（`pnpm-workspace.yaml` の `ignoreGhsas: []`）。R の連絡。これが main に入れば 063 段階2（#434。R 受け入れ済み）をマージできる。**
+- 原因は依存ではなく勧告の側: 2026-09-24 に勧告が更新され（修正版 `image-size@2.0.3`）、`pnpm audit` が 1.2.1 に対してこの 2 件を返さなくなった。lockfile は変わっていない。Metro が `^1.0.2` を宣言するので 2.x には上げない。再び出たら無視リストに戻す（`security-requirements.md` 9節の表）
+- 手元で確認: 無視リスト無しの `pnpm audit` は moderate 4 件だけ（esbuild・uuid・decode-uri-component・fflate）、high 0。`--audit-level=high` は通る
+- 人間の手番・未着手は下の版のまま
+
+---
+
+**最終更新（旧）**: 2026-09-25 / セッションB。**063 段階2（apps/app・packages/ui/src・apps/landing のコメント）: PR #434（`task/063-stage2`）。R の手番。次は段階3（テスト）。**
 - コメント行 1,904 → 1,117。TS/TSX 93 ファイルは `compare-code.mjs`、LP 6 ファイルは本番と同じ除き方の `compare-landing.mjs` で「コメント以外が同じ」。テスト 1,539 のまま全部緑。報告 `artifacts/063/stage2.md`
 - 気づき: `viewer-key-coverage.test.ts` が免除の場所を行番号で固定しているので `timeline.tsx` の上の方は行数を保った（段階3 で中身で固定する形にするかは A・R）。生成物 `weather-codes.ts` は触らない
 - 人間の手番（続き）: 061 段階3・062 のデプロイ → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price。開いている PR: Dependabot の fflate（#340・#382）
