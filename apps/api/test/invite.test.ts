@@ -8,8 +8,7 @@ import type { RpcContext } from "../src/context";
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
 
-// 実際の R2 API トークンの設定有無にテストの合否が左右されないよう、
-// 署名鍵はテスト固有の固定値を使う（post.test.ts と同じ理由）
+// 実際の R2 API トークンの設定有無に合否を左右させないよう、署名鍵はテスト固有の固定値（post.test.ts と同じ）
 const r2Sign: RpcContext["r2Sign"] = {
   accountId: "test-account",
   accessKeyId: "test-access-key-id",
@@ -19,8 +18,7 @@ const r2Sign: RpcContext["r2Sign"] = {
 
 let userSeq = 0;
 
-// accountIdを指定できるのは、削除→同じGoogleアカウントで再登録した状態
-// （新しいuser.idだが同じaccount.account_id）を模擬するテストのため（024）
+// accountId を指定できるのは、削除 → 同じ Google アカウントで再登録（新しい user.id・同じ account_id）を模擬するため
 async function createUser(
   accountId?: string,
 ): Promise<{ id: string; name: string; email: string; accountId: string }> {
@@ -36,8 +34,7 @@ async function createUser(
         "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
       )
       .bind(id, name, email, now),
-    // invite.acceptはaccount_id（Googleの識別子）を必ず引く（このアプリは
-    // Googleログインのみのため）。テストの利用者もaccount行を持たせる
+    // invite.accept は account_id（Google の識別子）を必ず引く（Google ログインのみ）。テストの利用者にも account 行を持たせる
     db
       .prepare(
         "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
@@ -81,7 +78,7 @@ describe("invite.issue", () => {
     expect(invite.expiresAt).toBeGreaterThanOrEqual(before + 24 * 60 * 60);
   });
 
-  // 005: writeProcedure が mode === 'readonly'（未認証）を一律 FORBIDDEN にする
+  // writeProcedure は未認証（mode === 'readonly'）を一律 FORBIDDEN にする
   it("未認証なら FORBIDDEN", async () => {
     await expect(call(router.invite.issue, undefined, { context: contextFor(null) })).rejects.toMatchObject({
       code: "FORBIDDEN",
@@ -202,10 +199,8 @@ describe("invite.accept", () => {
     const partner = await createUser();
     await call(router.invite.accept, { code: invite1.code }, { context: contextFor(partner) });
 
-    // 満員のペアではinvite.issue自体がFORBIDDENになる（025）ため、
-    // 正規の経路では有効なコードを作れない。ここではDB側の防御
-    // （slotのNOT NULL制約）自体を確認するため、期限切れコードのテストと
-    // 同じ手法で直接invitesテーブルへ差し込む
+    // 満員のペアでは invite.issue 自体が FORBIDDEN なので、正規の経路では有効なコードを作れない。DB 側の
+    // 防御（slot の NOT NULL）を確かめるため、期限切れコードのテストと同じく invites へ直接差し込む
     const now = Math.floor(Date.now() / 1000);
     await db
       .prepare(
@@ -221,8 +216,7 @@ describe("invite.accept", () => {
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  // 025: 満員のペアではinvite.issue自体をサーバ側で拒む（「画面に出さないから
-  // 安全」は採らない。security-requirements.md T5と同じ考え方）
+  // 満員のペアでは invite.issue 自体をサーバで拒む（画面に出さないから安全、は採らない。security-requirements.md T5）
   it("ペアが2人揃っていると発行できない（FORBIDDEN）", async () => {
     const owner = await createUser();
     await createCouple(owner);
@@ -352,11 +346,8 @@ describe("invite.accept のレート制限（account_hash/IP単位10回/時間�
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  // 024で発見・修正: 以前はuser_idをキーにしていたため、アカウントを削除して
-  // 同じGoogleアカウントで登録し直すと新しいuser_idになり、失敗回数が
-  // リセットされていた（削除→再登録を繰り返せば無制限に回避できた）。
-  // account_hash（account.account_idの塩付きハッシュ）に差し替えたことで、
-  // user_idが変わっても同じGoogleアカウントである限り同じバケットに乗る
+  // 失敗回数は account_hash（account.account_id の塩付きハッシュ）で数える。user_id で数えると、削除して
+  // 同じ Google アカウントで登録し直せば新しい user_id になって回数が消え、無制限に回避できる
   it("同じGoogleアカウントなら、user_idが変わっても（削除・再登録を模擬）失敗回数が引き継がれる", async () => {
     const sharedAccountId = `google-sub-${crypto.randomUUID()}`;
     const before = await createUser(sharedAccountId);
@@ -368,8 +359,7 @@ describe("invite.accept のレート制限（account_hash/IP単位10回/時間�
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
     }
 
-    // 「削除して同じGoogleアカウントで登録し直す」を、同じaccountIdを持つ
-    // 別のuser行として模擬する（024タスク定義）
+    // 削除して同じ Google アカウントで登録し直すことを、同じ accountId を持つ別の user 行で模擬する
     const after = await createUser(sharedAccountId);
     await expect(
       call(router.invite.accept, { code: "ZZZZZZ" }, { context: contextFor(after, ip) }),

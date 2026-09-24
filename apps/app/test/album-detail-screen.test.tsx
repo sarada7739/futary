@@ -3,7 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 041: アルバム詳細の画面結合テスト（T11 の詳細側・T15）。album-screen.test.tsx と同じ形
+// アルバム詳細の画面結合テスト（041 T11 の詳細側・T15）。album-screen.test.tsx と同じ形
 const {
   getMock,
   listMock,
@@ -77,7 +77,7 @@ vi.mock("../lib/orpc", async () => {
       uploadUrl: uploadUrlMock,
     },
     photo: { list: photoListMock, downloadUrl: downloadUrlMock },
-    // 045: 詳細は couple.get から無料枠を読む（既定は paid = 枠なし。T7 のテストで free に上書きする）
+    // 詳細は couple.get から無料枠を読む（既定は paid = 枠なし。無料枠のテストで free に上書きする。045）
     couple: { get: coupleGetMock },
   };
   return { client, orpc: createTanstackQueryUtils(client) };
@@ -127,7 +127,7 @@ function makePostPhoto(i: number) {
 beforeEach(() => {
   vi.clearAllMocks();
   queryClient.clear();
-  // 045: 警告の × の「消した」は sessionStorage。テスト間で持ち越さない
+  // 警告の × の「消した」は sessionStorage。テスト間で持ち越さない（045）
   window.sessionStorage.clear();
   searchParams.id = "album-1";
   getMock.mockResolvedValue(makeAlbum());
@@ -214,7 +214,7 @@ describe("AlbumDetailScreen: 見え方（T11）", () => {
     expect(photoListMock).toHaveBeenCalledWith({ albumId: undefined, cursor: undefined, limit: 60 }, expect.anything());
   });
 
-  // 048: ヘッダーの ⋯ → 「ZIP で保存」→ シート（このアルバムの写真を photo.list で数える）。中身は zip-export-sheet.test.tsx
+  // ヘッダーの ⋯ →「ZIP で保存」→ シート（このアルバムの写真を photo.list で数える。048）。中身は zip-export-sheet.test.tsx
   it("048: メンバーのアルバムの ⋯ → 「ZIP で保存」でシートが開き、このアルバムの枚数を出す", async () => {
     renderScreen();
     await screen.findByTestId("album-photo-photo-1");
@@ -419,7 +419,7 @@ function finishModalAnimations() {
   }
 }
 
-// 045・T7: 無料枠。枠は couple.get の albumQuota から。paid（null）なら枠の行が無く、FAB は今までどおり
+// 無料枠（045 T7）。枠は couple.get の albumQuota から。paid（null）なら枠の行が無く、FAB は今までどおり
 describe("AlbumDetailScreen: 無料枠（045）", () => {
   const sources = [
     { uri: "file:///1.jpg", width: 10, height: 10, mimeType: "image/jpeg" },
@@ -459,8 +459,8 @@ describe("AlbumDetailScreen: 無料枠（045）", () => {
     expect(screen.queryByTestId("album-quota-warning")).toBeNull();
   });
 
-  // 人間の指示（2026-09-14）: 警告のカードは × で消せる。消した状態はこの起動の間（sessionStorage）。
-  // 残り枚数が変われば（写真を足したら）もう一度出す
+  // 警告のカードは × で消せる。消した状態はこの起動の間（sessionStorage）。残り枚数が変われば
+  // （写真を足したら）もう一度出す
   it("警告の × で消える。開き直しても同じ残り枚数なら出ない。残りが減ればまた出る", async () => {
     coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 26 } });
     const first = renderScreen();
@@ -522,7 +522,7 @@ describe("AlbumDetailScreen: 無料枠（045）", () => {
     expect(screen.getByTestId("plan-limit-title")).toHaveTextContent("写真の上限に達しました");
     expect(screen.getByTestId("plan-limit-message")).toHaveTextContent("大切な思い出をもっと残すために、プレミアムプランへ。");
     expect(screen.getByTestId("plan-limit-free-line")).toHaveTextContent("30 枚まで保存可能");
-    // 047 0節 #14: 「無制限」と書かない（数字は /premium・特商法・LP と同じ 50 万枚）
+    // 「無制限」と書かない（数字は /premium・特商法・LP と同じ 50 万枚。047 0節 #14）
     expect(screen.getByTestId("plan-limit-premium-line")).toHaveTextContent("写真 50 万枚まで");
     expect(screen.queryByText(/無制限/)).toBeNull();
     // 価格・トライアル・存在しない機能は書かない
@@ -615,7 +615,7 @@ describe("AlbumDetailScreen: 無料枠（045）", () => {
   });
 });
 
-// 049: + で一度に 100 枚。20 枚超は確認を 1 つ → 20 枚ずつ addPhotos。ロジック側は album-upload-batch.test.ts
+// + で一度に 100 枚。20 枚超は確認を 1 つ → 20 枚ずつ addPhotos（049）。ロジック側は album-upload-batch.test.ts
 describe("AlbumDetailScreen: 一度に 100 枚（049）", () => {
   function manySources(count: number) {
     return Array.from({ length: count }, (_, i) => ({ uri: `file:///${i + 1}.jpg`, width: 10, height: 10, mimeType: "image/jpeg" }));
@@ -776,7 +776,7 @@ describe("AlbumDetailScreen: 一度に 100 枚（049）", () => {
   });
 });
 
-// 047 T8: プレミアムをやめたあとの帯と鍵のマス
+// プレミアムをやめたあとの帯と鍵のマス（047 T8）
 describe("AlbumDetailScreen: やめたあとの鍵（047 T8）", () => {
   // 2026-10-16 00:00 JST
   const LOCK_AT = Date.UTC(2026, 9, 15, 15, 0, 0) / 1000;

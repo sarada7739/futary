@@ -48,8 +48,7 @@ function contextFor(user: { id: string; name: string; email: string } | null): R
   };
 }
 
-// 023: couple.createは日付を受け取らないため、作成後にcouple.updateでdatingDateを
-// 設定する（テストがペアを日付で区別できるよう、旧来どおり引数で指定させる）
+// couple.create は日付を受け取らないので、作成後に couple.update で datingDate を設定する
 async function createCouple(user: { id: string; name: string; email: string }, datingDate: string) {
   await call(router.couple.create, {}, { context: contextFor(user) });
   return call(
@@ -78,8 +77,7 @@ async function insertEvent(coupleId: string, createdBy: string, kind: string, da
     .run();
 }
 
-// 031: image_key列は無くなり、post_images（子テーブル）へ移った。
-// imageKeyを渡すとposition=0の画像を1枚追加する
+// imageKey を渡すと post_images に position=0 の画像を 1 枚足す
 async function insertPost(
   coupleId: string,
   authorId: string,
@@ -138,7 +136,7 @@ describe("computeDaysTogether", () => {
     expect(result).not.toHaveProperty("days");
   });
 
-  // 023: 「まだ決めていない」はhiddenと違う（本人が隠すと決めたわけではない）
+  // 「まだ決めていない」は hidden と違う（本人が隠すと決めたわけではない。023）
   it("primary_date='dating'・dating_dateが無いならunset（daysを含まない）", () => {
     const result = computeDaysTogether(couple({ primaryDate: "dating", datingDate: null }), "2026-01-01");
     expect(result).toEqual({ status: "unset" });
@@ -172,8 +170,7 @@ describe("stats.get", () => {
     expect(stats.daysTogether).toEqual({ status: "dating", days: 1 });
   });
 
-  // L66（Aの決定）: datingDateSchemaの上限緩和（1年後まで）によりupcomingへ
-  // 実際に到達できることを、入力から出力まで通しで確認する
+  // datingDate の上限（1 年後まで）で upcoming に実際に届くことを、入力から出力まで通しで確かめる
   it("記念日が未来（1ヶ月後）のペアはdaysTogetherがdating_upcoming・daysが正の値になる", async () => {
     const user = await createUser();
     const nearFuture = addDays(todayJst(), 30);
@@ -184,8 +181,7 @@ describe("stats.get", () => {
     expect(stats.daysTogether).toEqual({ status: "dating_upcoming", days: 30 });
   });
 
-  // 023: couple.create直後（付き合った日を登録時に聞かなくなった）はdatingDateが
-  // nullのまま。stats.getはこれをunsetとして返す（この要望の本体）
+  // couple.create 直後は datingDate が null。stats.get は unset を返す（023）
   it("couple.create直後（付き合った日を設定していない）はdaysTogetherがunset", async () => {
     const user = await createUser();
     await call(router.couple.create, {}, { context: contextFor(user) });
@@ -195,7 +191,7 @@ describe("stats.get", () => {
     expect(stats.daysTogether).toEqual({ status: "unset" });
   });
 
-  // 019: couple.updateでprimary_dateを変えると、stats.getのdaysTogetherに反映される
+  // couple.update で primary_date を変えると、stats.get の daysTogether に反映される（019）
   it("primaryDate='married'に変えると、daysTogetherがmarriedになる", async () => {
     const user = await createUser();
     await createCouple(user, "2020-01-01");
@@ -225,9 +221,8 @@ describe("stats.get", () => {
     expect(stats.daysTogether).not.toHaveProperty("days");
   });
 
-  // 023: datingDateがnullのままでもmeetupDays/postCount/photoCountは出る
-  // （消すのは記念日の行だけ。020で決めた「hiddenのときも会った日数は残す」と
-  // 同じ扱いをunsetにも及ぼす）
+  // datingDate が null でも meetupDays・postCount・photoCount は出る（消すのは記念日の行だけ。hidden と
+  // 同じ扱い）
   it("datingDateが無くてもmeetupDays・postCount・photoCountは返る", async () => {
     const user = await createUser();
     const created = await call(router.couple.create, {}, { context: contextFor(user) });
@@ -275,9 +270,8 @@ describe("stats.get", () => {
     expect(stats.postCount).toBe(1);
   });
 
-  // L65（Rの先読み指摘）: post.delete経由なら画像行も一緒に消えるが、
-  // このテストは直接SQLでdeleted_at付きの行を作るため、防御的に
-  // deleted_at IS NULLを条件に含めないとphotoCountがpostCountを上回りうる
+  // ここは SQL で deleted_at 付きの行を直接作るので、deleted_at IS NULL を条件に含めないと photoCount が
+  // postCount を上回りうる（post.delete 経由なら画像行も一緒に消える）
   it("photoCountは未削除・画像ありの投稿のみを数える（削除済みの写真投稿は含めない）", async () => {
     const user = await createUser();
     const couple = await createCouple(user, todayJst());

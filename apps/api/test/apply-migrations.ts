@@ -4,29 +4,12 @@ import { applyD1Migrations, env } from "cloudflare:test";
 // テスト用D1に適用する（自動適用されないため、テスト実行前に毎回明示的に行う）
 await applyD1Migrations(env.DB, (env as unknown as { TEST_MIGRATIONS: Parameters<typeof applyD1Migrations>[1] }).TEST_MIGRATIONS);
 
-// 037・security-auditor指摘: lib/ai.tsのgenerateSummaryはグローバルのfetchを
-// 直接呼ぶ。テストがfetchの差し替えを忘れると、本物の外部APIへ静かに
-// 到達してしまう（実際にOpenAIへ本物のリクエストが飛んだ事故があった。
-// ai-summary.test.tsのコメント参照）。既定のfetchを「呼ばれたら例外」に
-// 固定し、差し替えを忘れたテストは即座に失敗させる
-// （「本物のAPIを叩かない」を規約ではなく仕組みで担保する）
-//
-// 【Rレビュー指摘・訂正】ここをvi.stubGlobal("fetch", guard)にしていたが、
-// それが事故の再発防止として機能していなかった。vi.stubGlobalは「その
-// キーを最初にstubした時点のglobalThis[key]」を復元先として覚える。この
-// ファイルはテストファイルごとに一度しか実行されないため、最初にstubされる
-// のはここ（guard）ではなく、各テストのbeforeEachが最初にvi.stubGlobalを
-// 呼んだ時点になる場合がある。すると復元先は「本物のfetch」のままになり、
-// 最初のテストのafterEach（vi.unstubAllGlobals）でguard自体が消えて本物の
-// fetchに戻ってしまう。以降、自分でfetchを差し替え忘れたテストはguardに
-// 止められず、本物のAPIへ静かに到達する（Rが実測: 23件中guardが止めたのは
-// 1件だけで、残り7件は本物のfetchへ到達した）。
-//
-// 素の代入にすると、vi.stubGlobalが最初に記録する「復元先」はこのguard自身に
-// なる（このファイルの実行が各テストのbeforeEachより必ず先に走るため）。
-// これでvi.unstubAllGlobalsは常にguardへ戻り、差し替え忘れは常に例外で
-// 止まる（apps/api/test/ai-summary.test.tsの「番人が生きていることの確認」
-// テストで実測済み）
+// lib/ai.ts の generateSummary はグローバルの fetch を直接呼ぶ。差し替えを忘れたテストが本物の外部 API
+// へ静かに届かないよう、既定の fetch を「呼ばれたら例外」に固定する（本物の API を叩かない、を規約では
+// なく仕組みで守る。037）。
+// vi.stubGlobal ではなく素の代入にする。vi.stubGlobal は最初に stub した時点の値を復元先として覚えるので、
+// 各テストの beforeEach が先に stub すると復元先が本物の fetch になり、vi.unstubAllGlobals で番人が消える。
+// 素の代入なら復元先はこの番人になる（ai-summary.test.ts の「番人が生きていること」のテストで確かめる）
 globalThis.fetch = (() => {
   throw new Error("fetchが差し替えられていません。テストが本物のAPIを叩こうとしています");
 }) as typeof fetch;

@@ -9,9 +9,8 @@ import { generateImageId } from "../src/lib/ulid";
 import { albumImageKeyFor } from "../src/lib/r2-signed-url";
 import { LOCK_GRACE_SECONDS, resolvePlanState, unlockedPhotos } from "../src/lib/plan";
 
-// 047: プレミアムをやめたあと、無料枠を超える写真に鍵（タスク定義 4節 T1〜T7・T9・T11）。
-// 猶予の起点は 0節 #11。鍵は「taken_at, id 昇順の先頭 30 枚に無い」で決める（0節 #13）。
-// 写真は album.uploadUrl を経由せず R2 に直接置く（plan.test.ts と同じ形）
+// プレミアムをやめたあと、無料枠を超える写真に鍵（047 4節 T1〜T7・T9・T11）。猶予の起点は 0節 #11。
+// 鍵は「taken_at, id 昇順の先頭 30 枚に無い」で決める（0節 #13）。写真は R2 に直接置く（plan.test.ts と同じ）
 
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;

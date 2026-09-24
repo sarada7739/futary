@@ -20,11 +20,9 @@ import landingTokushohoHtml from "../../landing/tokushoho.html?raw";
 // 外観の先読み）。`_headers` の CSP のハッシュはこの 2 本から計算されていた
 import appIndexHtml from "./fixtures/security-headers/app-index.html?raw";
 
-// 053: 独自ドメイン nisoine.com（docs/tasks/053-custom-domain.md 3節 T1〜T5）。
-// 旧ホスト（futary-api.sarada7739.workers.dev）と www は nisoine.com へ 301、
-// 旧ホストの /api/* は 403、全応答に HSTS、robots.txt / sitemap.xml は静的アセット。
-// Worker は Request の URL のホストで判定するので、テストではホストを変えた URL を
-// app.fetch に渡すだけでよい（Host ヘッダは見ない）
+// 独自ドメイン nisoine.com（053 3節 T1〜T5）。旧ホスト（futary-api.sarada7739.workers.dev）と www は
+// nisoine.com へ 301、旧ホストの /api/* は 403、全応答に HSTS、robots.txt・sitemap.xml は静的アセット。
+// Worker は Request の URL のホストで判定するので、ホストを変えた URL を app.fetch に渡すだけでよい
 
 const bindings = env as unknown as Bindings;
 const LEGACY = "https://futary-api.sarada7739.workers.dev";
@@ -62,9 +60,9 @@ function fakeAssets(): Fetcher {
   return { fetch } as unknown as Fetcher;
 }
 
-// 移行前の `_headers`（scripts/build-public.mjs が 052 時点で書いていたもの。`/*` に適用）。
-// 値を固定して比べる（A の条件: 黙って弱くならない）。<accountId> は R2_ACCOUNT_ID。
-// 056: frame-ancestors だけ 'none' → 'self'（人間の了承。LP が同じオリジンから框に入れる）。それ以外は 052 のまま
+// 移行前の `_headers`（052 時点の scripts/build-public.mjs が `/*` に書いていたもの）。値を固定して比べ、
+// 黙って弱くならないことを見る。<accountId> は R2_ACCOUNT_ID。frame-ancestors だけ 'none' → 'self'
+// （LP が同じオリジンから枠に入れる。056）
 const LEGACY_HEADERS_FILE = `/*
   Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-cNqZmc0c44BAN5GqZKiHNbeHUp5+VUQq7N7fFL1CwR4=' 'sha256-67fhrP0+BkBqmgGGXTtgiVO/9EQs3QruYNU/7fnRkI8='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://<accountId>.r2.cloudflarestorage.com https://lh3.googleusercontent.com; font-src 'self'; connect-src 'self' blob: https://<accountId>.r2.cloudflarestorage.com; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'
   X-Content-Type-Options: nosniff
@@ -300,7 +298,7 @@ describe("053: CSP は Worker が配信する HTML から inline script のハ�
     // build-public.mjs が書いていた `_headers` の CSP と同じ形
     expect(csp).toBe(buildCsp([expectedHash.slice(1, -1)], "acct123"));
     expect(csp).toContain("https://acct123.r2.cloudflarestorage.com");
-    // 056: LP が同じオリジンから框に入れる。他サイトは拒む
+    // LP が同じオリジンから枠に入れる。他サイトは拒む（056）
     expect(csp).toContain("frame-ancestors 'self'");
     expect(csp).not.toContain("'none'; object-src");
     // 本文はそのまま
@@ -334,8 +332,8 @@ describe("053: CSP は Worker が配信する HTML から inline script のハ�
   });
 });
 
-// 048 段階2・P7b: /tokushoho が 200。terms.html に「8. プレミアム」があり節番号が 8〜11。
-// 「【」（空欄の埋め忘れ）が無い。特商法の価格は Stripe の設定と同じ（月 420・年 4,200）
+// /tokushoho が 200。terms.html に「8. プレミアム」があり節番号が 8〜11。「【」（空欄の埋め忘れ）が無い。
+// 特商法の価格は Stripe の設定と同じ（月 420・年 4,200。048）
 describe("048 P7b: /tokushoho と利用規約 8 節", () => {
   it("/tokushoho は 200 の HTML で、販売業者・価格・支払方法・解約・返金の行がある", async () => {
     const res = await app.fetch(new Request(`${CANONICAL}/tokushoho`), { ...bindings, ASSETS: fakeAssets() });
@@ -359,7 +357,7 @@ describe("048 P7b: /tokushoho と利用規約 8 節", () => {
     expect(headings[10]).toEqual([11, "連絡先"]);
     expect(landingTermsHtml).toContain('href="/tokushoho"');
     expect(landingTermsHtml).not.toContain("【");
-    // 文中の相互参照「プライバシーポリシー 2 節」「4 節」は詰めた範囲より前（053 の R の記録）
+    // 文中の相互参照「プライバシーポリシー 2 節」「4 節」は詰めた範囲より前
     expect(landingTermsHtml).toContain("プライバシーポリシー 2 節");
   });
 });

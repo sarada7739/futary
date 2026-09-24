@@ -4,9 +4,8 @@ import { AppearanceProvider } from "@futary/ui";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// 043: ホームのリリース履歴のボタン（T2）・「新機能のお知らせ」のシート（T3）・一覧を開くと
-// ホームのバッジが消える（T4）・オンボーディングにはシートが出ない（T6）の画面結合テスト。
-// home-screen.test.tsx と同じ形で oRPC をモックする
+// ホームのリリース履歴のボタン（T2）・「新機能のお知らせ」のシート（T3）・一覧を開くとバッジが消える
+// （T4）・オンボーディングにはシートが出ない（T6）の画面結合テスト（043）
 const { statsGetMock, pushMock, setOptionsMock } = vi.hoisted(() => ({
   statsGetMock: vi.fn(),
   pushMock: vi.fn(),
@@ -28,8 +27,8 @@ vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
 
-// 058: 最新は 3.3.0「カレンダーに天気と祝日」（route /calendar）。route 無しの形（3.0.0）は
-// 最新を差し替えて見る（実体の配列は触らない）
+// 最新は 3.3.0「カレンダーに天気と祝日」（route /calendar）。route 無しの形（3.0.0）は最新を差し替えて
+// 見る（実体の配列は触らない）
 const releasesState = vi.hoisted(() => ({ latestOverride: null as null | { version: string; date: string; title: string; items: string[]; route?: string } }));
 vi.mock("../lib/releases", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/releases")>();
@@ -82,12 +81,10 @@ async function renderHome(appearance: "pink" | "white" = "pink") {
   return result;
 }
 
-// react-native-web の Modal（animationType="fade"）は閉じるとき CSS の animationend を待ってから
-// DOM から消す。jsdom はアニメーションを実行しないので、閉じる操作のあとに手で発火する
-// （components/sheet.tsx のコメント）。ModalAnimation の div は currentTarget === target のときだけ
-// 反応する（閉じる途中は role="dialog" も外れて探せない）ので、body の下の全要素に直接発火する。
-// jsdom には AnimationEvent が無く、React は接頭辞付きの webkitAnimationEnd を聞く（実測。
-// fireEvent.animationEnd では届かない）ので、両方の名前で発火する
+// react-native-web の Modal（animationType="fade"）は閉じるとき CSS の animationend を待ってから DOM から
+// 消す（components/sheet.tsx）。jsdom はアニメーションを実行しないので手で発火する。ModalAnimation の div
+// は currentTarget === target のときだけ反応し、閉じる途中は role="dialog" も外れて探せないので、body の
+// 下の全要素に発火する。jsdom には AnimationEvent が無く、React は webkitAnimationEnd を聞くので両方の名前で
 function finishModalAnimations() {
   for (const node of Array.from(document.body.querySelectorAll("*"))) {
     node.dispatchEvent(new Event("webkitAnimationEnd", { bubbles: true }));
@@ -280,7 +277,7 @@ describe("オンボーディングにはシートが出ない（043 T6）", () =
   });
 });
 
-// 056 T7: LP のスマホの枠（iframe）の中では「新機能のお知らせ」を出さず、releaseSeen も書かない
+// LP のスマホの枠（iframe）の中では「新機能のお知らせ」を出さず、releaseSeen も書かない（056 T7）
 describe("056 T7: 框の中ではお知らせのシートを出さない", () => {
   const originalTop = Object.getOwnPropertyDescriptor(window, "top");
   afterEach(() => {

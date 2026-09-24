@@ -6,11 +6,10 @@ import { buildMinuteOptions } from "../lib/time-wheel";
 
 const ITEM_HEIGHT = 40;
 
-// jsdomにはElement.prototype.scrollが無いため、react-native-webの
-// scrollResponderScrollToはnode.scrollTop = ...への直接代入にフォールバックする。
-// scrollTopをアクセサ化してspyし、「位置合わせのscrollToが走ったか」を検証する。
-// box.valueへの直書きは代入spyを経由しないので、「物理的にスクロールした」状態を
-// スパイの記録を汚さずに作れる
+// jsdom には Element.prototype.scroll が無いので、react-native-web の scrollResponderScrollTo は
+// node.scrollTop への直接代入に落ちる。scrollTop をアクセサにして spy し、位置合わせの scrollTo が
+// 走ったかを見る。box.value への直書きは spy を通らないので、「物理的にスクロールした」状態を記録を
+// 汚さずに作れる
 function attachScrollTopSpy(node: HTMLElement, initial = 0) {
   const box = { value: initial };
   const setSpy = vi.fn((v: number) => {
@@ -24,9 +23,8 @@ function attachScrollTopSpy(node: HTMLElement, initial = 0) {
   return { box, setSpy };
 }
 
-// TimeWheelPickerと同じ形（optionsをvalueから毎回組み立てる）で包んだ
-// テスト用ハーネス。刻みに乗らない値がoptionsから出入りする挙動を、
-// 本物の統合と同じ経路で再現するため、WheelColumn単体ではなくこの形で試す
+// TimeWheelPicker と同じ形（options を value から毎回組み立てる）で包んだハーネス。刻みに乗らない値が
+// options から出入りする動きを、本物の統合と同じ経路で再現する
 function ControlledMinuteWheel({
   initialValue,
   onChangeSpy,
@@ -51,9 +49,7 @@ function ControlledMinuteWheel({
   );
 }
 
-// R（PR #156レビュー）が発見した4件のバグの回帰テスト。いずれも慣性の
-// 実測やiPhone実機を要らず、onScroll/contentOffsetを直接与えれば決定的に
-// 再現する（Rの指摘: 「125件緑」はこの経路を1行も通っていなかった）
+// 慣性の実測や実機が要らず、onScroll・contentOffset を直接与えれば決定的に再現する回帰テスト
 describe("WheelColumn 位置合わせのscrollTo", () => {
   it("R-1/R-3: 自分のスクロールでvalueが変わっても、位置合わせのscrollToを呼ばない", () => {
     const onChangeSpy = vi.fn();
@@ -68,8 +64,8 @@ describe("WheelColumn 位置合わせのscrollTo", () => {
     fireEvent.scroll(node);
 
     expect(onChangeSpy).toHaveBeenCalledWith("15");
-    // 自分のスクロール起因のvalue変化では、位置合わせのscrollToを呼ばない
-    // （呼ぶと、慣性の途中で実際のスクロール位置と戦ってしまう。Rの指摘）
+    // 自分のスクロールによる value の変化では、位置合わせの scrollTo を呼ばない（呼ぶと慣性の途中で
+    // 実際のスクロール位置と戦う）
     expect(setSpy).not.toHaveBeenCalled();
   });
 
@@ -119,12 +115,9 @@ describe("WheelColumn 位置合わせのscrollTo", () => {
     const { setSpy } = attachScrollTopSpy(node);
     setSpy.mockClear();
 
-    // buildMinuteOptions("03")は13個で"30"はindex=7（y=280）。タップ時点の
-    // indexで飛び先を固定すると、commit後に"03"が消えてoptionsが13->12に
-    // 縮み、"30"の正しい位置はindex=6（y=240）になる。飛び先をy=280に固定した
-    // まま動かすと、アニメーションの終端がずれたoptionsを読んで違う値
-    // （"35"）に着地する（Rの指摘。jsdomはscrollイベントを発火しないため、
-    // onChangeの引数だけを見るテストではこの経路を判別できない。実測済み）
+    // buildMinuteOptions("03") は 13 個で "30" は index=7（y=280）。commit 後に "03" が消えて 12 個に縮むと、
+    // "30" の正しい位置は index=6（y=240）。飛び先を y=280 に固定したまま動かすと、ずれた options を読んで
+    // "35" に着地する（jsdom は scroll イベントを発火しないので、onChange の引数だけでは判別できない）
     fireEvent.click(getByTestId("minute-option-30"));
 
     expect(onChangeSpy).toHaveBeenCalledWith("30");

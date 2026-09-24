@@ -9,8 +9,8 @@ import { albumImageKeyFor, imageKeyFor } from "../src/lib/r2-signed-url";
 import { isAdminEmail, parseAdminEmails } from "../src/lib/admin-emails";
 import { computeStats, loadStats, resetStatsCache, statsWindows, STATS_TTL_MS } from "../src/procedures/admin";
 
-// 057: 運営の画面（docs/tasks/057-admin.md 4節 T1〜T6）。
-// 線: 返すのは数と couple_plans の 1 行だけ。本文・名前・写真の URL・記念日は返さない（T3 でキーを固定）
+// 運営の画面（057 4節 T1〜T6）。返すのは数と couple_plans の 1 行だけ。本文・名前・写真の URL・
+// 記念日は返さない（T3 でキーを固定）
 
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
@@ -341,8 +341,8 @@ describe("057 T4: admin.setPlan と admin_actions", () => {
     expect(paidRow).toEqual({ plan: "paid", source: "manual", expires_at: null });
     expect((await call(router.couple.get, undefined, { context: contextFor(owner) })).plan).toBe("paid");
 
-    // R の記録 2: 前の行の updated_at を過去に置いてから free に戻す（同じ秒だと「今」を区別できない）。
-    // 047 の猶予の起点なので、ここで更新されることを固定する
+    // 前の行の updated_at を過去に置いてから free に戻す（同じ秒だと「今」を区別できない）。047 の猶予の
+    // 起点なので、ここで更新されることを固定する
     await db.prepare("UPDATE couple_plans SET updated_at = ?1 WHERE couple_id = ?2").bind(nowSec() - 86400, coupleId).run();
     const t = nowSec();
     expect(await call(router.admin.setPlan, { coupleId, plan: "free" }, { context: ctx })).toEqual({ plan: "free" });
@@ -352,7 +352,7 @@ describe("057 T4: admin.setPlan と admin_actions", () => {
       .first<{ plan: string; source: string; expires_at: number | null; updated_at: number }>();
     expect(freeRow).toMatchObject({ plan: "free", source: "manual", expires_at: null });
     expect(freeRow!.updated_at).toBeGreaterThanOrEqual(t);
-    // 047: 手で free = updated_at が猶予の起点（lockAt あり）
+    // 手で free = updated_at が猶予の起点（lockAt あり。047）
     const state = (await call(router.couple.get, undefined, { context: contextFor(owner) })).planState;
     expect(state).toMatchObject({ plan: "free", locked: false });
     expect(state.plan === "free" && state.lockAt).toBeTruthy();

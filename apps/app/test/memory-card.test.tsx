@@ -2,8 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 013: 思い出しカードの画面結合テスト。stats-card.test.tsx と同じ形で
-// oRPC クライアントをモックする
+// 思い出しカードの画面結合テスト（013）。oRPC クライアントはモックする
 const { memoryGetMock } = vi.hoisted(() => ({
   memoryGetMock: vi.fn(),
 }));
@@ -14,8 +13,7 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-// useViewerQueryKey（apps/app/lib/viewer-key.ts）がauth-client経由で
-// useSessionを参照するためモックする
+// useViewerQueryKey が auth-client 経由で useSession を参照するのでモックする
 vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null }),
 }));
@@ -82,10 +80,8 @@ describe("MemoryCard", () => {
     expect(await screen.findByTestId("image-viewer-image")).toBeTruthy();
   });
 
-  // Aが013の仕様に追加した挙動（PR #101。Rレビューでも同じ穴を指摘された）:
-  // テキストのみの思い出（画像を優先しない探索4段目のランダム選択で起こりうる）
-  // には画像側のタップ先が無く、本文を最後まで読む手段が無くなる穴があった。
-  // 本文タップでの展開/折りたたみで塞いだ
+  // テキストだけの思い出には画像側のタップ先が無いので、本文のタップで展開・折りたたみして最後まで読める
+  // ようにする
   it("本文をタップすると展開/折りたたみが切り替わる（画像が無い思い出でも読み返せる）", async () => {
     memoryGetMock.mockResolvedValue(makeResult({ post: { ...makeResult().post, images: [] } }));
 
@@ -99,10 +95,8 @@ describe("MemoryCard", () => {
     expect(await screen.findByLabelText("本文をすべて表示")).toBeTruthy();
   });
 
-  // 016: memory.tsx（思い出タブ）がこのカードだけを描画する構成になったため、
-  // 該当なし・通信エラーを無表示のままにすると画面全体が空白に見える
-  // （security-auditor全体監査・3状態レビュー指摘）。カードを消すのではなく
-  // 案内文を出す形に変更した
+  // memory.tsx（思い出タブ）はこのカードだけを描くので、該当なし・通信エラーで無表示にすると画面全体が
+  // 空白に見える。カードを消さず案内文を出す（016）
   it("nullが返ると該当なしの案内文を表示する", async () => {
     memoryGetMock.mockResolvedValue(null);
 

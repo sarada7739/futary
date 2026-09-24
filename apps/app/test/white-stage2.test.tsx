@@ -6,9 +6,8 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppearanceProvider, iconPanelList, panelPhotoList } from "@futary/ui";
 
-// 039 段階2: a（ホームのロゴ）・b（記念日カード）・c（機能パネル）・f（統計のヒーロー）の
-// 分岐が white のときだけ効き、pink では従来のままであることの検査（タスク定義 8節
-// 「段階2のテスト」）。画面結合テストは home-screen.test.tsx 等と同じ形でモックする
+// ホームのロゴ（a）・記念日カード（b）・機能パネル（c）・統計のヒーロー（f）の分岐が white のときだけ
+// 効き、pink ではそのままであることの検査（039 8節「段階2のテスト」）
 
 const { statsGetMock, pushMock } = vi.hoisted(() => ({
   statsGetMock: vi.fn(),
@@ -72,7 +71,7 @@ beforeEach(() => {
   statsGetMock.mockResolvedValue(makeStats());
 });
 
-// 051 T4: ロゴは両モードで同じワードマーク画像（039 段階2-a の white の文字ロゴ「futary」はやめた）
+// ロゴは両モードで同じワードマーク画像（051 T4）
 describe("a: ホームのロゴ", () => {
   it("white でも pink でも同じ画像のロゴで、文字ロゴ（home-logo-text）は無い", async () => {
     const white = renderIn("white", <HomeScreen />);

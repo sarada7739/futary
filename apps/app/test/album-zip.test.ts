@@ -1,8 +1,8 @@
 import { strFromU8, unzipSync } from "fflate";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// 048 段階1: ZIP で持ち出す（Z1〜Z5 のロジック側）。ZIP は unzipSync で開いて中身を見る。
-// 画面側（⋯ → シート → 保存 → 進捗 → 完了）は zip-export-sheet.test.tsx
+// ZIP で持ち出す（048 Z1〜Z5 のロジック側）。ZIP は unzipSync で開いて中身を見る。画面側は
+// zip-export-sheet.test.tsx
 const { downloadUrlMock, photoListMock, albumListMock } = vi.hoisted(() => ({
   downloadUrlMock: vi.fn(),
   photoListMock: vi.fn(),
@@ -44,8 +44,8 @@ function filenameOf(ref: Ref): string {
 function entries(count: number, folder: string | null = null): Entry[] {
   return Array.from({ length: count }, (_, i) => ({ ref: albumRef(i + 1), caption: i % 2 === 0 ? `説明 ${i + 1}` : "", folder }));
 }
-// 中身は写真ごとに長さを変える（順序と対応を size で見る）。同じバイトの繰り返し（4KB + n）なので
-// 圧縮すれば数十バイトに縮む。Z1 の「無圧縮」はこれで見る（R の段階1レビュー記録 1: 1〜3 バイトでは縮まず緑のままだった）
+// 中身は写真ごとに長さを変える（順序と対応を size で見る）。同じバイトの繰り返し（4KB + n）なので圧縮すれば
+// 数十バイトに縮む。Z1 の「無圧縮」はこれで見る（1〜3 バイトでは縮まないので見分けられない）
 const COMPRESSIBLE_BYTES = 4096;
 function bytesOf(ref: Ref): Uint8Array<ArrayBuffer> {
   const n = Number(idOf(ref).replace(/\D/g, "")) || 1;

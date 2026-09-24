@@ -165,7 +165,7 @@ describe("054: 文言（3節）とリンク", () => {
   });
 
   it("絵にあって Nisoine に無いものは載せない（質問・みんなの声・30GB・通報・レビュー）", () => {
-    // HTML のコメント（030 の R レビューの注）は見せる文言ではないので外す
+    // HTML のコメントは見せる文言ではないので外す
     const visible = landingIndexHtml.replace(/<!--[\s\S]*?-->/g, "");
     for (const ng of ["1 日 3 回", "1日3回", "みんなの声", "30GB", "通報", "レビュー", "デッキ", "ブラインド"]) {
       expect(visible, ng).not.toContain(ng);

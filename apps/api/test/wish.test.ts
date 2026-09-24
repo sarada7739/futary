@@ -8,7 +8,7 @@ import type { RpcContext } from "../src/context";
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
 
-// event.test.tsと同じ理由（実際のR2 APIトークンの設定有無にテストの合否を左右させない）
+// 実際の R2 API トークンの設定有無に合否を左右させない
 const r2Sign: RpcContext["r2Sign"] = {
   accountId: "test-account",
   accessKeyId: "test-access-key-id",
@@ -30,7 +30,7 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
         "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
       )
       .bind(id, name, email, now),
-    // invite.acceptがaccount_id（Googleの識別子）を引く（024）
+    // ペア成立に使う invite.accept が account_id（Google の識別子）を引く（024）
     db
       .prepare(
         "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
@@ -103,10 +103,8 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
     expect(created.note).toHaveLength(200);
   });
 
-  // 【訂正・2026-09-02】長さは契約のZodスキーマ（trim後の.min()/.max()）で
-  // 判定するため、失敗時はINVALID_INPUTではなくBAD_REQUEST（oRPCの標準動作。
-  // conventions.md 5節「入力の誤りを、どこで弾き、どのコードで返すか」）。
-  // コードまで突き合わせる（`.rejects.toThrow()`だけにしない。同節）
+  // 長さは契約の Zod（trim 後の .min()・.max()）で判定するので、失敗は BAD_REQUEST（conventions.md 5節
+  // 「入力の誤りを、どこで弾き、どのコードで返すか」）。コードまで突き合わせる
   it("noteが200文字を超えるとBAD_REQUEST", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -132,9 +130,7 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
-  // security-auditor指摘（028）: noteの201文字（上限超え）テストはあったが、
-  // titleの101文字（上限超え）テストが無く、境界値を固定するテストが片方
-  // 欠けていた
+  // title も上限（101 文字）の境界を固定する
   it("titleが100文字ちょうどなら作れる", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -172,10 +168,8 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
     expect(result.items.map((w) => w.title)).toEqual(["Aの行きたい場所"]);
   });
 
-  // タスク定義8節: 並び順（未達成が先、達成済みが後。それぞれ新しい順）。
-  // 同一秒内の作成ではcreated_at（秒単位）が同値になりうるため、作成後に
-  // created_atを直接書き換えて順序を確定させる（event.test.tsの重複解消
-  // テストと同じ考え方: SQLの並び替えロジック自体を検証する）
+  // 並び順は未達成が先、達成済みが後。それぞれ新しい順（8節）。同じ秒の作成では created_at が同値に
+  // なりうるので、作成後に created_at を書き換えて順序を確定させる
   it("未達成が先・達成済みが後。それぞれcreatedAtの新しい順", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -196,7 +190,7 @@ describe("wish.create / wish.list（基本のCRUD）", () => {
   });
 });
 
-// 028: メモを足したことで「消して入れ直す」が成り立たなくなったため新設
+// メモがあるので「消して入れ直す」では済まない（028）
 describe("wish.update", () => {
   it("titleとnoteを両方更新できる", async () => {
     const user = await createUser();
@@ -277,8 +271,7 @@ describe("wish.update", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
-  // security-auditor指摘（028）: wish.createと対称に、updateでもtitleの
-  // 境界値（100文字は通る・101文字は拒む）を固定する
+  // wish.create と対称に、update でも title の境界（100 文字は通る・101 文字は拒む）を固定する
   it("titleを100文字ちょうどに更新できる", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -302,7 +295,7 @@ describe("wish.update", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 
-  // タスク定義1節: 設定者は編集しても変わらない
+  // 設定者は編集しても変わらない（1節）
   it("相手が編集しても、設定者の名前（createdByName）は変わらない", async () => {
     const owner = await createUser();
     await createCouple(owner);
@@ -320,7 +313,7 @@ describe("wish.update", () => {
     expect(updated.createdByName).toBe(owner.name);
   });
 
-  // タスク定義2節: 「相手が入れたwishを、もう1人が更新・削除できる」（現状維持の確認）
+  // 相手が入れた wish を、もう 1 人が更新・削除できる（2節）
   it("作成者でないペアの相手もタイトル・メモを編集できる", async () => {
     const owner = await createUser();
     await createCouple(owner);
@@ -388,8 +381,8 @@ describe("wish.setDone", () => {
     expect(undone.doneAt).toBeNull();
   });
 
-  // タスク定義3節: 同じ要求が2回届いても結果が同じになる（冪等）。
-  // toggleだと2回目でtrueに戻ってしまうが、setDoneは2回ともdoneAtが変わらない
+  // 同じ要求が 2 回届いても結果が同じ（冪等。3節）。toggle だと 2 回目で戻るが、setDone は 2 回とも
+  // doneAt が変わらない
   it("同じdoneを2回送っても結果が変わらない（冪等）", async () => {
     const user = await createUser();
     await createCouple(user);
@@ -441,7 +434,7 @@ describe("wish.setDone", () => {
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  // タスク定義4節: 権限はペアで共有。作成者に限定しない
+  // 権限はペアで共有。作成者に限定しない（4節）
   it("作成者でないペアの相手もチェックを付けられる", async () => {
     const owner = await createUser();
     await createCouple(owner);
@@ -511,7 +504,7 @@ describe("wish.delete", () => {
   });
 });
 
-// タスク定義5節: 1ペア200件を上限とし、サーバ側で拒む（未削除・達成済みを含む）
+// 1 ペア 200 件を上限とし、サーバで拒む（未削除・達成済みを含む。5節）
 describe("wish.create の上限（LIMIT_REACHED）", () => {
   it("200件目までは作れて、201件目はLIMIT_REACHEDで拒まれる", async () => {
     const user = await createUser();

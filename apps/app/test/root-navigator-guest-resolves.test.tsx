@@ -3,20 +3,11 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useGuestMode } from "../lib/guest-mode";
 
-// PR #177で踏んだ不具合の回帰テスト。「ゲストではじめる→/composeに飛んで
-// 読み込み中のまま止まる」の真因は、apps/app/app/_layout.tsxの識別変化
-// エフェクトが呼んでいた`queryClient.clear()`だった。couple.getが新しい
-// viewerKeyで発火した直後にこれが走ると、発火したばかりの問い合わせが
-// キャッシュごと消され、`retry:false`のため二度と再試行されず
-// `fetchStatus:"fetching"`のまま永久に止まる（worklog.md 2026-09-01参照）。
-//
-// このテストは実際のナビゲータ解決（(auth)/(tabs)/composeのどれが
-// 画面に出るか。Rレビュー指摘R-1）ではなく、「識別が変わった後、
-// couple.getが決着する（fetchStatus:"fetching"のまま止まらない）」こと
-// だけを狙って固定する（Rレビュー指摘R-2）。expo-routerの実ルーティングは
-// テスト環境でファイルベースの解決ができないため、Stack・Stack.Screen・
-// Stack.Protectedを最小限のダミーに差し替え、代わりに(auth)グループの
-// 位置に「ゲストではじめる」相当のボタンを直接置く
+// 識別が変わった後（ゲストではじめる）、couple.get が決着する（fetchStatus:"fetching" のまま止まらない）
+// ことを固定する。_layout.tsx の識別変化のエフェクトが queryClient.clear() を呼ぶと、新しい viewerKey で
+// 発火したばかりの問い合わせがキャッシュごと消え、retry:false のため読み込み中のまま止まる。
+// expo-router の実ルーティングはテスト環境で解決できないので、Stack・Stack.Screen・Stack.Protected を
+// 最小のダミーにし、(auth) の位置に「ゲストではじめる」相当のボタンを直接置く
 
 const { coupleGetMock } = vi.hoisted(() => ({
   coupleGetMock: vi.fn(),
@@ -56,9 +47,7 @@ vi.mock("../lib/orpc", async () => {
   return { client, orpc: createTanstackQueryUtils(client) };
 });
 
-// _layout.tsx自身もuseSessionを参照する。他の画面結合テストと同じ理由で
-// auth-client.tsをモックする（本物を読み込むとexpo-secure-store等が
-// jsdom環境でクラッシュする）
+// _layout.tsx も useSession を参照する。本物の auth-client.ts は expo-secure-store 等を読み jsdom で落ちるのでモックする
 vi.mock("../lib/auth-client", () => ({
   useSession: () => ({ data: null, isPending: false }),
 }));
@@ -88,10 +77,8 @@ describe("識別がゲストへ変わった後、couple.getが決着する（PR 
     // 識別が変わった直後は読み込み中のオーバーレイが出る
     expect(await screen.findByText("読み込み中…")).toBeInTheDocument();
 
-    // couple.getを解決させる。旧コードでは、この時点で識別変化の
-    // エフェクトがqueryClient.clear()を先に呼んでおり、発火したばかりの
-    // 問い合わせがキャッシュごと消されているため、ここで解決しても
-    // 画面には二度と反映されない（fetchStatus:"fetching"のまま止まる）
+    // couple.get を解決させる。識別変化のエフェクトが先に queryClient.clear() を呼んでいると、ここで
+    // 解決しても画面には反映されない（fetchStatus:"fetching" のまま止まる）
     await act(async () => {
       resolveCouple({ id: "demo-couple", datingDate: "2025-01-01", marriedDate: null, primaryDate: "dating" });
     });

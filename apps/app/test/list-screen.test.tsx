@@ -3,8 +3,7 @@ import { ORPCError } from "@orpc/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 027: 行きたい場所・食べたいものリスト画面の結合テスト。timeline-screen.test.tsxと
-// 同じ形でoRPCクライアントをモックする
+// 行きたい場所・食べたいものリスト画面の結合テスト（027）。oRPC クライアントはモックする
 const { listMock, createMock, updateMock, setDoneMock, deleteMock } = vi.hoisted(() => ({
   listMock: vi.fn(),
   createMock: vi.fn(),
@@ -88,8 +87,7 @@ describe("ListScreen: 表示", () => {
 
       renderScreen();
 
-      // 既定のリトライ（3回・指数バックオフ）が尽きるまでisErrorにならないため
-      // 通常より長いタイムアウトを与える（calendar-screen.test.tsxと同じ理由）
+      // 既定のリトライ（3 回・指数バックオフ）が尽きるまで isError にならないので長めに待つ
       expect(await screen.findByText("読み込めませんでした", {}, { timeout: 10000 })).toBeTruthy();
       expect(screen.getByText("再試行")).toBeTruthy();
     },
@@ -209,7 +207,7 @@ describe("ListScreen: チェック・削除", () => {
   });
 });
 
-// 028: 設定者の名前・メモの表示
+// 設定者の名前・メモの表示（028）
 describe("ListScreen: 設定者の名前・メモ", () => {
   it("設定者の名前が表示される", async () => {
     listMock.mockResolvedValue({ items: [makeWish({ createdByName: "れん" })] });
@@ -239,7 +237,7 @@ describe("ListScreen: 設定者の名前・メモ", () => {
   });
 });
 
-// 028: タイトル・メモの編集
+// タイトル・メモの編集（028）
 describe("ListScreen: 編集", () => {
   it("「編集」を押すと入力欄が開き、保存するとwish.updateが呼ばれる", async () => {
     const wish = makeWish({ id: "to-edit", title: "元のタイトル", note: "元のメモ" });
@@ -300,7 +298,7 @@ describe("ListScreen: 編集", () => {
   });
 });
 
-// タスク定義11節の確認観点: ゲストで開いたとき、入力欄が押せる形で置かれていないか
+// ゲストで開いたとき、入力欄が押せる形で置かれていない（11節）
 describe("ListScreen: ゲスト閲覧", () => {
   it("入力欄・追加ボタンの代わりにログイン導線が出る。チェック・削除も押せない", async () => {
     listMock.mockResolvedValue({ items: [makeWish({ title: "デモの行きたい場所" })] });
@@ -321,7 +319,7 @@ describe("ListScreen: ゲスト閲覧", () => {
     expect(screen.queryByText("追加")).toBeNull();
     expect(screen.queryByLabelText("達成済みにする")).toBeNull();
     expect(screen.queryByText("削除")).toBeNull();
-    // 028: 編集ボタンもゲストには出さない
+    // 編集ボタンもゲストには出さない
     expect(screen.queryByText("編集")).toBeNull();
 
     fireEvent.click(screen.getByText("ログイン"));

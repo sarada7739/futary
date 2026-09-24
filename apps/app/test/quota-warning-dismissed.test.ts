@@ -5,8 +5,8 @@ import {
   QUOTA_WARNING_DISMISSED_STORAGE_KEY,
 } from "../lib/quota-warning-dismissed";
 
-// 045（人間の指示）: 「残り N 枚です」の警告は × で消せる。消した状態はこの起動の間（sessionStorage）。
-// 残り枚数が変われば（写真を足したら）もう一度出す
+// 「残り N 枚です」の警告は × で消せる。消した状態はこの起動の間（sessionStorage）。残り枚数が変われば
+// （写真を足したら）もう一度出す（045）
 describe("quota-warning-dismissed", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
@@ -29,8 +29,8 @@ describe("quota-warning-dismissed", () => {
     expect(isQuotaWarningDismissed(0)).toBe(true);
   });
 
-  // 【R の記録 1】向きを縛る: ストレージが例外を投げる環境では「消していない」（警告は出る方に倒す。
-  // 043 の「見た」は逆向き（既読扱い）なので、同じ形のテストで向きの違いを固定する）
+  // 向きを縛る: ストレージが例外を投げる環境では「消していない」（警告は出る方に倒す）。043 の「見た」は
+  // 逆向き（既読扱い）なので、同じ形のテストで向きの違いを固定する
   it("sessionStorage が例外を投げる環境では「消していない」扱い（false）。書き込みも例外にならない", () => {
     withThrowingStorage("sessionStorage", () => {
       expect(() => dismissQuotaWarning(4)).not.toThrow();

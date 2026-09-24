@@ -2,8 +2,7 @@ import { render, fireEvent, act } from "@testing-library/react";
 import { Button } from "@futary/ui";
 import { describe, expect, it, vi } from "vitest";
 
-// conventions.md 4節（旧L26）。M1 の実機確認でログインボタンの二重発火が
-// OAuth の state 競合を起こした（PR #22）。この回帰テストが無いと同じ不具合が戻る
+// ボタンの二重発火を防ぐ（conventions.md 4節）。ログインボタンの二重発火は OAuth の state 競合を起こす
 describe("Button の二重発火防止", () => {
   it("素早く2回押しても、同期の onPress は1回しか走らない", () => {
     const onPress = vi.fn();
@@ -47,10 +46,8 @@ describe("Button の二重発火防止", () => {
     const { getByText } = render(<Button onPress={onPress}>押す</Button>);
     const button = getByText("押す");
 
-    // React 19 のイベントディスパッチはハンドラ内の例外を非同期に
-    // window の error イベントとして報告するため（fireEvent.click 自体は
-    // 同期的に throw しない）、ここでは伝播経路を握りつぶして、
-    // 本題である「ガードが固着しないこと」だけを検証する
+    // React 19 はハンドラ内の例外を非同期に window の error イベントとして報告する（fireEvent.click は
+    // throw しない）ので、伝播は握りつぶし、「ガードが固着しないこと」だけを見る
     const swallow = (event: ErrorEvent) => event.preventDefault();
     window.addEventListener("error", swallow);
     fireEvent.click(button);

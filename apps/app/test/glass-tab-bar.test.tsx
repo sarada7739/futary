@@ -7,11 +7,9 @@ import { Pressable, Text } from "react-native";
 import { describe, expect, it, vi } from "vitest";
 import { GlassTabBar, type GlassTabBarProps } from "../components/glass-tab-bar";
 
-// 061: 湾曲ガラスのタブバー。
-//
-// 見た目（ぼかし・屈折・色収差）は react-native-web が CSS クラスに畳むため
-// DOM から値を読み取れない。値そのものはソースの不変条件として検査し
-// （danger-variant-scope.test.ts と同じ形）、DOM では振る舞いだけを見る。
+// 湾曲ガラスのタブバー（061）。見た目（ぼかし・色収差）は react-native-web が CSS クラスに畳むので
+// DOM から値を読めない。値はソースの不変条件として検査し（danger-variant-scope.test.ts と同じ形）、
+// DOM では振る舞いだけを見る
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(testDir, "..");
@@ -44,12 +42,9 @@ function makeProps(options: { focusedName?: string; preventDefault?: boolean } =
     descriptors[`${spec.name}-key`] = {
       options: {
         title: spec.title,
-        // **`href: null` は navigator まで届かない。**expo-router が手前で剥がし、
-        // `tabBarItemStyle: { display: "none" }` と「null を返す tabBarButton」に
-        // 置き換える（expo-router/build/layouts/TabsClient.js の processor）。
-        // ここで `href: null` を渡す形にすると、本番に存在しない条件を検査する
-        // だけのテストになる（実際にそう書いていて、隠し画面が全部タブに並ぶ
-        // 不具合を緑のまま通した）。実物と同じ形を作る
+        // `href: null` は navigator まで届かない。expo-router が手前で剥がし、`tabBarItemStyle: { display: "none" }`
+        // と「null を返す tabBarButton」に置き換える（expo-router/build/layouts/TabsClient.js の processor）。
+        // `href: null` を渡す形にすると本番に無い条件を検査するだけになるので、実物と同じ形を作る
         ...(spec.hidden
           ? { tabBarItemStyle: { display: "none" }, tabBarButton: () => null }
           : {}),
@@ -77,10 +72,9 @@ function makeProps(options: { focusedName?: string; preventDefault?: boolean } =
     preloadedRouteKeys: [],
   };
 
-  // navigator が渡す本物の型は expo-router の内部にあり、テストから組み立てられる
-  // 形ではない（Descriptor は navigation・render を含む）。この部品が実際に読むのは
-  // state・descriptors[key].options・navigation の emit/navigate だけなので、
-  // その3つだけを持つ最小の形を作って1度だけ型を当てる（any は使わない）
+  // navigator が渡す本物の型は expo-router の内部にあり、テストから組み立てられない（Descriptor は
+  // navigation・render を含む）。この部品が読むのは state・descriptors[key].options・navigation の
+  // emit/navigate だけなので、その 3 つを持つ最小の形を作って 1 度だけ型を当てる（any は使わない）
   const props = { state, descriptors, navigation: { emit, navigate }, insets: { top: 0, bottom: 0, left: 0, right: 0 } };
   return { props: props as unknown as GlassTabBarProps, emit, navigate };
 }
@@ -96,9 +90,8 @@ function renderBar(props: GlassTabBarProps, appearance: Appearance = "pink") {
 // --- 振る舞い ---------------------------------------------------------------
 
 describe("G1: 出す項目", () => {
-  // この検査だけでは足りない。隠し画面の tabBarButton は null を返すので、
-  // 除外に失敗していても文字は出ない（＝壊れた実装でも通る）。幅を食うかどうかは
-  // 下の「スロットの数」で見る（R レビュー記録3）
+  // この検査だけでは足りない。隠し画面の tabBarButton は null を返すので、除外に失敗しても文字は出ない。
+  // 幅を食うかどうかは下の「スロットの数」で見る
   it("隠し画面の文字がタブに出ない（これだけでは除外の証明にならない）", () => {
     const { props } = makeProps();
     const { queryByText, getByText } = renderBar(props);
@@ -110,8 +103,7 @@ describe("G1: 出す項目", () => {
     expect(queryByText("思い出")).toBeNull();
   });
 
-  // 隠し画面を数に入れると、スロットが増えて本物のタブが潰れる
-  // （実測: (tabs)/_layout.tsx の隠し画面 12 枚ぶん、5 → 17 スロットになった）
+  // 隠し画面を数に入れると、スロットが増えて本物のタブが潰れる（隠し画面 12 枚ぶんで 5 → 17）
   it("スロットの数が、出す項目の数と一致する（隠し画面が幅を食わない）", () => {
     const { props } = makeProps();
     const { container } = renderBar(props);

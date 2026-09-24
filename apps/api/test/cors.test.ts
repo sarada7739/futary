@@ -5,8 +5,7 @@ import type { Bindings } from "../src/index";
 
 const bindings = env as unknown as Bindings;
 
-// CORS の fail-closed 挙動（credentials: true と組み合わせた許可オリジンの絞り込み）
-// が回帰しても気づけるようにするテスト（R-18: レビュー指摘）
+// CORS の fail-closed（credentials: true と組み合わせた許可オリジンの絞り込み）が回帰しても気づけるようにする
 describe("CORS の fail-closed 検証", () => {
   it("TRUSTED_ORIGINS に含まれるオリジンには Access-Control-Allow-Origin が返る", async () => {
     const res = await app.fetch(
@@ -30,8 +29,8 @@ describe("CORS の fail-closed 検証", () => {
     expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
   });
 
-  // 053 T6: 本番の TRUSTED_ORIGINS は https://nisoine.com だけ（旧オリジンは外す。
-  // 旧ホストは 301 するので要らない）。新オリジンからの API は通り、旧オリジンからは ACAO が返らない
+  // 本番の TRUSTED_ORIGINS は https://nisoine.com だけ（旧ホストは 301 するので要らない）。新オリジンからの
+  // API は通り、旧オリジンからは ACAO が返らない（053 T6）
   it("053 T6: TRUSTED_ORIGINS=https://nisoine.com だけで、新オリジンには ACAO が返り旧オリジンには返らない", async () => {
     const withCanonical = { ...bindings, TRUSTED_ORIGINS: "https://nisoine.com" };
 

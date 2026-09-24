@@ -52,14 +52,12 @@ async function createCouple(user: { id: string; name: string; email: string }) {
   return call(router.couple.create, {}, { context: contextFor(user) });
 }
 
-// JSTのdate（YYYY-MM-DD）内の固定時刻（正午）に対応するUnix秒を返す。
-// 日境界の前後でテストが揺れないよう、日の真ん中を使う
+// JST の date（YYYY-MM-DD）の正午に対応する Unix 秒（日境界の前後で揺れないよう、日の真ん中を使う）
 function secondsAt(date: string): number {
   return Math.floor(jstDayRangeMs(date).fromMs / 1000) + 12 * 60 * 60;
 }
 
-// 031: image_key列は無くなり、post_images（子テーブル）へ移った。
-// imageKeyを渡すとposition=0の画像を1枚追加する
+// imageKey を渡すと post_images に position=0 の画像を 1 枚足す
 async function insertPost(
   coupleId: string,
   authorId: string,
@@ -139,7 +137,7 @@ describe("memory.get", () => {
     expect(result).toBeNull();
   });
 
-  // 7日境界を両側で押さえる（Rレビュー指摘: 片側だけだと見逃す）
+  // 7 日の境界を両側で押さえる（片側だけだと見逃す）
   it("ちょうど7日前の投稿1件だけがある状態ではrandomで返る（境界の内側）", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -161,18 +159,11 @@ describe("memory.get", () => {
     expect(result).toBeNull();
   });
 
-  // L61「存在しない日付は月末に寄せる」の境界（3/29・30・31の1ヶ月前が
-  // 3日とも2/28になる等）はpackages/date/test/date.test.tsのmonthsBeforeの
-  // テストで網羅済み。memory.tsはmonthsBefore/yearsBeforeを独自再実装せず
-  // そのままimportして使っている（本ファイル冒頭のimportを参照）ため、
-  // ここで別途「今日を3/31に固定して」再検証はしない（procedureはtodayJst()を
-  // 引数なしで呼ぶ設計のため、テストからは差し替えられない。他のprocedureの
-  // テストも同様に実時刻を基準に組み立てている）。上の「1ヶ月前に投稿があれば
-  // oneMonthAgoが返る」テストは、実行時点の実際の「今日」に対する1ヶ月前
-  // （どんな月末クランプが起きるかを問わず）でmonthsBeforeの結果と
-  // memory.getの探索が一致することを既に確認している
+  // 月末に寄せる境界（3/29・30・31 の 1 ヶ月前が 3 日とも 2/28 等）は date.test.ts の monthsBefore で
+  // 網羅している。memory.ts は monthsBefore・yearsBefore をそのまま import して使い、procedure は
+  // todayJst() を引数なしで呼ぶので、ここで「今日」を固定して再検証はしない
 
-  // L69: 削除済みの投稿は復活しない
+  // 削除済みの投稿は復活しない
   it("1ヶ月前の投稿が削除済みなら、そこは無かったものとして次の節目を探す", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
@@ -235,10 +226,8 @@ describe("memory.get", () => {
   });
 });
 
-// stableHashを直接テストする。「procedure（memory.get）はtodayJst()を引数なしで
-// 呼ぶため、テストから『日付が変わったら結果も変わりうる』を統合テストレベルでは
-// 検証できない（他のprocedureのテストも同様の制約を持つ）。この性質は
-// 選択ロジックの核であるstableHashに閉じているため、ここで直接検証する
+// stableHash を直接確かめる。memory.get は todayJst() を引数なしで呼ぶので、「日付が変わったら結果も
+// 変わりうる」は統合テストでは見られない。この性質は stableHash に閉じている
 describe("stableHash（memory.getのランダム選択が決定的であることの根拠）", () => {
   it("同じ入力なら常に同じ値を返す（決定的）", () => {
     const input = "couple-1:2026-06-15";

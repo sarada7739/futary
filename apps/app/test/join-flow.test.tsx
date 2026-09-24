@@ -3,30 +3,14 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { ORPCError } from "@orpc/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 不具合の回帰テスト（2026-09-02、人間の実機報告）。
-// 「コードで参加する」で招待コードを入力して参加すると、(tabs)へ進まず
-// 再び「コードで参加する」画面（(onboarding)）に戻ってしまっていた。
-//
-// 真因: apps/app/app/(onboarding)/join.tsxのhandleSubmitが
-// `queryClient.setQueryData(orpc.couple.get.queryKey(), couple)`と、
-// viewerKeyを含まないキーへ書き込んでいた。_layout.tsxのcoupleQueryは
-// `[...orpc.couple.get.queryOptions().queryKey, viewerKey]`というキーで
-// 読んでいる（T9。apps/app/lib/viewer-key.ts）ため、このsetQueryDataは
-// 実際には別のキャッシュ枠に書き込むだけで、ルートのガード
-// （hasCouple/needsOnboarding）が見ているデータには一切反映されず、
-// router.replace("/")してもcouple.get未所属のまま(onboarding)へ
-// 差し戻されていた。
-//
-// viewer-key-coverage.test.tsの走査は`orpc.<namespace>.<method>.
-// (queryOptions|infiniteOptions)(`という呼び出しパターンしか見ないため、
-// setQueryDataによる直接書き込みは検出対象外だった（025のpendingInvite
-// QueryKeyと同じ形の見落とし）。
-//
-// root-navigator-guest-resolves.test.tsxと同じ形で、実際のナビゲータ
-// 解決（Stack.ProtectedのguardがhasCoupleへ切り替わるか）まで含めて
-// 固定する。expo-routerの実ルーティングはテスト環境で解決できないため、
-// Stack・Stack.Screen・Stack.Protectedを最小限のダミーに差し替え、
-// (onboarding)の位置に実際のJoinCoupleScreenを置く
+// 「コードで参加する」で参加したら (tabs) へ進む（(onboarding) に戻らない）。
+// join.tsx の handleSubmit が viewerKey を含まないキーへ setQueryData すると、_layout.tsx の coupleQuery
+// （`[...queryKey, viewerKey]`。T9）とは別の枠に書くだけになり、ルートの guard（hasCouple・
+// needsOnboarding）に反映されず (onboarding) へ差し戻される。
+// 実際のナビゲータの解決（Stack.Protected の guard が hasCouple へ切り替わるか）まで含めて固定する。
+// expo-router の実ルーティングはテスト環境で解決できないので、Stack・Stack.Screen・Stack.Protected を
+// 最小のダミーにし、(onboarding) の位置に実際の JoinCoupleScreen を置く
+// （root-navigator-guest-resolves.test.tsx と同じ形）
 
 const { coupleGetMock, inviteAcceptMock, replaceMock } = vi.hoisted(() => ({
   coupleGetMock: vi.fn(),
@@ -67,8 +51,7 @@ const { default: RootLayout } = await import("../app/_layout");
 const { default: JoinCoupleScreen } = await import("../app/(onboarding)/join");
 const { queryClient } = await import("../lib/query");
 
-// (onboarding)配下のexpo-router実ルーティングは解決できないため、
-// 「コードで参加する」画面（join.tsx）を直接置く
+// (onboarding) 配下の実ルーティングは解決できないので、join.tsx を直接置く
 function OnboardingStub() {
   return <JoinCoupleScreen />;
 }
@@ -89,7 +72,7 @@ describe("招待コードで参加すると(tabs)へ進む（コード入力後�
 
     const couple = { id: "couple-1", datingDate: null, marriedDate: null, primaryDate: "unset" as const };
     inviteAcceptMock.mockResolvedValue(couple);
-    // handleSubmit内のinvalidateQueriesによる再取得。今度はペアに参加済み
+    // handleSubmit の invalidateQueries による再取得。今度はペアに参加済み
     coupleGetMock.mockResolvedValueOnce(couple);
 
     const input = screen.getByPlaceholderText("6桁のコード");

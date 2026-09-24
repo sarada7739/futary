@@ -6,8 +6,7 @@ import type { Bindings } from "../src/index";
 
 const baseEnv = env as unknown as Bindings;
 
-// High指摘2件の修正（fail-fast）が回帰しても気づけるようにするテスト
-// （R-18: レビュー指摘）
+// 起動時の検証（fail-fast）が回帰しても気づけるようにする
 describe("createAuth の fail-fast 検証", () => {
   it("BETTER_AUTH_SECRET が未設定なら例外を投げる", () => {
     expect(() => createAuth({ ...baseEnv, BETTER_AUTH_SECRET: undefined })).toThrow(
@@ -67,20 +66,16 @@ describe("parseTrustedOrigins の検証", () => {
     expect(() => parseTrustedOrigins("not-a-url")).toThrow(/形式が不正/);
   });
 
-  // TRUSTED_ORIGINS は Better Auth の trustedOrigins（ワイルドカードマッチ対応）に
-  // そのまま渡るため、*.pages.dev のような Cloudflare の共有ドメインを誤って
-  // 許可すると、他人のデプロイ先が OAuth ログイン後のリダイレクト先として
-  // 信頼されてしまう（実機ログイン確認バグ修正時のsecurity-auditor Low指摘）
+  // TRUSTED_ORIGINS は Better Auth の trustedOrigins（ワイルドカード対応）にそのまま渡るので、*.pages.dev の
+  // ような共有ドメインを許すと、他人のデプロイ先が OAuth ログイン後のリダイレクト先として信頼される
   it("ワイルドカードを含むホスト名は例外を投げる", () => {
     expect(() => parseTrustedOrigins("https://*.pages.dev")).toThrow(/ワイルドカード/);
   });
 });
 
-// T8（想定脅威。security-requirements.md 9節）の担保は auth.ts の
-// useSecureCookies 指定とBetter Authの既定値の組み合わせに依存しており、
-// 依存側の既定値が変わってもテストが検知できなかった（security-auditor
-// 全体監査Low-5指摘）。実際にCookieを発行するエンドポイントを叩き、
-// 属性を直接検証する
+// T8（security-requirements.md 9節）の担保は auth.ts の useSecureCookies と Better Auth の既定値の
+// 組み合わせに依存する。依存側の既定値が変わっても気づけるよう、実際に Cookie を発行するエンドポイントを
+// 叩いて属性を直接見る
 describe("セッションCookieの属性（T8: セッション奪取対策）", () => {
   it("http（localhost）ではSecure属性が付かない。HttpOnly・SameSite=Laxは付く", async () => {
     const response = await app.fetch(

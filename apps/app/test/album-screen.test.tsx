@@ -3,19 +3,18 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// 041: アルバム一覧の画面結合テスト（T11 の一覧側）。want-screen.test.tsx と同じ形で oRPC を
-// モックする。ヘッダーの + は expo-router の navigation.setOptions で置くため、setOptions に
-// 渡された headerRight を描画して確かめる
+// アルバム一覧の画面結合テスト（041 T11 の一覧側）。ヘッダーの + は navigation.setOptions で置くので、
+// setOptions に渡された headerRight を描画して確かめる
 const { listMock, createMock, updateMock, deleteMock, uploadUrlMock, coupleGetMock, photoListMock, pushMock, setOptionsMock } = vi.hoisted(
   () => ({
     listMock: vi.fn(),
-    // 048: 「すべての写真を ZIP で保存」がアルバムごとに photo.list で数える
+    // 「すべての写真を ZIP で保存」がアルバムごとに photo.list で数える（048）
     photoListMock: vi.fn(),
     createMock: vi.fn(),
     updateMock: vi.fn(),
     deleteMock: vi.fn(),
     uploadUrlMock: vi.fn(),
-    // 045: 作成モーダルの「カバー写真を選択」が couple.get の無料枠を見る
+    // 作成モーダルの「カバー写真を選択」が couple.get の無料枠を見る（045）
     coupleGetMock: vi.fn(),
     pushMock: vi.fn(),
     setOptionsMock: vi.fn(),
@@ -93,7 +92,7 @@ function stubList(items: AlbumLike[], timeline = { photoCount: 0, previews: [] a
 beforeEach(() => {
   vi.clearAllMocks();
   queryClient.clear();
-  // 045: 既定は paid（枠なし）。無料枠のテストで free に上書きする
+  // 既定は paid（枠なし）。無料枠のテストで free に上書きする
   coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "paid", albumQuota: null });
 });
 
@@ -174,7 +173,7 @@ describe("AlbumScreen: 一覧（T11）", () => {
     expect(screen.getByTestId("album-list-menu")).toBeTruthy();
   });
 
-  // 048: ヘッダーの ⋯ → 「すべての写真を ZIP で保存」→ シート（album.list のアルバムを辿って数える）。中身は zip-export-sheet.test.tsx
+  // ヘッダーの ⋯ →「すべての写真を ZIP で保存」→ シート（048）。中身は zip-export-sheet.test.tsx
   it("048: ヘッダーの ⋯ → 「すべての写真を ZIP で保存」でシートが開き、作ったアルバムの枚数を出す（タイムラインは含めない）", async () => {
     stubList([makeAlbum({ photoCount: 2 })], { photoCount: 125, previews: [makePhoto(1)] });
     photoListMock.mockResolvedValue({ items: [makePhoto(1), makePhoto(2)], nextCursor: null });
@@ -281,7 +280,7 @@ function finishModalAnimations() {
   }
 }
 
-// 045・T7（作成モーダル側）: free で残り 0 のとき「カバー写真を選択」は写真を選ばせず、モーダルを閉じてシート
+// 作成モーダル側（045 T7）: free で残り 0 のとき「カバー写真を選択」は写真を選ばせず、モーダルを閉じてシート
 describe("AlbumScreen: 無料枠（045）", () => {
   it("free で残り 0 のとき、カバー写真を選択 → ピッカーを開かずにシートが出る（作成モーダルは閉じる）", async () => {
     coupleGetMock.mockResolvedValue({ id: "couple-1", plan: "free", albumQuota: { limit: 30, used: 30 } });
@@ -359,7 +358,7 @@ describe("AlbumScreen: 無料枠（045）", () => {
     stubList([makeAlbum()]);
     renderScreen();
     const usage = await screen.findByTestId("album-usage-card");
-    // 人間の指示（2026-09-14）: メーターは一覧の一番下。タイムラインのカードにもアルバムのカードにも後続する
+    // メーターは一覧の一番下（タイムラインのカードにもアルバムのカードにも後続する）
     const timeline = screen.getByTestId("album-timeline-card");
     const albumCard = screen.getByTestId("album-card-album-1");
     expect(timeline.compareDocumentPosition(usage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -401,7 +400,7 @@ describe("AlbumScreen: 無料枠（045）", () => {
   });
 });
 
-// 047 T8: 一覧の帯（使用量のカードの上）。猶予中は「ZIP で保存」→ すべての写真のシート
+// 一覧の帯（使用量のカードの上。047 T8）。猶予中は「ZIP で保存」→ すべての写真のシート
 describe("AlbumScreen: やめたあとの鍵の帯（047）", () => {
   const LOCK_AT = Date.UTC(2026, 9, 15, 15, 0, 0) / 1000;
 
