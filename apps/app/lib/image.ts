@@ -1,11 +1,10 @@
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 
-// architecture.md 6節: クライアント側で長辺 1600px / JPEG 品質 0.8 に圧縮してから送る
+// クライアントで長辺 1600px・JPEG 品質 0.8 に圧縮してから送る（architecture.md 6節）
 const MAX_LONG_SIDE = 1600;
 const JPEG_QUALITY = 0.8;
 
-// 圧縮対象として受け付ける元画像の形式。ここに無い形式（gif/heic等）は
-// 圧縮結果の予測がつかないため、アップロード前にはっきり弾く
+// 圧縮して受け付ける元の形式。無い形式（gif・heic 等）は結果の予測がつかないので、アップロード前に弾く
 const SUPPORTED_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
 
 export class UnsupportedImageTypeError extends Error {
@@ -19,7 +18,7 @@ export interface SourceImage {
   uri: string;
   width: number;
   height: number;
-  // 取得できない環境がある（プラットフォーム依存）ため任意
+  // 取れない環境がある（プラットフォーム依存）ので任意
   mimeType?: string;
 }
 
@@ -29,8 +28,7 @@ export interface CompressedImage {
   height: number;
 }
 
-// 長辺が上限を超えている場合だけ resize する。既に小さい画像を無駄に
-// 引き伸ばさない（アップスケールしない）
+// 長辺が上限を超えるときだけ縮める（小さい画像を引き伸ばさない）
 function resizeArgFor(source: SourceImage): { width?: number; height?: number } | null {
   const longSide = Math.max(source.width, source.height);
   if (longSide <= MAX_LONG_SIDE) return null;
@@ -62,9 +60,8 @@ export interface UploadedImage {
   imageHeight: number;
 }
 
-// post.uploadUrl が発行した署名付きURLへ直接 PUT する。画像本体は Worker を
-// 経由しない（architecture.md 6節）。requestUploadUrl を引数で受け取るのは、
-// orpc クライアントへの直接依存を避けてテストしやすくするため
+// 署名付き URL へ直接 PUT する（本体は Worker を通らない。architecture.md 6節）。
+// requestUploadUrl を引数で受けるのは、orpc クライアントに直接依存せずテストしやすくするため
 export async function uploadCompressedImage(
   requestUploadUrl: (contentType: "image/jpeg") => Promise<{ imageId: string; url: string }>,
   compressed: CompressedImage,

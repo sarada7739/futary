@@ -1,6 +1,5 @@
-// 043: リリース履歴。データはこの配列だけ（表も手続きも無い。タスク定義 0節 #1）。
-// 版の番号はこの一覧の中だけの番号（v1.0.0 = 016 の公開。機能を足すごとに minor、
-// アルバムは 2.0.0。package.json の version とは連動しない。0節 #3）。
+// リリース履歴。データはこの配列だけ（表も手続きも無い。043）。版の番号はこの一覧の中だけの番号
+// （v1.0.0 = 公開。機能を足すごとに minor。package.json の version とは連動しない）。
 // 利用者に見える機能を足すタスクは、同じ PR でここに 1 項目足す（conventions.md 8節）。
 // 文言は A がタスク定義に書く。日付は実装 PR が main に入った日（JST。git log --first-parent）
 export type Release = {
@@ -146,8 +145,7 @@ export const RELEASES: readonly Release[] = [
 export const LATEST_VERSION: string = RELEASES[0]!.version;
 export const LATEST_RELEASE: Release = RELEASES[0]!;
 
-// 一覧・シートの表示用（"2026-09-14" → "2026.09.14"）。暦の解釈は無いので文字列の置き換えだけ
-// （new Date を使わない。eslint の no-restricted-syntax）
+// 表示用（"2026-09-14" → "2026.09.14"）。暦の解釈は無いので文字列の置き換えだけ（new Date を使わない）
 export function formatReleaseDate(date: string): string {
   return date.replaceAll("-", ".");
 }

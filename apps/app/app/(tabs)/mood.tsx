@@ -18,8 +18,7 @@ function levelsOf(items: { date: string; level: number }[]): Record<string, numb
   return result;
 }
 
-// 020のホーム機能パネル「気分の記録」の行き先。ボトムタブには出さない
-// （027・list.tsxと同じ扱い）
+// 機能パネル「気分の記録」の行き先。タブには出さない
 export default function MoodScreen() {
   const { isGuestMode, exitGuestMode } = useGuestMode();
   const todayDate = useMemo(() => todayJst(), []);
@@ -28,11 +27,10 @@ export default function MoodScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const range = useMemo(() => monthGridRange(year, month), [year, month]);
-  // 今日の選択ボタンは、月グリッドをどの月に動かしても常に「今日」を指す
-  // 必要があるため、月の範囲とは別にtodayDateだけの範囲で問い合わせる
+  // 今日の選択ボタンは、月グリッドをどの月に動かしても今日を指すので、月の範囲とは別に今日だけで問い合わせる
   const todayRange = useMemo(() => ({ from: todayDate, to: todayDate }), [todayDate]);
 
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）
   const viewerKey = useViewerQueryKey();
   const monthOptions = orpc.mood.list.queryOptions({ input: range });
   const monthQuery = useQuery({ ...monthOptions, queryKey: [...monthOptions.queryKey, viewerKey] });
@@ -55,7 +53,7 @@ export default function MoodScreen() {
     setMonth(next.month);
   }
 
-  // もう一度押すと取り消す（タスク定義11節）
+  // もう一度押すと取り消す
   async function handleSelect(level: number) {
     setErrorMessage(null);
     try {
@@ -78,7 +76,7 @@ export default function MoodScreen() {
           <View style={{ gap: space.sm }}>
             <Text weight="bold">今日の気分</Text>
             {isGuestMode ? (
-              // 014の導線に合わせる。押してからサーバに拒まれる形にしない
+              // 押してからサーバに拒まれる形にしない
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                 <Text color="muted">記録はログインすると使えます</Text>
                 <Button variant="ghost" onPress={exitGuestMode}>
@@ -101,7 +99,7 @@ export default function MoodScreen() {
                     </View>
                   ))}
                 </View>
-                {/* 色だけで区別しない。選んだ段階を言葉でも出す（タスク定義2節） */}
+                {/* 色だけで区別しない。選んだ段階を言葉でも出す */}
                 <Text color="muted">
                   今日: {myTodayLevel !== undefined ? MOOD_LABELS[myTodayLevel] : "まだ記録していません"}
                 </Text>
@@ -148,7 +146,7 @@ export default function MoodScreen() {
               <MoodMonthGrid year={year} month={month} levelsByDate={mineByDate} todayDate={todayDate} />
             </View>
 
-            {/* 相手が未参加（ペアが1人）のときは相手の段を出さない（タスク定義11節） */}
+            {/* 相手が未参加なら相手の段を出さない */}
             {partner && (
               <View style={{ gap: space.xs }}>
                 <Text weight="bold">{partner.name ?? "相手"}</Text>

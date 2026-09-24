@@ -6,9 +6,7 @@ import { orpc } from "../../lib/orpc";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 import { pendingInviteQueryKey } from "./invite";
 
-// 023: 付き合った日は登録時に聞かない（すでに結婚している人は覚えていない
-// 場合がある）。ペアを作る操作だけが残る。付き合った日はマイページで
-// あとから設定する（019で既に設定できる）
+// 付き合った日は登録時に聞かない（結婚している人は覚えていないことがある）。マイページであとから設定する（023）
 export default function CreateCoupleScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -21,10 +19,8 @@ export default function CreateCoupleScreen() {
 
   async function handleSubmit() {
     await createCouple.mutateAsync({});
-    // ペア作成直後に一度だけ、明示的なこの操作の一部として発行する。
-    // 招待コードは機密度が高くURLに乗せられないため（security-auditor 004監査
-    // Medium指摘）ルーティングパラメータではなくクエリキャッシュ経由で invite.tsx
-    // に渡す。invite.tsx 側は画面表示のたびには発行しない（後述の副作用対策）
+    // ペアを作った直後に一度だけ、この明示的な操作の一部として発行する。招待コードは URL に乗せられないので、
+    // ルートのパラメータでなくクエリのキャッシュで invite.tsx に渡す（invite.tsx は表示のたびには発行しない）
     const invite = await issueInvite.mutateAsync();
     queryClient.setQueryData(pendingInviteQueryKey(viewerKey), invite);
     router.push("/invite");

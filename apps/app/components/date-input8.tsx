@@ -4,22 +4,18 @@ import { radius, space, useTheme } from "@futary/ui";
 import { digitsToDate, digitsToDisplay, toDigits } from "../lib/date-input8";
 
 export type DateInput8Props = {
-  // "" または YYYY-MM-DD。8桁そろって実在する日付になったときだけonChangeで
-  // YYYY-MM-DDを渡す。それ以外（入力途中・存在しない日付）は""を渡す
+  // "" または YYYY-MM-DD。8 桁そろって実在する日付のときだけ YYYY-MM-DD を渡し、それ以外は ""
   value: string;
   onChange: (value: string) => void;
   testID?: string;
 };
 
-// 数字8桁を YYYY-MM-DD に変換する入力（022 B）。区切りは打たせず、
-// 8桁そろうまでは日付として扱わない
+// 数字 8 桁を YYYY-MM-DD にする入力（022）。区切りは打たせず、8 桁そろうまでは日付として扱わない
 export function DateInput8({ value, onChange, testID }: DateInput8Props) {
   const { colors } = useTheme();
   const [digits, setDigits] = useState(() => toDigits(value));
-  // 自分がonChangeで通知した値は、親から折り返ってきても入力中の桁を
-  // 壊さない（8桁未満の間は親には""しか渡らないため、親のvalueだけでは
-  // 入力途中を復元できない）。外部から明示的に値が変わったとき
-  // （マイページの初回ロード等）だけ内部状態を合わせる
+  // 自分が通知した値が親から折り返ってきても、入力中の桁を壊さない（8 桁未満の間は親に "" しか渡らないので、
+  // 親の value だけでは入力途中を戻せない）。外から値が変わったとき（初回のロード等）だけ合わせる
   const lastEmittedRef = useRef(value);
   useEffect(() => {
     if (value !== lastEmittedRef.current) {

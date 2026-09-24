@@ -1,10 +1,8 @@
 import { Platform } from "react-native";
 
-// 045（人間の指示。2026-09-14）: アルバム詳細の「残り N 枚です」の警告カードは × で消せる。
-// 消した状態はこの起動の間だけ（sessionStorage。043 の「後で通知する」と同じ寿命）。
-// 残り枚数が減ったら（写真を足したら）もう一度出す（消したときの残り枚数を覚えておき、一致するときだけ隠す）。
-// ストレージが使えないときは「消していない」扱い（警告は出る方に倒す。上限に近いことを伝えるのが役目）。
-// `window.sessionStorage` と明示する理由は lib/release-seen.ts と同じ
+// アルバム詳細の「残り N 枚です」の警告は × で消せる（045）。消した状態はこの起動の間だけ（sessionStorage）。
+// 残り枚数が変わればまた出す（消したときの枚数と一致するときだけ隠す）。ストレージが使えないときは消していない
+// 扱い（警告は出る側に倒す）。`window.sessionStorage` と明示する理由は lib/release-seen.ts
 export const QUOTA_WARNING_DISMISSED_STORAGE_KEY = "futary.quotaWarningDismissed";
 
 function sessionStorageOrNull(): Storage | null {

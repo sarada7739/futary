@@ -15,10 +15,9 @@ import {
 } from "../lib/album-zip";
 import { Sheet } from "./sheet";
 
-// 048 段階1: 「ZIP で保存」のシート。アルバム詳細の ⋯・一覧の ⋯・マイページの 3 箇所で同じものを出す。
-// 開く → 写真を数える（photo.list を最後まで）→ 「38 枚を ZIP で保存します（約 15MB）」→ 保存 →
-// 「12 / 38 枚を取得中…」→ 保存しました（取れなかった枚数があれば 1 行）。途中で「やめる」か閉じると中断
-// （AbortController。それまでに保存した ZIP は残る）
+// 「ZIP で保存」のシート（048）。アルバム詳細の ⋯・一覧の ⋯・マイページの 3 箇所で同じものを出す。
+// 開く → 数える（photo.list を最後まで）→「38 枚を ZIP で保存します（約 15MB）」→ 保存 →「12 / 38 枚を取得中…」→
+// 保存しました（取れなかった枚数があれば 1 行）。「やめる」か閉じると中断（保存した ZIP は残る）
 
 export type ZipExportSheetProps = {
   // null なら閉じている
@@ -38,7 +37,7 @@ export function ZipExportSheet({ source, onClose }: ZipExportSheetProps) {
   const [phase, setPhase] = useState<Phase>({ kind: "counting" });
   const abortRef = useRef<AbortController | null>(null);
 
-  // 開くたびに数え直す（写真は増減する）。閉じたら進行中の取得を止める
+  // 開くたびに数え直す（写真は増減する）。閉じたら取得を止める
   useEffect(() => {
     if (source === null) return;
     let cancelled = false;

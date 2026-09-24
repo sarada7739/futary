@@ -6,8 +6,7 @@ import { ORPCError } from "@orpc/client";
 import type { SourceImage } from "../lib/image";
 import { DateInput8 } from "./date-input8";
 
-// 041: アルバムの作成・編集フォーム（モックの「新しいアルバム」からカラーだけを落とした形）。
-// 作成時だけカバー写真を選べる（編集ではカバーは詳細の選択モードで変える。タスク定義3節）
+// アルバムの作成・編集フォーム（041）。作成のときだけカバー写真を選べる（編集では詳細の選択モードで変える）
 
 export interface AlbumFormValues {
   title: string;
@@ -28,7 +27,7 @@ export type AlbumFormProps = {
   onRemoveCover?: () => void;
 };
 
-// 039: 色は外観で変わるため、描画時に組み立てる（list.tsx・want.tsx と同じ）
+// 色は外観で変わるので描画時に組み立てる
 function inputStyleOf(colors: Colors) {
   return {
     borderWidth: 1,
@@ -60,7 +59,7 @@ export function AlbumForm({ mode, initial, onSubmit, onCancel, pickedCover, onPi
     trimmedTitle.length <= MAX_ALBUM_TITLE_LENGTH &&
     note.length <= MAX_ALBUM_NOTE_LENGTH &&
     datesAreOrdered;
-  // 作成時にカバーがあれば署名付き PUT で送ってから作る。その間は「写真を送っています…」
+  // 作成でカバーがあれば署名付き PUT で送ってから作る（その間は「写真を送っています…」）
   const savingLabel = mode === "create" && pickedCover ? "写真を送っています…" : "保存中…";
 
   async function handleSave() {
@@ -84,7 +83,7 @@ export function AlbumForm({ mode, initial, onSubmit, onCancel, pickedCover, onPi
     <View style={{ gap: space.sm }}>
       {mode === "create" && onPickCover && (
         <View style={{ alignItems: "center", gap: space.xs }}>
-          {/* モックの大きな四角。押すと画像を選ぶ。選ぶとその場に見える */}
+          {/* 大きな四角。押すと画像を選び、選ぶとその場に見える */}
           <Pressable
             onPress={onPickCover}
             accessibilityRole="button"

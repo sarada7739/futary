@@ -6,22 +6,21 @@ import { buildMonthGrid, WEEKDAY_LABELS } from "../lib/calendar";
 import { eventKindColorsOf, EVENT_KIND_GLYPHS, type EventKind } from "../lib/event-kind";
 
 const CELL_WIDTH = `${100 / 7}%`;
-// 058: マスの中の天気の絵（B が決めた: 20。マスは 390 幅で 50px 弱）
+// マスの中の天気の絵（マスは 390 幅で 50px 弱。058）
 const WEATHER_CELL_ICON = 20;
 const CELL_MIN_HEIGHT = 56;
 
 export type MonthGridProps = {
   year: number;
   month: number; // 1-12
-  // 日付ごとのイベント。読み込み中は空のオブジェクトを渡す
-  // （グリッドの骨格は常に出し、マーカーだけ遅延させる。タスク011「状態の網羅」）
+  // 日付ごとのイベント。読み込み中は空のオブジェクト（骨格は常に出し、マーカーだけ遅らせる）
   eventsByDate: Record<string, Event[]>;
   selectedDate: string;
   onSelectDate: (date: string) => void;
   todayDate: string;
-  // 058: 日付ごとの天気（今日から 7 日。無ければ空）。絵 + 最高気温を数字の下に出す
+  // 日付ごとの天気（今日から 7 日。無ければ空）。絵 + 最高気温を数字の下に出す
   weatherByDate?: Record<string, WeatherDay>;
-  // 058: 祝日（日付 → 名前）。日付を記念日と同じ赤に
+  // 祝日（日付 → 名前）。日付を記念日と同じ赤に
   holidays?: Record<string, string>;
 };
 
@@ -67,7 +66,7 @@ export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDat
               accessibilityLabel={day.date}
               style={{
                 width: CELL_WIDTH,
-                // 058: 天気の絵 + 気温が入るぶん、正方形（aspectRatio 1 = 50px 弱）から最小の高さに変えた
+                // 天気の絵 + 気温が入るので、正方形でなく最小の高さ
                 minHeight: CELL_MIN_HEIGHT,
                 paddingVertical: 2,
                 alignItems: "center",
@@ -76,7 +75,7 @@ export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDat
                 backgroundColor: isSelected ? colors.primarySubtle : "transparent",
               }}
             >
-              {/* 058: 祝日は記念日と同じ赤（日曜と同じ扱い。0節 #10）。今日・月の外の色より優先しない */}
+              {/* 祝日は記念日と同じ赤（日曜と同じ扱い）。今日・月の外の色より優先しない */}
               {isHoliday && day.inMonth && !isToday ? (
                 <RNText testID={`calendar-holiday-${day.date}`} style={{ color: colors.eventAnniversary, fontSize: 14, lineHeight: 20 }}>
                   {dayNumber}
@@ -90,7 +89,7 @@ export function MonthGrid({ year, month, eventsByDate, selectedDate, onSelectDat
                   {dayNumber}
                 </Text>
               )}
-              {/* 058: 天気（今日から 7 日）。数字の上に被せない。絵 + 最高気温だけ（0節 #4） */}
+              {/* 天気（今日から 7 日）。数字の上に被せない。絵 + 最高気温だけ */}
               {weather && (
                 <View testID={`calendar-weather-${day.date}`} style={{ alignItems: "center", gap: 1 }}>
                   <WeatherIcon code={weather.code} size={WEATHER_CELL_ICON} />
