@@ -1,10 +1,6 @@
-// invite_failures のレート制限キー（024・Aの決定。packages/db/src/schema/couple.ts
-// のinviteFailuresコメント参照）。Google側の識別子（account.account_id）を
-// そのまま列に入れず、BETTER_AUTH_SECRETで鍵付けしたHMAC-SHA256のハッシュに
-// してから保存する。DBへの読み取りアクセスを持つ者が、招待の失敗履歴から
-// 実在のGoogleアカウントIDを直接引けないようにするため（塩無しのハッシュや
-// account_idそのままの保存では、外部の別データ漏洩とだけ突き合わせても
-// 同一人物であることが分かってしまう）
+// invite_failures のレート制限キー（schema/couple.ts）。Google の識別子（account_id）をそのまま入れず、
+// BETTER_AUTH_SECRET を鍵にした HMAC-SHA256 にして保存する（DB を読める者が実在の Google アカウントを
+// 引けず、他の漏洩データと突き合わせても同一人物と分からない）
 export async function hashAccountId(secret: string, accountId: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",

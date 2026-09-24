@@ -5,9 +5,9 @@ import { loadPlanRow, resolvePlan } from "../lib/plan";
 import { generateImageId } from "../lib/ulid";
 import { adminProcedure } from "./base";
 
-// 057: 運営の画面（docs/tasks/057-admin.md）。全部 adminProcedure（ADMIN_EMAILS に含まれる認証済みだけ）。
-// 線: 触れるのは数（COUNT）と couple_plans の 1 行だけ。本文・写真・名前・記念日は返さない・書かない
-// （security-requirements.md 3節）。数以外を出したくなったら出さず A へ
+// 運営の画面（057）。全部 adminProcedure（ADMIN_EMAILS に含まれる認証済みだけ）。
+// 触れるのは数（COUNT）と couple_plans の 1 行だけ。本文・写真・名前・記念日は返さない・書かない
+// （security-requirements.md 3節）
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -34,8 +34,8 @@ function toCount(row: CountRow | null | undefined): AdminCount {
   return { total: row?.total ?? 0, today: row?.today ?? 0, avg7d: Math.round((week / 7) * 10) / 10 };
 }
 
-// COUNT と、created_at で「今日の増加」「直近 7 日の増加」を 1 文で数える。デモペア（is_demo = 1）は除く（0節 #6）。
-// 「今ある数」で揃える（消したものは数えない。0節 #5）
+// COUNT と、created_at で「今日」「直近 7 日」の増加を 1 文で数える。デモペアは除く。
+// 「今ある数」で揃える（消したものは数えない）
 const COUNT_COLUMNS = (createdAt: string) =>
   `COUNT(*) AS total,
    SUM(CASE WHEN ${createdAt} >= ?1 THEN 1 ELSE 0 END) AS today,
@@ -110,8 +110,7 @@ export async function computeStats(db: D1Database, nowMs: number): Promise<Admin
   };
 }
 
-// 全体の数は Worker のメモリに 1 分キャッシュ（billing.prices と同じ作法。isolate ごとに空から）。
-// Cron・集計表は持たない（0節 #11）
+// 全体の数は Worker のメモリに 1 分キャッシュ（isolate ごとに空から）。Cron・集計表は持たない
 export const STATS_TTL_MS = 60 * 1000;
 let statsCache: { at: number; value: AdminStats } | null = null;
 
@@ -153,7 +152,7 @@ const adminLookup = implementer.admin.lookup.use(adminProcedure).handler(async (
     .first<LookupUserRow>();
   if (!userRow) return { user: null, couple: null };
 
-  // 個人: 投稿数と投稿の写真の数（album_photos に誰が入れたかの列は無い。列は足さない）
+  // 個人: 投稿数と投稿の写真の数（album_photos には誰が入れたかの列が無い。列は足さない）
   const userCounts = await db
     .prepare(
       `SELECT COUNT(*) AS posts,
@@ -212,8 +211,8 @@ const adminLookup = implementer.admin.lookup.use(adminProcedure).handler(async (
 
 // --- admin.setPlan -----------------------------------------------------------------------
 
-// paid: source='manual', plan='paid', expires_at NULL。free: plan='free', updated_at を今（047 の猶予の起点）。
-// source='stripe' の行があれば CONFLICT（Webhook と食い違う。0節 #9）。全部 admin_actions に残す（0節 #10）
+// paid: source='manual'・plan='paid'・expires_at NULL。free: plan='free'・updated_at を今（猶予の起点）。
+// source='stripe' の行は CONFLICT（Webhook と食い違う）。全部 admin_actions に残す
 const adminSetPlan = implementer.admin.setPlan.use(adminProcedure).handler(async ({ context, input, errors }) => {
   const { db, user } = context;
   const couple = await db.prepare("SELECT id FROM couples WHERE id = ?1").bind(input.coupleId).first<{ id: string }>();
@@ -222,7 +221,7 @@ const adminSetPlan = implementer.admin.setPlan.use(adminProcedure).handler(async
   if (before?.source === "stripe") throw errors.CONFLICT();
 
   const now = nowSeconds();
-  // id は ULID（ミリ秒の時刻順に並ぶ。同じ秒の 2 件でも admin.actions の「新しい順」が崩れない）
+  // id は ULID（ミリ秒の時刻順。同じ秒の 2 件でも「新しい順」が崩れない）
   const actionId = generateImageId();
   const detail = JSON.stringify({
     from: before ? { plan: before.plan, source: before.source, expiresAt: before.expires_at } : null,
@@ -241,7 +240,7 @@ const adminSetPlan = implementer.admin.setPlan.use(adminProcedure).handler(async
       )
       .bind(actionId, user.id, input.coupleId, detail, now),
   ]);
-  // 0節 #15: Worker のログにも 1 行（id と couple_id の先頭だけ。メールは書かない。security-requirements.md 8節）
+  // Worker のログにも 1 行（id と couple_id の先頭だけ。メールは書かない。security-requirements.md 8節）
   console.log(`[admin.setPlan] action=${actionId} couple=${input.coupleId.slice(0, 8)} plan=${input.plan}`);
   return { plan: input.plan };
 });

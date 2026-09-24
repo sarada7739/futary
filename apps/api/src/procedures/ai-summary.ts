@@ -3,11 +3,10 @@ import { generateSummary, substituteNames, type PostEntry, type SummaryNames } f
 import { implementer } from "../implementer";
 import { readProcedure, writeProcedure } from "./base";
 
-// タスク定義4節: 期間ごと3回まで。1ペア・1暦月あたりの合計は10回まで
-// （月次3 + 週次5週分×3 = 18回/月というピークを抑える二段の歯止め）
+// 期間ごと 3 回まで・1 ペア 1 暦月の合計 10 回まで（月次 3 + 週次 5 週 × 3 = 18 回/月のピークを抑える二段。037）
 const MAX_GENERATIONS_PER_PERIOD = 3;
 const MAX_GENERATIONS_PER_CALENDAR_MONTH = 10;
-// タスク定義5節: 投稿が3件未満の期間は生成しない（月・週で基準を変えない）
+// 投稿が 3 件未満の期間は生成しない（月・週で同じ）
 const MIN_POSTS_TO_SUMMARIZE = 3;
 
 function nowSeconds(): number {
@@ -16,15 +15,12 @@ function nowSeconds(): number {
 
 type PeriodKind = "month" | "week";
 
-// periodKind/periodKeyから、その期間が覆うUnixミリ秒の範囲を返す。
-// 週の計算はpackages/dateに置き、ここでは計算しない（architecture.md 5節）
+// 週の計算は packages/date に置き、ここでは計算しない（architecture.md 5節）
 function periodRangeMs(periodKind: PeriodKind, periodKey: string): { fromMs: number; toMs: number } {
   return periodKind === "month" ? jstMonthRangeMs(periodKey) : jstWeekRangeMs(periodKey);
 }
 
-// 今月・今週も「まだ終わっていない」ので拒む（未来はもちろん、進行中の
-// 期間も拒む。タスク定義7節・9節）。YYYY-MM/YYYY-Wwwはどちらもゼロ埋め
-// されており、辞書順の比較が数値順と一致する
+// 進行中の期間（今月・今週）も未来も拒む。YYYY-MM・YYYY-Www はゼロ埋めなので辞書順 = 数値順
 function isCurrentOrFuturePeriod(periodKind: PeriodKind, periodKey: string): boolean {
   return periodKind === "month" ? periodKey >= currentMonthJst() : periodKey >= currentWeekJst();
 }
@@ -44,9 +40,8 @@ interface MemberRow {
   name: string | null;
 }
 
-// 044: ペアのメンバーを slot 付きで読む。表示名は user.name（019。me.get・
-// post.list の authorName・stats.get のメンバー名と同じ出所。2 箇所に持たない）。
-// get と generate の両方がこれを使う（generate は同意の判定と A/B の記号にも使う）
+// メンバーを slot 付きで読む。表示名は user.name（他の画面と同じ出所。2 箇所に持たない）。
+// generate は同意の判定と A/B の記号にも使う
 async function loadMembers(db: D1Database, coupleId: string): Promise<MemberRow[]> {
   const result = await db
     .prepare(
@@ -61,9 +56,7 @@ async function loadMembers(db: D1Database, coupleId: string): Promise<MemberRow[
   return result.results;
 }
 
-// 044: 応答の body で {{A}} {{B}} に入れる表示名。slot 1 が A、slot 2 が B。
-// 相手が居ない（1 人のペア）なら B は「相手」（空文字にすると文が壊れる。タスク定義 0節 #5）。
-// user の行が無い（起こらない想定）ときも同じ言葉に寄せる
+// {{A}} {{B}} に入れる表示名。slot 1 が A、slot 2 が B。相手が居なければ「相手」（空文字だと文が壊れる。044）
 const PARTNER_FALLBACK_NAME = "相手";
 
 function namesBySlot(members: MemberRow[]): SummaryNames {
@@ -73,10 +66,9 @@ function namesBySlot(members: MemberRow[]): SummaryNames {
 
 function toAiSummary(row: AiSummaryRow, names: SummaryNames) {
   return {
-    // 保存は {{A}} {{B}} のまま。返すときだけ表示名に置き換える（044）
+    // 保存は {{A}} {{B}} のまま。返すときだけ置き換える
     body: substituteNames(row.body, names),
-    // contractのz.enum(AI_PROVIDERS)と一致する値しかDBに書かない
-    // （generateSummaryの戻り値のprovider由来。CHECK制約でも保証済み）
+    // generateSummary の provider しか書かない（CHECK 制約もある）
     provider: row.provider as "openai" | "anthropic",
     model: row.model,
     updatedAt: row.updated_at,
@@ -103,11 +95,8 @@ const aiSummaryGet = implementer.aiSummary.get.use(readProcedure).handler(async 
   return toAiSummary(row, namesBySlot(await loadMembers(db, coupleId)));
 });
 
-// security-auditor指摘: デモペアは他の経路（email_verified=0・
-// @example.com・シードがai_opt_inを立てない）で現状は到達不能だが、
-// me.ts（me.delete）が同じ理由で自前のis_demoガードを持っているのと
-// 非対称にしない。デモの投稿本文が外部プロバイダへ出る唯一の経路である
-// 以上、到達不能性を他の仕組み1つに依存させない
+// デモペアは他の経路（ログイン経路が無い・シードが同意を立てない）で到達しないが、デモの本文が
+// 外部へ出る唯一の経路なので、それを他の仕組みだけに頼らない
 async function isDemoCouple(db: D1Database, coupleId: string): Promise<boolean> {
   const row = await db.prepare("SELECT is_demo FROM couples WHERE id = ?1").bind(coupleId).first<{
     is_demo: number;
@@ -125,32 +114,21 @@ const aiSummaryGenerate = implementer.aiSummary.generate
 
     if (await isDemoCouple(db, coupleId)) throw errors.FORBIDDEN();
 
-    // ADR-013: 投稿はふたりのもの。2人とも同意していないと使えない
-    // （1人のペアはpartnerが存在しないため、この判定で自動的にFORBIDDENになる）
+    // 投稿はふたりのもの。2 人とも同意していないと使えない（1 人のペアもここで FORBIDDEN。ADR-013）
     const members = await loadMembers(db, coupleId);
     if (members.length < 2 || members.some((m) => !m.ai_opt_in)) {
       throw errors.FORBIDDEN();
     }
 
-    // 投稿者を実名ではなく「A」「B」という匿名の記号で区別する（人間の指摘。
-    // ADR-013に追記済み）。slotから機械的に決まり、実名・user_idは外部へ
-    // 一切出ない（lib/ai.tsのSYSTEM_PROMPTでAIにも実名でないことを明示）。
-    // 表示名（members[].name）は応答の置き換えにだけ使い、LLM には渡さない（044）
+    // 投稿者は slot から決まる「A」「B」で区別し、実名・user_id は外へ出さない（ADR-013）。
+    // 表示名は応答の置き換えにだけ使い、LLM には渡さない
     const labelByUserId = new Map<string, "A" | "B">(members.map((m) => [m.user_id, m.slot === 1 ? "A" : "B"]));
     const names = namesBySlot(members);
 
-    // 【security-auditor指摘・訂正】以前はSELECTで既存の回数を読んでから
-    // 生成後にINSERTしていた（check-then-act）。同じ期間へ複数の
-    // generateを並行に投げると、全てが同じgenerated_countを読んで通過し、
-    // N回の外部API呼び出しが発生するのにDB上は1回分しか記録されない
-    // レースが実測せずとも構造上あった。
-    //
-    // 期間ごとの歯止め（3回まで）は、実際にAPIを呼ぶ前に「予約」する形の
-    // 1文の条件付きUPSERTに直した。D1（SQLite）は単一ライタで各文が
-    // 直列に実行されるため、この1文自体はレースしない。
-    // ON CONFLICT DO UPDATE ... WHERE が偽の行はDO NOTHING相当になり
-    // （SQLiteの仕様）、RETURNINGも空になる。それを「予約できなかった
-    // ＝期間ごとの上限に達した」の合図として使う
+    // 期間ごとの歯止めは、API を呼ぶ前に 1 文の条件付き UPSERT で「予約」する。読んでから書く形だと、
+    // 並行に投げた全部が同じ回数を読んで通り、呼び出しの数だけ費用が出る。
+    // D1 は文を直列に実行するので、この 1 文はレースしない。ON CONFLICT DO UPDATE ... WHERE が
+    // 偽なら何も書かず RETURNING も空になる = 上限に達した
     const reserveNow = nowSeconds();
     const reserved = await db
       .prepare(
@@ -167,8 +145,7 @@ const aiSummaryGenerate = implementer.aiSummary.generate
     if (!reserved) throw errors.LIMIT_REACHED();
     const generatedCount = reserved.generated_count;
 
-    // ここから先で失敗したら、上で予約した1回ぶんを取り消す
-    // （回数だけ進んで実際には生成されない、という状態を残さない）
+    // この先で失敗したら予約した 1 回を取り消す（回数だけ進んで生成されない状態を残さない）
     async function rollbackReservation(): Promise<void> {
       await db
         .prepare(
@@ -177,10 +154,8 @@ const aiSummaryGenerate = implementer.aiSummary.generate
         )
         .bind(coupleId, input.periodKind, input.periodKey)
         .run();
-      // 予約が今回で1件目（＝この呼び出しがこの行を新規作成した）だった
-      // 場合、0まで戻したら空の行（bodyが空文字のまま）を残さず消す。
-      // 他の並行呼び出しが先に成功していればgenerated_countは0にならない
-      // ため、その行は消えない
+      // この呼び出しが行を作っていたなら、0 に戻った空の行を消す。
+      // 並行した他の呼び出しが成功していれば 0 にならないので消えない
       await db
         .prepare(
           `DELETE FROM ai_summaries
@@ -191,24 +166,10 @@ const aiSummaryGenerate = implementer.aiSummary.generate
     }
 
     try {
-      // 【設計判断・security-auditor指摘で保留】ai_summariesは期間ごとに
-      // 1行しか持たず、生成のたびの個別ログは無い。「今の暦月に何回
-      // 使ったか」を正確に数える表が無いため、「updated_atが今の暦月に
-      // 入っている行のgenerated_countの合計」で近似する。この事前チェックは
-      // 上の期間ごとの歯止めと違い1文で原子化していない。
-      //
-      // 【Rレビュー指摘・訂正】以前はここに「複数の期間へ同時に投げると
-      // 暦月合計が10をわずかに超えて通る窓が残る」と書いていたが、これは
-      // 実測していない推測だった。Rが実測したところ（暦月合計が既に9回に
-      // 達した状態で、異なる5つの期間へ並行にgenerateを投げる）、成功は
-      // 0件で、暦月合計が10を超えて通ることは無かった。各予約（UPSERT。
-      // この読み取りより前の処理）の書き込みがD1（単一ライタのSQLiteで
-      // 文を直列に実行する）上で先に確定するため、この読み取りの時点では
-      // 並行した他の予約もすでに反映されている。ただしこれはD1の実装挙動に
-      // 基づく観測であり、API契約として保証された原子性ではない。近似の
-      // 向き（多く数える方向にしかずれない。少なく数えて歯止めをすり抜ける
-      // ことは無い）自体は変わらない。厳密にするなら暦月ごとのカウンタ行を
-      // 持って同じ条件付きUPSERTにする
+      // 暦月の合計を数える表は無いので、「updated_at が今月の行の generated_count の合計」で近似する。
+      // 1 文で原子化していないが、並行した予約（上の UPSERT）はこの読み取りより前に確定するので、
+      // 異なる期間へ同時に投げても 10 を超えて通らなかった（実測。D1 の実装の挙動で、契約ではない）。
+      // 近似は多く数える方向にしかずれない。厳密にするなら暦月のカウンタ行を同じ UPSERT にする
       const monthNow = currentMonthJst();
       const { fromMs: monthFromMs, toMs: monthToMs } = jstMonthRangeMs(monthNow);
       const monthlyTotalRow = await db
@@ -223,10 +184,7 @@ const aiSummaryGenerate = implementer.aiSummary.generate
         throw errors.LIMIT_REACHED();
       }
 
-      // その期間の投稿本文と投稿者を古い順で取得する。画像・利用者名・IDは
-      // 入れない（タスク定義8節「入力に入れるのは本文とA/Bの記号だけ」）。
-      // author_idはここでA/Bの記号に変換するためだけに使い、そのままでは
-      // 外へ出さない
+      // 入力に入れるのは本文と A/B の記号だけ（画像・名前・ID は入れない）。author_id は記号に変えるためだけに使う
       const { fromMs, toMs } = periodRangeMs(input.periodKind, input.periodKey);
       const posts = await db
         .prepare(
@@ -245,8 +203,7 @@ const aiSummaryGenerate = implementer.aiSummary.generate
         body: p.body,
       }));
 
-      // ここで初めて実際にAPIを呼ぶ（費用が発生する箇所。上の歯止めは
-      // すべてこれより前に置く）
+      // 費用が出るのはここ。歯止めは全部これより前に置く
       const result = await generateSummary(context.aiEnv, entries);
 
       const now = nowSeconds();
@@ -259,7 +216,7 @@ const aiSummaryGenerate = implementer.aiSummary.generate
         .run();
 
       return {
-        // DB には印のまま書いた。返すときだけ表示名にする（044）
+        // DB には印のまま書いた。返すときだけ表示名にする
         body: substituteNames(result.body, names),
         provider: result.provider,
         model: result.model,

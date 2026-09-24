@@ -2,10 +2,8 @@ import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-co
 import { user } from "./auth";
 import { couples } from "./couple";
 
-// 040: ほしいもの。027 の wishes（行きたい場所・食べたいもの。ふたりで共有）とは
-// 別の表。主語が本人で、URL と画像を持ち、書けるのは本人だけ（タスク定義0節）。
-// wishes に列を足さない（分類を持たないと決めた表に URL・画像・所有者を足すと
-// 別物になる）。CHECK は持たない（027 と同じ理由）
+// ほしいもの（040）。wishes（ふたりで共有）とは別の表: 主語が本人で、URL と画像を持ち、書けるのは本人だけ。
+// wishes に列を足すと別物になるので足さない。CHECK は持たない
 export const wants = sqliteTable(
   "wants",
   {
@@ -13,8 +11,7 @@ export const wants = sqliteTable(
     coupleId: text("couple_id")
       .notNull()
       .references(() => couples.id),
-    // 誰のほしいものか。作成者と同じで、変わらない。ID はレスポンスに出さず
-    // isMine / ownerName として返す（タスク定義3節。createdByName と同じ考え方）
+    // 誰のほしいものか（作成者で、変わらない）。ID は返さず isMine・ownerName として返す
     ownerId: text("owner_id")
       .notNull()
       .references(() => user.id),
@@ -24,19 +21,17 @@ export const wants = sqliteTable(
     url: text("url"),
     // 0〜200 文字
     note: text("note").notNull().default(""),
-    // NULL 可。R2 のキー（couples/{coupleId}/wants/{imageId}.{jpg|png|webp}）。
-    // サーバだけが組み立てる。UNIQUE: 実体と行の対応を 1 対 1 に保つ（post_images.key と同じ）。
-    // 非 NULL なら R2 に実体がある（architecture.md 6節の不変条件）
+    // NULL 可。R2 のキー（couples/{coupleId}/wants/{imageId}.{jpg|png|webp}）。サーバだけが組み立てる。
+    // UNIQUE で実体と行を 1 対 1 に保ち、非 NULL なら実体がある（architecture.md 6節）
     imageKey: text("image_key"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-    // 非 NULL なら手に入れた。行は消さない（027 の done_at と同じ）
+    // 非 NULL なら手に入れた。行は消さない
     obtainedAt: integer("obtained_at", { mode: "timestamp" }),
-    // 非 NULL なら論理削除済み。want.list は deleted_at IS NULL で絞る
-    // （architecture.md 4節「論理削除を持つ表の規則」）
+    // 非 NULL なら論理削除済み（architecture.md 4節）
     deletedAt: integer("deleted_at", { mode: "timestamp" }),
   },
   (table) => [
-    // want.list の取得（couple_id・owner_id 固定 + created_at 降順）を支える複合インデックス
+    // want.list（couple_id・owner_id 固定 + created_at 降順）
     index("wants_couple_owner_created_idx").on(table.coupleId, table.ownerId, table.createdAt),
     unique("wants_image_key_unique").on(table.imageKey),
   ],

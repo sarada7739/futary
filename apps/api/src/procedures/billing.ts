@@ -1,7 +1,5 @@
-// 048 段階2: プレミアムの決済（Stripe Checkout / Billing Portal）。
-// カード情報はこちらを通らない。Stripe に送る個人情報は couple_id だけ。
-// couple_plans の書き込みは Webhook（stripe-webhook.ts）だけが行い、ここでは
-// customer を作ったときの plan='free', source='stripe' の行だけを書く（タスク定義 3節）
+// プレミアムの決済（Stripe Checkout・Billing Portal。048）。カード情報はこちらを通らない。
+// couple_plans を書くのは Webhook だけで、ここでは customer を作ったときの行（plan='free'・source='stripe'）だけを書く
 import { implementer } from "../implementer";
 import { writeProcedure } from "./base";
 import { loadPlanRow, resolvePlan } from "../lib/plan";
@@ -35,10 +33,9 @@ const billingCreateCheckoutSession = implementer.billing.createCheckoutSession
     // 既に paid（manual でも stripe でも）なら申し込ませない
     if (resolvePlan(existing, nowSeconds()) === "paid") throw errors.CONFLICT();
 
-    // customer はペアに 1 つ。無ければ作って、**先に** couple_plans に plan='free', source='stripe' で保存する
-    // （Checkout の途中で Webhook が先に来ても customer から couple_id が引ける。作ったのに行が無い形を作らない）。
-    // manual の行（運営のペア）に customer を付けることは無い（上で paid なら CONFLICT。manual の free は
-    // 運営が手で free に落とした形なので source を stripe に変える）
+    // customer はペアに 1 つ。無ければ作って、先に plan='free'・source='stripe' で保存する
+    // （Checkout の途中で Webhook が先に来ても customer から couple_id が引ける）。
+    // manual の free（運営が手で落とした）は source を stripe に変える（manual の paid は上で CONFLICT）
     let customerId = existing?.stripe_customer_id ?? null;
     if (!customerId) {
       customerId = await billing.gateway.createCustomer(coupleId);
@@ -69,8 +66,7 @@ const billingCreatePortalSession = implementer.billing.createPortalSession
   .handler(async ({ context, errors }) => {
     const billing = requireBilling(context);
     const existing = await loadPlanRow(context.db, context.coupleId);
-    // customer が無い（申し込んだことが無い・manual のペア）なら NOT_FOUND。
-    // 他ペアの customer で作れない: customer は自分のペアの行からしか引かない（couple_id は ctx から）
+    // customer が無ければ NOT_FOUND。customer は自分のペアの行からしか引かない（他ペアの customer で作れない）
     if (!existing?.stripe_customer_id) throw errors.NOT_FOUND();
     const url = await billing.gateway.createPortalSession({
       customerId: existing.stripe_customer_id,

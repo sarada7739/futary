@@ -2,11 +2,9 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 import { couples } from "./couple";
 
-// 027: 行きたい場所・食べたいものリスト。分類（kind）を持たない
-// （「カフェ」は場所でもあり食べ物でもある。迷わせる分類は書かれない。タスク定義1節）。
-// done_by は持たない（画面に出さない列を増やさない）。
-// CHECKも持たない（書ける条件が無い。done_at >= created_atは時計のずれで壊れる。
-// タスク定義6節）
+// 行きたい場所・食べたいもの（027）。分類を持たない（「カフェ」は場所でも食べ物でもあり、迷わせる分類は
+// 書かれない）。done_by は持たない（画面に出さない列を増やさない）。CHECK も持たない
+// （done_at >= created_at は時計のずれで壊れる）
 export const wishes = sqliteTable(
   "wishes",
   {
@@ -15,23 +13,20 @@ export const wishes = sqliteTable(
       .notNull()
       .references(() => couples.id),
     title: text("title").notNull(),
-    // 028: 自由記述。0〜200文字（trim後）。一覧にそのまま出す（折りたたまない）
+    // 自由記述。0〜200 文字（trim 後）
     note: text("note").notNull().default(""),
-    // IDはレスポンスに出さない。createdByNameとして名前だけ返す（028。
-    // event.createdByNameと同じ形。architecture.md 5節）。編集しても変わらない
+    // ID は返さず表示名だけ返す（architecture.md 5節）。編集しても変わらない
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-    // 非NULLなら達成済み。達成しても行は消さない（タスク定義2節）
+    // 非 NULL なら達成済み。達成しても行は消さない
     doneAt: integer("done_at", { mode: "timestamp" }),
-    // 非NULLなら論理削除済み。wish.listはdeleted_at IS NULLで絞る
-    // （postsと同じ規則。architecture.md 4節「論理削除を持つ表の規則」）
+    // 非 NULL なら論理削除済み（architecture.md 4節）
     deletedAt: integer("deleted_at", { mode: "timestamp" }),
   },
   (table) => [
-    // wish.listの取得（couple_id固定+created_at降順）を支える複合インデックス
-    // （architecture.md 4節: INDEX (couple_id, created_at DESC)）
+    // wish.list（couple_id 固定 + created_at 降順）
     index("wishes_couple_created_idx").on(table.coupleId, table.createdAt),
   ],
 );

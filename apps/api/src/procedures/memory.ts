@@ -4,8 +4,8 @@ import { implementer } from "../implementer";
 import { createGetUrl, type R2SignConfig } from "../lib/r2-signed-url";
 import { readProcedure } from "./base";
 
-// posts を読むクエリには必ず deleted_at IS NULL を含める（architecture.md 4節。
-// 例外なし。L69: 忘れると削除した投稿がホームの最上部に「思い出」として復活する）
+// posts を読むクエリには必ず deleted_at IS NULL を含める（忘れると削除した投稿が「思い出」として
+// 戻ってくる。architecture.md 4節）
 
 interface PostRow {
   id: string;
@@ -21,7 +21,7 @@ interface PostImageRow {
 
 const POST_COLUMNS = "id AS id, body AS body, created_at AS created_at";
 
-// 031: 1投稿に画像を4枚まで。position順に返す
+// 1 投稿に画像 4 枚まで。position 順
 async function fetchImages(db: D1Database, postId: string): Promise<PostImageRow[]> {
   const { results } = await db
     .prepare(
@@ -49,9 +49,7 @@ async function toMemoryPost(db: D1Database, row: PostRow, r2Sign: R2SignConfig) 
   };
 }
 
-// 指定したJSTの暦日ぴったりの投稿を1件探す。複数あれば画像のある投稿を優先し、
-// なければ最新を返す（docs/tasks/013-memory.md）。031: image_key列が無くなった
-// ため、post_images の存在で判定する
+// JST の暦日ぴったりの投稿を 1 件探す。複数あれば画像のある投稿（post_images がある）を優先し、なければ最新（013）
 async function findOnDate(db: D1Database, coupleId: string, date: string): Promise<PostRow | null> {
   const { fromMs, toMs } = jstDayRangeMs(date);
   const row = await db
@@ -67,9 +65,8 @@ async function findOnDate(db: D1Database, coupleId: string, date: string): Promi
   return row ?? null;
 }
 
-// (coupleId, JST日付) を種にした決定的なハッシュ。ORDER BY RANDOM() は使わない
-// （「1日の間は同じ結果を返す」ため。Rレビュー指摘: クライアント側キャッシュでは
-// 再取得・リロード・アプリ再起動で崩れるため、サーバ側で決定的にする必要がある）
+// (coupleId, JST の日付) を種にした決定的なハッシュ。1 日の間は同じ結果を返すためで、
+// ORDER BY RANDOM() やクライアントのキャッシュ（リロードで崩れる）では足りない
 export function stableHash(input: string): number {
   let hash = 0;
   for (let i = 0; i < input.length; i++) {
@@ -78,10 +75,9 @@ export function stableHash(input: string): number {
   return hash;
 }
 
-// 「7日以上前」= 今日からJSTの暦日で7日以上遡った投稿が対象（ちょうど7日前を含む。
-// Rレビューで境界を確認済み）。候補をCOUNT(*)で数え、決定的ハッシュ値をcountで
-// 割った余りをOFFSETに使う。順序をORDER BY created_at, idで固定しないと、
-// 種が決定的でも行の順序がSQLiteの裁量になり全体が決定的にならない（Rレビュー指摘）
+// 「7 日以上前」= JST の暦日で 7 日以上遡った投稿（ちょうど 7 日前を含む）。候補を COUNT(*) で数え、
+// ハッシュを件数で割った余りを OFFSET にする。ORDER BY created_at, id で順を固定しないと、
+// 行の順が SQLite の裁量になって決定的にならない
 async function findRandomOld(db: D1Database, coupleId: string, today: string): Promise<PostRow | null> {
   const cutoffDate = addDays(today, -6);
   const cutoffSeconds = Math.floor(jstDayRangeMs(cutoffDate).fromMs / 1000);
@@ -106,9 +102,8 @@ async function findRandomOld(db: D1Database, coupleId: string, today: string): P
   return row ?? null;
 }
 
-// 探索順（ADR-006・architecture.md 5節）: 1ヶ月前 → 半年前 → 1年前 → 7日以上前
-// からランダムに1件 → 該当なし（null）。「存在しない日付は月末に寄せる」（L61）が
-// ここで初めて利用者から見える（3/29・30・31の1ヶ月前は3日とも2/28になる）
+// 探す順（ADR-006・architecture.md 5節）: 1 ヶ月前 → 半年前 → 1 年前 → 7 日以上前からランダムに 1 件 → null。
+// 存在しない日付は月末に寄せる（3/29・30・31 の 1 ヶ月前は 3 日とも 2/28）
 const memoryGet = implementer.memory.get.use(readProcedure).handler(async ({ context }) => {
   const { db, coupleId, r2Sign } = context;
   const today = todayJst();

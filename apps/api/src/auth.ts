@@ -5,13 +5,10 @@ import { createDb, schema } from "@futary/db";
 import type { Bindings } from "./index";
 
 /**
- * Cloudflare Workers はリクエストごとに env(bindings) が変わるため、
- * Better Auth のインスタンスもリクエストごとに作る。
+ * Workers は env がリクエストごとなので、Better Auth のインスタンスもリクエストごとに作る。
  *
- * secret が未設定・短すぎる場合、Better Auth は公開済みのデフォルト鍵に
- * フォールバックする（本番判定は NODE_ENV に依存するが Workers では設定していない）。
- * 誰でも署名可能な鍵でセッションが発行される事態を防ぐため、ここで fail-fast する
- * （security-auditor 003監査 High指摘）。
+ * secret が未設定・短すぎると Better Auth は公開済みの既定の鍵に落ちる（本番判定の NODE_ENV は
+ * Workers で設定していない）。誰でも署名できる鍵でセッションを出さないよう fail-fast する。
  */
 function assertValidSecret(secret: string | undefined): asserts secret is string {
   if (!secret || secret.length < 32) {
@@ -21,10 +18,8 @@ function assertValidSecret(secret: string | undefined): asserts secret is string
   }
 }
 
-// localhost / 127.0.0.1 / [::1] のみ http を許す。それ以外のホストに http を使うと
-// Cookie の Secure 属性が落ちる（＝本番でこの形になってはならない）。
-// 環境変数（NODE_ENV等）で分岐させず、ホスト名で判定する。環境変数分岐は
-// 本番に開発用の値が設定された場合に検証をすり抜けるため（architecture.md 8節）
+// http を許すのは localhost・127.0.0.1・[::1] だけ（他のホストで http だと Cookie の Secure が落ちる）。
+// 環境変数でなくホスト名で判定する（本番に開発用の値が入ったときにすり抜けないように。architecture.md 8節）
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function assertAllowedUrl(label: string, value: string): void {
@@ -39,12 +34,9 @@ function assertAllowedUrl(label: string, value: string): void {
       `${label} が http です（${value}）。localhost 以外では https 必須です`,
     );
   }
-  // TRUSTED_ORIGINS は Better Auth の trustedOrigins にもそのまま渡され、
-  // ワイルドカードマッチ（*.example.com 等）に使われる。*.pages.dev / *.workers.dev
-  // のような Cloudflare の共有ドメインを誤って許可すると、他人のデプロイ先が
-  // OAuth ログイン後のリダイレクト先として信頼されてしまう。ワイルドカード自体を
-  // 明示的に禁止し、完全一致のオリジンのみ許可する
-  // （security-auditor 実機確認バグ修正 Low指摘）
+  // この値は Better Auth の trustedOrigins にも渡り、ワイルドカードに使われる。*.workers.dev のような
+  // 共有ドメインを許すと他人のデプロイ先がログイン後のリダイレクト先として信頼されるので、
+  // ワイルドカード自体を禁じて完全一致だけ許す
   if (url.hostname.includes("*") || url.hostname.includes("?")) {
     throw new Error(
       `${label} にワイルドカードは使用できません（${value}）。完全一致のオリジンを指定してください`,
@@ -85,7 +77,7 @@ export function createAuth(env: Bindings) {
       // D1 はインタラクティブなトランザクションを持たないため無効化する
       transaction: false,
     }),
-    // Web (Expo Web) とネイティブ (カスタムスキーム) の双方からのコールバックを許可する
+    // Web（Expo Web）とネイティブ（カスタムスキーム）の両方からのコールバックを許す
     trustedOrigins,
     socialProviders: {
       google: {
@@ -95,24 +87,17 @@ export function createAuth(env: Bindings) {
     },
     plugins: [expo()],
     advanced: {
-      // assertBaseUrl により、この時点で isHttps が false なのは
-      // localhost/127.0.0.1 のときだけに限定されている（本番相当のホストで
-      // http のまま Secure Cookie が落ちる、という経路は起動時エラーで塞がれている）
+      // assertBaseUrl があるので、ここで isHttps が false なのは localhost・127.0.0.1 のときだけ
       useSecureCookies: isHttps,
       ipAddress: {
-        // Better Authの既定は x-forwarded-for を見るが、Cloudflare Workersは
-        // cf-connecting-ip に実IPを1つだけ入れて渡す（index.tsのinvite関連
-        // レート制限と同じ根拠）。x-forwarded-for のままだと、利用者が自分で
-        // 送った x-forwarded-for にCloudflareが実IPを追記して2要素になり、
-        // Better Auth側のIP解決が失敗して単一の共有バケットに丸められる
-        // （なりすましにはならないが、無関係な利用者を巻き込んだ429の原因になる。
-        // security-auditor全体監査Low-2指摘）
+        // 既定は x-forwarded-for を見るが、利用者の送った値に Cloudflare が実 IP を足して 2 要素になり、
+        // IP を解決できず共有のバケットに丸められる（無関係な利用者を巻き込んだ 429）。
+        // cf-connecting-ip は実 IP を 1 つだけ持つ
         ipAddressHeaders: ["cf-connecting-ip"],
       },
     },
     rateLimit: {
-      // OAuth系エンドポイントへの基本的な連打対策。招待コード用の本格的なレート制限
-      // （IP単位・database storage）は招待機能タスクで rateLimit テーブルとあわせて実装する
+      // OAuth のエンドポイントへの基本的な連打対策（招待コードのレート制限は invite_failures で別に持つ）
       enabled: true,
     },
   });

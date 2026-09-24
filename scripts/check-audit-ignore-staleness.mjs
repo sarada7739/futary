@@ -1,19 +1,9 @@
-// 無視リスト（pnpm-workspace.yaml の auditConfig.ignoreGhsas）の陳腐化検出。
-// 登録された GHSA が、無視リストを外した状態の pnpm audit にまだ現れるかを見る。
-// 現れなくなっていたら、その項目はもう不要（修正版が出た・依存が消えた）なので
-// 赤くする（security-requirements.md 9節「陳腐化の検出」）。
-//
-// pnpm audit の CLI には無視リストを一時的に外すオプションが無いため、
-// auditConfig セクションを取り除いた一時的なコピーで audit を実行し、
-// 実行後は元に戻す。
-//
-// リポジトリのファイルを書き換える手法である以上、2つの性質を満たす
-// （security-requirements.md 9節）。
-// 1. 途中で失敗しても pnpm-workspace.yaml が元に戻る
-//    （下記 main() 内の try/finally。finally を確実に通すため、
-//    早期リターンは process.exit() ではなく関数の return を使う）
-// 2. レジストリの障害で赤にしない（--ignore-registry-errors、および
-//    出力が audit の応答として不完全なときは判定を見送る）
+// 無視リスト（pnpm-workspace.yaml の auditConfig.ignoreGhsas）の陳腐化の検出（security-requirements.md 9節）。
+// 無視リストを外した状態の pnpm audit に登録した GHSA がまだ現れるかを見て、現れなければ（修正版が出た・
+// 依存が消えた）赤くする。CLI に一時的に外すオプションが無いので、auditConfig を取り除いたコピーで
+// 実行して戻す。そのために:
+// 1. 途中で失敗しても元に戻す（main() の try/finally。finally を通すため process.exit() でなく return で抜ける）
+// 2. レジストリの障害で赤にしない（--ignore-registry-errors。応答が不完全なら判定を見送る）
 import { execSync } from "node:child_process";
 import { copyFileSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 
@@ -42,10 +32,7 @@ function main() {
 
     let rawOutput;
     try {
-      // --ignore-registry-errors: レジストリの障害だけで赤くしない
-      // （security-requirements.md 9節）。検査そのものを殺す圧力を作らないため。
-      // リトライ設定はscripts/pnpm-audit.mjsに1箇所にまとめてある
-      // （docs/tasks/034-audit-retry.md 4節）
+      // レジストリの障害だけで赤くしない（検査そのものを止める圧力を作らない）。リトライは pnpm-audit.mjs
       rawOutput = execSync("node scripts/pnpm-audit.mjs --json --ignore-registry-errors", {
         encoding: "utf8",
       });
@@ -62,8 +49,7 @@ function main() {
       return;
     }
 
-    // metadata.vulnerabilities が無いのは、レジストリ障害等で audit が正常に
-    // 走らなかった兆候。「advisories が空 = 陳腐化」と誤判定しないよう見送る
+    // metadata.vulnerabilities が無いのは audit が正常に走らなかった兆候。「空 = 陳腐化」と誤判定しないよう見送る
     if (typeof rawResult.metadata?.vulnerabilities !== "object") {
       console.warn("pnpm audit の結果が想定した形式ではありませんでした。判定を見送ります。");
       return;

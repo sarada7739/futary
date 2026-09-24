@@ -13,23 +13,18 @@ import { isSessionFresh } from "../lib/reauth";
 import { loadPlanRow } from "../lib/plan";
 import { authedProcedure, writeProcedure } from "./base";
 
-// postUploadUrlContract（apps/api/src/procedures/upload.ts）と同じ値
+// postUploadUrlContract（upload.ts）と同じ値
 const UPLOAD_CONTENT_TYPE = "image/jpeg";
 
-// authedProcedure の上に載せる（ペア未所属でも自分のプロフィールは
-// 設定できる。couple.create/invite.acceptと同じ理由。019タスク定義）
-// 「他人のプロフィールを変更できない」は入力に対象ユーザーIDを持たせない
-// ことで構造的に保証する（常にcontext.user.idだけをWHEREに使う。
-// post.createの投稿者と同じ形）。到達不能な経路のため、これを試みて
-// 失敗することを確認するテストは書かない（L35と同じ判断）
+// authedProcedure: ペア未所属でも自分のプロフィールは設定できる。
+// 対象ユーザーIDを入力に持たせず、常に context.user.id だけで書く（他人のプロフィールを変更できない）
 const meUpdate = implementer.me.update.use(authedProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, r2Sign, user } = context;
 
   let newImageKey: string | null = null;
   if (input.imageId) {
     const key = userImageKeyFor(user.id, input.imageId);
-    // image列が非NULLなら実体がある、という不変条件を保つため書く前に確認する
-    // （post.createと同じ理由。architecture.md 6節）
+    // 「image 列が非 NULL なら実体がある」を保つため、書く前に確認する（architecture.md 6節）
     const head = await bucket.head(key);
     if (!head) throw errors.INVALID_INPUT();
     if (head.size > MAX_IMAGE_BYTES || head.httpMetadata?.contentType !== UPLOAD_CONTENT_TYPE) {
@@ -39,9 +34,8 @@ const meUpdate = implementer.me.update.use(authedProcedure).handler(async ({ con
     newImageKey = key;
   }
 
-  // imageIdを省略したとき既存の画像を変更しない、をDB側のCOALESCEで表す。
-  // context.user.image（セッションにキャッシュされた値）を読んで書き戻す形だと、
-  // セッション側が古いままDBだけ更新されるケースとズレる可能性がある
+  // imageId 省略時は既存の画像を保つ。セッションにキャッシュされた context.user.image を
+  // 書き戻すとズレうるので、DB 側の COALESCE で表す
   const row = await db
     .prepare("UPDATE user SET name = ?1, image = COALESCE(?2, image) WHERE id = ?3 RETURNING image AS image")
     .bind(input.name, newImageKey, user.id)
@@ -50,8 +44,7 @@ const meUpdate = implementer.me.update.use(authedProcedure).handler(async ({ con
   return { id: user.id, name: input.name, email: user.email, image: await resolveUserImage(r2Sign, row?.image ?? null) };
 });
 
-// me.uploadImageUrl: post.uploadUrlと同じ形。imageIdはサーバが生成し、
-// 鍵（users/{userId}/...）もサーバだけが組み立てる（architecture.md 5節・6節）
+// imageId と鍵（users/{userId}/...）はサーバだけが組み立てる（architecture.md 5節・6節）
 const meUploadImageUrl = implementer.me.uploadImageUrl
   .use(authedProcedure)
   .handler(async ({ context, input }) => {
@@ -62,13 +55,8 @@ const meUploadImageUrl = implementer.me.uploadImageUrl
     return { imageId, url };
   });
 
-// R2は行から鍵を集めず、接頭辞で消す（024タスク定義・Rレビュー指摘）。
-// 削除の順序（couple_members等の消える順）から独立し、再実行しても
-// 同じ結果になる。post.deleteの論理削除で残っていた過去の画像も
-// この機会に片付く。post.deleteはR2の失敗を握りつぶす設計（007）だが、
-// ここでは握りつぶさない——catchはするが、そのまま投げ直さない
-// （下のコメント参照）。失敗すればRPC全体がエラーとして返り、利用者は
-// 再実行できる（024「途中で止まったら、もう一度押せば続きから進む」）
+// R2 は行から鍵を集めず接頭辞で消す。削除の順序から独立し、再実行しても同じ結果になる。
+// 失敗は握りつぶさず投げる（利用者が再実行できる。024）
 async function deleteAllByPrefix(bucket: R2Bucket, prefix: string): Promise<void> {
   try {
     let cursor: string | undefined;
@@ -80,64 +68,23 @@ async function deleteAllByPrefix(bucket: R2Bucket, prefix: string): Promise<void
       cursor = listed.truncated ? listed.cursor : undefined;
     } while (cursor);
   } catch {
-    // 【security-auditor指摘】R2のエラーメッセージには対象の画像キーが
-    // 含まれうる。withErrorId（error-id.ts）はcatchした例外をそのまま
-    // console.errorに渡すため、ここで鍵を含まない汎用メッセージへ
-    // 詰め替えてから投げる（security-requirements.md 8節「画像キーを
-    // ログに出さない」）。prefixそのもの（coupleId/userIdまでで、
-    // imageIdを含まない）は鍵ではないため出してよい
+    // R2 のエラーメッセージは画像キーを含みうる。withErrorId は例外をそのままログに出すため、
+    // 鍵を含まない文に詰め替える（security-requirements.md 8節）。prefix は imageId を含まないので出してよい
     throw new Error(`R2からのオブジェクト削除に失敗しました（接頭辞: ${prefix}）`);
   }
 }
 
-// me.delete: アカウント削除・退会（024）。D1にインタラクティブな
-// トランザクションは無いため、途中で止まる前提で組む（architecture.md 4節）。
-//
-// 削除の順序（couple_membersを最後の方に置く。Rレビュー指摘で訂正済み。
-// docs/tasks/024-account-deletion.md「訂正: 『最初に読めなくする』は、
-// 誰も守っていなかった」）:
-//   1. reactions（postsとuserを参照）
-//   2. post_images（031追加。postsを参照するため、postsを消す前に消す。
-//      027 wishes・029 moodsに続き3回目。architecture.md 4節「表を足したら、
-//      消す手順にも足す」）
-//   3. posts
-//   4. events
-//   5. wishes（027追加。couples(id)をON DELETE no actionで参照するため、
-//      couplesを消す前に消さないとFK違反で落ちるため、他のcouple_id系DELETEと同じ理由）
-//   6. moods（029追加。wishesと同じ理由）
-//   7. ai_summaries（037追加。couples(id)をON DELETE no actionで参照する
-//      ため、wishes・moodsと同じ理由。4回目。architecture.md 4節「表を
-//      足したら、消す手順にも足す」）
-//   8. wants（040追加。couples(id)とuser(id)をON DELETE no actionで参照する。5回目。
-//      R2 の couples/{coupleId}/wants/ も posts/ と同じく接頭辞で消す）
-//   9. album_photos（041追加。albums を参照するため、albums を消す前に消す。
-//      post_images と同じ形）
-//   10. albums（041追加。couples(id) と user(id) を ON DELETE no action で参照する。
-//      R2 の couples/{coupleId}/albums/ も接頭辞で消す）
-//   11. invites
-//   12. couple_members ← ここまで来れば、あとはcouple_idが要らない
-//   13. couples
-//   （相手のuser.imageをNULLに。下のコメント参照）
-// 上記は1本のdb.batch()にまとめる（【security-auditor指摘】個別のrun()
-// だと、削除の実行中に別リクエストが新しい投稿・予定・招待を作った場合、
-// その行がposts/events/invites削除より後に着地しうる。couplesは
-// posts.couple_id等からON DELETE no actionで参照されているため、その
-// 状態でDELETE FROM couplesがFK違反で落ちる。このときcouple_membersは
-// 既に消えているため、再実行時はcoupleIdを引けず（couple分岐ごと
-// 飛ばされ）、本文・画像（post_images）を持つ行が回収不能な孤児として恒久的に残る
-// うえ、削除実行者がその投稿の著者なら以降のuser削除がFK違反で永久に
-// 失敗しかねない。db.batch()は文のエラーでロールバックする
-// 〈couple.tsのisConstraintViolationのコメントと同じ根拠〉ため、原子化
-// すれば途中で止まる窓自体が消え、当初「残る」と受け入れていた孤児
-// couples行も同時に解消する）
+// me.delete: アカウント削除・退会（024）。
+// 行の削除は 1 本の db.batch() にまとめる。batch は文のエラーでロールバックするので、途中で止まって
+// couple_members だけ消えた状態（coupleId が引けず、孤児の行と画像が回収不能になる）を作らない。
+// 並びは FK の向き（参照する側を先に）。couples(id)・user(id) を ON DELETE no action で参照する表を
+// 足したら、ここにも足す（architecture.md 4節）
 const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ context, errors }) => {
   const { db, bucket, user } = context;
   const userId = user.id;
 
-  // 【Aの決定・024】不可逆で相手のデータまで消す操作のため、直近5分以内の
-  // サインインを要求する。画面側（delete-account.tsx）はme.get().sessionIsFresh
-  // を見て確認フローに入る前に弾くのが基本経路だが、確認をやり切る間に5分を
-  // 跨ぐことはありうるため、ここがサーバ側の最終防御として必ず要る（T5）
+  // 不可逆で相手のデータまで消すので、直近 5 分以内のサインインを要求する。
+  // 画面側でも弾くが、確認の途中で 5 分を跨ぎうるのでサーバ側の最終防御として要る（024）
   if (!isSessionFresh(context.sessionCreatedAt)) throw errors.REAUTH_REQUIRED();
 
   const coupleRow = await db
@@ -147,10 +94,7 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
   const coupleId = coupleRow?.couple_id ?? null;
 
   if (coupleId) {
-    // 【security-auditor指摘】デモペア（is_demo=1）はGoogleログイン経路が
-    // 塞がれているため現状は到達不能（seed.tsのemail_verified=0・
-    // @example.com判定）だが、その到達不能性がseedの都合1つに依存する
-    // 状態にしない。この手続き自身でも拒む
+    // デモペアは Google ログインの経路が無いので到達しないが、それを seed の都合だけに頼らない
     const coupleRow2 = await db.prepare("SELECT is_demo FROM couples WHERE id = ?1").bind(coupleId).first<{
       is_demo: number;
     }>();
@@ -163,10 +107,8 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
     const memberUserIds = members.results.map((row) => row.user_id);
     const partnerIds = memberUserIds.filter((id) => id !== userId);
 
-    // 【048 段階2・P8】Stripe の購読が付いていれば**先に解約**する（退会で課金が続かない）。
-    // 解約に失敗したら退会を止める（例外 → INTERNAL。課金だけ残る形を作らない）。
-    // 何も消していない時点なので、再実行できる。manual の行（購読無し）は素通り。
-    // Stripe が設定されていない環境で購読の行があるのは矛盾なので、これも止める
+    // Stripe の購読があれば先に解約する（退会で課金が続かない）。失敗したら退会を止める
+    // （まだ何も消していないので再実行できる）。Stripe 未設定で購読の行があるのは矛盾なので止める（048）
     const planRow = await loadPlanRow(db, coupleId);
     if (planRow?.stripe_subscription_id) {
       if (!context.billing) {
@@ -174,10 +116,8 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       }
       await context.billing.gateway.cancelSubscription(planRow.stripe_subscription_id);
     }
-    // 解約のあと、Stripe の customer も消す（Checkout で利用者が入れたメールを残さない。
-    // プライバシーポリシー 4 節。請求書・決済の記録は Stripe が法令上の保存のため残す）。
-    // **失敗しても退会は止めない**（ログだけ。A の判断。課金は上で止まっているので実害は
-    // customer の残骸だけ）。customer があるのに Stripe 未設定なら、購読の有無に関わらず上と同じ矛盾
+    // customer も消す（Checkout で入れたメールを残さない。プライバシーポリシー 4 節）。
+    // 課金は上で止まっているので、失敗しても退会は止めない（残るのは customer だけ）
     if (planRow?.stripe_customer_id && context.billing) {
       try {
         await context.billing.gateway.deleteCustomer(planRow.stripe_customer_id);
@@ -186,23 +126,11 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       }
     }
 
-    // R2の削除は行の並びから独立している（上のdeleteAllByPrefixのコメント
-    // 参照）ため、D1の削除より前でも後でも構わない。ここでは先に済ませ、
-    // R2側で失敗した場合にD1側の状態を一切変えずに再実行できるようにする。
-    // プロフィール画像は2人分（相手の分も含む。Candle型でペアのデータごと
-    // 消えるため）。
-    // 【Rレビュー指摘】この順序の代償: R2が先に成功し、直後のbatch()が
-    // 失敗すると、image_keyが非NULLのまま実体が無い状態が残る窓ができる
-    // （me.ts冒頭の不変条件が一時的に破れる。相手のuser.imageをNULLに
-    // 戻したのと同じ種類の問題が、ペアの全投稿について起こりうる）。
-    // 再実行すれば同じprefixのDELETEが再度冪等に走り解消するが、その間は
-    // 両者の画面で写真が壊れて見える。逆向き（D1を先に）にすると孤児
-    // オブジェクトが誰からも辿れなくなる（couple_idが引けなくなるため）
-    // ため、回復可能な側に倒すこの順序を維持する
+    // R2 を D1 より先に消す。逆だと couple_id が引けなくなり、孤児のオブジェクトを誰も辿れない。
+    // 代償として、R2 の後に batch が失敗すると「image が非 NULL なのに実体が無い」窓ができるが、
+    // 再実行で解消する回復可能な側に倒す。プロフィール画像は相手の分も消す
     await deleteAllByPrefix(bucket, `couples/${coupleId}/posts/`);
-    // 040: ほしいものの画像も接頭辞で消す（posts/ とは別の接頭辞。タスク定義3節）
     await deleteAllByPrefix(bucket, wantImagePrefixFor(coupleId));
-    // 041: アルバムの写真も接頭辞で消す（albums/。タスク定義1節）
     await deleteAllByPrefix(bucket, albumImagePrefixFor(coupleId));
     for (const memberId of memberUserIds) {
       await deleteAllByPrefix(bucket, `users/${memberId}/profile/`);
@@ -212,60 +140,29 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       db
         .prepare("DELETE FROM reactions WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ?1)")
         .bind(coupleId),
-      // 【031・タスク定義3節】post_images.post_idもpostsをON DELETE no actionで
-      // 参照するため、postsを消す前に消さないとFK違反で落ちる。足さないと
-      // 画像付きの投稿を持つペアはアカウント削除が恒久的に失敗する
-      // （027 wishes・029 moodsで踏んだのと同じ形。起票の時点でテスト項目に
-      // 入れてあるため今回は踏んでいない）
       db
         .prepare("DELETE FROM post_images WHERE post_id IN (SELECT id FROM posts WHERE couple_id = ?1)")
         .bind(coupleId),
       db.prepare("DELETE FROM posts WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM events WHERE couple_id = ?1").bind(coupleId),
-      // 【027・security-auditor指摘】wishes.couple_idもcouples(id)をON DELETE
-      // no actionで参照するため、これが無いと下のDELETE FROM couplesがFK違反で
-      // 落ちる。couple_membersと違いwishesはcoupleIdだけで絞れる（作成者に
-      // 限定しない設計。docs/tasks/027-wish-list.md 4節）ため、position自体は
-      // couple_id系のどこでもよいが、他のcouple_id系DELETEと隣接させる
       db.prepare("DELETE FROM wishes WHERE couple_id = ?1").bind(coupleId),
-      // 【029・タスク定義8節】moods.couple_id/user_idも同じ理由でcouples/user
-      // を参照する。起票の時点でテスト項目に入れてある（027で一度踏んだ形）
       db.prepare("DELETE FROM moods WHERE couple_id = ?1").bind(coupleId),
-      // 【037】ai_summaries.couple_idも同じ理由でcouplesを参照する。
-      // 起票の時点でテスト項目に入れてある（027・029で一度ずつ踏んだ形）
       db.prepare("DELETE FROM ai_summaries WHERE couple_id = ?1").bind(coupleId),
-      // 【040】wants.couple_id / owner_id も同じ理由で couples / user を参照する。
-      // 起票の時点でテスト項目（T7）に入れてある
       db.prepare("DELETE FROM wants WHERE couple_id = ?1").bind(coupleId),
-      // 【041】album_photos.album_id は albums を参照するため、albums を消す前に消す
-      // （post_images と同じ形）。albums.couple_id / created_by は couples / user を参照する。
-      // 起票の時点でテスト項目（T8）に入れてある
       db
         .prepare("DELETE FROM album_photos WHERE album_id IN (SELECT id FROM albums WHERE couple_id = ?1)")
         .bind(coupleId),
       db.prepare("DELETE FROM albums WHERE couple_id = ?1").bind(coupleId),
-      // 【045】couple_plans.couple_id も couples を参照する。couples より先に消す
-      // （architecture.md 4節「表を足したら、消す手順にも足す」。起票の時点でテスト項目（T6）に入れてある）
       db.prepare("DELETE FROM couple_plans WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM invites WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couple_members WHERE couple_id = ?1").bind(coupleId),
       db.prepare("DELETE FROM couples WHERE id = ?1").bind(coupleId),
-      // 【security-auditor指摘】相手のuser行は残す（Candle型）が、相手の
-      // プロフィール画像はR2から消すため、me.ts先頭の不変条件
-      // 「image列が非NULLなら実体がある」が破れる。相手のimageもNULLに戻す
+      // 相手の user 行は残すが、プロフィール画像は上で消したので image を NULL に戻す
       ...partnerIds.map((partnerId) => db.prepare("UPDATE user SET image = NULL WHERE id = ?1").bind(partnerId)),
     ]);
 
-    // 【security-auditor指摘】上のbatch()実行中というごく短い窓に新しい
-    // 画像がPUTされた場合に備え、D1側が確定した後にもう一度R2を掃除する。
-    // 空振り（対象0件）なら何もしない。
-    // 【Rレビュー指摘】「この後にPUTされる分は到達しない」と書いていたが
-    // 誤り。到達しないのは行（postsのINSERT）であって、実体（R2オブジェクト）
-    // ではない。createPutUrlが返す署名付きURLは5分有効で、PUTはクライアント
-    // からR2へ直接行きD1を一度も通らないため、削除の直前にme.uploadImageUrlを
-    // 叩いていれば、この2回目の掃除のあともオブジェクトを置ける。実害は
-    // 孤児オブジェクト（容量）だけで開示にはならないため、この窓自体は
-    // 塞がず受け入れる
+    // batch の間に PUT された画像に備えてもう一度掃除する。署名付き URL（5 分有効）の PUT は
+    // D1 を通らないので、この後に置かれる孤児は防げない。実害は容量だけなので受け入れる
     await deleteAllByPrefix(bucket, `couples/${coupleId}/posts/`);
     await deleteAllByPrefix(bucket, wantImagePrefixFor(coupleId));
     await deleteAllByPrefix(bucket, albumImagePrefixFor(coupleId));
@@ -273,28 +170,19 @@ const meDelete = implementer.me.delete.use(authedProcedure).handler(async ({ con
       await deleteAllByPrefix(bucket, `users/${memberId}/profile/`);
     }
   } else {
-    // ペア未所属（オンボーディング未完了）でも自分のプロフィール画像は
-    // 持ちうる（me.uploadImageUrl。couple.create/invite.acceptと同じ理由で
-    // ペアの成立を前提にしない）
+    // ペア未所属でも自分のプロフィール画像は持ちうる
     await deleteAllByPrefix(bucket, `users/${userId}/profile/`);
   }
 
-  // 【Aの決定・024】invite_failuresは以前ここでuserより先に消していたが、
-  // account_hash（Googleアカウントの塩付きハッシュ）へキーを差し替えた
-  // ことでuserへのFKが無くなり、消す必要自体が無くなった（時間窓〈1時間〉
-  // で自然に切れる設計。packages/db/src/schema/couple.tsのinviteFailures
-  // コメント参照）。sessionとaccountはON DELETE cascadeで落ちる
-  // （実測で確認済み）
+  // session・account は ON DELETE cascade で落ちる。invite_failures は user を参照しない
+  // （account_hash で数え、時間窓で自然に切れる。schema/couple.ts）
   await db.prepare("DELETE FROM user WHERE id = ?1").bind(userId).run();
 
   return { ok: true as const };
 });
 
-// 037: 投稿本文を外部の生成AIへ送ることへの同意（ADR-013）。自分の分だけ
-// 変更する。user_idを引数に取らない（mood.setTodayと同じ理由。タスク定義
-// 7節「渡せないものは、間違えて渡せない」）。couple_membersに行が無いと
-// 更新対象が無いため、writeProcedureでcoupleId/userIdを解決する
-// （NEEDS_ONBOARDINGで弾く）
+// 投稿本文を外部の生成AIへ送ることへの同意（ADR-013）。自分の分だけ変える。
+// user_id を入力に取らない（渡せないものは間違えて渡せない。037）
 const meSetAiOptIn = implementer.me.setAiOptIn.use(writeProcedure).handler(async ({ context, input }) => {
   const { db, coupleId, userId } = context;
   await db
@@ -304,8 +192,8 @@ const meSetAiOptIn = implementer.me.setAiOptIn.use(writeProcedure).handler(async
   return { aiOptIn: input.optIn };
 });
 
-// 058: 天気の地域（couple_members.weather_area）。表に無いコードは INVALID_INPUT（fetch する URL に
-// 差し込むのは表のコードだけ。security-requirements.md の 2 つ目の口）。null で「設定しない」
+// 表に無いコードは INVALID_INPUT。fetch する URL に差し込むのは表のコードだけ
+// （security-requirements.md。058）。null で「設定しない」
 const meUpdateWeatherArea = implementer.me.updateWeatherArea.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
   if (input.areaCode !== null && !isWeatherAreaCode(input.areaCode)) throw errors.INVALID_INPUT();

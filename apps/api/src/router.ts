@@ -21,7 +21,7 @@ import { isSessionFresh } from "./lib/reauth";
 export type { RpcContext } from "./context";
 
 const healthGet = implementer.health.get.handler(async ({ context }) => {
-  // D1への疎通確認。失敗すればここで例外が飛び500になる
+  // D1 への疎通確認。失敗すれば例外で 500
   await context.db.prepare("SELECT 1").first();
   return { ok: true as const, now: Date.now() };
 });
@@ -36,9 +36,8 @@ const meGet = implementer.me.get.handler(async ({ context }) => {
   if (!context.user) return null;
   const { id, name, email, image } = context.user;
 
-  // 037: couple_membersに行が無い（ペア未所属）ならaiOptIn/partnerAiOptInは
-  // 両方false。resolveCoupleContextを経由しない（未所属をNEEDS_ONBOARDINGで
-  // 弾くとme.getそのものが失敗し、オンボーディング前の画面が壊れるため）
+  // 未所属なら aiOptIn・partnerAiOptIn は両方 false。resolveCoupleContext を通さない
+  // （未所属を NEEDS_ONBOARDING で弾くと me.get が失敗し、オンボーディング前の画面が壊れる）
   const aiOptInRow = await context.db
     .prepare(
       `SELECT cm.couple_id AS couple_id, cm.ai_opt_in AS my_opt_in, partner.ai_opt_in AS partner_opt_in
@@ -50,8 +49,7 @@ const meGet = implementer.me.get.handler(async ({ context }) => {
     .bind(id)
     .first<AiOptInRow>();
 
-  // imageはGoogleの外部URLか、自分でアップロードした画像のR2キーの
-  // どちらもありうる。後者だけ署名付きGET URLへ解決する（019）
+  // image は Google の外部 URL か自分で上げた画像の R2 キー。後者だけ署名付き URL にする
   return {
     id,
     name,
@@ -70,10 +68,10 @@ export const router = implementer.router({
   me: { get: meGet, ...meProcedures },
   couple: coupleProcedures,
   billing: billingProcedures,
-  // 058: 天気と祝日（読み取り。ゲストも通る）
+  // 天気と祝日（読み取り。ゲストも通る）
   weather: weatherProcedures,
   holiday: holidayProcedures,
-  // 057: 運営（全部 adminProcedure）
+  // 運営（全部 adminProcedure）
   admin: adminProcedures,
   invite: inviteProcedures,
   post: { ...postProcedures, uploadUrl: postUploadUrl },

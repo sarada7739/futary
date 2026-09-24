@@ -5,21 +5,14 @@ function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
 }
 
-// couple.ts の isConstraintViolation は制約違反全般（UNIQUE/NOT NULL/FK）に
-// 一致するが、ここで区別したいのは「(post_id, user_id, kind) の UNIQUE 違反 =
-// 同時リクエストのレース」だけである。それ以外の制約違反まで「付いている」
-// 扱いにすると、書き込みが起きていないのに成功として返ってしまう
-// （M2まとめ監査 Low指摘）
+// 区別したいのは (post_id, user_id, kind) の UNIQUE 違反（同時リクエストのレース）だけ。
+// 制約違反全般を「付いている」扱いにすると、書いていないのに成功として返る
 function isUniqueConstraintViolation(error: unknown): boolean {
   return error instanceof Error && /unique constraint failed/i.test(error.message);
 }
 
-// reaction.toggle: 既にあれば削除、無ければ追加する（タスク009）。
-// postId は couple_id = ctx.coupleId を WHERE 句に含めた1文で扱い、
-// 006 の post.delete と同じ形で他ペアの投稿への到達を防ぐ。
-// reactions テーブル自体は couple_id を持たないため、対象投稿が自ペアの
-// ものであることは posts への EXISTS で確認する（SELECT してから
-// 判断して書く、という2段階にはしない。architecture.md 4節）
+// 既にあれば消し、無ければ足す。reactions は couple_id を持たないので、対象が自ペアの投稿であることを
+// posts への EXISTS で同じ 1 文の中で確かめる（SELECT してから書く 2 段階にしない。architecture.md 4節）
 const reactionToggle = implementer.reaction.toggle
   .use(writeProcedure)
   .handler(async ({ context, input, errors }) => {
@@ -40,9 +33,8 @@ const reactionToggle = implementer.reaction.toggle
       return { postId: input.postId, kind: input.kind, reacted: false };
     }
 
-    // 削除が0件の時点では「付けていなかった」のか「対象投稿が自ペアに無い」のか
-    // 区別できない。INSERT 側にも同じ couple_id 条件を含め、挿入できたかどうかで
-    // 判定する（対象が自ペアに無ければ挿入も0件になり NOT_FOUND を返す）
+    // 削除 0 件では「付けていなかった」か「自ペアの投稿でない」か区別できない。INSERT にも同じ条件を
+    // 含め、挿入できたかで決める（自ペアに無ければ 0 件で NOT_FOUND）
     let inserted: { post_id: string } | null;
     try {
       inserted = await db
@@ -55,9 +47,7 @@ const reactionToggle = implementer.reaction.toggle
         .bind(input.postId, userId, input.kind, nowSeconds(), coupleId)
         .first<{ post_id: string }>();
     } catch (error) {
-      // (post_id, user_id, kind) の UNIQUE 違反 = 同時に飛んだ別リクエストが
-      // 先に挿入を終えていたレース。この時点では「付いている」状態なので
-      // reacted: true を返す（呼び出し元から見て操作自体は成功している）
+      // 同時に飛んだ別のリクエストが先に挿入した。今は付いている状態なので reacted: true
       if (isUniqueConstraintViolation(error)) {
         return { postId: input.postId, kind: input.kind, reacted: true };
       }

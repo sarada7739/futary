@@ -2,14 +2,9 @@ import { sql } from "drizzle-orm";
 import { check, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { couples } from "./couple";
 
-// 037: その期間（月または週）の投稿本文をLLMにまとめさせた結果。期間ごとに
-// 1件（作り直すと上書き）。provider/modelを残す（あとで「どのモデルが
-// 書いたか」が分からなくならないよう。タスク定義6節）。generatedCountは
-// 期間ごと3回までという歯止め（4節）をDB側にも残す。
-//
-// 【訂正・2026-09-06】当初monthだけの列だったが、人間の「週間も欲しい」
-// という要望を受けてperiodKind/periodKeyに直した（Aの判断。まだ本番に
-// 出ていない段階だったため、新しい列を足すのではなくこの表自体を書き直した）
+// 期間（月・週）の投稿本文を LLM にまとめさせた結果。期間ごとに 1 件（作り直すと上書き。037）。
+// provider・model を残す（どのモデルが書いたか分からなくならないように）。
+// generatedCount は期間ごと 3 回までの歯止め
 export const aiSummaries = sqliteTable(
   "ai_summaries",
   {

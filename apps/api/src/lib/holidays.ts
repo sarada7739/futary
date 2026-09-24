@@ -2,9 +2,8 @@ import { BUNDLED_HOLIDAYS } from "@futary/date";
 import { z } from "zod";
 import { LINK_PREVIEW_USER_AGENT } from "./link-preview";
 
-// 058: 祝日。同梱の表（内閣府。packages/date/src/holidays.ts）+ holidays-jp の JSON を 1 日 1 回取って上書き
-// （取れなければ同梱の表のまま）。2 つ目の口（security-requirements.md）: 固定の URL・12 秒・利用者の情報を送らない。
-// 失敗しても投げない
+// 祝日。同梱の表（packages/date/src/holidays.ts）を holidays-jp の JSON で 1 日 1 回上書きする（取れなければ同梱のまま）。
+// 2 つ目の外部の口（security-requirements.md）: 固定の URL・12 秒・利用者の情報を送らない・失敗しても投げない（058）
 
 export const HOLIDAYS_JP_URL = "https://holidays-jp.github.io/api/v1/date.json";
 export const HOLIDAYS_FETCH_TIMEOUT_MS = 12_000;

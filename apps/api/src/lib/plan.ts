@@ -1,15 +1,13 @@
-// 045: ペアのプラン（free / paid）と、無料枠（作ったアルバムの写真の合計枚数）。
-// 判定はここの 1 箇所に閉じる。手続き（couple.get・album.create・album.addPhotos）は
-// ここを呼ぶだけで、couple_plans の列の意味を知らない
+// ペアのプラン（free / paid）と無料枠（アルバムの写真の合計枚数）。判定はここの 1 箇所に閉じ、
+// 手続きは couple_plans の列の意味を知らない（045）
 import { FREE_ALBUM_PHOTO_LIMIT, LOCK_GRACE_DAYS, type AlbumQuota, type Plan, type PlanState } from "@futary/contract";
 
 export { FREE_ALBUM_PHOTO_LIMIT };
 
-// 047: 猶予（秒）。free に戻ってからこれだけ経つと、無料枠を超える写真に鍵が掛かる
+// 猶予（秒）。free に戻ってからこれだけ経つと、無料枠を超える写真に鍵が掛かる（047）
 export const LOCK_GRACE_SECONDS = LOCK_GRACE_DAYS * 24 * 60 * 60;
 
-// couple_plans の 1 行。行が無ければ null（= free）。
-// 047: 猶予の起点に source と updated_at も使う（0節 #11）
+// couple_plans の 1 行。行が無ければ null（= free）
 export interface CouplePlanRow {
   plan: string;
   expires_at: number | null;
@@ -17,25 +15,24 @@ export interface CouplePlanRow {
   updated_at?: number;
 }
 
-// paid は plan = 'paid' AND (expires_at IS NULL OR expires_at > now) のときだけ。
-// それ以外（行が無い・'free'・未知の文字列・期限切れ）は全部 free（タスク定義 1節）。
-// CHECK を持たない表なので、未知の値が入っても壊れない向きに倒す
+// paid は plan = 'paid' AND (expires_at IS NULL OR expires_at > now) のときだけ。それ以外（行が無い・
+// 'free'・未知の文字列・期限切れ）は全部 free。CHECK を持たない表なので、未知の値は壊れない側に倒す
 export function resolvePlan(row: CouplePlanRow | null | undefined, nowSeconds: number): Plan {
   return resolvePlanState(row, nowSeconds).plan;
 }
 
-// 047: 猶予の起点（秒）。無ければ null（鍵は掛からない）。047 0節 #11:
-// - expires_at があればそれ（Stripe の canceled は plan='free' で expires_at を残す。期限切れで free になった行も同じ）
+// 猶予の起点（秒）。無ければ null（鍵は掛からない）:
+// - expires_at があればそれ（Stripe の canceled と期限切れは plan='free' で expires_at を残す）
 // - expires_at が無い free の行: source='manual' なら updated_at（運営が手で free にした）。
-//   source='stripe' なら null（Checkout を作るときに先に書く plan='free' の行。一度も paid になっていない）
-// - どれにも当てはまらない形（未知の source・updated_at 無し）は null（鍵を掛けない向きに倒す）
+//   source='stripe' なら null（Checkout の前に書く行で、一度も paid になっていない）
+// - それ以外（未知の source・updated_at 無し）は null（鍵を掛けない側に倒す）
 function lockOriginOf(row: CouplePlanRow): number | null {
   if (row.expires_at !== null) return row.expires_at;
   if (row.source === "manual" && typeof row.updated_at === "number") return row.updated_at;
   return null;
 }
 
-// 047: プランの状態（paid / free の猶予中 / free の鍵）。判定はここの 1 箇所（タスク定義 1節）
+// プランの状態（paid / free の猶予中 / free の鍵）。判定はここの 1 箇所
 export function resolvePlanState(row: CouplePlanRow | null | undefined, nowSeconds: number): PlanState {
   if (!row) return { plan: "free", lockAt: null, locked: false };
   if (row.plan === "paid" && (row.expires_at === null || row.expires_at > nowSeconds)) return { plan: "paid" };
@@ -49,8 +46,7 @@ export function isLocked(state: PlanState): boolean {
   return state.plan === "free" && state.locked;
 }
 
-// 048 段階2: couple_plans の行そのもの（couple.get の planSource/planExpiresAt と、
-// billing.* が customer / subscription を引くのに使う）
+// couple_plans の行そのもの（couple.get の planSource・planExpiresAt と、billing.* の customer・subscription）
 export interface CouplePlanFullRow extends CouplePlanRow {
   source: string;
   updated_at: number;
@@ -80,10 +76,9 @@ export async function loadPlanState(db: D1Database, coupleId: string, nowSeconds
   return resolvePlanState(await loadPlanRow(db, coupleId), nowSeconds);
 }
 
-// 047: 鍵でない写真（taken_at, id の昇順の先頭 FREE_ALBUM_PHOTO_LIMIT 枚。ペアの未削除アルバムをまたいで数える）。
-// 鍵かどうかは「この中に無い」で決める。鍵の側の集合は作らない（055 で 1 ペア数十万枚になりうる。0節 #13）。
-// locked のときだけ呼ぶ（paid・猶予中は引かない）。album_id・key・大きさ・taken_at も返すのは、
-// カバーが鍵の写真だったときに「鍵でない中でいちばん新しいもの」へ倒すため（1節）
+// 鍵でない写真（ペアの未削除アルバムをまたいだ taken_at, id の昇順の先頭 FREE_ALBUM_PHOTO_LIMIT 枚）。
+// 鍵かどうかは「この中に無い」で決め、鍵の側の集合は作らない（1 ペア数十万枚になりうる）。
+// locked のときだけ呼ぶ。album_id・key・大きさも返すのは、鍵のカバーを倒す先を選ぶため
 export interface UnlockedPhoto {
   id: string;
   album_id: string;
@@ -109,10 +104,8 @@ export async function unlockedPhotos(db: D1Database, coupleId: string): Promise<
   return results;
 }
 
-// 無料枠の使用量: ペアの未削除のアルバムに入っている album_photos の行数を 1 文で数える
-// （albums.deleted_at IS NULL を JOIN に含める。タイムライン post_images は数えない。
-// 別ペアの写真は albums.couple_id で切れる）。album_photos は album_id の索引
-// （album_photos_album_taken_idx の先頭列）で JOIN できる
+// 無料枠の使用量: ペアの未削除アルバムの album_photos の行数（タイムラインの post_images は数えない）。
+// album_photos は album_id の索引で JOIN できる
 export async function countAlbumPhotosUsed(db: D1Database, coupleId: string): Promise<number> {
   const row = await db
     .prepare(
@@ -132,11 +125,9 @@ export async function albumQuotaFor(db: D1Database, coupleId: string, plan: Plan
   return { limit: FREE_ALBUM_PHOTO_LIMIT, used: await countAlbumPhotosUsed(db, coupleId) };
 }
 
-// album.create（cover あり）・album.addPhotos が写真を足す前に呼ぶ。
-// free で used + 追加枚数 > limit なら true（呼び出し側が PLAN_LIMIT を投げる。1 枚も入れない）。
-// 数えてから書くまでの間に相手が足すと数枚は超えうる（D1 にトランザクションは無い）。
-// 物理上限と違い超えても壊れないので、ここでは許す（タスク定義 2節。architecture.md 4節
-// 「読んでから判断して書く形にしない」の例外）
+// 写真を足す前に呼ぶ。free で used + 追加枚数 > limit なら true（呼び出し側が PLAN_LIMIT。1 枚も入れない）。
+// 数えてから書くまでに相手が足すと数枚超えうる（D1 にトランザクションは無い）が、物理上限と違い
+// 超えても壊れないので許す（architecture.md 4節の「読んでから判断して書かない」の例外）
 export async function exceedsFreeQuota(
   db: D1Database,
   coupleId: string,

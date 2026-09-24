@@ -1,15 +1,7 @@
-// 016のE2E（未認証のデモ閲覧経路。docs/tasks/016-release.md）用に、
-// ローカルD1へマイグレーションとデモシードを適用してから
-// wrangler dev（本番と同じ単一オリジン構成。apps/api/public を配信）を
-// フォアグラウンドで起動する。playwright.config.ts の webServer から呼ぶ。
-//
-// マイグレーション・シードはどちらも既存データに対して安全に繰り返し実行できる
-// 設計になっている（マイグレーションはd1_migrationsで適用済みを記録、
-// シードはpackages/db/seed/run.tsが固定IDの安全確認をしてから上書きする）。
-//
-// pnpm経由で子プロセスを起動すると、Windowsではpnpm.cmdをシェル経由でしか
-// 起動できない問題が起きる（packages/db/seed/run.tsと同じ理由）。
-// ここではNode本体で各スクリプトを直接起動する
+// E2E（未認証のデモ閲覧経路）用に、ローカル D1 へマイグレーションとデモシードを当ててから
+// wrangler dev（本番と同じ単一オリジン）を起動する。playwright.config.ts の webServer から呼ぶ。
+// どちらも繰り返し実行して安全（マイグレーションは適用済みを記録し、シードは固定 ID を確かめてから上書きする）。
+// Windows では pnpm.cmd をシェル経由でしか起動できないので、Node で各スクリプトを直接起動する
 import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

@@ -1,8 +1,7 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 
-// Better Auth 管理テーブル。フィールド定義は Better Auth のコアスキーマ
-// （`better-auth/db` の `getAuthTables`）に合わせている。手で増減しない。
-// タイムスタンプは他のアプリケーションテーブルと同じく Unix 秒（INTEGER）で持つ。
+// Better Auth の管理テーブル。フィールドは Better Auth のコアスキーマ（`getAuthTables`）に合わせ、手で増減しない。
+// タイムスタンプは他の表と同じく Unix 秒（INTEGER）
 
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
@@ -29,7 +28,7 @@ export const session = sqliteTable("session", {
 
 export const account = sqliteTable("account", {
   id: text("id").primaryKey(),
-  // OIDC の issuer。Better Auth 1.7 で追加されたフィールド
+  // OIDC の issuer（Better Auth 1.7 で増えた）
   issuer: text("issuer").notNull(),
   accountId: text("account_id").notNull(),
   providerId: text("provider_id").notNull(),

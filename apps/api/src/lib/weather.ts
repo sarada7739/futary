@@ -3,11 +3,11 @@ import { addDays, todayJst } from "@futary/date";
 import { z } from "zod";
 import { LINK_PREVIEW_USER_AGENT } from "./link-preview";
 
-// 058: 気象庁の予報 JSON を Worker が取る（security-requirements.md「外部 URL の取得」の 2 つ目の口）。
+// 気象庁の予報 JSON を Worker が取る（security-requirements.md「外部 URL の取得」の 2 つ目の口。058）。
 // - 行き先は固定の URL 1 つ。差し込むのは予報区の表（WEATHER_AREAS）にある office のコードだけ
-// - 応答は Zod で形を検証し、要る項目（天気コード・気温）だけ取り出す。12 秒で打ち切る
-// - 失敗しても投げない（days: []。天気が出ないだけ）。利用者の情報は送らない（UA は 040 と同じ）
-// - 予報区（office）ごとに 1 時間キャッシュ（Worker のメモリ。billing.prices と同じ作法）
+// - 応答は Zod で形を確かめ、要る項目（天気コード・気温）だけ取り出す。12 秒で打ち切る
+// - 失敗しても投げない（days: []）。利用者の情報は送らない
+// - office ごとに 1 時間キャッシュ（Worker のメモリ）
 //
 // JSON の形（2026-09 に実測。正式な API ではないので変わりうる。変わったら黙って days: []）:
 //   [ 短期（今日〜明後日）, 週間（今日〜7 日目） ]
@@ -30,7 +30,7 @@ type Report = z.infer<typeof reportSchema>;
 
 export type FetchImpl = (input: string, init: RequestInit) => Promise<Response>;
 
-// office ごとのキャッシュ（取れなかったときは短く覚えて連打しない: 失敗も 1 時間の 1/6）
+// office ごとのキャッシュ（失敗も短く覚えて連打しない: 1 時間の 1/6）
 const FAILURE_TTL_MS = 10 * 60 * 1000;
 const cache = new Map<string, { at: number; ttl: number; report: unknown | null }>();
 

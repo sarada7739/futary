@@ -13,13 +13,11 @@ import { canonicalAmazonUrl, normalizeWantUrl } from "../lib/want-url";
 import { isConstraintViolation } from "./couple";
 import { readProcedure, writeProcedure } from "./base";
 
-// 040 タスク定義3節: 1人100件（未削除・手に入れた分を含む）。027 と同じ
-// 「上限を持ってページングを持たない」
+// 1 人 100 件（未削除・手に入れた分を含む）。上限を持ってページングを持たない（040）
 const MAX_WANTS_PER_OWNER = 100;
 
-// 手で付ける経路（want.uploadUrl → want.create の imageId / want.setImage）は JPEG のみ。
-// 契約の z.literal と同じ値。署名付き PUT URL は Content-Type を強制できないため、
-// 実体確認のタイミングで検証する（post.create と同じ）
+// 手で付ける経路は JPEG のみ（契約の z.literal と同じ値）。署名付き PUT URL は Content-Type を
+// 強制できないので、実体を確かめるときに見る
 const UPLOAD_CONTENT_TYPE = "image/jpeg";
 
 function nowSeconds(): number {
@@ -38,16 +36,15 @@ interface WantRow {
   obtained_at: number | null;
 }
 
-// owner を LEFT JOIN で名前に解決する。wants を couple_id で絞った結果に対して行い、
-// user 側を起点に引かない（post.list と同じ。認可の範囲を JOIN で広げない）
+// owner を LEFT JOIN で名前にする。wants を couple_id で絞った結果に対して行い、user 側を起点に
+// 引かない（認可の範囲を JOIN で広げない）
 const WANT_COLUMNS =
   "wants.id AS id, wants.owner_id AS owner_id, user.name AS owner_name, wants.title AS title, " +
   "wants.url AS url, wants.note AS note, wants.image_key AS image_key, wants.created_at AS created_at, " +
   "wants.obtained_at AS obtained_at";
 const WANT_FROM = "wants LEFT JOIN user ON user.id = wants.owner_id";
 
-// owner_id はレスポンスに出さない。isMine と ownerName にする（タスク定義3節）。
-// 画像は署名付き GET URL（有効期限1時間）を都度発行する（post.list と同じ）
+// owner_id は出さず isMine と ownerName にする。画像は署名付き GET URL を都度発行する
 async function toWant(row: WantRow, viewerUserId: string | null, r2Sign: R2SignConfig) {
   return {
     id: row.id,
@@ -62,8 +59,7 @@ async function toWant(row: WantRow, viewerUserId: string | null, r2Sign: R2SignC
   };
 }
 
-// 本人の行を1件、id と couple_id と owner_id で引く。本人でない・他ペア・存在しない・
-// 削除済みはすべて null（区別しない。存在を教えない。タスク定義4節）
+// 本人の行を 1 件。本人でない・他ペア・存在しない・削除済みは区別せず null（存在を教えない）
 async function fetchMine(db: D1Database, coupleId: string, userId: string, id: string): Promise<WantRow | null> {
   return db
     .prepare(
@@ -74,9 +70,8 @@ async function fetchMine(db: D1Database, coupleId: string, userId: string, id: s
     .first<WantRow>();
 }
 
-// R2 の失敗をそのまま投げない（withErrorId がメッセージをログに出し、R2 の
-// エラーメッセージには画像キーが含まれうる。security-requirements.md 8節。
-// post.create・me.delete と同じ形）
+// R2 のエラーメッセージは画像キーを含みうるので、詰め替えて投げる（withErrorId がログに出す。
+// security-requirements.md 8節）
 async function headOrThrow(bucket: R2Bucket, key: string): Promise<R2Object | null> {
   try {
     return await bucket.head(key);
@@ -89,14 +84,12 @@ async function deleteQuietly(bucket: R2Bucket, key: string): Promise<void> {
   try {
     await bucket.delete(key);
   } catch {
-    // 掃除の失敗で利用者の操作を失敗させない（post.delete と同じ）。孤児オブジェクトは
-    // architecture.md 6節の回収手順の対象。画像キーはログに出さない
+    // 掃除の失敗で利用者の操作を失敗させない。孤児は architecture.md 6節の回収手順の対象。キーはログに出さない
   }
 }
 
-// 手で付けた画像（want.uploadUrl → PUT 済み）の実体を確かめ、鍵を返す。
-// 実体が無い・型やサイズが違うなら INVALID_INPUT（post.create と同じ判断。
-// 違反した実体は削除する: 残すと同じ imageId を二度と使えない孤児になる）
+// 手で付けた画像の実体を確かめて鍵を返す。無い・型やサイズが違うなら INVALID_INPUT。
+// 違反した実体は消す（残すと同じ imageId を二度と使えない孤児になる）
 async function verifyUploadedImage(
   bucket: R2Bucket,
   key: string,
@@ -111,28 +104,25 @@ async function verifyUploadedImage(
   return key;
 }
 
-// 6節「失敗しても手続きは成功する。理由（status・本文先頭 200 文字）はログにだけ残す」。
-// URL は書かない（利用者の書いたものをログに広げない）。画像キーも書かない
+// 取得の失敗理由はログにだけ残す（6節）。利用者の書いた URL と画像キーは書かない
 function logPreviewFailures(failures: readonly string[]): void {
   if (failures.length === 0) return;
   console.warn(`[want.create] 画像の自動取得に失敗: ${failures.join(" / ")}`);
 }
 
-// テストで fetch を差し替えられるように、モジュール変数で持つ（context には積まない:
-// fetch は秘密ではなく、context の形を変えてまで渡す理由が無い）
+// テストで fetch を差し替えるためのモジュール変数（秘密ではないので context の形は変えない）
 let fetchForPreview: FetchLike | undefined;
 export function setLinkPreviewFetchForTest(fetchImpl: FetchLike | undefined): void {
   fetchForPreview = fetchImpl;
 }
 
-// ctx.coupleId のみを使う。ownerSide を owner_id に解決する（ユーザーIDを引数に取らない）。
-// 未削除のみ。手に入れていないものが先、手に入れたものが末尾。それぞれ新しい順（027 と同じ並べ方）
+// ownerSide を owner_id に解決する（ユーザー ID を引数に取らない）。未削除のみ。
+// 手に入れていないものが先、手に入れたものが末尾。それぞれ新しい順
 const wantList = implementer.want.list.use(readProcedure).handler(async ({ context, input }) => {
   const { db, coupleId, userId, r2Sign } = context;
 
-  // 「そちら側の人」を couple_members から引く。me はログイン中の本人、partner は自分以外の1人。
-  // デモ閲覧（userId が null。誰でもない）は partner = slot 1・me = slot 2 の人に当てる
-  // （2人分を見られる。書けないのは writeProcedure が別に守る。isMine は常に false）
+  // me は本人、partner は自分以外の 1 人。デモ閲覧（userId が null）は partner = slot 1・me = slot 2
+  // （2 人分を見られる。書けないのは writeProcedure が守る。isMine は常に false）
   let ownerId: string | null;
   if (userId === null) {
     const row = await db
@@ -166,9 +156,9 @@ const wantList = implementer.want.list.use(readProcedure).handler(async ({ conte
   return { items, ownerName: ownerRow?.name ?? null };
 });
 
-// 上限判定（COUNT）と挿入は2文に分かれる（wish.create と同じ受け入れ）。
-// url があり imageId が無ければ画像の自動取得を試す（手続きの中で同期に待つ。
-// 最大 12 秒）。取れなくても 200（image が null なだけ）。A の失敗で保存を失敗させない
+// 上限判定（COUNT）と挿入は 2 文に分かれる（少し超えうるが受け入れる）。
+// url があり imageId が無ければ画像の自動取得を試す（同期に最大 12 秒待つ）。
+// 取れなくても保存は成功させる（image が null なだけ）
 const wantCreate = implementer.want.create.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId, userId, r2Sign } = context;
 
@@ -185,29 +175,27 @@ const wantCreate = implementer.want.create.use(writeProcedure).handler(async ({ 
   let title = input.title ?? null;
 
   if (input.imageId) {
-    // 手で付けた画像。実体を確かめてから行を書く（architecture.md 6節の不変条件）
+    // 実体を確かめてから行を書く（architecture.md 6節）
     imageKey = await verifyUploadedImage(bucket, wantImageKeyFor(coupleId, input.imageId, "jpg"), () =>
       errors.INVALID_INPUT(),
     );
   }
 
   if (url && (!imageKey || !title)) {
-    // 画像が無い、または題名が無いときだけ外へ取りに行く（6節「発火は want.create のときだけ」）
+    // 画像か題名が無いときだけ外へ取りに行く（外へ出るのは want.create のときだけ。6節）
     const preview = await fetchLinkPreview(url, {
       fetchImpl: fetchForPreview,
       maxTitleLength: MAX_WANT_TITLE_LENGTH,
       needImage: !imageKey,
     });
     logPreviewFailures(preview.failures);
-    // A の決定（R の段階1レビュー）: URL の正規化も最終 URL に対して行う。amzn.asia の短縮 URL が
-    // Amazon の /dp/{ASIN} に辿り着いたなら正規形を保存する（短縮 URL のまま残さない）。
-    // Amazon 以外は元の URL のまま（リダイレクト先で置き換えない）。読めなければ元のまま
+    // 正規化は最終 URL に対して行う。amzn.asia の短縮 URL が /dp/{ASIN} に着いたら正規形を保存する。
+    // Amazon 以外・読めなかったときは元の URL のまま
     const canonical = preview.finalUrl ? canonicalAmazonUrl(preview.finalUrl) : null;
     if (canonical) url = canonical;
     if (!title && preview.title) title = preview.title;
     if (!imageKey && preview.image) {
-      // 取った画像は R2 に保存して署名付き URL で出す（外部 URL を img-src に足さない。6節）。
-      // 鍵はサーバだけが組み立てる。Content-Type は取得時に確かめた値
+      // 取った画像は R2 に置いて署名付き URL で出す（外部 URL を img-src に足さない。6節）
       const key = wantImageKeyFor(coupleId, generateImageId(), preview.image.extension);
       try {
         await bucket.put(key, preview.image.bytes, { httpMetadata: { contentType: preview.image.contentType } });
@@ -219,8 +207,7 @@ const wantCreate = implementer.want.create.use(writeProcedure).handler(async ({ 
     }
   }
 
-  // 題名が無く og:title も取れなければ URL のホスト名（空の行を作らない。タスク定義1節）。
-  // 契約の refine で title か url のどちらかは必ずある
+  // 題名も og:title も無ければ URL のホスト名（空の行を作らない）。契約で title か url は必ずある
   if (!title) title = new URL(url as string).hostname;
 
   const id = crypto.randomUUID();
@@ -239,7 +226,7 @@ const wantCreate = implementer.want.create.use(writeProcedure).handler(async ({ 
     throw error;
   }
 
-  // context.user は writeProcedure が mode="member" を返した時点で必ず非null（base.ts 冒頭コメント）
+  // mode="member" なら context.user は必ず非 null（auth-context.ts）
   const ownerName = context.user!.name;
   return toWant(
     { id, owner_id: userId, owner_name: ownerName, title, url, note, image_key: imageKey, created_at: now, obtained_at: null },
@@ -248,9 +235,8 @@ const wantCreate = implementer.want.create.use(writeProcedure).handler(async ({ 
   );
 });
 
-// 本人のみ。WHERE 句に couple_id と owner_id を含めた1文で行う。他人の id・他ペアの id・
-// 存在しない id・削除済みの id はすべて更新件数 0 で NOT_FOUND（区別しない）。
-// URL を変えても画像は取り直さない（タスク定義4節）
+// 本人のみ。WHERE に couple_id と owner_id を含めた 1 文で、更新 0 件は区別せず NOT_FOUND。
+// URL を変えても画像は取り直さない
 const wantUpdate = implementer.want.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId, r2Sign } = context;
 
@@ -270,8 +256,7 @@ const wantUpdate = implementer.want.update.use(writeProcedure).handler(async ({ 
   return toWant(row, userId, r2Sign);
 });
 
-// 手で付ける・外す。本人のみ。null で外す（R2 のオブジェクトも消す）。
-// 付け替えのときも前のオブジェクトを消す（行と実体を 1 対 1 に保つ）
+// 手で付ける・外す（null）。本人のみ。付け替え・外すときは前のオブジェクトを消す（行と実体を 1 対 1 に保つ）
 const wantSetImage = implementer.want.setImage.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId, userId, r2Sign } = context;
 
@@ -285,8 +270,7 @@ const wantSetImage = implementer.want.setImage.use(writeProcedure).handler(async
     );
   }
 
-  // D1 を先に更新し、そのあと R2 の古い実体を消す（post.delete と同じ順。逆にすると
-  // 「行は残るのに画像が消える」壊れ方が見える）
+  // D1 → R2 の順（逆だと「行は残るのに画像が消える」が見える）
   try {
     const updated = await db
       .prepare(
@@ -309,7 +293,7 @@ const wantSetImage = implementer.want.setImage.use(writeProcedure).handler(async
   return toWant(row, userId, r2Sign);
 });
 
-// toggle ではなく setObtained（wish.setDone と同じ。冪等）。本人のみ
+// toggle でなく値を渡す（冪等）。本人のみ
 const wantSetObtained = implementer.want.setObtained
   .use(writeProcedure)
   .handler(async ({ context, input, errors }) => {
@@ -331,13 +315,11 @@ const wantSetObtained = implementer.want.setObtained
     return toWant(row, userId, r2Sign);
   });
 
-// 論理削除 + R2 のオブジェクトは物理削除。本人のみ。行の image_key は NULL に戻す
-// （UNIQUE の空きを塞がない。post_images が物理削除なのと同じ理由）
+// 論理削除 + R2 は物理削除。本人のみ。行の image_key は NULL に戻す（UNIQUE の空きを塞がない）
 const wantDelete = implementer.want.delete.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId, userId } = context;
 
-  // 消す前に鍵を読む（RETURNING は更新後の値しか返さない）。読んでから UPDATE までの間に
-  // 同じ行が消されても、UPDATE の件数 0 で NOT_FOUND になるだけ
+  // 消す前に鍵を読む（RETURNING は更新後の値しか返さない）。間に消されても UPDATE 0 件で NOT_FOUND になるだけ
   const current = await fetchMine(db, coupleId, userId, input.id);
   if (!current) throw errors.NOT_FOUND();
 
@@ -355,8 +337,7 @@ const wantDelete = implementer.want.delete.use(writeProcedure).handler(async ({ 
   return { id: row.id };
 });
 
-// post.uploadUrl と同じ形。imageId はサーバが生成し、鍵もサーバだけが組み立てる。
-// 手で付ける経路は JPEG のみ（拡張子 jpg）
+// imageId と鍵はサーバだけが組み立てる。手で付ける経路は JPEG のみ
 const wantUploadUrl = implementer.want.uploadUrl.use(writeProcedure).handler(async ({ context, input }) => {
   const { coupleId, r2Sign } = context;
   const imageId = generateImageId();

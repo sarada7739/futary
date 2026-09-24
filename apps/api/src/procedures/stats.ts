@@ -20,18 +20,11 @@ interface CountRow {
   count: number;
 }
 
-// 019: couples.primary_date（'dating'/'married'/'none'）に従って daysTogether を
-// 出し分ける。記念日当日を1日目とする（境界条件。docs/tasks/012-stats-card.md）。
-// 未来の日付なら「あと○日」を返す（人間の決定。state.md L66）。
-// 「負の値を出さない」責任はここ（サーバ側）で閉じる。
-// dating/married それぞれに upcoming の対を持たせる（Aの決定・PR #123。
-// 「結婚まであと○日」も主役になりうる数字であり、married_upcomingが無いと
-// dating側だけが修飾された非対称な名前になる）。
-//
-// 023: primary_dateが指している方の日付がまだ無いとき'unset'を返す
-// （登録時に付き合った日を聞かなくなったため生じる状態。「まだ決めていない」を
-// 'hidden'〈本人が隠すと決めた〉と分ける。「片方の日付があるから、そっちを
-// 出す」はしない。利用者が選んだ方だけを見る）
+// couples.primary_date に従って daysTogether を出し分ける。記念日当日を 1 日目とし、未来の日付なら
+// 「あと○日」を返す（負の値を出さない責任はサーバで閉じる。012・019）。
+// dating・married それぞれに upcoming の対を持つ（どちらも主役になりうる数字なので対称にする）。
+// primary_date が指す方の日付がまだ無ければ 'unset'（'hidden' = 本人が隠すと決めた、とは分ける。
+// もう片方の日付があっても出さない。利用者が選んだ方だけを見る。023）
 export function computeDaysTogether(couple: CoupleDatesRow, today: string): DaysTogether {
   if (couple.primary_date === "none") return { status: "hidden" };
 
@@ -48,8 +41,7 @@ export function computeDaysTogether(couple: CoupleDatesRow, today: string): Days
   return { status: "dating_upcoming", days: -diff };
 }
 
-// stats.get は専用テーブルを持たず、既存テーブルから算出する（architecture.md 4節）。
-// ctx.coupleId のみを使い、couple_id を引数に取らない（architecture.md 5節）
+// 専用の表を持たず既存の表から算出する（architecture.md 4節）。couple_id を引数に取らない（5節）
 const statsGet = implementer.stats.get.use(readProcedure).handler(async ({ context }) => {
   const { db, coupleId, r2Sign } = context;
 
@@ -60,8 +52,7 @@ const statsGet = implementer.stats.get.use(readProcedure).handler(async ({ conte
       )
       .bind(coupleId)
       .first<CoupleDatesRow>(),
-    // 統計カードの2アバター表示に使う。slot昇順で返し、1件なら相手が未参加
-    // （008の投稿者名と同じくLEFT JOINで理論上のnullを許容する。architecture.md 5節）
+    // 2 つのアバターに使う。slot 昇順で、1 件なら相手が未参加。LEFT JOIN で理論上の null を許す（architecture.md 5節）
     db
       .prepare(
         `SELECT couple_members.user_id AS user_id, user.name AS name, user.image AS image
@@ -80,11 +71,8 @@ const statsGet = implementer.stats.get.use(readProcedure).handler(async ({ conte
       .prepare("SELECT COUNT(*) AS count FROM posts WHERE couple_id = ?1 AND deleted_at IS NULL")
       .bind(coupleId)
       .first<CountRow>(),
-    // L65: deleted_at IS NULL が抜けていた（タスク定義・architecture.md 4節どちらにも
-    // 無かった）。post.delete経由ならpost_imagesも一緒に消えるが、防御的に
-    // 条件を保つ（031: image_key列はposts_imagesへ移った。「写真の枚数」は
-    // 投稿件数ではなく実際の画像枚数を返す。1投稿に複数枚付けられるように
-    // なったため両者は一致しなくなった）
+    // 写真の枚数は投稿の件数でなく実際の画像の枚数（1 投稿に複数枚付けられる）。
+    // post.delete なら post_images も消えるが、deleted_at IS NULL の条件は保つ
     db
       .prepare(
         `SELECT COUNT(*) AS count FROM post_images
@@ -95,16 +83,14 @@ const statsGet = implementer.stats.get.use(readProcedure).handler(async ({ conte
       .first<CountRow>(),
   ]);
 
-  // readProcedure が couple_id を確定させた時点で存在は保証されている想定
-  // （couple.ts の coupleGet と同じ前提）
+  // readProcedure が couple_id を確定させた時点で存在する想定
   if (!coupleRow) throw new Error("couple_id に対応するペアが見つかりません");
 
   const members = await Promise.all(
     membersResult.results.map(async (row) => ({
       userId: row.user_id,
       name: row.name,
-      // Googleの外部URLか自分でアップロードした画像のR2キーかを判別して解決する
-      // （019。apps/api/src/procedures/post.tsのauthorImageと同じ形）
+      // Google の外部 URL か自分で上げた画像の R2 キーかを見分けて解決する
       image: await resolveUserImage(r2Sign, row.image),
     })),
   );

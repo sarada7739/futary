@@ -1,15 +1,10 @@
 import { implementer } from "../implementer";
 import { readProcedure, writeProcedure } from "./base";
 
-// タスク定義5節: 1ペアあたりの上限。200に当たる利用者はまず居ない
+// 1 ペアあたりの上限。200 に当たる利用者はまず居ない
 const MAX_WISHES_PER_COUPLE = 200;
 
-// 【訂正・2026-09-02。conventions.md 5節】titleSchema/noteSchemaの
-// min/max（trim後1〜100文字・0〜200文字）は契約のZodに置く。入力だけで
-// 判定できる条件であり、失敗すればBAD_REQUESTになる（oRPCの標準動作）。
-// 以前ここにあったassertValidTitle/assertValidNote（INVALID_INPUTを明示的に
-// throwする関数）は削除した。「INVALID_INPUTにしたい」を理由にZodで書ける
-// 条件を手続き側へ移さない、という規約に沿う
+// title・note の長さは契約の Zod に置く（入力だけで判定できる条件は手続きに移さない。conventions.md 5節）
 
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000);
@@ -24,8 +19,7 @@ interface WishRow {
   created_by_name: string | null;
 }
 
-// created_by（ユーザーID）は返さない。createdByName（表示名）だけ返す
-// （028。event.createdByNameと同じ形。architecture.md 5節）
+// created_by（ユーザー ID）は返さず、表示名だけ返す（architecture.md 5節）
 function toWish(row: WishRow) {
   return {
     id: row.id,
@@ -37,21 +31,15 @@ function toWish(row: WishRow) {
   };
 }
 
-// 028: created_byはINSERT時にしか書かない（設定者は編集しても変わらない。
-// event.createdByと同じくuser(id)への外部キー。ON DELETE no actionのため
-// nullになる状態は現状作れないが、将来に備えnull許容で扱う。posts.authorNameと
-// 同じ判断。architecture.md 5節）
+// created_by は INSERT のときだけ書く（編集しても設定者は変わらない）。今は null にならないが、
+// ON DELETE が変わったときに備えて null 許容（architecture.md 5節）
 async function fetchUserName(db: D1Database, userId: string): Promise<string | null> {
   const row = await db.prepare(`SELECT name AS name FROM user WHERE id = ?1`).bind(userId).first<{ name: string }>();
   return row?.name ?? null;
 }
 
-// ctx.coupleIdのみを使い、couple_idを引数に取らない（architecture.md 5節）。
-// 未達成が先、達成済みが後。それぞれcreated_atの新しい順（タスク定義8節）。
-// SQLiteの真偽値は0/1として比較できるため、(done_at IS NULL)をDESCで
-// 並べるだけで「未達成(1)が先、達成済み(0)が後」になる。
-// 設定者の名前を出すためuserをLEFT JOINする（028・architecture.md 5節。
-// posts.authorNameと同じ形）
+// couple_id を引数に取らない（architecture.md 5節）。未達成が先、達成済みが後で、それぞれ新しい順。
+// SQLite の真偽値は 0/1 なので (done_at IS NULL) DESC で「未達成(1)が先」になる
 const wishList = implementer.wish.list.use(readProcedure).handler(async ({ context }) => {
   const { db, coupleId } = context;
 
@@ -70,10 +58,8 @@ const wishList = implementer.wish.list.use(readProcedure).handler(async ({ conte
   return { items: results.map(toWish) };
 });
 
-// 上限判定（COUNT）と挿入は2文に分かれる。同時に201件目のリクエストが競合すると
-// 上限を数件超える可能性はあるが、1ペア200件に実際に当たる利用者はまず居らず
-// （タスク定義5節）、実害は小さいと判断した（部分UNIQUEインデックスで機械的に
-// 防げる会った日の一意化とは性質が異なり、「件数」はDBの制約1つでは表せない）
+// 上限判定（COUNT）と挿入は 2 文に分かれるので、同時に作ると数件超えうる。200 件に当たる利用者は
+// まず居ないので受け入れる（件数は DB の制約 1 つでは表せない）
 const wishCreate = implementer.wish.create.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
 
@@ -87,11 +73,8 @@ const wishCreate = implementer.wish.create.use(writeProcedure).handler(async ({ 
 
   const id = crypto.randomUUID();
   const now = nowSeconds();
-  // context.userはresolveCoupleContextがmode="member"を返した時点で必ず
-  // 非null（base.ts冒頭コメント参照）。作成者自身の応答なので名前を引き直す
-  // 必要はない
+  // mode="member" なら context.user は必ず非 null（auth-context.ts）。作成者自身への応答なので引き直さない
   const createdByName = context.user!.name;
-  // input.titleは契約のtitleSchema（trim済み・1〜100文字）を通過済み
   await db
     .prepare(
       `INSERT INTO wishes (id, couple_id, title, note, created_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
@@ -102,12 +85,8 @@ const wishCreate = implementer.wish.create.use(writeProcedure).handler(async ({ 
   return toWish({ id, title: input.title, note, done_at: null, created_at: now, created_by_name: createdByName });
 });
 
-// 028: メモを足したことで「消して入れ直す」が成り立たなくなったため新設
-// （チェック状態・created_at・設定者が失われるため。タスク定義4節）。
-// 渡されなかった項目は変えない（COALESCE。undefinedはnullとしてbindする）。
-// created_byは更新しない（設定者は編集しても変わらない。タスク定義1節）。
-// WHERE句にcouple_idを含めた1文で行う。作成者に限定しない
-// （021のplan持ち主の仕組みはここには持ち込まない。タスク定義2節）
+// 消して入れ直すとチェック・作成日・設定者が失われるので、更新を持つ（028）。
+// 渡されなかった項目は変えない（COALESCE）。created_by は変えない。作成者に限定しない
 const wishUpdate = implementer.wish.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId } = context;
 
@@ -127,12 +106,8 @@ const wishUpdate = implementer.wish.update.use(writeProcedure).handler(async ({ 
   return toWish({ ...row, created_by_name: createdByName });
 });
 
-// toggleではなくsetDone: クライアントが目標の状態(done)を送る。同じdoneを
-// 2回送っても結果が変わらない（冪等）ようにするため、既にdone_atが立っている
-// 行にdone:trueを送っても元のdone_atを保つ（COALESCE。タスク定義3節）。
-// WHERE句にcouple_idを含めた1文で行う（006のpost.deleteと同じ形）。
-// 他ペアのid・存在しないid・削除済みのidはすべて更新件数0となり、
-// 区別せずNOT_FOUNDを返す（存在を教えない。タスク定義8節）
+// toggle でなく目標の状態を送る（冪等）。既に達成済みの行に done:true を送っても元の done_at を保つ（COALESCE）。
+// WHERE に couple_id を含めた 1 文で、更新 0 件は区別せず NOT_FOUND（存在を教えない）
 const wishSetDone = implementer.wish.setDone.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId } = context;
 
@@ -152,9 +127,7 @@ const wishSetDone = implementer.wish.setDone.use(writeProcedure).handler(async (
   return toWish({ ...row, created_by_name: createdByName });
 });
 
-// 論理削除（postsと同じ規則。architecture.md 4節）。WHERE句にcouple_idを
-// 含めた1文で行う。作成者に限定しない。ペアのどちらでも削除できる
-// （タスク定義4節。021のplan持ち主の仕組みはここには持ち込まない）
+// 論理削除（architecture.md 4節）。WHERE に couple_id を含めた 1 文。ペアのどちらでも消せる
 const wishDelete = implementer.wish.delete.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId } = context;
 
