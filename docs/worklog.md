@@ -13954,3 +13954,12 @@ Session: B
 - テストの題名の経緯（約 10 件）: 消す。063 の 0節 #4 の対象に題名を足した。B に小さな追補の PR を頼んだ
 
 Session: A
+
+## 2026-09-25 セッションA: audit の無視リストに image-size の 2 件を戻す
+
+- #439 の CI で `pnpm audit --audit-level=high` が赤（image-size の 2 件が high・Patched >=2.0.3 で再び出た）。#435 の時点で消えていたのは npm レジストリの勧告の更新途中だった
+- 確かめた（B のツリーの node_modules を読むだけ）: image-size を使うのは metro@0.87.0 だけ（0.84.5 は依存しない）。`package.json` で `^1.0.2`、`Assets.js` で `require("image-size").default(content)`。2.x は API が変わるので override しない
+- 手元で揺れを見た: `pnpm audit` を 3 回で high 0・2・2、陳腐化の検出を 3 回で緑・緑・赤。npm レジストリの勧告の応答が揺れている（pnpm の版は CI と同じ 11.24.0）。落ち着くまで陳腐化の検出がたまに赤になりうる。赤なら再実行で、無視リストは外さない
+- 無視リストに戻し、削除の条件を「metro が ^2 を宣言したとき／1.x に修正版が出たとき」に。9節の見出しを直した
+
+Session: A
