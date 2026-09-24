@@ -3,9 +3,7 @@ import { ScrollView } from "react-native";
 import { MemoryCard } from "../../components/memory-card";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 
-// 020: 013の思い出しカードをホームから独立したページへ移した。
-// ホームの機能パネル「思い出」の行き先。新しいカードは作らず、
-// 既存のMemoryCardをそのまま出す（タスク定義「新しく作らない」）
+// 機能パネル「思い出」の行き先。MemoryCard をそのまま出す
 export default function MemoryScreen() {
   return (
     <Screen>

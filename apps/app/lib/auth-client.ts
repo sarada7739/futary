@@ -5,11 +5,9 @@ import * as SecureStore from "expo-secure-store";
 import { getApiOrigin } from "./api-origin";
 import { frameCredentials } from "./demo-frame";
 
-// Web は Cookie ベースのセッションで完結する（fetch の credentials: include で送られる）。
-// ネイティブは Cookie を保持できないため、Expo SecureStore にセッショントークンを保存する
-// （security-requirements.md 2節: AsyncStorage には置かない）。
-// 056: LP のスマホの枠（iframe）の中では Cookie を送らない（frameCredentials → "omit"）。ログイン中のブラウザでも
-// 框の中のセッションは null になり、実ユーザーの画面が框に写らない。ネイティブでは isInFrame が false で "include" のまま
+// Web は Cookie のセッションで完結する（credentials: include）。ネイティブは Cookie を保てないので SecureStore に
+// トークンを置く（AsyncStorage には置かない。security-requirements.md 2節）。
+// LP のスマホの枠の中では Cookie を送らない（frameCredentials → "omit"。枠の中のセッションは null になる。056）
 export const authClient = createAuthClient({
   baseURL: getApiOrigin(),
   fetchOptions: {

@@ -4,15 +4,13 @@ import { buildMinuteOptions, HOUR_OPTIONS, joinTime, splitTime } from "../lib/ti
 import { WheelColumn } from "./wheel-column";
 
 export type TimeWheelPickerProps = {
-  // HH:MM。呼び出し側が必ず値を持たせる（未設定の切り替えはボタン側の責務。
-  // 022「開始を選ぶ前に終了を選べない形にする」）
+  // HH:MM。呼び出し側が必ず値を持たせる（未設定との切り替えはボタンの側）
   value: string;
   onChange: (value: string) => void;
   testID?: string;
 };
 
-// 時・分の2列。中央に選択帯を置き、上下は薄くする（人間が絵で指定した形）。
-// 分は5分刻みだが、刻みに乗らない既存の値は消さず選択肢へ差し込む（022）
+// 時・分の 2 列。中央に選択帯、上下は薄く。分は 5 分刻みだが、刻みに乗らない既存の値は選択肢へ差し込む
 export function TimeWheelPicker({ value, onChange, testID }: TimeWheelPickerProps) {
   const { hour, minute } = splitTime(value);
   const minuteOptions = buildMinuteOptions(minute);

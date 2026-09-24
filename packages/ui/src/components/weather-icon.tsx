@@ -2,8 +2,7 @@ import { Image, View } from "react-native";
 import { weatherCloud, weatherRain, weatherSnow, weatherSun, weatherThunder } from "../assets";
 import { weatherIconsOf, type WeatherIconKind } from "../weather-codes";
 
-// 058: 天気コードの絵（主 + 副。タスク定義 0節 #7）。主は size、副は右下に size × 0.57（28 と 16 の比）で重ねる。
-// 表に無いコードは主 = 曇（weatherIconsOf）
+// 天気コードの絵（058）。主は size、副は右下に size × 0.57（28 と 16 の比）で重ねる。表に無いコードは主 = 曇
 
 const SOURCES: Record<WeatherIconKind, number> = {
   sun: weatherSun,

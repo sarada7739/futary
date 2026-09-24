@@ -3,11 +3,10 @@ import type { AlbumQuota } from "@futary/contract";
 import { Card, fontFamily, radius, space, Text, useTheme } from "@futary/ui";
 import { albumQuotaCountLabel, albumQuotaRatio, albumQuotaRemainingLabel, paidPhotoLimitCtaLabel } from "../lib/plan";
 
-// 045: アルバム一覧の「写真の使用量」のカード（タスク定義 3節。絵 05）。タイムラインのカードの下。
-// バー（used / limit）・「27 / 30 枚」・「あと 3 枚」（上限なら「上限に達しています」）・
-// 「プレミアムで 50 万枚まで ›」（→ /premium。047 0節 #14: 「無制限」と書かない）。free のときだけ出す（呼び出し側が判断する）
+// アルバム一覧の「写真の使用量」のカード（045）。バー（used / limit）・「27 / 30 枚」・「あと 3 枚」（上限なら
+// 「上限に達しています」）・「プレミアムで 50 万枚まで ›」。free のときだけ（呼び出し側が判断する）
 
-// 数値は B が決めた: バーの高さ 10・枚数は Poppins 20 bold（数字の行）
+// バーの高さ 10・枚数は Poppins 20 bold（数字の行）
 const BAR_HEIGHT = 10;
 const COUNT_FONT_SIZE = 20;
 

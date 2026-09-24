@@ -3,12 +3,11 @@ import type { AlbumQuota } from "@futary/contract";
 import { Button, iconWarning, radius, space, Text, useTheme } from "@futary/ui";
 import { paidPhotoLimitCtaLabel, quotaWarningBody, quotaWarningTitle } from "../lib/plan";
 
-// 045: アルバム詳細の FAB の上に出す残りの警告（タスク定義 3節。絵 01）。free で残りが
-// QUOTA_WARNING_THRESHOLD 枚以下のとき（呼び出し側が判断する）。
-// ⚠「残り N 枚です」「あと N 枚で上限（無料プラン 30 枚）に達します」「プレミアムで 50 万枚まで」（→ /premium。047 0節 #14: 「無制限」と書かない）。
-// 右上の × で消せる（人間の指示。2026-09-14）。消した状態の寿命は呼び出し側（lib/quota-warning-dismissed.ts）
+// アルバム詳細の FAB の上の残りの警告（045）。free で残りが QUOTA_WARNING_THRESHOLD 枚以下のとき（呼び出し側が
+// 判断する）。⚠「残り N 枚です」「あと N 枚で上限（無料プラン 30 枚）に達します」「プレミアムで 50 万枚まで」。
+// 右上の × で消せる（消した状態の寿命は lib/quota-warning-dismissed.ts）
 
-// 数値は B が決めた: ⚠ は 24（96×96 の線画を tintColor で primary に）
+// ⚠ は 24（96×96 の線画を tintColor で primary に）
 const WARNING_ICON = 24;
 
 export function QuotaWarningCard({

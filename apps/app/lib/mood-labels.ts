@@ -1,4 +1,4 @@
-// タスク定義3節: 5段階固定。言葉はここで固定する
+// 5 段階固定。言葉はここで固定する
 export const MOOD_LEVELS = [1, 2, 3, 4, 5] as const;
 
 export const MOOD_LABELS: Record<number, string> = {
