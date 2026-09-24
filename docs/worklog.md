@@ -13923,3 +13923,10 @@ Session: B
 - 決定: 無視リストを空に。2.x への override はしない（Metro が ^1.0.2）。`security-requirements.md` 9節の表に修正版と、再び出たら戻すことを書いた
 
 Session: A
+
+## 2026-09-25 セッションB: 063 段階2 のマージ
+
+- R の連絡: A の #435 が main に入った → `task/063-stage2` に main を取り込む（`docs/state.md` の先頭がぶつかった。A の版を先頭、段階2 の版を旧にした）→ CI 緑 → #434 を squash merge（main 4e4a7ce）
+- 段階3 は `task/063-stage3` で進めている（不要なテスト 7 本・it.each 4 か所・祝日の年の固定・免除の場所を行の中身で固定。テストのコメントは途中）
+
+Session: B
