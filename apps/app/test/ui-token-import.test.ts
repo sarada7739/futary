@@ -203,7 +203,7 @@ describe("T7: apps/app は @futary/ui から colors / shadow / gradients を imp
     expect(importedNamesFromUi(parse(path.join(appDir, "app", "snippet.tsx"), snippet))).toEqual([]);
   });
 
-  it("今日の apps/app に @futary/ui のサブパス import は1件も無い（R が git grep で確認した状態を固定）", () => {
+  it("今日の apps/app に @futary/ui のサブパス import は1件も無い", () => {
     const subpathImports = listFilesExcluding(appDir).flatMap((file) =>
       parse(file).statements.filter(
         (s) =>
@@ -229,7 +229,7 @@ describe("@futary/ui 自身が colors / shadow / gradients / themes を export �
     expect(names.has("Screen")).toBe(true);
   });
 
-  it("index.ts に `export * from \"./theme\"` を足すと themes が漏れて赤になる（R が実測した穴の再現）", () => {
+  it("index.ts に `export * from \"./theme\"` を足すと themes が漏れて赤になる", () => {
     const content = readFileSync(uiIndexPath, "utf8") + '\nexport * from "./theme";\n';
     const exported = exportedNamesOf(parse(uiIndexPath, content));
     const offending = exported.filter((e) => FORBIDDEN_EXPORTS.has(e.name)).map((e) => e.name);

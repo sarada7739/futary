@@ -60,7 +60,7 @@ beforeEach(() => {
   queryClient.clear();
 });
 
-describe("識別がゲストへ変わった後、couple.getが決着する（PR #177回帰）", () => {
+describe("識別がゲストへ変わった後、couple.getが決着する", () => {
   it("couple.getの解決が遅れても、識別変化のエフェクトに消されず最終的にhasCoupleへ届く", async () => {
     let resolveCouple: (value: unknown) => void = () => {};
     coupleGetMock.mockImplementation(

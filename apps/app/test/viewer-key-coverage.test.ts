@@ -855,7 +855,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
   });
 
   // 短縮記法の正当な書き方は緑になる
-  it("queryKeyを変数に出す短縮記法（stats.tsxで実際に指摘された形）は、viewerKeyがあれば緑になる", () => {
+  it("queryKeyを変数に出す短縮記法は、viewerKeyがあれば緑になる", () => {
     const code =
       'import { orpc } from "../../lib/orpc";\n' +
       "function StatsCard() {\n" +
@@ -940,7 +940,7 @@ describe("TanStack Queryのキャッシュのキーを取る呼び出しは、vi
   //   getQueriesData: 前方一致した全員の state.data を配列で返す。消費すれば別人のデータを読む
   //   setQueriesData: updater が関数でなければ、その値をそのまま全員の枠へ書き込む
   // 条件そのものを機械的に検査する
-  describe("getQueriesData/setQueriesDataは「条件つきで安全」（038。Rが実装を読んで発見）", () => {
+  describe("getQueriesData/setQueriesDataは「条件つきで安全」（038）", () => {
     it("getQueriesDataは戻り値を消費しなければ免除される（式文としてだけ呼ぶ）", () => {
       const code = 'queryClient.getQueriesData({ queryKey: orpc.post.list.key() });\n';
       const sourceFile = parseSource("conditional.tsx", code);
@@ -1064,7 +1064,7 @@ describe("走査対象は apps/app 配下全体（除外は apps/app 直下の1�
     }
   });
 
-  it("apps/app/lib 配下のファイルは走査対象に含まれる（app/・componentsだけの列挙だった旧版の穴）", () => {
+  it("apps/app/lib 配下のファイルは走査対象に含まれる", () => {
     const relative = listAppSourceFiles().map((f) => path.relative(appDir, f).replace(/\\/g, "/"));
     expect(relative).toEqual(expect.arrayContaining(["lib/orpc.ts"]));
   });

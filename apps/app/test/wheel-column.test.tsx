@@ -51,7 +51,7 @@ function ControlledMinuteWheel({
 
 // 慣性の実測や実機が要らず、onScroll・contentOffset を直接与えれば決定的に再現する回帰テスト
 describe("WheelColumn 位置合わせのscrollTo", () => {
-  it("R-1/R-3: 自分のスクロールでvalueが変わっても、位置合わせのscrollToを呼ばない", () => {
+  it("自分のスクロールでvalueが変わっても、位置合わせのscrollToを呼ばない", () => {
     const onChangeSpy = vi.fn();
     const { getByTestId } = render(<ControlledMinuteWheel initialValue="10" onChangeSpy={onChangeSpy} />);
     const node = getByTestId("minute-scroll") as unknown as HTMLElement;
@@ -69,7 +69,7 @@ describe("WheelColumn 位置合わせのscrollTo", () => {
     expect(setSpy).not.toHaveBeenCalled();
   });
 
-  it("R-2: 刻みに乗らない値から動かして選択肢が減っても、位置を戻さない", () => {
+  it("刻みに乗らない値から動かして選択肢が減っても、位置を戻さない", () => {
     const onChangeSpy = vi.fn();
     const { getByTestId } = render(<ControlledMinuteWheel initialValue="03" onChangeSpy={onChangeSpy} />);
     const node = getByTestId("minute-scroll") as unknown as HTMLElement;
@@ -108,7 +108,7 @@ describe("WheelColumn 位置合わせのscrollTo", () => {
     expect(setSpy).toHaveBeenCalledWith(ITEM_HEIGHT * 6);
   });
 
-  it("R-4: 刻みに乗らない値から離れた行をタップしたら、アニメーションの飛び先も確定後のoptionsで引き直す", () => {
+  it("刻みに乗らない値から離れた行をタップしたら、アニメーションの飛び先も確定後のoptionsで引き直す", () => {
     const onChangeSpy = vi.fn();
     const { getByTestId } = render(<ControlledMinuteWheel initialValue="03" onChangeSpy={onChangeSpy} />);
     const node = getByTestId("minute-scroll") as unknown as HTMLElement;

@@ -105,7 +105,7 @@ describe("reaction.toggle", () => {
     ).rejects.toThrow();
   });
 
-  it("kind に heart 以外の値は CHECK 制約で拒否される（M2まとめ監査 Low指摘）", async () => {
+  it("kind に heart 以外の値は CHECK 制約で拒否される", async () => {
     const user = await createUser();
     await createCouple(user);
     const post = await call(router.post.create, { body: "投稿" }, { context: contextFor(user) });
@@ -293,7 +293,7 @@ describe("post.list のリアクション集計（N+1回避）", () => {
   });
 });
 
-describe("post.delete とリアクションの整合性（M2まとめ監査 Low指摘）", () => {
+describe("post.delete とリアクションの整合性", () => {
   it("投稿を削除すると、その投稿に付いていたリアクションも一緒に削除される", async () => {
     const user = await createUser();
     await createCouple(user);
