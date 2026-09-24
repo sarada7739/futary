@@ -14,8 +14,7 @@ import { useViewerQueryKey } from "../../lib/viewer-key";
 
 type PostListPage = { items: Post[]; nextCursor: string | null };
 
-// 020: 投稿一覧はホームから独立したタブになった。008の実装をそのまま移し、
-// ロゴ・統計カード・思い出しカード（ホームの記念日カード・パネルへ移動）だけ外した
+// 投稿の一覧（ホームから独立したタブ。020）
 export default function TimelineScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -23,15 +22,14 @@ export default function TimelineScreen() {
   const myId = session?.user.id;
   const { isGuestMode, exitGuestMode } = useGuestMode();
 
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）。
-  // orpc.post.list.key()を使う下のinvalidateQueries/setQueriesData等は
-  // 部分一致（前方一致）で効くため、末尾にviewerKeyを追加しても壊れない
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）。post.list.key() を使う invalidate・setQueriesData は
+  // 前方一致なので、末尾に viewerKey を足しても効く
   const viewerKey = useViewerQueryKey();
   const postListOptions = orpc.post.list.infiniteOptions({
     input: (cursor: string | undefined) => ({ cursor }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    // ADR-008: 画面前面にある間だけ更新する（背景では focusManager が止める。lib/query.ts）
+    // 画面が前面にある間だけ更新する（背景では focusManager が止める。ADR-008）
     refetchInterval: POST_LIST_REFETCH_INTERVAL_MS,
   });
   const query = useInfiniteQuery({
@@ -45,8 +43,7 @@ export default function TimelineScreen() {
     }),
   );
 
-  // タップした瞬間に反映し、失敗したら戻す（タスク009・楽観的更新）。
-  // onMutate でキャッシュを直接書き換え、サーバ応答を待たない
+  // 押した瞬間に反映し、失敗したら戻す（楽観的更新。サーバの応答を待たない）
   const toggleReaction = useMutation(
     orpc.reaction.toggle.mutationOptions({
       onMutate: async (input) => {
@@ -70,23 +67,19 @@ export default function TimelineScreen() {
         );
         return { previousQueries };
       },
-      // 失敗したら onMutate で保存した以前の状態に戻す
+      // 失敗したら onMutate で保存した状態に戻す
       onError: (_error, _input, context) => {
         // viewer-key-coverage-ignore -- keyはgetQueriesDataが返した実際のキー（既にviewerKeyを含む）をそのまま書き戻すだけで、固定キーではない
         context?.previousQueries.forEach(([key, data]) => queryClient.setQueryData(key, data));
       },
-      // 成功時は再フェッチしない。post.list は呼ぶたびに画像の署名付きURLを
-      // 発行し直すため（architecture.md 6節）、ここで invalidateQueries すると
-      // 自分の投稿以外も含めて画像URLが変わり、<Image> が再読み込みされて
-      // 一覧全体がちらつく（人間の実機確認で発見）。相手の操作との同期は
-      // 60秒ごとのポーリング（refetchInterval・ADR-008）に任せ、楽観的更新の
-      // 結果をそのまま信頼する
+      // 成功しても再取得しない。post.list は呼ぶたびに署名付き URL を発行し直すので、画像が読み直されて
+      // 一覧全体がちらつく（architecture.md 6節）。相手の操作は 60 秒ごとのポーリングに任せる（ADR-008）
     }),
   );
 
   const posts = query.data?.pages.flatMap((page) => page.items) ?? [];
 
-  // 状態1: 読み込み中（初回のみ。ページ内既存データがある再取得はスピナーを出さない）
+  // 状態1: 読み込み中（初回だけ。データがある再取得ではスピナーを出さない）
   if (query.isLoading) {
     return (
       <Screen>
@@ -97,8 +90,7 @@ export default function TimelineScreen() {
     );
   }
 
-  // 状態2: 通信エラー（データが1件も無い場合のみ全面表示。既にデータがあれば
-  // 一覧は見せたまま、次回のポーリング/pull-to-refreshに任せる）
+  // 状態2: 通信エラー（1 件も無いときだけ全面に出す。あれば一覧は見せたまま、ポーリング・引っ張って更新に任せる）
   if (query.isError && posts.length === 0) {
     return (
       <Screen>
@@ -117,8 +109,7 @@ export default function TimelineScreen() {
       <FlatList
       data={posts}
       keyExtractor={(item) => item.id}
-      // 050: カードの間は sm（8）。左右は 035 の lg のまま。間は ItemSeparatorComponent だけで作る
-      // （contentContainerStyle の gap も足すと区切りの前後に二重に掛かり、実測 20 になった）
+      // カードの間は sm（8）。間は ItemSeparatorComponent だけで作る（gap も足すと二重に掛かって 20 になる）
       contentContainerStyle={{ padding: space.lg, paddingBottom: TAB_BAR_CLEARANCE, flexGrow: 1 }}
       ItemSeparatorComponent={() => <View style={{ height: space.sm }} />}
       renderItem={({ item }) => {
@@ -128,9 +119,7 @@ export default function TimelineScreen() {
             post={item}
             isOwn={isOwn}
             onDelete={isOwn ? async () => { await deletePost.mutateAsync({ id: item.id }); } : undefined}
-            // 未認証（デモ閲覧）ではサーバが FORBIDDEN を返すだけで境界は破れないが、
-            // 押しても黙って巻き戻るだけの体験を避けるためボタン自体を出さない
-            // （M2まとめ監査 Low指摘）
+            // デモ閲覧ではサーバが FORBIDDEN を返すだけだが、押して黙って巻き戻るのを避けるためボタンを出さない
             onToggleReaction={
               myId
                 ? async (kind) => {

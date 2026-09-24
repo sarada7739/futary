@@ -9,27 +9,20 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonProps = Omit<PressableProps, "style" | "children" | "onPress"> & {
   variant?: ButtonVariant;
   children: ReactNode;
-  // 送信・認証・作成・削除など副作用のあるボタンは全て対象（conventions.md 4節）。
-  // 戻り値が Promise なら、それが解決/拒否するまで再発火を防ぐ
+  // 副作用のあるボタンは全部対象（conventions.md 4節）。戻り値が Promise なら解決・拒否まで再発火を防ぐ
   onPress?: () => void | Promise<void>;
-  // 050: 小さな押せる行（投稿カードのハート）。文字 14/20 に上下 12 の余白で当たり判定 44 を保ちつつ、
-  // 上下 -8 のマージンで並びの上では 28 しか取らない（react-native-web の Pressable は hitSlop を
-  // DOM に反映しない〈dist/exports に hitSlop を扱う箇所が Touchable にしか無い〉ので、余白で作る）。
-  // 二重発火のガードは同じ（conventions.md 4節: Button を通す）
+  // 小さな押せる行（投稿カードのハート）。上下 12 の余白で当たり判定 44 を保ち、-8 のマージンで並びの上では
+  // 28 しか取らない（react-native-web の Pressable は hitSlop を DOM に反映しないので余白で作る）
   compact?: boolean;
 };
 
 export function Button({ variant = "primary", disabled, onPress, children, compact = false, ...rest }: ButtonProps) {
   const { colors } = useTheme();
-  // react-native-web の Pressable は環境によって1クリックで onPress が2回発火する
-  // （pointer系イベントと click イベントの両方が反応する既知の挙動。PR #22 で
-  // 実際に OAuth の state 競合を引き起こした）。呼び出し側に個別実装させると
-  // 書き忘れが必ず起きる（005で認可について潰したのと同じ形）ため、
-  // ガードを Button 自身に持つ（旧L26。conventions.md 4節）。
-  // useRef で同期的に判定する（useState の更新は非同期で、同一tick内の
-  // 2回目の発火を取りこぼす）
+  // react-native-web の Pressable は環境によって 1 クリックで onPress が 2 回発火する（pointer と click）。
+  // 呼び出し側に個別に書かせると必ず書き忘れるので、ガードを Button 自身が持つ（conventions.md 4節）。
+  // useRef で同期に判定する（useState だと同じ tick の 2 回目を取りこぼす）
   const isPendingRef = useRef(false);
-  // 見た目の無効化表示用。判定そのものには使わない（上記の理由でuseRefを使う）
+  // 無効の見た目のため。判定には使わない
   const [isPending, setIsPending] = useState(false);
   const effectiveDisabled = disabled || isPending;
 
@@ -45,21 +38,16 @@ export function Button({ variant = "primary", disabled, onPress, children, compa
       const result = onPress();
       if (result instanceof Promise) {
         setIsPending(true);
-        // then の第2引数で reject 側も拾う。.finally() だけだと reject した
-        // Promise 自体は未処理のままになり unhandled rejection になる
-        // （007 security-auditor 指摘）
+        // then の第 2 引数で reject も拾う（.finally() だけだと unhandled rejection になる）
         void result.then(reset, reset);
       } else {
-        // 同期処理は一瞬で終わるが、同一クリック内の2回目発火（上記の
-        // react-native-web の既知バグ）を防ぐため、次のマイクロタスクまでは
-        // ガードを維持する。次のクリック（次のタスク）には影響しない
+        // 同期の処理でも、同じクリックの 2 回目を防ぐため次のマイクロタスクまでガードを保つ（次のクリックには影響しない）
         queueMicrotask(() => {
           isPendingRef.current = false;
         });
       }
     } catch (error) {
-      // 同期の onPress が例外を投げた場合にガードが true のまま固着し、
-      // ボタンが永久に無反応になるのを防ぐ（007 security-auditor 指摘）
+      // 同期の onPress が投げてもガードが true のまま固着しない（永久に無反応にしない）
       isPendingRef.current = false;
       throw error;
     }
@@ -93,14 +81,12 @@ export function Button({ variant = "primary", disabled, onPress, children, compa
             ...base,
             backgroundColor: pressed ? colors.surfaceTint : colors.surface,
             borderWidth: 1,
-            // 035: borderからprimaryへ変更（architecture.md 7節）。
-            // borderはほぼ地の色で、押せることが伝わりにくかった
+            // 枠は primary（border はほぼ地の色で、押せることが伝わりにくい）
             borderColor: colors.primary,
           };
         }
         if (variant === "danger") {
-          // 036: 塗りつぶしにしない。枠だけ。危険な操作を押しやすくしない
-          // （architecture.md 7節「danger バリアント」）
+          // 塗りつぶしにせず枠だけ（危険な操作を押しやすくしない。architecture.md 7節）
           return {
             ...base,
             backgroundColor: pressed ? colors.surfaceTint : colors.surface,
@@ -114,9 +100,7 @@ export function Button({ variant = "primary", disabled, onPress, children, compa
         };
       }}
     >
-      {/* 035書体仕様3節: ボタンの文字はweight600〜700・字間0.04em
-          （16pt×0.04=0.64）。共有Textはletterspacingを持たないため、
-          ここだけ生Textで組む（Buttonの外からはstyleを渡せないまま） */}
+      {/* 文字は weight 600〜700・字間 0.04em（0.64）。共有の Text は字間を持たないので生の Text で組む */}
       <RNText
         style={{
           fontFamily: fontFamily.ja,

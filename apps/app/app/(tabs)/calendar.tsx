@@ -32,8 +32,7 @@ function groupByDate(events: Event[]): Record<string, Event[]> {
   return result;
 }
 
-// kind='meetup' は1日1件（018）。event.date（=sourceDate。meetupは繰り返さない）を
-// キーにする。EventFormの上書き注記に使う
+// 会った日は 1 日 1 件。event.date（会った日は繰り返さないので sourceDate と同じ）をキーにする
 function meetupByDateOf(events: Event[]): Record<string, Event> {
   const result: Record<string, Event> = {};
   for (const event of events) {
@@ -42,11 +41,8 @@ function meetupByDateOf(events: Event[]): Record<string, Event> {
   return result;
 }
 
-// 時間・設定者の有無で行の高さが変わらないようにする。どちらも既存の2行
-// （タイトル行・メタ行）の中に収める形にし、行を増やさない（018確認観点）。
-// 021: canEditがfalseの行はPressableにしない（押せてから断られる形にしない。
-// 相手の予定が編集できないことが画面から分かるよう、構造的に押せない形にする。
-// 017の「次フェーズ」パネルと同じ考え方）
+// 時間・設定者の有無で行の高さが変わらないよう、既存の 2 行（タイトル・メタ）に収める。
+// canEdit が false の行は Pressable にしない（押せてから断られる形にしない。相手の予定は押せない形で見せる）
 function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
   const { colors } = useTheme();
   const eventKindColors = eventKindColorsOf(colors);
@@ -64,10 +60,8 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
           {EVENT_KIND_LABELS[event.kind]}
           {event.repeatYearly ? "・毎年" : ""}
           {event.createdByName ? `・${event.createdByName}が設定` : ""}
-          {/* canEdit:falseは「共有でないplanの非設定者」だけでなく、未認証の
-              デモ閲覧者（全kind）でも起きる。「編集は設定者のみ」はplanにしか
-              当てはまらない理由なので、記念日・会った日には出さない
-              （security-auditor指摘） */}
+          {/* canEdit:false はデモ閲覧者（全種別）でも起きる。「編集は設定者のみ」は plan にしか当てはまらない
+              理由なので、記念日・会った日には出さない */}
           {event.kind === "plan" && !event.canEdit ? "・編集は設定者のみ" : ""}
         </Text>
       </View>
@@ -88,7 +82,7 @@ function EventRow({ event, onPress }: { event: Event; onPress: () => void }) {
 type ForDate = { mine: WeatherEntry | null; partner: WeatherEntry | null; same: boolean };
 type WeatherEntry = { area: { code: string; name: string }; day: WeatherDay | null };
 
-// 058 0節 #5: ふたりの地域が同じか、片方だけ設定なら 1 行（地域名: 天気）。違えば 2 行（自分の地域名 / 相手の地域名）
+// ふたりの地域が同じか、片方だけ設定なら 1 行（地域名: 天気）。違えば 2 行（058）
 function WeatherRows({ result }: { result: ForDate }) {
   const twoLines = !result.same && result.mine !== null && result.partner !== null;
   const entries: { label: string; entry: WeatherEntry }[] = twoLines
@@ -130,25 +124,25 @@ export default function CalendarScreen() {
 
   const range = useMemo(() => monthGridRange(year, month), [year, month]);
 
-  // queryKeyにviewerKeyを含める理由はapps/app/lib/viewer-key.ts参照（T9）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）
   const viewerKey = useViewerQueryKey();
   const eventListOptions = orpc.event.list.queryOptions({ input: range });
   const query = useQuery({ ...eventListOptions, queryKey: [...eventListOptions.queryKey, viewerKey] });
 
-  // 058: 天気（自分の地域。今日から 7 日）・祝日（表示中の年）・「天気の地域を選ぶ ›」の帯
+  // 天気（自分の地域。今日から 7 日）・祝日（表示中の年）・「天気の地域を選ぶ ›」の帯（058）
   const weatherOptions = orpc.weather.get.queryOptions({ input: {} });
   const weatherQuery = useQuery({ ...weatherOptions, queryKey: [...weatherOptions.queryKey, viewerKey] });
   const holidayOptions = orpc.holiday.list.queryOptions({ input: { year } });
   const holidayQuery = useQuery({ ...holidayOptions, queryKey: [...holidayOptions.queryKey, viewerKey] });
   const weatherByDate = useMemo(() => weatherByDateOf(weatherQuery.data?.days ?? []), [weatherQuery.data]);
   const holidays = holidayQuery.data?.holidays ?? {};
-  // 地域が未設定（area null）のときだけ。× で消したら端末に記憶（描いたあとに読む。静的書き出しでは window が無い）
+  // 地域が未設定のときだけ。× で消したら端末に記憶（描いたあとに読む。静的書き出しでは window が無い）
   const [weatherPromptDismissed, setWeatherPromptDismissed] = useState(true);
   useEffect(() => {
     setWeatherPromptDismissed(isWeatherPromptDismissed());
   }, []);
   const showWeatherPrompt = !isGuestMode && weatherQuery.data !== undefined && weatherQuery.data.area === null && !weatherPromptDismissed;
-  // 予定の詳細（選んだ日の一覧）: 7 日以内で予定があれば「天気」の行（0節 #5）
+  // 選んだ日の天気（7 日以内だけ）
   const selectedWithinWeather = isWithinWeatherDays(selectedDate, todayDate);
   const forDateOptions = orpc.weather.getForDate.queryOptions({ input: { date: selectedDate } });
   const forDateQuery = useQuery({
@@ -176,8 +170,7 @@ export default function CalendarScreen() {
   }
 
   function openCreateForm() {
-    // 014: デモ閲覧中は登録できない（サーバ側でFORBIDDENになる）ため、
-    // フォームを開かせずログイン導線に差し替える
+    // デモ閲覧中は登録できないので、フォームを開かずログインの導線に替える
     if (isGuestMode) {
       exitGuestMode();
       return;
@@ -188,9 +181,8 @@ export default function CalendarScreen() {
 
   function openEditForm(event: Event) {
     setFormError(null);
-    // 射影された日付ではなく、登録された日付（sourceDate）を編集対象にする。
-    // ここを event.date にすると、射影で表示されている年に記念日そのものを
-    // 動かしてしまう（architecture.md 5節の射影とは別物）
+    // 射影された日付でなく登録された日付（sourceDate）を編集する（event.date だと、表示中の年に記念日
+    // そのものを動かしてしまう）
     setFormState({ mode: "edit", date: event.sourceDate, event });
   }
 
@@ -204,11 +196,8 @@ export default function CalendarScreen() {
       }
       setFormState(null);
     } catch (error) {
-      // event.update の INVALID_INPUT は events_meetup_unique 違反（＝その日には
-      // 既に別の「会った日」がある）のときだけ返る（018・apps/api/src/procedures/event.ts）。
-      // create はここに来ない（ON CONFLICT DO UPDATE で上書きするため）。
-      // isDefinedError は catch 節の error（unknown）だと型が never に潰れて絞り込めない
-      // ため、ORPCError の instanceof で判定する
+      // update の INVALID_INPUT は、その日に別の「会った日」があるときだけ返る（create は上書きなので来ない）。
+      // catch の error（unknown）では isDefinedError が never に潰れるので instanceof で見る
       if (error instanceof ORPCError && error.code === "INVALID_INPUT") {
         setFormError("その日には既に「会った日」が登録されています。日付を変えてください");
       } else {
@@ -274,8 +263,7 @@ export default function CalendarScreen() {
           </View>
         ) : (
           <>
-            {/* 読み込み中もグリッドの骨格は出したまま、マーカーだけ空で遅延させる
-                （eventsByDate が空のオブジェクトのまま渡る。タスク011「状態の網羅」） */}
+            {/* 読み込み中もグリッドの骨格は出したまま、マーカーだけ空で遅らせる */}
             {showWeatherPrompt && (
               <View
                 testID="weather-prompt"
@@ -336,7 +324,7 @@ export default function CalendarScreen() {
                   </Button>
                 </View>
 
-                {/* 058: 祝日の名前は一覧の一番上（予定ではないので押せない。0節 #10） */}
+                {/* 祝日の名前は一覧の一番上（予定ではないので押せない） */}
                 {holidays[selectedDate] !== undefined && (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: space.xs }} testID="calendar-holiday-name">
                     <RNText style={{ color: colors.eventAnniversary, fontSize: 14 }}>●</RNText>
@@ -354,8 +342,8 @@ export default function CalendarScreen() {
                   ))
                 )}
 
-                {/* 058: 7 日以内の日なら「天気」の行（予定が無い日も「この日の予定はありません」の下に出す。人間の指示 2026-09-17）。
-                    ふたりの地域が同じか片方だけなら 1 行、違えば 2 行（0節 #5） */}
+                {/* 7 日以内の日なら「天気」の行（予定が無い日も「この日の予定はありません」の下に出す）。
+                    地域が同じか片方だけなら 1 行、違えば 2 行 */}
                 {selectedWithinWeather && forDateQuery.data && <WeatherRows result={forDateQuery.data} />}
               </View>
             </Card>

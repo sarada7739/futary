@@ -5,11 +5,8 @@ import { Image, type ImageSourcePropType, Pressable, View } from "react-native";
 import { useGuestMode } from "../../lib/guest-mode";
 import { GlassTabBar } from "../../components/glass-tab-bar";
 
-// 002 の絵文字代用を、docs/sample/透過素材/dnUunrHG.png から切り出したアイコンに
-// 差し替え（008）。単色の線画のため tintColor でアクティブ/非アクティブを塗り分ける。
-// 「アルバム」タブは「カレンダー」に置き換えた（fix/persistent-tab-bar）。
-// 「検索」タブは「タイムライン」に置き換えた（020。requirements.md 5節のとおり
-// 検索はスコープ外のままで、タブの枠自体を持たなくなった。L71が解消する）
+// タブのアイコンは単色の線画なので tintColor でアクティブ/非アクティブを塗り分ける。
+// 検索はスコープ外なのでタブを持たない（requirements.md 5節）
 const tabIcons: Record<string, ImageSourcePropType> = {
   index: iconTabHome,
   calendar: iconTabCalendar,
@@ -28,11 +25,10 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   );
 }
 
-// この1箇所でしか使わない寸法のためトークン化はしない（002の判断を維持）。
-// borderRadius はここから半径を導出し、2つの数値が別々にずれないようにする
+// この 1 箇所でしか使わない寸法なのでトークンにしない。borderRadius は半径から出す（2 つの値を別々にずらさない）
 const FAB_SIZE = 56;
 
-/** 中央の「＋投稿」タブ。丸いFABとして浮かせる。押すと投稿作成モーダルを開く */
+/** 中央の「＋投稿」。丸い FAB として浮かせ、押すと投稿のモーダルを開く */
 function FabTabButton({
   children,
   onPress,
@@ -49,13 +45,11 @@ function FabTabButton({
           marginTop: -20,
           borderRadius: FAB_SIZE / 2,
           opacity: pressed ? 0.85 : 1,
-          // 035: FABの光彩。アバターの光るリングと同じ見た目（shadow.glow。
-          // architecture.md 7節「同じ見た目に2つの名前を付けない」）
+          // FAB の光彩。アバターのリングと同じ見た目（shadow.glow。同じ見た目に 2 つの名前を付けない）
           ...shadow.glow,
         })}
       >
-        {/* 039: 絵は FabIcon（packages/ui）が外観で描き分ける。ピンクは従来の
-            画像そのまま、ホワイトは黒い円 */}
+        {/* 絵は FabIcon が外観で描き分ける（ピンクは画像、ホワイトは黒い円） */}
         <FabIcon size={FAB_SIZE} />
       </Pressable>
       {children}
@@ -69,10 +63,8 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      // 061: タブバーの見た目は GlassTabBar が全部持つ（ぼかし・屈折・フチ・
-      // レンズのピルで層が4枚要り、tabBarStyle の style 1枚では積めない）。
-      // ここに残すのは「何を出すか」だけで、「どう見せるか」は渡さない。
-      // tabBarActiveTintColor 等も GlassTabBar が useTheme() から直接引く
+      // タブバーの見た目は GlassTabBar が全部持つ（層が複数要り、tabBarStyle 1 枚では積めない）。
+      // ここに残すのは「何を出すか」だけ。色も GlassTabBar が useTheme() から引く
       tabBar={(props) => <GlassTabBar {...props} />}
       screenOptions={{
         headerShown: false,
@@ -99,10 +91,8 @@ export default function TabsLayout() {
           tabBarButton: (props) => <FabTabButton onPress={props.onPress as () => void} />,
         }}
         listeners={{
-          // タブ切り替えではなく /compose をモーダルで開く。post.tsx は
-          // このリスナーで常に preventDefault されるため実際には表示されない。
-          // 014: デモ閲覧中は投稿できない（サーバ側でFORBIDDENになる）ため、
-          // FABはログイン導線に差し替える（押すとサインイン画面へ戻る）
+          // タブ切り替えでなく /compose をモーダルで開く（post.tsx は常に preventDefault されて表示されない）。
+          // デモ閲覧中は投稿できないので、ログインの導線に替える
           tabPress: (e) => {
             e.preventDefault();
             if (isGuestMode) {
@@ -127,33 +117,29 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused }) => <TabIcon name="profile" focused={focused} />,
         }}
       />
-      {/* 020: ホームの機能パネル「思い出」「統計」の行き先。href: null で
-          タブバーのボタンとしては出さないが、(tabs)navigator の内側に置くことで
-          遷移してもタブバーが消えない（Rレビュー指摘。L70でcalendar.tsxが
-          (tabs)の外にありタブが消えた不具合と同じ構造を、ここでも踏んでいた） */}
+      {/* ホームの機能パネルの行き先。href: null でタブのボタンに出さないが、(tabs) の内側に置くので
+          遷移してもタブバーが消えない（外に置くと消える）。以下の href: null も同じ理由 */}
       <Tabs.Screen name="memory" options={{ href: null, headerShown: true, title: "思い出" }} />
       <Tabs.Screen name="stats" options={{ href: null, headerShown: true, title: "統計" }} />
-      {/* 027: ホームの機能パネル「リスト」の行き先。上と同じ理由でhref: null */}
+      {/* 機能パネル「リスト」 */}
       <Tabs.Screen name="list" options={{ href: null, headerShown: true, title: "リスト" }} />
-      {/* 029: ホームの機能パネル「気分の記録」の行き先。上と同じ理由でhref: null */}
+      {/* 機能パネル「気分の記録」 */}
       <Tabs.Screen name="mood" options={{ href: null, headerShown: true, title: "気分の記録" }} />
-      {/* 024: マイページ下部の「アカウントを削除」の行き先。上と同じ理由でhref: null */}
+      {/* マイページの「アカウントを削除」 */}
       <Tabs.Screen name="delete-account" options={{ href: null, headerShown: true, title: "アカウントを削除" }} />
-      {/* 040: ホームの機能パネル「ほしいもの」の行き先。上と同じ理由でhref: null */}
+      {/* 機能パネル「ほしいもの」 */}
       <Tabs.Screen name="want" options={{ href: null, headerShown: true, title: "ほしいもの" }} />
-      {/* 037: ホームの機能パネル「AIまとめ」の行き先。上と同じ理由でhref: null */}
+      {/* 機能パネル「AIまとめ」 */}
       <Tabs.Screen name="ai-summary" options={{ href: null, headerShown: true, title: "AIまとめ" }} />
-      {/* 041: ホームの機能パネル「アルバム」の行き先（一覧）と、その詳細（`?id=`。動的ルートは
-          静的エクスポートの前提を崩すため使わない。album-detail.tsx のコメント）。
-          詳細の題名は画面が setOptions で上書きする。上と同じ理由で href: null */}
+      {/* 機能パネル「アルバム」の一覧と詳細（`?id=`。動的ルートは静的書き出しの前提を崩すので使わない）。
+          詳細の題名は画面が setOptions で上書きする */}
       <Tabs.Screen name="album" options={{ href: null, headerShown: true, title: "アルバム" }} />
       <Tabs.Screen name="album-detail" options={{ href: null, headerShown: true, title: "アルバム" }} />
-      {/* 043: ホームの「リリース履歴を見る」の行き先。上と同じ理由で href: null。戻るは画面が setOptions で置く */}
+      {/* 「リリース履歴を見る」。戻るは画面が setOptions で置く */}
       <Tabs.Screen name="releases" options={{ href: null, headerShown: true, title: "リリース履歴" }} />
-      {/* 045: 一覧の使用量のカード・詳細の警告と上限のシート・マイページの「プレミアムについて」の行き先。
-          上と同じ理由で href: null。戻るは画面が setOptions で置く */}
+      {/* プレミアムの案内（一覧の使用量・詳細の警告と上限のシート・マイページから）。戻るは画面が置く */}
       <Tabs.Screen name="premium" options={{ href: null, headerShown: true, title: "プレミアム" }} />
-      {/* 057: 運営の画面。タブに出さない。マイページの「運営 ›」（isAdmin のときだけ）から */}
+      {/* 運営の画面。マイページの「運営 ›」（isAdmin のときだけ）から */}
       <Tabs.Screen name="admin" options={{ href: null, headerShown: true, title: "運営" }} />
     </Tabs>
   );

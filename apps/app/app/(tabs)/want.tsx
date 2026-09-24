@@ -14,14 +14,13 @@ import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
-// 040: ほしいもの。「買ってほしい」ではなく「こういうのが欲しい」を相手に伝える一覧。
-// 027 のリスト（ふたりで共有）とは別の機能（タスク定義0節）。
-// 人物のタブで切り替える。初期表示は相手。自分を選ぶと追加ボタンが出る（タスク定義5節）
+// ほしいもの（040）。「こういうのが欲しい」を相手に伝える一覧（ふたりで共有するリストとは別）。
+// 人物のタブで切り替え、初期は相手。自分を選ぶと追加ボタンが出る
 
 const GRID_COLUMNS = 2;
 const GRID_GAP = space.md;
 
-// 039: 色は外観で変わるため、描画時に組み立てる（list.tsx と同じ）
+// 色は外観で変わるので描画時に組み立てる
 function inputStyleOf(colors: Colors) {
   return {
     borderWidth: 1,
@@ -33,7 +32,7 @@ function inputStyleOf(colors: Colors) {
   } as const;
 }
 
-// 画像を1枚選ぶ（compose.tsx の pickImages と同じ経路。1枚だけ）
+// 画像を 1 枚選ぶ（compose.tsx の pickImages と同じ経路）
 async function pickOneImage(): Promise<SourceImage | null> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) return null;
@@ -85,7 +84,7 @@ function WantForm({
   const hasRequired = mode === "edit" ? trimmedTitle.length > 0 : trimmedTitle.length > 0 || trimmedUrl.length > 0;
   const canSave =
     hasRequired && urlIsValid && trimmedTitle.length <= MAX_WANT_TITLE_LENGTH && note.length <= MAX_WANT_NOTE_LENGTH;
-  // A の決定3: URL から画像を取る間（最大 12 秒）は「画像を取得中…」を出してボタンを無効にする
+  // URL から画像を取る間（最大 12 秒）は「画像を取得中…」を出してボタンを無効にする
   const willFetchImage = mode === "create" && trimmedUrl.length > 0 && !pickedImage;
   const savingLabel = willFetchImage ? "画像を取得中…" : "保存中…";
 
@@ -185,7 +184,7 @@ function WantCard({ want, width, onOpenMenu }: { want: Want; width: number | und
   const isObtained = want.obtainedAt !== null;
 
   function openUrl() {
-    // URL があれば開く（新しいタブ／ブラウザ）。無ければ何もしない（タスク定義5節）
+    // URL があれば開く（新しいタブ）。無ければ何もしない
     if (want.url) void Linking.openURL(want.url);
   }
 
@@ -226,14 +225,11 @@ function WantCard({ want, width, onOpenMenu }: { want: Want; width: number | und
               accessibilityIgnoresInvertColors
             />
           ) : null}
-          {/* 画像が無い行は surface-tint の四角だけ（A の指示・段階1のレビュー）。
-              絵文字はカラーで描かれ、ホワイト（黒と灰だけの画面）で浮く。素材が無いなら
-              何も置かない。URL の有無は押せるかどうかで分かる（押せば開く） */}
+          {/* 画像が無い行は surface-tint の四角だけ（カラーの絵文字はホワイトで浮く）。URL の有無は押せるかで分かる */}
         </View>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.xs }}>
           <View style={{ flex: 1, gap: space.xs }}>
-            {/* Amazon の題名は整形後も 100 文字近い。2 列のカードでは 3 行で省略する
-                （全文は編集フォームで見える。B の判断。段階1の報告に記載） */}
+            {/* Amazon の題名は整形後も 100 文字近いので、2 列のカードでは 3 行で省略する（全文は編集フォームで見える） */}
             <Text size="sm" weight="bold" color={isObtained ? "muted" : undefined} numberOfLines={3}>
               {want.title}
             </Text>
@@ -268,7 +264,7 @@ export default function WantScreen() {
   const { colors } = useTheme();
   const { isGuestMode, exitGuestMode } = useGuestMode();
 
-  // queryKey に viewerKey を含める理由は apps/app/lib/viewer-key.ts 参照（T9）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts。T9）
   const viewerKey = useViewerQueryKey();
   const partnerOptions = orpc.want.list.queryOptions({ input: { ownerSide: "partner" } });
   const partnerQuery = useQuery({ ...partnerOptions, queryKey: [...partnerOptions.queryKey, viewerKey] });
@@ -283,7 +279,7 @@ export default function WantScreen() {
   const setObtained = useMutation(orpc.want.setObtained.mutationOptions({ onSuccess: invalidate }));
   const deleteWant = useMutation(orpc.want.delete.mutationOptions({ onSuccess: invalidate }));
 
-  // 初期は相手（タスク定義5節）
+  // 初期は相手
   const [selectedSide, setSelectedSide] = useState<WantOwnerSide>("partner");
   const [gridWidth, setGridWidth] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
@@ -294,8 +290,7 @@ export default function WantScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 「そちら側の人」が居るか。partner が居なければ（1人のペア）自分だけ、
-  // 自分が居なければ（ゲスト）相手だけ。両方居るときだけタブを出す
+  // 相手が居なければ（1 人のペア）自分だけ、自分が居なければ（ゲスト）相手だけ。両方居るときだけタブを出す
   const hasPartner = partnerQuery.data ? partnerQuery.data.ownerName !== null : undefined;
   const hasMe = mineQuery.data ? mineQuery.data.ownerName !== null : undefined;
   const showTabs = hasPartner === true && hasMe === true;
@@ -329,7 +324,7 @@ export default function WantScreen() {
       imageId,
     });
     closeAdd();
-    // 自動取得が失敗した直後の1行（エラー扱いにしない。タスク定義5節）
+    // 自動取得が失敗した直後の 1 行（エラー扱いにしない）
     setNotice(values.url !== "" && !imageId && created.image === null ? "画像は取れませんでした。あとから付けられます" : null);
   }
 
@@ -409,7 +404,7 @@ export default function WantScreen() {
             </Button>
           </View>
         ) : canWrite ? (
-          // 追加は FAB ではなく一覧の上の + ボタン（FAB は投稿のもの。タスク定義5節）
+          // 追加は一覧の上の + ボタン（FAB は投稿のもの）
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.sm }}>
             <Text color="muted" size="sm">
               {items.length === 0 ? "URL を貼ると画像が付きます" : ""}
@@ -444,7 +439,7 @@ export default function WantScreen() {
             <Text color="muted">{effectiveSide === "me" ? "まだありません" : "まだありません"}</Text>
           </View>
         ) : (
-          // 白いカードの 2 列グリッド（モックの絵）。幅は index.tsx の機能パネルと同じく実測から算出
+          // 白いカードの 2 列グリッド。幅は機能パネルと同じく実測から出す
           <View
             onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}
             style={{ flexDirection: "row", flexWrap: "wrap", columnGap: GRID_GAP, rowGap: GRID_GAP }}
@@ -530,7 +525,7 @@ export default function WantScreen() {
                   </Button>
                 </View>
                 <View style={{ flex: 1 }}>
-                  {/* danger は退会専用（036）。削除の確認は list.tsx と同じ secondary */}
+                  {/* danger は退会専用。削除の確認は secondary */}
                   <Button variant="secondary" onPress={() => runMenuAction(() => deleteWant.mutateAsync({ id: menuFor.id }))}>
                     削除する
                   </Button>

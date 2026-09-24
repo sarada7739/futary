@@ -23,8 +23,8 @@ import { queryClient } from "../../lib/query";
 import { TAB_BAR_CLEARANCE } from "../../lib/tab-bar-layout";
 import { useViewerQueryKey } from "../../lib/viewer-key";
 
-// 041: アルバムの一覧。上にタイムライン（仮想・自動）の大きなカード、下にアルバムの 2 列グリッド
-// （モックの絵。検索窓は置かない。タスク定義0節 #5）。ピンクは既存の部品に任せる（appearance を読まない）
+// アルバムの一覧（041）。上にタイムライン（仮想・自動）の大きなカード、下にアルバムの 2 列グリッド。
+// 検索窓は置かない。appearance は読まない（既存の部品に任せる）
 
 const GRID_COLUMNS = 2;
 const GRID_GAP = space.md;
@@ -33,7 +33,7 @@ export function albumDetailHref(id: string): string {
   return `/album-detail?id=${encodeURIComponent(id)}`;
 }
 
-// 期間は startDate の年月（無ければ createdAt の年月。タスク定義3節）
+// 期間は startDate の年月（無ければ createdAt の年月）
 function periodLabel(album: Album): string {
   return formatYearMonthSlash(album.startDate ?? todayJst(album.createdAt * 1000));
 }
@@ -43,7 +43,7 @@ function periodLabel(album: Album): string {
 function TimelineCard({ photoCount, previews, onPress }: { photoCount: number; previews: Photo[]; onPress: () => void }) {
   const { colors } = useTheme();
   const [first, ...rest] = previews;
-  // 写真が 4 枚未満なら右の列を空ける（枠を出さない。タスク定義3節）
+  // 写真が 4 枚未満なら右の列を空ける（枠を出さない）
   const showSideColumn = previews.length >= TIMELINE_PREVIEW_COUNT;
 
   return (
@@ -126,7 +126,7 @@ function AlbumCard({ album, width, onPress, onOpenMenu }: { album: Album; width:
           gap: space.xs,
         }}
       >
-        {/* カバーが無い（写真 0 枚）なら surface-tint の四角（040 と同じ。アイコンも絵文字も置かない） */}
+        {/* カバーが無い（写真 0 枚）なら surface-tint の四角（アイコンも絵文字も置かない） */}
         <View style={{ width: "100%", aspectRatio: 1, borderRadius: radius.input, backgroundColor: colors.surfaceTint, overflow: "hidden" }}>
           {album.cover && (
             <Image
@@ -169,23 +169,23 @@ export default function AlbumScreen() {
   const navigation = useNavigation();
   const { isGuestMode } = useGuestMode();
 
-  // queryKey に viewerKey を含める理由は apps/app/lib/viewer-key.ts 参照（T10）
+  // queryKey に viewerKey を含める（lib/viewer-key.ts）
   const viewerKey = useViewerQueryKey();
   const listOptions = orpc.album.list.queryOptions({ input: {} });
   const query = useQuery({ ...listOptions, queryKey: [...listOptions.queryKey, viewerKey] });
-  // 045: 作成モーダルの「カバー写真を選択」で無料枠を見る（枠は couple.get から。一覧には出さない）
+  // 作成の「カバー写真を選択」で無料枠を見る（枠は couple.get から。一覧には出さない。045）
   const coupleOptions = orpc.couple.get.queryOptions();
   const coupleQuery = useQuery({ ...coupleOptions, queryKey: [...coupleOptions.queryKey, viewerKey], enabled: !isGuestMode });
   const albumQuota = coupleQuery.data?.albumQuota ?? null;
   const quotaRemaining = albumQuota ? albumQuotaRemaining(albumQuota) : null;
   const [planLimitOpen, setPlanLimitOpen] = useState(false);
-  // 047: プレミアムをやめたあとの猶予・鍵の帯（使用量のカードの上）
+  // プレミアムをやめたあとの猶予・鍵の帯（使用量のカードの上。047）
   const notice = lockNotice(coupleQuery.data?.planState, albumQuota);
 
   const invalidate = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: orpc.album.list.key() }),
-      // 045: cover 付きで作ると枠の used が変わる
+      // cover 付きで作ると枠の used が変わる
       queryClient.invalidateQueries({ queryKey: orpc.couple.get.key() }),
     ]);
   const requestUploadUrl = useMutation(orpc.album.uploadUrl.mutationOptions());
@@ -200,15 +200,14 @@ export default function AlbumScreen() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editing, setEditing] = useState<Album | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // 048: ヘッダーの ⋯ のメニューと、「すべての写真を ZIP で保存」のシート
+  // ヘッダーの ⋯ のメニューと「すべての写真を ZIP で保存」のシート（048）
   const [menuOpen, setMenuOpen] = useState(false);
   const [zipSource, setZipSource] = useState<ZipSource | null>(null);
 
   const canWrite = !isGuestMode;
   const cardWidth = gridWidth > 0 ? (gridWidth - GRID_GAP * (GRID_COLUMNS - 1)) / GRID_COLUMNS : undefined;
 
-  // + はヘッダー右（モックの絵。FAB にしない。FAB は投稿のもの。タスク定義3節）。ゲストは出さない。
-  // 048: その隣に ⋯（すべての写真を ZIP で保存）。ゲストにも出す
+  // + はヘッダー右（FAB は投稿のもの）。ゲストには出さない。隣の ⋯（すべての写真を ZIP で保存）はゲストにも出す
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -248,8 +247,7 @@ export default function AlbumScreen() {
     setPickedCover(null);
   }
 
-  // 「作成」で閉じて詳細へ進む（作ったら次は写真を入れる。タスク定義3節）。
-  // カバーがあれば署名付き PUT で送ってから album.create の cover に渡す
+  // 「作成」で閉じて詳細へ進む（次は写真を入れる）。カバーがあれば署名付き PUT で送ってから cover に渡す
   async function handleCreate(values: AlbumFormValues) {
     let cover: { imageId: string; width: number; height: number } | undefined;
     if (pickedCover) {
@@ -266,7 +264,7 @@ export default function AlbumScreen() {
         cover,
       });
     } catch (error) {
-      // 045: 相手が同時に足した等でサーバが PLAN_LIMIT を返したら、モーダルを閉じて同じシート
+      // 相手が同時に足した等で PLAN_LIMIT なら、モーダルを閉じて同じシート
       if (error instanceof ORPCError && error.code === "PLAN_LIMIT") {
         closeCreate();
         setPlanLimitOpen(true);
@@ -358,8 +356,7 @@ export default function AlbumScreen() {
               </View>
             )}
 
-            {/* 045: 写真の使用量（絵 05）。一覧の一番下（人間の指示。2026-09-14）。
-                free のときだけ（paid は null。ゲストは couple.get を読まない） */}
+            {/* 写真の使用量。一覧の一番下。free のときだけ（paid は null。ゲストは couple.get を読まない。045） */}
             {canWrite && notice && (
               <LockBand notice={notice} onZip={() => setZipSource({ kind: "all" })} onPremium={() => router.push("/premium")} />
             )}
@@ -378,7 +375,7 @@ export default function AlbumScreen() {
             onCancel={closeCreate}
             pickedCover={pickedCover}
             onPickCover={async () => {
-              // 045: 残りが 0 なら選ばせず、作成モーダルを閉じてシート（写真を選ばせない）
+              // 残りが 0 なら選ばせず、作成を閉じてシート
               if (quotaRemaining === 0) {
                 closeCreate();
                 setPlanLimitOpen(true);
@@ -413,7 +410,7 @@ export default function AlbumScreen() {
         )}
       </Sheet>
 
-      {/* 048: ヘッダーの ⋯ メニュー: すべての写真を ZIP で保存（作ったアルバム全部。タイムラインは含めない） */}
+      {/* ヘッダーの ⋯: すべての写真を ZIP で保存（作ったアルバム全部。タイムラインは含めない） */}
       <Sheet visible={menuOpen} onClose={() => setMenuOpen(false)} title="アルバム">
         <View style={{ gap: space.sm }}>
           <Button
@@ -457,7 +454,7 @@ export default function AlbumScreen() {
                     </Button>
                   </View>
                   <View style={{ flex: 1 }}>
-                    {/* danger は退会専用（036）。削除の確認は list.tsx・want.tsx と同じ secondary */}
+                    {/* danger は退会専用。削除の確認は secondary */}
                     <Button variant="secondary" onPress={() => handleDelete(menuFor)}>
                       削除する
                     </Button>
