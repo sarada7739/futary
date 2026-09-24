@@ -22,56 +22,35 @@ import {
   stretchForVelocity,
 } from "../lib/tab-pill";
 
-// 061: 湾曲ガラスのタブバー。
+// 湾曲ガラスのタブバー（061）。既定のタブバーでは層を積めないので、Tabs の `tabBar` にこの部品を渡す。
+// 項目・遷移・状態は navigator のまま（state と descriptors を読むだけで、自前の選択状態を持たない）。
 //
-// 既定のタブバー（tabBarStyle に色を渡す形）では、ガラスに必要な層を積めない
-// （backdrop-filter の層・屈折させる層・フチの層・レンズのピルで4枚要る）ため、
-// Tabs の `tabBar` にこの部品を丸ごと渡す形に変えた。タブの項目・遷移・
-// 状態管理は navigator のまま（この部品は state と descriptors を読むだけで、
-// 自前の選択状態を持たない）。
-//
-// 【SVG フィルタ（url()）はこの部品では使わない】
-// 最初の版は「背後の絵を歪ませる」`backdrop-filter: url(#フィルタ)` の層と、
-// ガラス板そのものを歪ませる `filter: url(#フィルタ)` を持っていた。どちらも
-// iPhone の Safari で壊れた絵になった（人間の実機。2026-09-18）:
-//   - backdrop-filter: url(): バーの上下に背景をずらした赤い帯・上端の縞・
-//     FAB の下半分が覆われる（前提「WebKit は url() を含む宣言ごと捨てる」が
-//     成り立たなかった。`CSS.supports` も true を返す）→ 段階2 で外した
-//   - filter: url(): 外した後もアイコンと文字が二重にずれ、上端に帯が残った
-//     → 段階3 で外した
-//   - ピルの backdrop-filter: transform と同時に持つと背後を二重に描く → 段階3 で外した
-// 残る層は、ぼかし（glass-blur。blur と saturate だけ。backdrop-filter はこの 1 箇所）・
-// 無地の板（斜めのグラデーション）・色収差・フチ・ピル（色とフチと inset の光）。
-// 歪みは無い「曇りガラス」。この部品に url( が無いこと・backdrop-filter が 1 箇所
-// だけなことはテスト G5 が留めている。
+// SVG フィルタ（url()）は使わない。iPhone の Safari では `backdrop-filter: url()` が背景をずらした
+// 帯・縞を描き、`filter: url()` はアイコンを二重にした（`CSS.supports` は true を返すので見分けられない）。
+// ピルにも backdrop-filter を置かない（transform と同時だと Safari が背後を二重に描く）。
+// 残る層は、ぼかし（glass-blur。backdrop-filter はこの 1 箇所）・板（色とグラデーション）・色収差・フチ・
+// ピル（色・フチ・inset の光）。url( が無いこと・backdrop-filter が 1 箇所なことはテスト G5 が留める
 const PILL_HEIGHT = 44;
 // スロットの中でピルが左右に残す余白
 const PILL_INSET = 5;
-// 押している間の膨らみ。バーからはみ出す（要件5）
+// 押している間の膨らみ。バーからはみ出す
 const PRESS_SCALE = 1.12;
 // これを超えて横に動いたらドラッグとして扱う。下回る動きはタップに渡す
 const DRAG_THRESHOLD = 6;
 
-// react-native-web にしか無い CSS プロパティを style に流すための包み
-// （components/wheel-column.tsx の maskImage と同じ形。ネイティブでは null）
+// react-native-web にしか無い CSS プロパティを style に流す包み（ネイティブでは null）
 function webOnly(style: Record<string, string | number>): object | null {
   return Platform.OS === "web" ? (style as object) : null;
 }
 
-// タブのボタンとして出さない画面（(tabs)/_layout.tsx の思い出・統計など）の判定。
-//
-// `_layout.tsx` は `href: null` と書くが、**その項目は navigator まで届かない。**
-// expo-router が手前で剥がし、代わりに `tabBarItemStyle: { display: "none" }` と
-// 「null を返す tabBarButton」に置き換える（expo-router/build/layouts/TabsClient.js
-// の withLayoutContext の processor）。`options.href` を見ても常に undefined で、
-// 隠し画面が全部タブに並ぶ（実測: 12 画面ぶんの空きスロットが増え、本物のタブが
-// 1/17 の幅に潰れた）。既定のタブバーと同じく `display: "none"` で判定する。
-// StyleSheet.flatten は配列で渡された style も1つに畳む
+// タブに出さない画面の判定。`_layout.tsx` の `href: null` は navigator まで届かない: expo-router が剥がし、
+// `tabBarItemStyle: { display: "none" }` と null を返す tabBarButton に置き換える（TabsClient.js）。
+// `options.href` は常に undefined で、見ると隠し画面 12 枚がタブに並ぶ。既定のタブバーと同じく display で見る
 function isHiddenFromTabBar(options: { tabBarItemStyle?: StyleProp<ViewStyle> }): boolean {
   return StyleSheet.flatten(options.tabBarItemStyle)?.display === "none";
 }
 
-/** ガラスの板。ぼかし・歪んだ板・フチ・色収差を重ねる。中身（ピル・項目）は持たない */
+/** ガラスの板。ぼかし・板・フチ・色収差を重ねる。中身（ピル・項目）は持たない */
 function GlassPane({ glass }: { glass: Glass }) {
   const blur = `blur(${glass.blurRadius}px) saturate(${glass.saturate})`;
   return (
@@ -84,8 +63,7 @@ function GlassPane({ glass }: { glass: Glass }) {
           webOnly({ backdropFilter: blur, WebkitBackdropFilter: blur }),
         ]}
       />
-      {/* 2. ガラス板そのもの。色（tint）と、左上が明るく右下が暗い斜めの
-             グラデーション。歪ませない（filter: url() は Safari で壊れた。冒頭） */}
+      {/* 2. ガラス板。色（tint）と、左上が明るく右下が暗い斜めのグラデーション。歪ませない */}
       <View
         testID="glass-sheet"
         style={[
@@ -98,9 +76,7 @@ function GlassPane({ glass }: { glass: Glass }) {
           }),
         ]}
       />
-      {/* 3. 色収差。歪んだフチにだけ虹色を乗せる。inset の影を左右に振ると、
-             端にしか出ない（中央には届かない）。ホワイトは aberration が 0 で
-             この層自体を出さない（039「装飾は無い」） */}
+      {/* 3. 色収差。inset の影を左右に振ると端にだけ虹色が出る。ホワイトは aberration が 0 で出さない（039） */}
       {glass.aberration > 0 && (
         <View
           testID="glass-aberration"
@@ -131,17 +107,14 @@ function GlassPane({ glass }: { glass: Glass }) {
   );
 }
 
-// expo-router は BottomTabBarProps という名前を公開していない（build/ 配下に
-// しか無く、そこへ直接 import すると内部構成の変更で壊れる）。Tabs が受け取る
-// `tabBar` の引数の型から引く。値としては import しない（型だけなので、この
-// 部品は expo-router を実行時に読み込まない＝テストでモックが要らない）
+// expo-router は BottomTabBarProps を公開していない（build/ の中を直接 import すると内部構成の変更で壊れる）。
+// `tabBar` の引数の型から引く。型だけなので実行時に expo-router を読まない（テストでモックが要らない）
 export type GlassTabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>["tabBar"]>>[0];
 
 export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps) {
   const { colors, glass, shadow } = useTheme();
   const [barWidth, setBarWidth] = useState(0);
-  // href: null の画面（思い出・統計など）はボタンとして出さない。
-  // 既定のタブバーと同じ規則（(tabs)/_layout.tsx のコメント参照）
+  // 隠し画面（思い出・統計など）はボタンとして出さない
   const visible = state.routes
     .map((route, index) => ({ route, index }))
     .filter(({ route }) => {
@@ -150,8 +123,7 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
     });
 
   const focusedVisible = visible.findIndex(({ index }) => index === state.index);
-  // ピルが乗ってよいスロット。＋投稿（tabBarButton）は選ばれた状態にならないため外す
-  // （lib/tab-pill.ts の nearestAllowedIndex のコメント）
+  // ピルが乗ってよいスロット。＋投稿（tabBarButton）は選ばれた状態にならないので外す
   const pillSlots = visible
     .map((entry, visibleIndex) => ({ entry, visibleIndex }))
     .filter(({ entry }) => descriptors[entry.route.key]?.options.tabBarButton === undefined)
@@ -162,14 +134,12 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
   const translateX = useRef(new Animated.Value(0)).current;
   const stretch = useRef(new Animated.Value(1)).current;
   const press = useRef(new Animated.Value(1)).current;
-  // ドラッグ中に「今どこにいるか」を読むための写し。Animated.Value は
-  // 同期で読めないため、listener で控える
+  // ドラッグ中に今の位置を読むための写し（Animated.Value は同期で読めない）
   const pillX = useRef(0);
   const dragStart = useRef(0);
 
-  // PanResponder は最初の描画で1度だけ作られ、その後は同じ関数が呼ばれ続ける。
-  // ハンドラの中から今の値を読めるように写しを置く（クロージャが初回の値を
-  // 抱えたままになるのを避ける）
+  // PanResponder は最初の描画で 1 度だけ作られるので、ハンドラから今の値を読めるように写しを置く
+  // （クロージャが初回の値を抱えたままになるのを避ける）
   const barWidthRef = useRef(0);
   const slotWidthRef = useRef(0);
   const visibleCountRef = useRef(0);
@@ -187,10 +157,8 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
 
   const restX = focusedVisible >= 0 ? pillRestX(focusedVisible, slotWidth, PILL_INSET) : 0;
 
-  // 選択が変わったら（タブを押した・別画面から遷移した）スプリングで寄せる
-  // 幅が測れていない間は動かさない。最初に測れたときは、左端から滑り込ませず
-  // その位置から始める（onLayout は描画の後に来るため、springs だと毎回
-  // 画面の左端からピルが飛んでくる）
+  // 選択が変わったらスプリングで寄せる。幅が測れていない間は動かさない。最初に測れたときはその位置から
+  // 始める（onLayout は描画の後なので、spring だと毎回左端から飛んでくる）
   const placed = useRef(false);
   useEffect(() => {
     if (slotWidth <= 0 || focusedVisible < 0) return;
@@ -218,15 +186,13 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
       target: target.route.key,
       canPreventDefault: true,
     });
-    // ＋投稿（FAB）は listeners で preventDefault され、/compose を開く。
-    // ここで navigate してしまうと二重に動く
+    // ＋投稿（FAB）は listeners で preventDefault して /compose を開く。ここで navigate すると二重に動く
     if (!isFocused && !event.defaultPrevented) {
       navigation.navigate(target.route.name, target.route.params);
     }
   }
 
-  // ドラッグを途中でやめた／奪われたときの後始末。押し込みと伸びを戻し、
-  // 今選ばれているタブの上へピルを戻す
+  // ドラッグをやめた・奪われたときの後始末（押し込みと伸びを戻し、選ばれているタブの上へ戻す）
   function settleBack() {
     Animated.timing(press, { toValue: 1, duration: 140, useNativeDriver: false }).start();
     Animated.spring(stretch, { toValue: 1, useNativeDriver: false, speed: 12, bounciness: 10 }).start();
@@ -242,8 +208,7 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
 
   const pan = useRef(
     PanResponder.create({
-      // 横に DRAG_THRESHOLD を超えて動いたときだけ引き取る。
-      // 下回る動きは項目の Pressable に渡す（タップを殺さない）
+      // 横に DRAG_THRESHOLD を超えたときだけ引き取る（下回る動きは項目に渡し、タップを殺さない）
       onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > DRAG_THRESHOLD,
       onPanResponderGrant: () => {
         dragStart.current = pillX.current;
@@ -255,8 +220,7 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
         // 動いている速さに応じて横に伸ばす
         stretch.setValue(stretchForVelocity(gesture.vx));
       },
-      // ブラウザのスクロール等に responder を奪われると Release は呼ばれない。
-      // 何もしないと押し込んだまま・伸びたまま、選択と違う位置にピルが残る
+      // スクロール等に responder を奪われると Release が呼ばれず、押し込んだまま違う位置に残る
       onPanResponderTerminate: () => settleBackRef.current(),
       onPanResponderRelease: (_event, gesture) => {
         const slot = slotWidthRef.current;
@@ -278,8 +242,7 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
     }),
   ).current;
 
-  // 描画中に ref を書かない（React の規則）。PanResponder のハンドラは
-  // 利用者の操作で呼ばれる＝コミットと effect のあとなので、ここで写して間に合う
+  // 描画中に ref を書かない（React の規則）。ハンドラは操作で呼ばれる = effect の後なので、ここで写して間に合う
   useEffect(() => {
     barWidthRef.current = barWidth;
     slotWidthRef.current = slotWidth;
@@ -303,16 +266,14 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
           height: TAB_BAR_HEIGHT,
           borderRadius: radius.pill,
         },
-        // 下に柔らかい影。ホワイトは shadow.card の不透明度が 0 で影が出ない
-        // （039「影無し」。ここで外観の分岐を書かず、値に任せる）
+        // 下に柔らかい影。ホワイトは shadow.card の不透明度が 0 で出ない（分岐を書かず値に任せる）
         shadow.card,
       ]}
       {...pan.panHandlers}
     >
       <GlassPane glass={glass} />
 
-      {/* 選択中のピル。ガラスの板の上に乗る「レンズ」。押している間は
-          膨らんでバーの外へ出るため、overflow: hidden の GlassPane の外に置く */}
+      {/* 選択中のピル（レンズ）。押している間は膨らんでバーの外へ出るので、overflow: hidden の GlassPane の外に置く */}
       {focusedVisible >= 0 && pillWidth > 0 && (
         <Animated.View
           testID="glass-pill"
@@ -320,8 +281,7 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
           style={[
             {
               position: "absolute",
-              // 項目と同じ枠（paddingTop の内側）の中で上下中央に置く。
-              // バー全体で中央にすると、項目だけが 4px 下がってピルとずれる
+              // 項目と同じ枠（paddingTop の内側）で上下中央に置く（バー全体の中央だと 4px ずれる）
               top: space.sm + (TAB_BAR_HEIGHT - space.sm - PILL_HEIGHT) / 2,
               left: 0,
               width: pillWidth,
@@ -332,10 +292,7 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
               borderColor: glass.lensRim,
               transform: [{ translateX }, { scaleX: stretch }, { scale: press }],
             },
-            // ピルに backdrop-filter は置かない。iOS Safari は backdrop-filter と
-            // transform（translateX・scaleX・scale）を同時に持つ要素で、背後の内容を
-            // transform の分だけずらして二重に描く（人間の実機でアイコンと文字が
-            // 二重化。段階3）。レンズの質感は色（lensTint）・フチ・inset の光だけ
+            // backdrop-filter を置かない（transform と同時だと Safari が背後を二重に描く。冒頭）
             webOnly({
               boxShadow: `inset 0 1px 0 ${glass.edgeHighlight}, inset 0 -1px 0 ${glass.edgeReflection}`,
             }),
@@ -343,14 +300,10 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
         />
       )}
 
-      {/* 旧 tabBarStyle の paddingTop（space.sm）をここで持つ。項目は縦に伸ばす
-          （alignItems を center にすると項目が中身の高さに縮み、FAB の
-          marginTop: -20 の起点が下がって、バーからのはみ出しが 12px → 6px に
-          減る。旧 tabBarItemStyle: { flex: 1 } は既定の stretch で伸びていた。
-          R レビュー必須2）。
-          zIndex: 1 は、backdrop-filter を持つ兄弟（GlassPane）が後に描くこの列の
-          上に来る WebKit の重なり順の癖を抑える（iPhone の Safari で FAB の下半分が
-          バーに覆われた。2026-09-18） */}
+      {/* 旧 tabBarStyle の paddingTop を持ち、項目は縦に伸ばす（alignItems: center だと項目が縮み、
+          FAB の marginTop: -20 の起点が下がってはみ出しが 12px → 6px になる）。
+          zIndex: 1: backdrop-filter を持つ兄弟（GlassPane）がこの列の上に来る WebKit の癖を抑える
+          （Safari で FAB の下半分が覆われた） */}
       <View role="tablist" style={{ flex: 1, flexDirection: "row", paddingTop: space.sm, zIndex: 1 }}>
         {visible.map(({ route, index }, visibleIndex) => {
           const descriptor = descriptors[route.key];
@@ -363,11 +316,8 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
           if (options.tabBarButton) {
             const TabBarButton = options.tabBarButton;
             return (
-              // tablist が直接持ってよいのは tab だけ。＋投稿はタブではないため
-              // role="none" の枠に入れて、支援技術から「壊れた tablist」に
-              // 見えないようにする。
-              // tabBarButton は関数として呼ばず要素として描く（中で hook が
-              // 使われたとき、この部品の hook の順序を壊さないため）
+              // tablist が直接持ってよいのは tab だけなので、＋投稿は role="none" の枠に入れる。
+              // tabBarButton は関数として呼ばず要素として描く（中の hook がこの部品の hook の順序を壊さない）
               <View key={route.key} role="none" style={{ flex: 1, alignItems: "center" }}>
                 <TabBarButton onPress={onPress}>{null}</TabBarButton>
               </View>
@@ -379,10 +329,8 @@ export function GlassTabBar({ state, descriptors, navigation }: GlassTabBarProps
             <Pressable
               key={route.key}
               onPress={onPress}
-              // タブの並びとしての意味を持たせる（外枠が tablist・項目が tab）。
-              // react-native-web 0.21 は accessibilityState.selected を
-              // aria-selected に写さないため、aria-selected を直接渡す。
-              // accessibilityState はネイティブ向けに残す
+              // 外枠が tablist・項目が tab。react-native-web 0.21 は accessibilityState.selected を
+              // aria-selected に写さないので直接渡す（accessibilityState はネイティブ向け）
               role="tab"
               aria-selected={isFocused}
               accessibilityState={{ selected: isFocused }}
