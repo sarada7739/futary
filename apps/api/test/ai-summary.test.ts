@@ -6,24 +6,14 @@ import { router } from "../src/router";
 import type { Bindings } from "../src/index";
 import type { RpcContext } from "../src/context";
 
-// 037タスク定義「テストで本物のAPIを叩かない」。
-//
-// 【事故と訂正】最初 vi.mock("../src/lib/ai", ...) でgenerateSummaryを
-// 差し替えようとしたが、このテストは@cloudflare/vitest-plugin（Miniflare/
-// workerd上でテストコード自体を実行する）を使っており、vi.mockによる
-// ESMモジュールの差し替えが効かず、実際にhttps://api.openai.com へ本物の
-// リクエストが飛んだ（テスト用の偽キーのため401で失敗し、生成には成功して
-// いない＝費用は発生していないはずだが、叩いてはいけないものを実際に
-// 叩いてしまった）。
-//
-// generateSummaryはグローバルのfetchを直接呼ぶ実装のため、vi.stubGlobalで
-// fetch自体を差し替える形に直した。モジュール境界に依存せず、テストコードと
-// procedure実行が同じグローバルスコープ（同じworkerdアイソレート）を
-// 共有していることを利用する
+// テストで本物の API を叩かない（037）。このテストは workerd 上で動く（@cloudflare/vitest-plugin）
+// ので、vi.mock による ESM モジュールの差し替えは効かない。generateSummary はグローバルの fetch
+// を直接呼ぶので、vi.stubGlobal で fetch 自体を差し替える（テストコードと手続きが同じ
+// アイソレートのグローバルを共有している）
 let fetchMock: ReturnType<typeof vi.fn>;
 
-// 044: プロバイダが返す本文。{{A}} {{B}} の置き換えを確かめるテストは、
-// これを差し替えてから generate を呼ぶ（beforeEach で既定に戻る）
+// プロバイダが返す本文。{{A}} {{B}} の置き換えを確かめるテストは、これを差し替えてから
+// generate を呼ぶ（beforeEach で既定に戻る。044）
 let mockedSummaryBody = "テストのAIまとめ本文";
 
 beforeEach(() => {
@@ -120,8 +110,8 @@ async function createPosts(
   periodKind: "month" | "week",
   periodKey: string,
 ) {
-  // created_atを直接書き込む（post.createはDate.now()を使うため、過去の
-  // 期間のデータはSQLで直接作る）。couple_idはpost.createで作られた行から引く
+  // post.create は Date.now() を使うので、過去の期間の投稿は created_at を SQL で直接書く。
+  // couple_id は post.create で作った行から引く
   const couple = await call(router.couple.get, undefined, { context: contextFor(user) });
   const { fromMs } = rangeFor(periodKind, periodKey);
   const baseSeconds = Math.floor(fromMs / 1000) + 3600;
@@ -133,27 +123,19 @@ async function createPosts(
   }
 }
 
-// currentMonthJst/currentWeekJstより確実に過去になる固定値
-// （2026-01・2025-W20は現在（テスト実行時点で2026-09以降）より前）。
-// PAST_WEEKはPAST_MONTHと同じ月にならないようにする（同じ月にすると、
-// 「月の投稿が3件未満」を確かめるテストで週用に作った投稿まで月の範囲に
-// 入り込み、実際には3件以上になってしまう。実測して発覚した）
+// currentMonthJst・currentWeekJst より確実に過去になる固定値。PAST_WEEK は PAST_MONTH と同じ月に
+// しない（同じ月だと、週用に作った投稿が「月の投稿が 3 件未満」のテストの範囲に入り込む）
 const PAST_MONTH = "2026-01";
 const PAST_WEEK = "2025-W20";
 
-// 【Rレビュー指摘・R-1】apply-migrations.tsの番人をvi.stubGlobalで
-// 入れていたところ、vi.unstubAllGlobalsが「本物のfetch」を復元先として
-// 覚えてしまい、事故と同じ形（差し替え忘れが本物のAPIへ静かに到達する）を
-// 再発防止の実装自体が持っていた（Rが実測: 23件中番人が止めたのは1件だけ）。
-// apply-migrations.tsを素の代入に直した後、実際にモックを1つ外して
-// （このファイルのbeforeEachが入れたfetchMockをvi.unstubAllGlobalsで
-// 剥がして）、本物のfetchへ行かず番人の例外で落ちることを確認する
+// apply-migrations.ts の番人は素の代入で入れる（vi.stubGlobal だと vi.unstubAllGlobals が本物の
+// fetch を復元先として覚え、差し替え忘れが本物の API へ静かに届く）。実際にモックを 1 つ剥がして、
+// 本物の fetch へ行かず番人の例外で落ちることを確かめる
 describe("番人（fetchの差し替え忘れ対策）が生きていること", () => {
   it("fetchの差し替えを外すと、本物のfetchではなく番人の例外に落ちる", () => {
     vi.unstubAllGlobals();
-    // 番人は同期的にthrowする（Promiseをrejectするのではない）ため、
-    // fetch(...)の呼び出し自体が例外を投げる。.rejects ではなく
-    // 呼び出しをラップした関数に対して.toThrowで確認する
+    // 番人は同期的に throw する（Promise を reject しない）ので、.rejects ではなく呼び出しを
+    // 包んだ関数に .toThrow で確かめる
     expect(() => fetch("https://api.openai.com/v1/chat/completions")).toThrow(
       "fetchが差し替えられていません。テストが本物のAPIを叩こうとしています",
     );
@@ -174,8 +156,7 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     expect(result.model).toBe("gpt-5.6-luna");
     expect(result.generatedCount).toBe(1);
     expect(result.body).toBe("テストのAIまとめ本文");
-    // 実際にfetchが呼ばれたこと自体は確認する（差し替えが効いていることの検査。
-    // 宛先がopenai.comであることも合わせて見る）
+    // 差し替えが効いていること（宛先が openai.com）も見る
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]?.toString()).toContain("openai.com");
   });
@@ -217,7 +198,7 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  // タスク定義1節「1人のペアでは使えない（相手がまだ居ないので同意が取れない）」
+  // 1 人のペアでは使えない（相手がまだ居ないので同意が取れない。1節）
   it("1人のペアではFORBIDDEN（同意していても）", async () => {
     const owner = await createUser();
     await call(router.couple.create, {}, { context: contextFor(owner) });
@@ -243,10 +224,8 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  // security-auditor指摘（Low）: 認証済みの利用者がis_demoのペアに
-  // 所属している、という実際には起こりえない組み合わせを直接作って、
-  // 手続き自身の防御を確認する（me.test.tsの
-  // 「is_demoのペアからは削除できない（手続き自身でも拒む）」と同じ形）
+  // 認証済みの利用者が is_demo のペアに所属する（実際には起こりえない）組み合わせを直接作り、
+  // 手続き自身の防御を確かめる（me.test.ts と同じ形）
   it("認証済みでもis_demoのペアからは生成できない（手続き自身でも拒む）", async () => {
     const { owner, couple } = await createCoupleOfTwo(true);
     await createPosts(owner, 3, "month", PAST_MONTH);
@@ -288,7 +267,7 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 
-  // タスク定義9節「今月・今週も終わっていないので拒む」
+  // 今月・今週はまだ終わっていないので拒む（9節）
   it("今月・今週もINVALID_INPUT（未来だけでなく進行中の期間も拒む）", async () => {
     const { owner } = await createCoupleOfTwo(true);
 
@@ -335,9 +314,8 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
       call(router.aiSummary.generate, { periodKind: "month", periodKey: PAST_MONTH }, { context: contextFor(owner) }),
     ).rejects.toMatchObject({ code: "LIMIT_REACHED" });
 
-    // 4回目の失敗でgenerated_countが増えていないこと（確認観点「生成に失敗した
-    // とき、回数が減っていないか」の裏側。4回目はそもそもAPIを呼ばないため
-    // 増えないはずだが、DBの値で直接確認する）
+    // 4 回目は API を呼ばないので generated_count は増えない。DB の値で直接確かめる
+    // （確認観点「生成に失敗したとき、回数が減っていないか」の裏側）
     const row = await db
       .prepare("SELECT generated_count FROM ai_summaries WHERE couple_id = ?1 AND period_kind = 'month' AND period_key = ?2")
       .bind(couple.id, PAST_MONTH)
@@ -345,13 +323,10 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     expect(row?.generated_count).toBe(3);
   });
 
-  // security-auditor指摘（Medium）: 期間ごとの歯止めが check-then-act
-  // だと、同じ期間へ並行にgenerateを投げたときにすり抜ける
-  // （全部が同じgenerated_countを読んで通過し、N回API呼び出しが発生する
-  // のにDB上は1回分しか記録されない）。1文の条件付きUPSERT
-  // （ON CONFLICT DO UPDATE ... WHERE generated_count < 3）に直した後、
-  // 実際に並行リクエストを投げても、成功が3回ちょうど・DBの値も3ちょうどに
-  // なることを確認する
+  // 期間ごとの歯止めが check-then-act だと、同じ期間へ並行に generate を投げたときにすり抜ける
+  // （全部が同じ generated_count を読んで通り、API は N 回呼ばれるのに DB は 1 回分）。1 文の
+  // 条件付き UPSERT（ON CONFLICT DO UPDATE ... WHERE generated_count < 3）なので、並行に投げても
+  // 成功がちょうど 3 回・DB の値もちょうど 3 になる
   it("同じ期間へ並行にgenerateを投げても、成功は3回までに収まる（レース対策）", async () => {
     const { owner, couple } = await createCoupleOfTwo(true);
     await createPosts(owner, 3, "month", PAST_MONTH);
@@ -377,8 +352,7 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
       }
     }
 
-    // 成功した3回の生成回数が重複なく1・2・3になっている
-    // （同じ番号を2つのリクエストが同時に取っていない）
+    // 成功した 3 回の生成回数が重複なく 1・2・3（同じ番号を 2 つのリクエストが同時に取っていない）
     const generatedCounts = succeeded
       .map((r) => (r.status === "fulfilled" ? r.value.generatedCount : null))
       .sort((a, b) => (a ?? 0) - (b ?? 0));
@@ -391,14 +365,11 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     expect(row?.generated_count).toBe(3);
   });
 
-  // タスク定義4節「片方だけでは止まらない。期間ごとの枠が余っていても、
-  // 暦月の合計で止まる」。ここでは「今の暦月」に対する歯止めを確かめる
-  // 必要があるため、生成対象の期間は過去のものにしつつ、実際の生成（＝
-  // ai_summaries.updated_atへの書き込み）は「今」起きることを利用する
+  // 片方だけでは止まらない。期間ごとの枠が余っていても、暦月の合計で止まる（4節）。生成対象の
+  // 期間は過去にしつつ、実際の生成（ai_summaries.updated_at への書き込み）は「今」起きることを使う
   it("期間ごとの枠が余っていても、暦月の合計10回に達したら11回目はLIMIT_REACHED", async () => {
     const { owner } = await createCoupleOfTwo(true);
-    // 異なる10個の週に投稿を作り、それぞれ1回ずつ生成する（どの週も
-    // 期間ごとの上限3回には達しない。合計だけが10に達する）
+    // 異なる 10 個の週で 1 回ずつ生成する（期間ごとの上限 3 回には達せず、合計だけが 10 に達する）
     const weeks = Array.from({ length: 10 }, (_, i) => `2025-W${String(10 + i).padStart(2, "0")}`);
     for (const week of weeks) {
       await createPosts(owner, 3, "week", week);
@@ -413,7 +384,7 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
       expect(result.generatedCount).toBe(1); // どの期間も1回目（期間ごとの枠は余っている）
     }
 
-    // 11回目（新しい期間・期間ごとの枠は満タンとは程遠い）が暦月合計で止まる
+    // 11 回目（新しい期間。期間ごとの枠には余裕がある）が暦月の合計で止まる
     const eleventhWeek = "2025-W20";
     await createPosts(owner, 3, "week", eleventhWeek);
     await expect(
@@ -425,9 +396,8 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     ).rejects.toMatchObject({ code: "LIMIT_REACHED" });
   });
 
-  // 確認観点「生成に失敗したとき、回数が減っていないか」＝増えてもいない
-  // ことを確認する。予約（generated_count+1）の後にAPI呼び出し自体が
-  // 失敗した場合、予約を巻き戻す実装になっているかを確かめる
+  // 予約（generated_count+1）の後に API 呼び出しが失敗したら、予約を巻き戻す
+  // （確認観点「生成に失敗したとき、回数が減っていないか」＝増えてもいない）
   it("API呼び出しが失敗すると、予約した回数を巻き戻す（行ごと消える）", async () => {
     const { owner, couple } = await createCoupleOfTwo(true);
     await createPosts(owner, 3, "month", PAST_MONTH);
@@ -438,14 +408,14 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
       call(router.aiSummary.generate, { periodKind: "month", periodKey: PAST_MONTH }, { context: contextFor(owner) }),
     ).rejects.toThrow();
 
-    // 1回目が失敗して予約が巻き戻っているため、行自体が残っていない
+    // 予約が巻き戻っているので行自体が残っていない
     const rowAfterFailure = await db
       .prepare("SELECT generated_count FROM ai_summaries WHERE couple_id = ?1 AND period_kind = 'month' AND period_key = ?2")
       .bind(couple.id, PAST_MONTH)
       .first<{ generated_count: number }>();
     expect(rowAfterFailure).toBeNull();
 
-    // 巻き戻っているので、次の成功は1回目として記録される（2回目にならない）
+    // 次の成功は 1 回目として記録される
     const result = await call(
       router.aiSummary.generate,
       { periodKind: "month", periodKey: PAST_MONTH },
@@ -460,8 +430,7 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
 
     await call(router.aiSummary.generate, { periodKind: "month", periodKey: PAST_MONTH }, { context: contextFor(owner) });
 
-    // fetchに渡された実際のリクエストボディ（プロバイダへ実際に送る内容）を見る。
-    // generateSummary単体ではなく、実際に外へ出て行く直前の値を検査する
+    // generateSummary 単体ではなく、fetch に渡された実際のリクエストボディ（外へ出る直前）を見る
     const [, init] = fetchMock.mock.calls.at(-1) ?? [];
     const sentBody = String((init as RequestInit | undefined)?.body ?? "");
     expect(sentBody).toContain("テスト投稿0");
@@ -474,16 +443,13 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     expect(sentBody).not.toContain(owner.email);
     expect(sentBody).not.toContain(partner.name);
     expect(sentBody).not.toContain(partner.id);
-    // 044 T1: 表示名を LLM に渡さないのは上のとおり。代わりに出力を {{A}} {{B}} で書く指示が
-    // system に入っている（置き換えはサーバが応答時にやる）
+    // 表示名の代わりに、出力を {{A}} {{B}} で書く指示が system に入っている（置き換えはサーバが
+    // 応答時にやる。044 T1）
     expect(sentBody).toContain("必ず {{A}} {{B}} とだけ書いてください");
     expect(sentBody).not.toContain(partner.email);
   });
 
-  // 【Rレビュー指摘・R-5】上のテストはownerの投稿しか作っておらず、
-  // 送信本文に"B:"が現れることを確かめるテストが1件も無かった。人間が
-  // 「AIがこの発言はどのユーザーのものか認識できたほうがいい」と指摘し、
-  // ADR-013に書き足した当のものが、実は検証されていなかった
+  // 相手の投稿は "B:" として送る（どの発言が誰のものか AI が区別できる。ADR-013）
   it("相手（slot=2）の投稿には B の記号が付く（A と両方混在させて確認）", async () => {
     const { owner, partner } = await createCoupleOfTwo(true);
     await createPosts(owner, 2, "month", PAST_MONTH);
@@ -498,13 +464,9 @@ describe("aiSummary.generate（ADR-013の同意・費用の歯止め）", () => 
     expect(sentBody).toContain("B: テスト投稿0");
   });
 
-  // ai-summary.ts の labelByUserId.get(...) ?? "A"（メンバーでない
-  // author_idをAに寄せるfallback）を、実際に couple_members に居ない
-  // author_id を持つ投稿を直接SQLで作って確認する。通常の経路では
-  // post.createの時点でauthor_idはそのペアのメンバーに限られるため
-  // 起こらないはずだが、fallbackの分岐自体が生きていることを確かめる。
-  // posts.author_idはuser.idへのFKのため、実在するuserの行が要る
-  // （couple_membersには入れず、メンバーではない状態を作る）
+  // ai-summary.ts の labelByUserId.get(...) ?? "A"（メンバーでない author_id を A に寄せる）を、
+  // couple_members に居ない author_id の投稿を SQL で直接作って確かめる。通常の経路では起こらないが、
+  // fallback の分岐が生きていることを見る（posts.author_id は user.id への FK なので user 行は要る）
   it("couple_membersに居ないauthor_idの投稿はAに寄せる（fallback）", async () => {
     const { owner, couple } = await createCoupleOfTwo(true);
     await createPosts(owner, 2, "month", PAST_MONTH);
@@ -568,9 +530,8 @@ describe("aiSummary.get", () => {
   });
 });
 
-// 044: まとめの中の {{A}} {{B}} を、応答を返すときにサーバが表示名へ置き換える。
-// 保存（ai_summaries.body）は印のまま。表示名は user.name（019 の 1 箇所）。
-// owner が couple.create で slot 1（A）、partner が invite.accept で slot 2（B）
+// まとめの中の {{A}} {{B}} を、応答を返すときにサーバが表示名へ置き換える（044）。保存
+// （ai_summaries.body）は印のまま。表示名は user.name。owner が slot 1（A）、partner が slot 2（B）
 describe("044: 応答の {{A}} {{B}} を表示名に置き換える（保存は印のまま）", () => {
   const SAMPLE_BODY =
     "{{A}}と{{B}}は公園へ出かけた。{{A}}はAランチを食べ、{{B}}はB級グルメを楽しんだ。{{AB}}と{A}とAさんはそのまま。";
@@ -680,11 +641,8 @@ describe("044: 応答の {{A}} {{B}} を表示名に置き換える（保存は�
   });
 });
 
-// security-auditor指摘（Low）: periodKeyは形式（正規表現）だけでなく
-// 値の妥当性も見る必要がある（2026-00・2026-13、53週を持たない年の
-// W53等）。2025年はisoWeeksInYear(2025)===52であることを
-// packages/date/test/date.test.tsのテストとは独立に、
-// 手元で別実装した計算で確かめたうえで固定値として使う
+// periodKey は形式だけでなく値の妥当性も見る（2026-00・2026-13、53 週を持たない年の W53 等）。
+// isoWeeksInYear(2025) === 52 は別の計算で確かめたうえで固定値として使う
 describe("periodKeyの妥当性（形式だけでなく実在する期間か）", () => {
   it.each([
     ["month", "2025-00"],

@@ -4,24 +4,13 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
-// T7（039）: apps/app に `@futary/ui` から colors / shadow / gradients を import する
-// 行が無い。静的 export を消したので型チェックが挙げるが、re-export や any 経由で
-// 抜ける穴を塞ぐため、import 文を走査する既存の検査（viewer-key-coverage.test.ts）と
-// 同じ道具（TypeScript の AST）で1本書く。
-//
-// 038 の教訓: 走査対象は「`@futary/ui` からの import 指定子」という閉じた集合。
-// 「colors という識別子をどう手に入れたか」を追わない。
-//
-// 【R レビュー指摘（段階1）で塞いだ穴2つ】
-// 1. `@futary/ui/src/theme` のようなサブパス import。`packages/ui/package.json` に
-//    `exports` が無く `moduleResolution: "Bundler"` なので、`import { themes } from
-//    "@futary/ui/src/theme"` は型チェックを通る（R が実測）。旧版は
-//    `moduleSpecifier === "@futary/ui"` の完全一致で、サブパスは走査対象にすら
-//    入らなかった。→ `@futary/ui/` 始まりは中身を問わず違反にする
-// 2. 反対側（index.ts）の検査が `export *` の対象を `tokens.ts` に決め打ちしていた。
-//    `export * from "./theme"` を足しても緑のままだった（R が実測）。
-//    → index.ts の `export *` の対象を全部開き、そこで export されている名前を
-//    再帰的に集めて禁止名が無いことを見る
+// apps/app に `@futary/ui` から colors / shadow / gradients を import する行が無い（039 T7）。静的な
+// export は消したので型チェックが挙げるが、re-export や any 経由の穴を塞ぐため、import 文を
+// TypeScript の AST で走査する（viewer-key-coverage.test.ts と同じ道具）。走査対象は「`@futary/ui`
+// からの import 指定子」という閉じた集合で、識別子をどう手に入れたかは追わない。
+// - `@futary/ui/src/theme` のようなサブパス import は型チェックを通る（package.json に exports が無く
+//   moduleResolution: "Bundler"）。`@futary/ui/` 始まりは中身を問わず違反にする
+// - index.ts 側は `export *` の対象を全部開き、export される名前を再帰的に集めて禁止名が無いことを見る
 
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(testDir, "..");
@@ -30,7 +19,7 @@ const uiIndexPath = path.join(uiSrcDir, "index.ts");
 
 // 039 で静的 export から外した名前。`useTheme()` から取る
 const FORBIDDEN_NAMES = new Set(["colors", "shadow", "gradients"]);
-// index.ts 側ではパレットの実体（themes）も出さない: `themes.pink.colors` で静的に取れてしまう
+// index.ts 側ではパレットの実体（themes）も出さない（`themes.pink.colors` で静的に取れてしまう）
 const FORBIDDEN_EXPORTS = new Set([...FORBIDDEN_NAMES, "themes"]);
 
 const UI_PACKAGE = "@futary/ui";
@@ -40,8 +29,7 @@ function isUiSpecifier(text: string): boolean {
   return text === UI_PACKAGE || text.startsWith(UI_SUBPATH_PREFIX);
 }
 
-// viewer-key-coverage.test.ts と同じ: 除外は apps/app 直下のこのパスだけ
-// （名前の再帰的な一致はしない）
+// 除外は apps/app 直下のこのパスだけ（viewer-key-coverage.test.ts と同じ）
 const EXCLUDED_TOP_LEVEL_DIR_NAMES = ["node_modules", ".expo", ".claude", "dist", "web-build", "test", "public", "assets"];
 const EXCLUDED_ABSOLUTE_DIRS = new Set(EXCLUDED_TOP_LEVEL_DIR_NAMES.map((name) => path.join(appDir, name)));
 
@@ -67,8 +55,7 @@ function importedNamesFromUi(sourceFile: ts.SourceFile): Violation[] {
     // import { colors } from "@futary/ui" / import * as ui from "@futary/ui"
     if (ts.isImportDeclaration(statement)) {
       if (!ts.isStringLiteral(statement.moduleSpecifier) || !isUiSpecifier(statement.moduleSpecifier.text)) continue;
-      // サブパス（@futary/ui/src/theme 等）は index.ts の留め金を素通りするので、
-      // 中身を問わず違反（R レビュー指摘）
+      // サブパス（@futary/ui/src/theme 等）は index.ts の留め金を素通りするので、中身を問わず違反
       if (statement.moduleSpecifier.text !== UI_PACKAGE) {
         violations.push({ ...relative(statement), reason: `サブパス import（${statement.moduleSpecifier.text}）` });
         continue;
@@ -196,7 +183,7 @@ describe("T7: apps/app は @futary/ui から colors / shadow / gradients を imp
     ['import * as ui from "@futary/ui";', "名前空間 import（import * as）"],
     ['export { colors } from "@futary/ui";', "colors を re-export している"],
     ['export * from "@futary/ui";', "export * from（re-export）"],
-    // R レビュー指摘: サブパスは中身を問わず違反
+    // サブパスは中身を問わず違反
     ['import { themes } from "@futary/ui/src/theme";', "サブパス import（@futary/ui/src/theme）"],
     ['import { Text } from "@futary/ui/src/components/text";', "サブパス import（@futary/ui/src/components/text）"],
     ['import type { Theme } from "@futary/ui/src/theme";', "サブパス import（@futary/ui/src/theme）"],

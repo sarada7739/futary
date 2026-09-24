@@ -6,17 +6,12 @@ const db = (env as unknown as Bindings).DB;
 type Migration = Parameters<typeof applyD1Migrations>[1][number];
 const TEST_MIGRATIONS = (env as unknown as { TEST_MIGRATIONS: Migration[] }).TEST_MIGRATIONS;
 
-// conventions.md 6節「既存行の扱いが変わるマイグレーションは、行を入れた状態で
-// 当てる」。0011（eventsのtimeをstart_timeへ改名し、end_timeを追加する）が、
-// この規約が実際に効く最初の回である（022・Rの提案）。
+// conventions.md 6節「既存行の扱いが変わるマイグレーションは、行を入れた状態で当てる」。
+// 0011（events の time を start_time へ改名し、end_time を追加）が対象。
 //
-// setupFile（apply-migrations.ts）がテスト開始前に全マイグレーションを
-// 適用済みのため、0011だけをd1_migrationsの記録から外し、eventsテーブルを
-// 0010時点の構造へ一時的に戻してから、本物の0011_event_start_end_time.sqlを
-// 再適用する。0011は実ファイルを通しているが、その出発点である「0010時点の
-// events」はこのテスト内に手で書き写している（下のCREATE TABLE文）。
-// 0010を変えたときは、この写しも直す（Rレビュー指摘。0008の_dedupe_testと
-// 半分同じ形が残っている）
+// setupFile（apply-migrations.ts）が全マイグレーションを適用済みなので、0011 だけを d1_migrations
+// の記録から外し、events を 0010 時点の構造へ一時的に戻してから本物の 0011 を再適用する。
+// 出発点の「0010 時点の events」は下の CREATE TABLE に手で写している。0010 を変えたらこれも直す
 describe("0011マイグレーション: 既存行のtimeがstart_timeへ引き継がれる", () => {
   it("time列に値が入った既存行が、start_timeへそのまま移り、end_timeはNULLになる", async () => {
     const target = TEST_MIGRATIONS.find((m) => m.name === "0011_event_start_end_time.sql");
@@ -36,10 +31,9 @@ describe("0011マイグレーション: 既存行のtimeがstart_timeへ引き�
       .bind(coupleId, now)
       .run();
 
-    // 0011適用後（現在）のevents構造を退避し、0010時点の構造を一時的に再現する。
-    // インデックスはテーブルをリネームしても同じ名前のまま残るため、0011のSQLが
-    // 同名のCREATE INDEXを実行できるよう一旦落としておく（後片付けで作り直す）。
-    // D1のexec()は改行区切りで文を解釈するため、CREATE TABLE文は1行にまとめる
+    // 0011 適用後の events を退避し、0010 時点の構造を再現する。索引はテーブルを改名しても同じ名前で
+    // 残るので、0011 の CREATE INDEX が通るよう一旦落とす（後片付けで作り直す）。
+    // D1 の exec() は改行で文を区切るので、CREATE TABLE は 1 行にまとめる
     await db.exec(`ALTER TABLE events RENAME TO events_after_0011`);
     await db.exec(`DROP INDEX events_couple_date_idx`);
     await db.exec(`DROP INDEX events_meetup_unique`);
@@ -69,10 +63,8 @@ describe("0011マイグレーション: 既存行のtimeがstart_timeへ引き�
       expect(row?.start_time).toBe("12:07");
       expect(row?.end_time).toBeNull();
     } finally {
-      // 後片付け: このテストで作ったevents（索引ごと）を消し、退避しておいた
-      // 本来のevents（0011適用後の構造）を戻して索引も作り直す。この2本の
-      // CREATE INDEXも手書きの写しである。索引の定義が変わったら、ここも直す
-      // （Rレビュー指摘。いまはテストが1件だけなので実害はない）
+      // 後片付け: 作った events（索引ごと）を消し、退避した本来の events を戻して索引を作り直す。
+      // この CREATE INDEX も手書きの写しなので、索引の定義が変わったらここも直す
       await db.exec(`DROP TABLE IF EXISTS events`);
       await db.exec(`ALTER TABLE events_after_0011 RENAME TO events`);
       await db.exec(`CREATE INDEX events_couple_date_idx ON events (couple_id,date)`);
@@ -82,9 +74,8 @@ describe("0011マイグレーション: 既存行のtimeがstart_timeへ引き�
   });
 });
 
-// 023: couples.anniversary_date（NOT NULL）をdating_date（NULL許容）へ改名した。
-// couplesは複数の子テーブルから参照される親テーブルのため、0011のevents同様に
-// 「行を入れた状態で当てる」テストが要る（conventions.md 6節）
+// couples.anniversary_date（NOT NULL）を dating_date（NULL 許容）へ改名する（023）。couples は
+// 複数の子テーブルから参照される親なので、行を入れた状態で当てる（conventions.md 6節）
 describe("0012マイグレーション: 既存行のanniversary_dateがdating_dateへ引き継がれる", () => {
   it("anniversary_dateに値が入った既存行が、dating_dateへそのまま移る", async () => {
     const target = TEST_MIGRATIONS.find((m) => m.name === "0012_couple_dating_date_optional.sql");
@@ -93,8 +84,7 @@ describe("0012マイグレーション: 既存行のanniversary_dateがdating_da
     const coupleId = crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
 
-    // 0012適用後（現在）のcouples構造を退避し、0011時点の構造
-    // （anniversary_date NOT NULL・dating_date無し）を一時的に再現する
+    // 0012 適用後の couples を退避し、0011 時点（anniversary_date NOT NULL・dating_date 無し）を再現する
     await db.exec(`ALTER TABLE couples RENAME TO couples_after_0012`);
     await db.exec(`DROP TRIGGER couples_married_after_anniversary_insert`);
     await db.exec(`DROP TRIGGER couples_married_after_anniversary_update`);
@@ -125,11 +115,8 @@ describe("0012マイグレーション: 既存行のanniversary_dateがdating_da
 
       expect(row?.dating_date).toBe("2018-05-20");
     } finally {
-      // 後片付け: このテストで作ったcouples（TRIGGERごと）を消し、退避しておいた
-      // 本来のcouples（0012適用後の構造）を戻す。TRIGGER名はDB全体で一意なため、
-      // 退避前に一度落としている（上）。同じ名前で作り直す
-      // （0011テストのCREATE INDEXの後片付けと同じ形。Rレビュー指摘。
-      // インデックス同様、このTRIGGERの定義が変わったらここも直す）
+      // 後片付け: 作った couples（TRIGGER ごと）を消し、退避した本来の couples を戻す。TRIGGER 名は
+      // DB 全体で一意なので退避前に落としている。同じ名前で作り直す（定義が変わったらここも直す）
       await db.exec(`DROP TABLE IF EXISTS couples`);
       await db.exec(`ALTER TABLE couples_after_0012 RENAME TO couples`);
       await db.exec(
@@ -143,9 +130,8 @@ describe("0012マイグレーション: 既存行のanniversary_dateがdating_da
   });
 });
 
-// 014: events_repeat_yearly_checkを足す。018で入れたつもりで実際には
-// 入っていなかった制約（Rが実測）。既存の（制約通りの）行が表の作り直しを
-// 生き延びることを確認する。0011・0012と同じ形
+// events_repeat_yearly_check を足す（014）。既存の（制約どおりの）行が表の作り直しを生き延びる
+// ことを確かめる。0011・0012 と同じ形
 describe("0013マイグレーション: 既存行がevents_repeat_yearly_checkの追加を生き延びる", () => {
   it("repeat_yearly=1のanniversaryとrepeat_yearly=0のmeetupが、値そのままで残る", async () => {
     const target = TEST_MIGRATIONS.find((m) => m.name === "0013_event_repeat_yearly_check.sql");
@@ -165,8 +151,7 @@ describe("0013マイグレーション: 既存行がevents_repeat_yearly_check�
       .bind(coupleId, now)
       .run();
 
-    // 0013適用後（現在）のevents構造を退避し、0012時点の構造
-    // （events_repeat_yearly_check無し）を一時的に再現する
+    // 0013 適用後の events を退避し、0012 時点（events_repeat_yearly_check 無し）を再現する
     await db.exec(`ALTER TABLE events RENAME TO events_after_0013`);
     await db.exec(`DROP INDEX events_couple_date_idx`);
     await db.exec(`DROP INDEX events_meetup_unique`);
@@ -208,7 +193,7 @@ describe("0013マイグレーション: 既存行がevents_repeat_yearly_check�
       expect(meetup?.kind).toBe("meetup");
       expect(meetup?.repeat_yearly).toBe(0);
 
-      // 制約自体も生きていることを確認する（repeat_yearly=1のmeetupは拒否される）
+      // 制約も生きている（repeat_yearly=1 の meetup は拒まれる）
       await expect(
         db
           .prepare(
@@ -219,8 +204,7 @@ describe("0013マイグレーション: 既存行がevents_repeat_yearly_check�
           .run(),
       ).rejects.toThrow();
     } finally {
-      // 後片付け: このテストで作ったevents（索引ごと）を消し、退避しておいた
-      // 本来のevents（0013適用後の構造）を戻して索引も作り直す
+      // 後片付け: 作った events（索引ごと）を消し、退避した本来の events を戻して索引を作り直す
       await db.exec(`DROP TABLE IF EXISTS events`);
       await db.exec(`ALTER TABLE events_after_0013 RENAME TO events`);
       await db.exec(`CREATE INDEX events_couple_date_idx ON events (couple_id,date)`);
@@ -230,12 +214,10 @@ describe("0013マイグレーション: 既存行がevents_repeat_yearly_check�
   });
 });
 
-// 024: invite_failuresのキーをuser_idからaccount_hashへ差し替えた（Aの決定。
-// packages/db/src/schema/couple.tsのinviteFailuresコメント参照）。0014で
-// user_idを列ごと落とし、0015でNOT NULLのaccount_hashを足す。0015のADD COLUMNは
-// 既存行があるとNOT NULLを付けられない（SQLiteの制約）ため、先にDELETEで
-// 空にしてから足す設計にした。「既存行が失われる」こと自体が0015の仕様の
-// 一部なので、それが実際に起きることをここで確かめる
+// invite_failures のキーを user_id から account_hash へ替える（024。packages/db/src/schema/couple.ts
+// の inviteFailures 参照）。0014 で user_id を列ごと落とし、0015 で NOT NULL の account_hash を足す。
+// SQLite は既存行があると NOT NULL の列を ADD できないので、先に DELETE で空にする。「既存行が
+// 失われる」ことも 0015 の仕様なので、それが実際に起きることを確かめる
 describe("0014・0015マイグレーション: 既存行はaccount_hash追加のために一度空になる", () => {
   it("user_id方式の既存行は残らず、account_hashがNOT NULLとして機能する", async () => {
     const target14 = TEST_MIGRATIONS.find((m) => m.name === "0014_invite_failures_drop_user_id.sql");
@@ -253,7 +235,7 @@ describe("0014・0015マイグレーション: 既存行はaccount_hash追加の
       .bind(userId, `${crypto.randomUUID()}@example.com`, now)
       .run();
 
-    // 0013時点（現状の直前の形）のinvite_failures構造を退避し、user_id方式を再現する
+    // 0013 時点の invite_failures を退避し、user_id 方式を再現する
     await db.exec(`ALTER TABLE invite_failures RENAME TO invite_failures_after_0015`);
     await db.exec(`DROP INDEX invite_failures_account_created_idx`);
     await db.exec(`DROP INDEX invite_failures_ip_created_idx`);
@@ -299,8 +281,7 @@ describe("0014・0015マイグレーション: 既存行はaccount_hash追加の
           .run(),
       ).resolves.toBeTruthy();
     } finally {
-      // 後片付け: このテストで作ったinvite_failures（索引ごと）を消し、退避しておいた
-      // 本来のinvite_failures（0015適用後の構造）を戻して索引も作り直す
+      // 後片付け: 作った invite_failures（索引ごと）を消し、退避した本来の表を戻して索引を作り直す
       await db.exec(`DROP TABLE IF EXISTS invite_failures`);
       await db.exec(`ALTER TABLE invite_failures_after_0015 RENAME TO invite_failures`);
       await db.exec(`CREATE INDEX invite_failures_account_created_idx ON invite_failures (account_hash,created_at)`);
@@ -311,10 +292,8 @@ describe("0014・0015マイグレーション: 既存行はaccount_hash追加の
   });
 });
 
-// 028: wishesはFK参照される親テーブルでもなく、0017は`ALTER TABLE ... ADD
-// COLUMN`一本の単純な追加であるため、0011・0012のような「表を作り直す」形の
-// 退避・復元は要らない（タスク定義5節「行を消さない。件数を数える手順は
-// 要らない」）。note列だけを一時的に落として0016時点の構造を再現する
+// wishes は FK で参照される親ではなく、0017 は ADD COLUMN 1 本なので、表を作り直す形の退避・
+// 復元は要らない（028 5節）。note 列だけを一時的に落として 0016 時点を再現する
 describe("0017マイグレーション: 既存行がnote列の追加を生き延び、noteは空文字になる", () => {
   it("note列を持たない既存行に0017を当てると、noteが空文字で読める", async () => {
     const target = TEST_MIGRATIONS.find((m) => m.name === "0017_wishes_note.sql");
@@ -334,7 +313,7 @@ describe("0017マイグレーション: 既存行がnote列の追加を生き延
       .bind(coupleId, now)
       .run();
 
-    // 0017適用後（現在）のnote列を一時的に落とし、0016時点の構造を再現する
+    // 0017 適用後の note 列を一時的に落とし、0016 時点を再現する
     await db.exec(`ALTER TABLE wishes DROP COLUMN note`);
 
     const wishId = crypto.randomUUID();
@@ -357,27 +336,24 @@ describe("0017マイグレーション: 既存行がnote列の追加を生き延
   });
 });
 
-// 031: posts.image_key は posts_image_key_unique（UNIQUEインデックス）に
-// 使われている。SQLiteは索引に使われている列をDROP COLUMNできないため、
-// 0019_post_images.sqlはDROP INDEX → DROP COLUMNの順で書いた。
-// 「通るはずだ」で進めず、順序を飛ばすと実際に落ちることをここで実測する
-// （023がcouplesで同じことをやっている。docs/tasks/031-multi-image.md 4節）
+// posts.image_key は posts_image_key_unique（UNIQUE 索引）に使われている。SQLite は索引に使われて
+// いる列を DROP COLUMN できないので、0019 は DROP INDEX → DROP COLUMN の順。順序を飛ばすと実際に
+// 落ちることを確かめる（031 4節）
 describe("0019マイグレーション: DROP INDEXを飛ばすとDROP COLUMNが落ちる（手順の根拠）", () => {
   it("posts_image_key_unique が残ったままだと image_key のDROP COLUMNが失敗し、DROP INDEX後は成功する", async () => {
-    // 0019適用後（現在）のpostsはimage_key列を持たないため、一時的に足し戻して
-    // 索引ありの状態を再現する
+    // 0019 適用後の posts は image_key を持たないので、一時的に足し戻して索引ありの状態を再現する
     await db.exec(`ALTER TABLE posts ADD COLUMN image_key text`);
     await db.exec(`CREATE UNIQUE INDEX posts_image_key_unique ON posts (image_key)`);
 
     try {
-      // 索引が残ったままのDROP COLUMNは失敗する（実測。手順の根拠）
+      // 索引が残ったままの DROP COLUMN は失敗する（手順の根拠）
       await expect(db.exec(`ALTER TABLE posts DROP COLUMN image_key`)).rejects.toThrow();
 
       // DROP INDEXしてからなら成功する
       await db.exec(`DROP INDEX posts_image_key_unique`);
       await expect(db.exec(`ALTER TABLE posts DROP COLUMN image_key`)).resolves.not.toThrow();
     } finally {
-      // 後片付け: 失敗せずに終わった場合に備え、両方とも存在しない状態に揃える
+      // 後片付け: 失敗せずに終わった場合に備え、両方とも無い状態に揃える
       const columns = await db.prepare(`PRAGMA table_info(posts)`).all<{ name: string }>();
       if (columns.results.some((c) => c.name === "image_key")) {
         await db.exec(`ALTER TABLE posts DROP COLUMN image_key`).catch(() => {});
@@ -392,10 +368,8 @@ describe("0019マイグレーション: DROP INDEXを飛ばすとDROP COLUMNが�
   });
 });
 
-// 031: 既存の1枚（posts.image_key）がpost_imagesのposition=0へ移ることを、
-// 実際に行を入れた状態でマイグレーションを当てて確認する（conventions.md 6節）。
-// postsはcouples/eventsと違い表を作り直さない（列を足し戻すだけで0018時点の
-// 構造を再現できる。0017テストと同じ簡潔な形）
+// 既存の 1 枚（posts.image_key）が post_images の position=0 へ移ることを、行を入れた状態で当てて
+// 確かめる（031。conventions.md 6節）。posts は表を作り直さず、列を足し戻すだけで 0018 時点を再現できる
 describe("0019マイグレーション: 既存の1枚がpost_imagesのposition=0へ移る", () => {
   it("posts.image_keyに値が入った既存行が、post_images(position=0)へそのまま移り、posts側の列は消える", async () => {
     const target = TEST_MIGRATIONS.find((m) => m.name === "0019_post_images.sql");
@@ -416,9 +390,8 @@ describe("0019マイグレーション: 既存の1枚がpost_imagesのposition=0
       .bind(coupleId, now)
       .run();
 
-    // 0019適用後（現在）はpost_imagesが実表であり、postsはimage_key等を
-    // 持たない。0018時点の構造（image_key/width/height列+UNIQUE索引、
-    // post_images無し）を一時的に再現する
+    // 0019 適用後は post_images が実表で、posts は image_key 等を持たない。0018 時点（image_key・width・
+    // height 列 + UNIQUE 索引、post_images 無し）を一時的に再現する
     await db.exec(`DROP TABLE post_images`);
     await db.exec(`ALTER TABLE posts ADD COLUMN image_key text`);
     await db.exec(`ALTER TABLE posts ADD COLUMN image_width integer`);
@@ -434,11 +407,8 @@ describe("0019マイグレーション: 既存の1枚がpost_imagesのposition=0
       .bind(postId, coupleId, userId, imageKey, now)
       .run();
 
-    // 031・security-auditor指摘: 007の旧設計は論理削除後もimage_keyを残していた
-    // ため、既に論理削除済みの投稿が画像付きのままDBに残っている状態がありうる。
-    // これをpost_imagesへ移してしまうと、031の新しい不変条件（論理削除済みの
-    // 投稿はpost_imagesを持たない。post.deleteが物理削除する）と矛盾した状態を
-    // 移行直後から作ってしまうため、移さないことを確認する
+    // 論理削除済みで image_key が残っている投稿はありうる。post_images へ移すと「論理削除済みの
+    // 投稿は post_images を持たない」（post.delete が物理削除する）と矛盾するので、移さない
     const deletedPostId = crypto.randomUUID();
     const deletedImageKey = `couples/${coupleId}/posts/${crypto.randomUUID()}.jpg`;
     await db

@@ -6,15 +6,13 @@ import { adminProcedure, authedProcedure, readProcedure, writeProcedure } from "
 import type { Bindings } from "../src/index";
 import type { RpcContext } from "../src/context";
 
-// docs/tasks/005-authorization-middleware.md / security-requirements.md 3節の
-// 「認可を触った全てのタスクで維持される」5項目。今後 post/reaction/event 等が
-// readProcedure/writeProcedure に載るたびに、このファイルの構造を踏襲して
-// 5項目を確認する
+// security-requirements.md 3節の「認可を触った全てのタスクで維持される」項目。手続きが
+// readProcedure・writeProcedure に載るたびに、この構造で確かめる（005）
 
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
 
-// post.test.ts と同じ理由（実際の R2 API トークンの設定有無に依存させない）
+// 実際の R2 API トークンの設定有無に依存させない（post.test.ts と同じ）
 const r2Sign: RpcContext["r2Sign"] = {
   accountId: "test-account",
   accessKeyId: "test-access-key-id",
@@ -36,8 +34,7 @@ async function createUser(): Promise<{ id: string; name: string; email: string }
         "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?1, ?2, ?3, 1, ?4, ?4)",
       )
       .bind(id, name, email, now),
-    // invite.acceptがaccount_id（Googleの識別子）を引く（024）。このファイルは
-    // ペア成立にinvite.acceptを使うため、account行が無いと失敗する
+    // ペア成立に使う invite.accept が account_id（Google の識別子）を引く（024）
     db
       .prepare(
         "INSERT INTO account (id, issuer, account_id, provider_id, user_id, created_at, updated_at) VALUES (?1, 'google', ?2, 'google', ?3, ?4, ?4)",
@@ -64,9 +61,7 @@ function contextFor(
   };
 }
 
-// 023: couple.createは日付を受け取らないため、作成後にcouple.updateで
-// datingDateを設定する（テストがペアを日付で区別できるよう、旧来どおり
-// 引数で指定させる）
+// couple.create は日付を受け取らないので、作成後に couple.update で datingDate を設定する
 async function createCouple(
   user: { id: string; name: string; email: string },
   datingDate = "2020-01-01",
@@ -80,7 +75,6 @@ async function createCouple(
 }
 
 // couple.get が SELECT できるよう、is_demo=1 の couples 行を直接作る
-// （デモペアを作る 014 はまだ実装されていないため、テストのセットアップとして用意する）
 async function createDemoCouple(): Promise<string> {
   const id = crypto.randomUUID();
   const now = Math.floor(Date.now() / 1000);
@@ -121,8 +115,8 @@ describe("1. ペアAのユーザーがペアBのレコードを取得・更新�
     expect(bAfter.datingDate).not.toBe("2022-02-02");
   });
 
-  // 006: post.list/post.delete も ctx.coupleId のみを使う（引数に coupleId を
-  // 持たない）ため、他ペアのレコードには経路自体が存在しない
+  // post.list・post.delete も ctx.coupleId だけを使う（引数に coupleId を持たない）ので、
+  // 他ペアのレコードへの経路自体が無い（006）
   it("post.list は自分の所属ペアの投稿だけを返し、post.delete は他ペアの投稿IDを指定しても消せない", async () => {
     const userA = await createUser();
     await createCouple(userA, "2020-01-01");
@@ -138,16 +132,14 @@ describe("1. ペアAのユーザーがペアBのレコードを取得・更新�
       call(router.post.delete, { id: postB.id }, { context: contextFor(userA) }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
 
-    // 削除に失敗した Bの投稿は残っている
+    // 削除に失敗した B の投稿は残っている
     const listB = await call(router.post.list, {}, { context: contextFor(userB) });
     expect(listB.items.map((p) => p.id)).toEqual([postB.id]);
   });
 });
 
-// 網羅性は人手のリスト更新に依存する（router を再帰走査して自動検出する仕組みは
-// 005では見送った。security-auditor 005監査 Low指摘）。
-// 新しい書き込み手続きを追加したら、ここと couple.test.ts/invite.test.ts 双方に
-// 「未認証なら FORBIDDEN」のケースを追加すること
+// 未認証を FORBIDDEN にするケースは手で並べている。書き込み手続きを足したら、ここと
+// couple.test.ts・invite.test.ts の両方に足す（全手続きが基底を通ることは末尾の走査で見る）
 describe("2. 未認証アクセスで書き込み系の手続きが全て FORBIDDEN になる", () => {
   it("couple.update は DEMO_COUPLE_ID が設定されていても FORBIDDEN", async () => {
     const demoCoupleId = await createDemoCouple();
@@ -323,9 +315,8 @@ describe("2. 未認証アクセスで書き込み系の手続きが全て FORBID
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  // me.update/me.uploadImageUrlはcouple_idを持たず authedProcedure の上に載る
-  // （couple_idの有無に関わらず未認証を弾く。019）ため、DEMO_COUPLE_IDの
-  // 設定有無を問わずFORBIDDENになることだけを確認する
+  // me.update・me.uploadImageUrl は couple_id を持たず authedProcedure に載る（019）ので、
+  // DEMO_COUPLE_ID の有無を問わず FORBIDDEN になることだけを見る
   it("me.update は未認証なら FORBIDDEN（019）", async () => {
     const demoCoupleId = await createDemoCouple();
 
@@ -389,9 +380,8 @@ describe("3. 未認証アクセスで読み取れるのがデモペアのデー�
 
     const result = await call(router.stats.get, undefined, { context: contextFor(null, demoCoupleId) });
 
-    // createDemoCoupleはcouple_membersを作らない（メンバーゼロ）。owner側のペアが
-    // 混ざっていれば members に owner.id を含む1件が返るはずで、それが無いことで
-    // デモペア側のデータであることを確認する
+    // createDemoCouple は couple_members を作らない。owner のペアが混ざれば members に owner.id が
+    // 入るので、それが無いことでデモペア側のデータだと確かめる
     expect(result.members).toHaveLength(0);
   });
 
@@ -671,12 +661,9 @@ describe("5. DEMO_COUPLE_ID が未設定のとき、未認証アクセスが拒�
   });
 });
 
-// L5とは別経路。L5は値が無い場合、6は値が有るが指す先が違う場合
-// （security-requirements.md 3節）。`resolveCoupleContext`は冒頭で
-// `if (!demoCoupleId)`を弾くため、5のテスト（nullと空文字）だけでは
-// `AND is_demo = 1`を誰かが外しても1件も落ちない（Rが走査して確認済み）。
-// security-auditor指摘: 021（認可を触るタスク）でこの項目のテストが
-// リポジトリ全体に1件も存在しないと判明したため、ここで追加する
+// 5 とは別経路（5 は値が無い場合、6 は値があるが指す先が違う場合。security-requirements.md 3節）。
+// resolveCoupleContext は冒頭で !demoCoupleId を弾くので、5 のテストだけでは `AND is_demo = 1` を
+// 外しても 1 件も落ちない
 describe("6. DEMO_COUPLE_ID が実在するが is_demo でないペアを指すとき、未認証アクセスが拒否される", () => {
   it("couple.get は実在の非デモペアを指しても FORBIDDEN", async () => {
     const owner = await createUser();
@@ -697,9 +684,8 @@ describe("6. DEMO_COUPLE_ID が実在するが is_demo でないペアを指す�
   });
 });
 
-// 021: ペアの内側で権限が分かれるのは plan だけ（docs/tasks/021-plan-ownership.md）。
-// 1〜6は「他のペアに触れない」か「未認証を通さない」の話で、ペアの内側は
-// 同じ権限という前提に立っていた。7はその前提が変わったことを確認する
+// ペアの内側で権限が分かれるのは plan だけ（021）。1〜6 は「他のペアに触れない」「未認証を
+// 通さない」の話で、7 はペアの内側の権限を確かめる
 describe("7. ペアのもう1人が、共有でない plan を更新・削除できない", () => {
   async function createCoupleOfTwo() {
     const owner = await createUser();
@@ -785,17 +771,11 @@ describe("7. ペアのもう1人が、共有でない plan を更新・削除で
   });
 });
 
-// security-requirements.md 3節の項目8。security-auditorが「kindの変更が
-// 権限を奪う」経路を発見した（docs/tasks/021-plan-ownership.md）。
-// 「誰かが誰かを締め出す」ではなく「自分を締め出す更新を拒む」形で塞ぐ
-// Rが2段階での迂回を発見（meetup→共有plan→〈持ち主が〉非共有plan。単独では
-// 正しい2つの更新をつなぐと、1段階で塞いだのと同じ終着点に着く）。
-// AがWHERE句を「この操作が安全か」ではなく「この状態遷移が許されるか」で
-// 書き直す判断をした: kind<>'plan'からkind='plan'への変換そのものを拒む
-// （区分をまたぐ変換だけを見る。plan内の共有/非共有は持ち主が決めてよいため
-// 変えていない）。「いまの4件はすべて設定者でない側が主語で、設定者による
-// 操作が1件も試されていなかった」という指摘（Rが主語の分布を見て発見）を
-// 踏まえ、設定者・設定者でない側の両方を主語にしたテストを揃える
+// security-requirements.md 3節の項目8。kind の変更で権限を奪う経路を、「自分を締め出す更新を
+// 拒む」形で塞ぐ（021）。単独では正しい 2 つの更新をつなぐ迂回（meetup → 共有 plan →〈持ち主が〉
+// 非共有 plan）も塞ぐため、WHERE 句は状態遷移で書く: kind<>'plan' から kind='plan' への変換
+// そのものを拒む（plan の中の共有・非共有は持ち主が決めてよい）。設定者・設定者でない側の
+// 両方を主語にして確かめる
 describe("8. 更新の結果、この行を編集できなくなる側が生まれる更新を拒否する", () => {
   async function createCoupleOfTwo() {
     const owner = await createUser();
@@ -914,7 +894,7 @@ describe("8. 更新の結果、この行を編集できなくなる側が生ま�
       { context: contextFor(owner) },
     );
 
-    // step1: meetup → 共有plan（持ち主による操作。単独では「安全に見える」更新）
+    // step1: meetup → 共有 plan（持ち主による操作。単独では安全に見える更新）
     await expect(
       call(
         router.event.update,
@@ -923,7 +903,7 @@ describe("8. 更新の結果、この行を編集できなくなる側が生ま�
       ),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
 
-    // step1が拒まれた以上、kindはmeetupのまま。step2（非共有化）を試す前提が無い
+    // step1 が拒まれたので kind は meetup のまま。step2（非共有化）の前提が無い
     const row = await db.prepare("SELECT kind FROM events WHERE id = ?1").bind(meetup.id).first<{ kind: string }>();
     expect(row?.kind).toBe("meetup");
   });
@@ -996,11 +976,9 @@ describe("8. 更新の結果、この行を編集できなくなる側が生ま�
   });
 });
 
-// health.get / me.get は couple_id を必要としない手続きなので、認可の基底
-// （readProcedure/writeProcedure/authedProcedure）を経由しない。これは意図的な
-// 例外であり、それ以外の全手続きは必ずいずれかの基底を経由していなければならない。
-// 048 段階2: billing.prices も同じ（価格は誰が見ても同じ。Stripe の Price を読むだけで
-// couple_id もユーザーも見ない。ゲストも読める）
+// health.get・me.get は couple_id を要らない手続きなので、認可の基底（readProcedure・
+// writeProcedure・authedProcedure）を経由しない。意図的な例外で、それ以外の全手続きは必ずどれかを
+// 経由する。billing.prices も同じ（価格は誰が見ても同じ。Stripe の Price を読むだけ。048）
 const ALLOWED_WITHOUT_BASE = new Set(["health.get", "me.get", "billing.prices"]);
 
 // router を再帰的に辿り、leaf（procedure）を "couple.get" のようなパス付きで集める
@@ -1015,17 +993,10 @@ function collectProcedures(node: unknown, path: string[] = []): Array<{ path: st
 }
 
 describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を経由しない手続きが無い", () => {
-  // 「手続きごとに認可を書くと必ずどこかで書き忘れる」（security-requirements.md 3節）を
-  // 機械的に検出する。.use() の書き忘れは型エラーにならないため、これが唯一の防御線
-  // （security-auditor 005監査 Medium指摘: authedProcedure の追加だけでは
-  // 「.use() を丸ごと忘れる」経路は塞げない。Rレビューで指摘され追加した）
-  // 手続きの一覧を名前で固定する（Rレビュー指摘・029）。以前は数の下限
-  // （`toBeGreaterThanOrEqual`）だけを見ていたが、下限を実数まで上げ忘れても
-  // `>=`は緑のまま通ってしまい、番人が静かに意味を失っていた
-  // （029の起票時点で26のまま放置されていたことをsecurity-auditorが発見）。
-  // 名前の完全一致にすることで、手続きを足した人は先にこの一覧が赤くなり、
-  // 一覧を更新してから追加する形になる（#180で走査対象の一覧に施したのと
-  // 同じ考え方をここにも適用する）
+  // 手続きごとに認可を書くと必ずどこかで書き忘れる（security-requirements.md 3節）。.use() の
+  // 書き忘れは型エラーにならないので、これが唯一の防御線。
+  // 手続きの一覧は名前の完全一致で固定する（数の下限だと、下限を上げ忘れても緑のまま番人が意味を
+  // 失う）。手続きを足した人は先にこの一覧が赤くなり、一覧を直してから足す形になる
   const EXPECTED_PROCEDURE_PATHS = [
     "health.get",
     "me.get",
@@ -1077,7 +1048,7 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     "album.delete",
     "photo.list",
     "photo.downloadUrl",
-    // 048 段階2
+    // 048
     "billing.prices",
     "billing.createCheckoutSession",
     "billing.createPortalSession",
@@ -1098,9 +1069,8 @@ describe("認可の基底（readProcedure/writeProcedure/authedProcedure）を�
     // 手続きの一覧そのものが期待どおりである（増減・リネームのどちらも検出する）
     expect(procedures.map((p) => p.path).sort()).toEqual(EXPECTED_PROCEDURE_PATHS);
 
-    // 「ミドルウェアが1つ以上ある」だけでは、ログ計測等の無関係なミドルウェアを
-    // 足しただけで .use(writeProcedure) の書き忘れを見逃す。実際にこの3つの
-    // 関数が含まれているかを検査する（Rレビュー005 往復2回目の指摘）
+      // 「ミドルウェアが 1 つ以上ある」だけでは、無関係なミドルウェアを足しただけで
+      // .use(writeProcedure) の書き忘れを見逃す。この 3 つの関数が含まれているかを見る
     const bases: readonly unknown[] = [readProcedure, writeProcedure, authedProcedure, adminProcedure];
 
     for (const { path, procedure } of procedures) {

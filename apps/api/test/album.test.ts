@@ -8,11 +8,11 @@ import { generateImageId } from "../src/lib/ulid";
 import { albumImageKeyFor, imageKeyFor } from "../src/lib/r2-signed-url";
 import { D1_MAX_BOUND_PARAMETERS } from "../src/procedures/album";
 
-// 041: アルバム（T1〜T7・T9）。want.test.ts と同じ形でペアと R2 の実体を用意する
+// アルバム（041 T1〜T7・T9）。ペアと R2 の実体は want.test.ts と同じ形で用意する
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
 
-// wish.test.ts と同じ理由（実際の R2 API トークンの設定有無にテストの合否を左右させない）
+// 実際の R2 API トークンの設定有無に合否を左右させない
 const r2Sign: RpcContext["r2Sign"] = {
   accountId: "test-account",
   accessKeyId: "test-access-key-id",
@@ -84,8 +84,7 @@ async function uploadedPhotos(coupleId: string, count: number) {
   return photos;
 }
 
-// created_at を直接指定して写真付きの投稿を作る（同一秒の重複・欠落テストのため、
-// post.create の now() 依存を避けて直接 DB へ挿入する。post.test.ts の insertPost と同じ）
+// created_at を指定して写真付きの投稿を作る（post.create の now() を避けて直接 INSERT。post.test.ts の insertPost と同じ）
 async function insertPostWithImages(
   coupleId: string,
   authorId: string,
@@ -204,10 +203,9 @@ describe("album.create / album.list / album.get（基本）", () => {
   });
 });
 
-// R の段階1レビューの記録 1（A の決定 #296）: post.delete は post_images を物理削除するため、
-// `posts.deleted_at IS NULL` の条件が効く場面は今は無い（外してもテストが緑だった）。
-// 条文（architecture.md 4節「posts を読むクエリには必ず deleted_at IS NULL を含める」）を試せる形で
-// 置くため、deleted_at を SQL で直接立てて post_images の行を残した状態を作る
+// post.delete は post_images を物理削除するので、`posts.deleted_at IS NULL` が効く場面は今は無い。
+// 条文（architecture.md 4節「posts を読むクエリには必ず deleted_at IS NULL を含める」）を試せる形に
+// するため、deleted_at を SQL で直接立てて post_images の行を残した状態を作る
 describe("posts.deleted_at IS NULL の条件そのもの（post_images の行が残っていても出さない）", () => {
   it("photo.list（タイムライン）にも album.list の timeline にも、削除済み投稿の写真は出ない", async () => {
     const { owner, coupleId } = await createPair();
@@ -365,9 +363,8 @@ describe("T3: D1 → R2 の順。R2 の削除が失敗しても手続きは成�
     expect(await bucket.head(albumImageKeyFor(coupleId, photos[2]!.imageId))).not.toBeNull();
   });
 
-  // R の段階1レビュー（必須修正）: D1 は 1 文の束縛パラメータが 100 まで。100 枚を 1 回で消すと
-  // IN 句 + 2 個で超える。ローカルの SQLite は通してしまうため、db.prepare に渡った SQL の
-  // プレースホルダを数えて「文ごとに 100 以下」を固定する（batch の中の各文に個別に適用される）
+  // D1 は 1 文の束縛パラメータが 100 まで（100 枚を 1 回で消すと IN 句 + 2 個で超える）。ローカルの
+  // SQLite は通してしまうので、db.prepare に渡った SQL のプレースホルダを数えて「文ごとに 100 以下」を固定する
   it("100 枚を 1 回の removePhotos で消せる。文ごとの束縛パラメータは D1 の上限（100）を超えない", async () => {
     const { owner, coupleId } = await createPair();
     const album = await call(router.album.create, { title: "100 枚" }, { context: contextFor(owner) });
@@ -558,8 +555,8 @@ describe("T4 / T5: photo.list の並びとカーソル", () => {
 describe("T6: 上限", () => {
   it("499 枚のアルバムに 2 枚入れると LIMIT_REACHED で 1 枚も入らない。1 枚なら入る", async () => {
     const { owner, coupleId } = await createPair();
-    // 045: 物理上限（500 枚）の検査は無料枠（30 枚）より後ろにあるため、paid にしてから確かめる
-    // （free のままだと PLAN_LIMIT が先に出る。plan.test.ts の T1 が固定している）
+    // 物理上限（500 枚）の検査は無料枠（30 枚）より後ろなので、paid にしてから確かめる（free のままだと
+    // PLAN_LIMIT が先に出る。045）
     await db
       .prepare("INSERT INTO couple_plans (couple_id, plan, source, updated_at) VALUES (?1, 'paid', 'manual', unixepoch())")
       .bind(coupleId)
@@ -593,7 +590,7 @@ describe("T6: 上限", () => {
     ).rejects.toMatchObject({ code: "LIMIT_REACHED" });
   });
 
-  // 055 T1: 1 ペアの件数の上限は 1,000 件（500 枚 × 1,000 = 50 万枚）。1,000 件目は作れ、1,001 件目で LIMIT_REACHED
+  // 1 ペアのアルバムは 1,000 件まで（500 枚 × 1,000 = 50 万枚）。1,000 件目は作れ、1,001 件目で LIMIT_REACHED（055 T1）
   it("1,001 件目のアルバムは LIMIT_REACHED（1,000 件目は作れる）。削除済みは数えない", async () => {
     const { owner, coupleId } = await createPair();
     const now = Math.floor(Date.now() / 1000);
@@ -625,7 +622,7 @@ describe("T6: 上限", () => {
       code: "LIMIT_REACHED",
     });
 
-    // 055 T3: 1,000 件でも album.list は通り、応答の JSON は 1MB 未満（ページング無しのまま）
+    // 1,000 件でも album.list は通り、応答の JSON は 1MB 未満（ページング無しのまま。055 T3）
     const list = await call(router.album.list, {}, { context: contextFor(owner) });
     expect(list.items).toHaveLength(1_000);
     expect(list.items.some((a) => a.id === thousandth.id)).toBe(true);

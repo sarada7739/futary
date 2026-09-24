@@ -20,9 +20,8 @@ import { DEMO_WEATHER_AREA } from "../src/procedures/weather";
 import tokyoJson from "./fixtures/weather/130000.json?raw";
 import landingPrivacyHtml from "../../landing/privacy.html?raw";
 
-// 058: カレンダーの天気と祝日（docs/tasks/058-weather-and-holidays.md 3節 T2〜T6・T8）。
-// 気象庁の JSON は 2026-09-16 17:00 発表の東京都（130000）の写し（fixtures/weather/130000.json）。
-// 外部の fetch は context.externalFetch で差し替える（本物の気象庁には行かない）
+// カレンダーの天気と祝日（058 3節 T2〜T6・T8）。気象庁の JSON は 2026-09-16 17:00 発表の東京都
+// （130000）の写し（fixtures/weather/130000.json）。外部の fetch は context.externalFetch で差し替える
 
 const db = (env as unknown as Bindings).DB;
 const bucket = (env as unknown as Bindings).BUCKET;
@@ -68,7 +67,7 @@ function fakeFetch(handler: (url: string, init: RequestInit) => Promise<Response
 const okJson = (body: string) => new Response(body, { status: 200, headers: { "content-type": "application/json" } });
 const tokyoFetch = () =>
   fakeFetch((url, init) => {
-    // R の記録 2: 気象庁への fetch もヘッダは UA（040 と同じ）と accept だけ（Cookie・利用者の情報は送らない）
+    // 気象庁への fetch もヘッダは UA と accept だけ（Cookie・利用者の情報は送らない）
     expect(init.headers).toEqual({ "user-agent": "nisoine-link-preview/1 (+https://nisoine.com)", accept: "application/json" });
     expect(init.signal).toBeInstanceOf(AbortSignal);
     return url === `${JMA_FORECAST_URL}130000.json` ? okJson(tokyoJson) : new Response("nf", { status: 404 });
@@ -167,8 +166,8 @@ describe("058 T2: weather.get（固定の応答から 7 日分。失敗は days 
   });
 
   it("weather.get: 地域を設定した利用者は area と 7 日分。未設定は area null・days []", async () => {
-    // 手続きは Date.now() で「今日」を決める。写しの週間（09-17〜23）の中に「今」を固定する
-    // （本物の今日だと 09-24 以降は days が 0 件になる）。Date だけを差し替え、タイマーは本物のまま
+    // 手続きは Date.now() で「今日」を決めるので、写しの週間（09-17〜23）の中に固定する。Date だけを
+    // 差し替え、タイマーは本物のまま
     vi.setSystemTime(NOW_MS);
     try {
       const { impl } = tokyoFetch();
@@ -246,7 +245,7 @@ describe("058 T3: fetch する URL は固定の 2 つだけ。差し込むのは
     await db.prepare("UPDATE couple_members SET weather_area = '999999' WHERE user_id = ?1").bind(pair.owner.id).run();
     expect(await call(router.weather.get, {}, { context: ctx })).toEqual({ area: null, days: [] });
     expect(calls).toEqual([]);
-    // R の記録 1: loadDays の二重の弾き（表に無いコードを直接渡しても fetch せず []）
+    // loadDays の二重の弾き（表に無いコードを直接渡しても fetch せず []）
     expect(await loadDays("999999", NOW_MS, impl)).toEqual([]);
     expect(await loadDays("130000", NOW_MS, impl)).toEqual([]);
     expect(calls).toEqual([]);
