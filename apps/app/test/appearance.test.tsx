@@ -184,7 +184,7 @@ describe("T4: Provider が無いとき", () => {
 });
 
 describe("FabIcon: 中央の投稿ボタンの絵", () => {
-  it("pink では従来の画像（fab-plus.png）を描き、白い円は描かない", () => {
+  it("pink では画像（fab-plus.png）を描き、白い円は描かない", () => {
     const { container } = render(
       <AppearanceProvider initialAppearance="pink">
         <FabIcon size={56} />

@@ -285,7 +285,7 @@ describe("AlbumDetailScreen: 選択モード（T11）", () => {
   });
 });
 
-describe("AlbumDetailScreen: 100 枚を超える削除（R の段階1レビュー）", () => {
+describe("AlbumDetailScreen: 100 枚を超える削除", () => {
   it("101 枚選んで削除すると album.removePhotos が 100 枚 + 1 枚の 2 回に分かれて呼ばれる", async () => {
     const many = Array.from({ length: 101 }, (_, i) => makeAlbumPhoto(i + 1));
     photoListMock.mockResolvedValue({ items: many, nextCursor: null });

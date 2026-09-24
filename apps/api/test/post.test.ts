@@ -161,7 +161,7 @@ describe("post.create", () => {
     expect(post.images).toHaveLength(1);
   });
 
-  it("本文と画像がどちらも空だと INVALID_INPUT（旧L30）", async () => {
+  it("本文と画像がどちらも空だと INVALID_INPUT", async () => {
     const user = await createUser();
     await createCouple(user);
 
@@ -223,7 +223,7 @@ describe("post.create", () => {
     expect(imageRow?.count).toBe(0);
   });
 
-  it("imageId が ULID の形式でない場合は入力バリデーションで弾かれる（007 security-auditor 指摘）", async () => {
+  it("imageId が ULID の形式でない場合は入力バリデーションで弾かれる", async () => {
     const user = await createUser();
     await createCouple(user);
 
@@ -261,7 +261,7 @@ describe("post.create", () => {
     expect(await bucket.head(key)).toBeNull();
   });
 
-  it("Content-Type が image/jpeg 以外の実体は INVALID_INPUT になり、R2からも削除される（007 security-auditor 指摘）", async () => {
+  it("Content-Type が image/jpeg 以外の実体は INVALID_INPUT になり、R2からも削除される", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
     const imageId = await uploadTestImage(couple.id, 100, "image/png");

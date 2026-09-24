@@ -846,7 +846,7 @@ describe("8. 更新の結果、この行を編集できなくなる側が生ま�
     expect(row?.is_shared).toBe(1);
   });
 
-  it("設定者が、記念日を「共有のplan」にする更新も拒まれる（NOT_FOUND。2段階での迂回を防ぐため当初は通していたが閉じた）", async () => {
+  it("設定者が、記念日を「共有のplan」にする更新も拒まれる（NOT_FOUND。2段階での迂回を防ぐ）", async () => {
     const { owner } = await createCoupleOfTwo();
     const anniversary = await call(
       router.event.create,

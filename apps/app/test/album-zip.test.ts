@@ -121,7 +121,7 @@ describe("名前（タスク定義 2節）", () => {
     expect(safeZipName("京都旅行")).toBe("京都旅行");
   });
 
-  it("Z1b: `.` だけの名前は album に倒す。TAB・改行・制御文字も _ に（R の段階1レビュー記録 2）", () => {
+  it("Z1b: `.` だけの名前は album に倒す。TAB・改行・制御文字も _ に", () => {
     expect(safeZipName("..")).toBe("album");
     expect(safeZipName(".")).toBe("album");
     expect(safeZipName("  ..  ")).toBe("album");

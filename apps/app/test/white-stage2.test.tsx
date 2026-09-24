@@ -108,7 +108,7 @@ describe("b: 記念日カード", () => {
     expect(await screen.findByTestId("stats-card-days-prefix")).toHaveTextContent("記念日まで あと");
   });
 
-  it("pink では従来どおり（ハート・「付き合って」・ピル）", async () => {
+  it("pink ではハート・「付き合って」・ピルを出す", async () => {
     renderIn("pink", <StatsCard />);
     expect(await screen.findByTestId("stats-card-days-prefix")).toHaveTextContent("付き合って");
     expect(screen.getByTestId("stats-card-heart")).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe("f: 統計のヒーロー", () => {
     expect(screen.getByText("94日")).toBeInTheDocument();
   });
 
-  it("white ではヘッダごと消す（「統計」が3回並ばない。Tabs のヘッダは題しか無い。A の指摘）", async () => {
+  it("white ではヘッダごと消す（「統計」が3回並ばない。Tabs のヘッダは題しか無い）", async () => {
     renderIn("white", <StatsScreen />);
     await screen.findByTestId("stats-hero");
     const options = JSON.parse(screen.getByTestId("tabs-screen-options").getAttribute("aria-label") ?? "{}");

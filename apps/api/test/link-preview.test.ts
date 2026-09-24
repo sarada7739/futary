@@ -157,7 +157,7 @@ describe("extractMeta: 段階0で取った本物の HTML（T2）", () => {
     expect(extractMeta(html, "example.com")).toEqual({ title: "題名", imageUrl: "https://cdn.example.com/a.jpg?x=1&y=2" });
   });
 
-  it("値の中のアポストロフィで切れない（R の必須修正1: Levi's）。引用符は開いた種類で閉じる", () => {
+  it("値の中のアポストロフィで切れない（Levi's）。引用符は開いた種類で閉じる", () => {
     const html =
       '<meta property="og:title" content="Levi\'s 501 ジーンズ"><meta property="og:image" content=\'https://cdn.example.com/it"s.jpg\'>' +
       '<img id="landingImage" data-old-hires="https://m.media-amazon.com/images/I/x\'y.jpg">';
@@ -417,7 +417,7 @@ describe("fetchLinkPreview: リダイレクト（6節: 3 回まで。行き先�
     expect(preview.failures.join(" ")).toContain("超えた");
   });
 
-  it("Amazon 用の規則は読んだページ（リダイレクト後）のホストで決まる（R の必須修正2: amzn.asia の短縮 URL）", async () => {
+  it("Amazon 用の規則は読んだページ（リダイレクト後）のホストで決まる（amzn.asia の短縮 URL）", async () => {
     const short = "https://amzn.asia/d/abc123";
     const product = "https://www.amazon.co.jp/dp/B0HJBHHXK2";
     const image = "https://m.media-amazon.com/images/I/71hktoqrWjL._AC_SL1500_.jpg";
@@ -496,7 +496,7 @@ describe("fetchLinkPreview: 全体で 12 秒（6節）", () => {
     }
   });
 
-  it("上限は 12 秒（5 秒では楽天が常に画像無しになる。段階0）", () => {
+  it("上限は 12 秒（5 秒では楽天が常に画像無しになる）", () => {
     expect(TOTAL_TIMEOUT_MS).toBe(12_000);
     expect(PAGE_BYTE_LIMIT).toBe(1024 * 1024);
   });
