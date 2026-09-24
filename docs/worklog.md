@@ -13924,6 +13924,13 @@ Session: B
 
 Session: A
 
+## 2026-09-25 セッションB: 063 段階2 のマージ
+
+- R の連絡: A の #435 が main に入った → `task/063-stage2` に main を取り込む（`docs/state.md` の先頭がぶつかった。A の版を先頭、段階2 の版を旧にした）→ CI 緑 → #434 を squash merge（main 4e4a7ce）
+- 段階3 は `task/063-stage3` で進めている（不要なテスト 7 本・it.each 4 か所・祝日の年の固定・免除の場所を行の中身で固定。テストのコメントは途中）
+
+Session: B
+
 ## 2026-09-25 セッションB: 063 段階3（テストとテストファイルのコメント）
 
 - 消した 7 本: home-screen の「COMING SOON 等が出ない」・post の「imageUrl が残っていない」・landing の 059 の 5 本（054・056 と重なる／消したものが無いだけ）。`it.each` に 5 か所（auth の許可 URL・stats の computeDaysTogether・white-stage2 のパネルの white/pink・date の isValidDate・isLeapYear）

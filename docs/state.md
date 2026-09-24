@@ -11,6 +11,12 @@
 
 ---
 
+**最終更新（旧）**: 2026-09-25 / セッションB。**063 段階2: R 受け入れ（必須修正なし）→ A の audit の修正（#435）の後に main を取り込み、CI 緑 → #434 を squash merge（main 4e4a7ce）。B は段階3（テストとテストのコメント）の途中。**
+- 判定 `artifacts/063/review-stage2.md`。取り込みでぶつかったのは `docs/state.md` の先頭だけ（A の版を先頭に、段階2 の版を旧に）
+- 人間の手番（続き）: 061 段階3・062 のデプロイ → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price・Dependabot の fflate（#340・#382）
+
+---
+
 **最終更新（旧）**: 2026-09-25 / セッションA。**main の CI の赤（audit の陳腐化検出）を直す: 無視リストの image-size 2 件を外した（`pnpm-workspace.yaml` の `ignoreGhsas: []`）。R の連絡。これが main に入れば 063 段階2（#434。R 受け入れ済み）をマージできる。**
 - 原因は依存ではなく勧告の側: 2026-09-24 に勧告が更新され（修正版 `image-size@2.0.3`）、`pnpm audit` が 1.2.1 に対してこの 2 件を返さなくなった。lockfile は変わっていない。Metro が `^1.0.2` を宣言するので 2.x には上げない。再び出たら無視リストに戻す（`security-requirements.md` 9節の表）
 - 手元で確認: 無視リスト無しの `pnpm audit` は moderate 4 件だけ（esbuild・uuid・decode-uri-component・fflate）、high 0。`--audit-level=high` は通る
