@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { call } from "@orpc/server";
 import { WEATHER_AREAS, WEATHER_PREFECTURES, isWeatherAreaCode } from "@futary/contract";
 import { BUNDLED_HOLIDAYS, addDays, todayJst } from "@futary/date";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { router } from "../src/router";
 import type { Bindings } from "../src/index";
 import type { RpcContext } from "../src/context";
@@ -165,18 +165,24 @@ describe("058 T2: weather.get（固定の応答から 7 日分。失敗は days 
   });
 
   it("weather.get: 地域を設定した利用者は area と 7 日分。未設定は area null・days []", async () => {
-    const { impl } = tokyoFetch();
-    const pair = await createPair(impl);
-    const ctx = contextFor(pair.owner, impl);
-    expect(await call(router.weather.get, {}, { context: ctx })).toEqual({ area: null, days: [] });
-    await call(router.me.updateWeatherArea, { areaCode: "130010" }, { context: ctx });
-    const result = await call(router.weather.get, {}, { context: ctx });
-    expect(result.area).toEqual({ code: "130010", name: "東京地方" });
-    expect(result.days.length).toBeGreaterThanOrEqual(1);
-    expect(result.days.length).toBeLessThanOrEqual(7);
-    expect(result.days[0]).toMatchObject({ date: todayJst(), code: expect.any(String) });
-    // couple.get にも自分の地域
-    expect((await call(router.couple.get, undefined, { context: ctx })).weatherArea).toEqual({ code: "130010", name: "東京地方" });
+    // 手続きは Date.now() で「今日」を決める。写しの週間（09-17〜23）の中に「今」を固定する
+    // （本物の今日だと 09-24 以降は days が 0 件になる）。Date だけを差し替え、タイマーは本物のまま
+    vi.setSystemTime(NOW_MS);
+    try {
+      const { impl } = tokyoFetch();
+      const pair = await createPair(impl);
+      const ctx = contextFor(pair.owner, impl);
+      expect(await call(router.weather.get, {}, { context: ctx })).toEqual({ area: null, days: [] });
+      await call(router.me.updateWeatherArea, { areaCode: "130010" }, { context: ctx });
+      const result = await call(router.weather.get, {}, { context: ctx });
+      expect(result.area).toEqual({ code: "130010", name: "東京地方" });
+      expect(result.days).toHaveLength(7);
+      expect(result.days[0]).toMatchObject({ date: todayJst(NOW_MS), code: expect.any(String) });
+      // couple.get にも自分の地域
+      expect((await call(router.couple.get, undefined, { context: ctx })).weatherArea).toEqual({ code: "130010", name: "東京地方" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("気象庁が落ちている（5xx・タイムアウト・形が違う）→ days: [] で通る（投げない）", async () => {
@@ -263,7 +269,14 @@ describe("058 T3: fetch する URL は固定の 2 つだけ。差し込むのは
 });
 
 describe("058 T4・T6: weather.getForDate（予定の詳細）", () => {
-  const today = todayJst();
+  // 手続きの「今日」（Date.now()）を写しの週間の中に固定する（weather.get のテストと同じ理由）
+  const today = todayJst(NOW_MS);
+  beforeEach(() => {
+    vi.setSystemTime(NOW_MS);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it("同じ地域 → same true で両方に同じ day。片方未設定 → その側 null・same false。地域が違えば 2 つ。8 日先 → 両方 null", async () => {
     const { impl } = tokyoFetch();

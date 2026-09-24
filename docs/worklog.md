@@ -13885,3 +13885,10 @@ Session: B
 - 3 段階に分けた（差分を R が読める大きさに）。061 の残骸は段階1 に入れた
 
 Session: A
+
+## 2026-09-25 セッションB: weather テストの日付依存を直す（main の CI が赤）
+
+- A の依頼: #430 の CI（run 36041278302）で `weather.test.ts` の「weather.get: 地域を設定した利用者は area と 7 日分」が落ちた。手続きが `Date.now()` で今日を決め、写し（09-16 発表・週間 09-17〜23）の外に出たため `days` が 0 件
+- `vi.setSystemTime(NOW_MS)`（Date だけ差し替え）をその 1 本と `getForDate` の describe に。断言は `days` が 7 件・先頭が `todayJst(NOW_MS)`
+
+Session: B
