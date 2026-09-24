@@ -1,6 +1,5 @@
-// 057: 運営のメール（ADMIN_EMAILS。wrangler secret。カンマ区切り）。コードにメールを書かない。
-// 比べるときは小文字化・trim（大文字小文字・前後の空白の違いで漏れない。T1）。
-// 空・未設定なら運営はいない（fail-closed）
+// 運営のメール（ADMIN_EMAILS。wrangler secret）。コードにメールを書かない。比べるときは小文字化・trim。
+// 空・未設定なら運営はいない（fail-closed。057）
 export function parseAdminEmails(raw: string | undefined): readonly string[] {
   if (!raw) return [];
   return raw

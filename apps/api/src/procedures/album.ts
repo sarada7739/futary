@@ -15,19 +15,16 @@ import { generateImageId } from "../lib/ulid";
 import { isConstraintViolation } from "./couple";
 import { readProcedure, writeProcedure } from "./base";
 
-// 041 タスク定義1節: 1 アルバム 500 枚。1 ペアの件数は 055 で 100 → 1,000 件（未削除。500 × 1,000 = 50 万枚）。
-// 超えたら LIMIT_REACHED
+// 1 アルバム 500 枚・1 ペア 1,000 件（未削除。500 × 1,000 = 50 万枚。055）。超えたら LIMIT_REACHED
 const MAX_ALBUMS_PER_COUPLE = 1_000;
 const MAX_PHOTOS_PER_ALBUM = 500;
 
-// 契約の z.literal と同じ値。署名付き PUT URL は Content-Type を強制できないため、
-// 実体確認のタイミングで検証する（post.create と同じ）
+// 契約の z.literal と同じ値。署名付き PUT URL は Content-Type を強制できないので、実体を確かめるときに見る
 const UPLOAD_CONTENT_TYPE = "image/jpeg";
 
-// Cloudflare D1 の「1 文あたりの束縛パラメータ」の上限は 100（developers.cloudflare.com/d1/platform/limits/。
-// R の段階1レビューで指摘）。ローカルの SQLite（miniflare）は 32766 まで通すためテストでは見えない。
-// IN 句に並べる id はこの数ずつの DELETE 文に分け、1 本の batch() に入れる（上限は batch 内の各文に
-// 個別に適用される）。1 文のパラメータは id の数 + 2（album_id・couple_id）
+// D1 の「1 文あたりの束縛パラメータ」の上限は 100（developers.cloudflare.com/d1/platform/limits/）。
+// ローカルの miniflare は 32766 まで通すのでテストでは見えない。IN 句の id はこの数ずつの DELETE に
+// 分けて 1 本の batch() に入れる（上限は文ごと）。1 文のパラメータは id の数 + 2（album_id・couple_id）
 export const D1_MAX_BOUND_PARAMETERS = 100;
 export const REMOVE_PHOTOS_CHUNK_SIZE = 50;
 
@@ -52,8 +49,8 @@ interface AlbumRow {
   cover_height: number | null;
 }
 
-// 047: 鍵の文脈。locked のときだけ持つ（null なら鍵は無い）。unlocked は鍵でない写真（先頭 30 枚）。
-// 判定は lib/plan.ts の 1 箇所。ここは「この写真がその中に無い = 鍵」と読むだけ
+// 鍵の文脈。locked のときだけ持つ（null なら鍵は無い）。unlocked は鍵でない写真（先頭 30 枚）。
+// 判定は lib/plan.ts の 1 箇所で、ここは「この中に無い = 鍵」と読むだけ（047）
 interface LockContext {
   unlocked: UnlockedPhoto[];
   unlockedIds: Set<string>;
@@ -86,11 +83,9 @@ interface TimelinePhotoRow {
 }
 
 // アルバム 1 行を、枚数とカバーの解決まで含めて 1 文で引く。
-// カバーは「cover_photo_id の写真があればそれ、無ければ（NULL・外された）いちばん新しい写真」
-// （タスク定義1節「カバーに FK を張らない。読むときに倒す」）。SQLite は NULL を最小として
-// 並べるため、`(p2.id = a.cover_photo_id) DESC` は cover_photo_id が NULL なら全行が同順位で
-// taken_at DESC に落ち、指定があれば一致する 1 行だけが先頭に来る。写真が 0 枚なら
-// LEFT JOIN で cover_* が NULL
+// カバーに FK は張らず、読むときに倒す: cover_photo_id の写真があればそれ、無ければいちばん新しい写真。
+// `(p2.id = a.cover_photo_id) DESC` は cover_photo_id が NULL なら全行が同順位で taken_at DESC に落ち、
+// 指定があれば一致する 1 行だけが先頭に来る。写真が 0 枚なら cover_* が NULL
 const ALBUM_SELECT =
   `SELECT a.id AS id, a.title AS title, a.note AS note, a.start_date AS start_date, a.end_date AS end_date,
           a.cover_photo_id AS cover_photo_id, a.created_at AS created_at,
@@ -102,8 +97,8 @@ const ALBUM_SELECT =
         ORDER BY (p2.id = a.cover_photo_id) DESC, p2.taken_at DESC, p2.id DESC
         LIMIT 1)`;
 
-// 047: カバーが鍵の写真なら、鍵でない中でいちばん新しいもの（このアルバムのもの）に倒す。無ければ null。
-// photoCount は鍵を含む数のまま（タスク定義 1節）
+// カバーが鍵の写真なら、このアルバムの鍵でない中でいちばん新しいものに倒す。無ければ null。
+// photoCount は鍵を含む数のまま（047）
 function resolveCover(row: AlbumRow, lock: LockContext | null): { key: string; width: number; height: number } | null {
   if (row.cover_key === null || row.cover_width === null || row.cover_height === null) return null;
   if (lock === null || (row.cover_id !== null && lock.unlockedIds.has(row.cover_id))) {
@@ -131,8 +126,7 @@ async function toAlbum(row: AlbumRow, r2Sign: R2SignConfig, lock: LockContext | 
   };
 }
 
-// 自ペアの未削除のアルバムを 1 件。他ペア・削除済み・存在しないはすべて null（区別しない。
-// 存在を教えない。want.* と同じ）
+// 自ペアの未削除のアルバムを 1 件。他ペア・削除済み・存在しないは区別せず null（存在を教えない）
 async function fetchAlbum(db: D1Database, coupleId: string, id: string): Promise<AlbumRow | null> {
   return db
     .prepare(`${ALBUM_SELECT} WHERE a.id = ?1 AND a.couple_id = ?2 AND a.deleted_at IS NULL`)
@@ -151,7 +145,7 @@ async function fetchAlbumOrThrow(
   return row;
 }
 
-// 047: 鍵の写真は url が null・caption が空・locked が true（URL を出さないことで「見られない」を作る）
+// 鍵の写真は url が null・caption が空（URL を出さないことで「見られない」を作る。047）
 async function toAlbumPhoto(row: AlbumPhotoRow, r2Sign: R2SignConfig, lock: LockContext | null): Promise<Photo> {
   const locked = lock !== null && !lock.unlockedIds.has(row.id);
   return {
@@ -179,8 +173,8 @@ async function toTimelinePhoto(row: TimelinePhotoRow, r2Sign: R2SignConfig): Pro
 
 // --- R2 ---------------------------------------------
 
-// R2 の失敗をそのまま投げない（withErrorId がメッセージをログに出し、R2 のエラーメッセージには
-// 画像キーが含まれうる。security-requirements.md 8節。post.create・want.* と同じ形）
+// R2 のエラーメッセージは画像キーを含みうるので、詰め替えて投げる（withErrorId がログに出す。
+// security-requirements.md 8節）
 async function headOrThrow(bucket: R2Bucket, key: string): Promise<R2Object | null> {
   try {
     return await bucket.head(key);
@@ -194,14 +188,13 @@ async function deleteQuietly(bucket: R2Bucket, keys: string[]): Promise<void> {
   try {
     await bucket.delete(keys);
   } catch {
-    // 掃除の失敗で利用者の操作を失敗させない（post.delete と同じ）。行は既に消えているため、
-    // 失敗した分は孤児として残る（architecture.md 6節の回収手順の対象）。キーはログに出さない
+    // 掃除の失敗で利用者の操作を失敗させない。行は消えているので孤児として残る
+    // （architecture.md 6節の回収手順の対象）。キーはログに出さない
   }
 }
 
-// アップロード済みの実体を全部確かめてから鍵を返す（1 枚でも無ければ INVALID_INPUT。
-// 部分的に入れない。タスク定義2節）。型やサイズが違う実体は削除する（残すと同じ imageId を
-// 二度と使えない孤児になる。post.create と同じ判断）
+// 実体を全部確かめてから鍵を返す（1 枚でも無ければ INVALID_INPUT。部分的に入れない）。
+// 型やサイズが違う実体は消す（残すと、同じ imageId を二度と使えない孤児になる）
 async function verifyUploadedImages(
   bucket: R2Bucket,
   coupleId: string,
@@ -224,9 +217,8 @@ async function verifyUploadedImages(
 
 // --- カーソル ---------------------------------------------
 
-// post.list と同じく不透明な文字列。タイムラインは (created_at, post_id, position) の複合、
-// アルバムは (taken_at, id) の複合。同秒の投稿・同秒の写真がページ境界をまたいでも
-// 重複・欠落しない（T4）
+// 不透明な文字列。タイムラインは (created_at, post_id, position)、アルバムは (taken_at, id) の複合で、
+// 同秒の投稿・写真がページ境界をまたいでも重複・欠落しない
 interface TimelineCursor {
   createdAt: number;
   postId: string;
@@ -273,7 +265,7 @@ async function fetchTimelinePage(
   cursor: TimelineCursor | null,
   limit: number,
 ): Promise<TimelinePhotoRow[]> {
-  // 次ページの有無を 1 回のクエリで判定するため limit + 1 件取る（post.list と同じ）
+  // 次ページの有無を 1 回のクエリで判定するため limit + 1 件取る
   const stmt = cursor
     ? db
         .prepare(
@@ -313,9 +305,8 @@ async function fetchAlbumPhotoPage(
 
 // --- album.* ---------------------------------------------
 
-// ctx.coupleId のみを使う。未削除・新しい順。ページング無し（1,000 件上限。055）。
-// 署名は previews 4 枚 + カバー最大 1,000 枚（手元の HMAC 計算で、R2 への往復は無い。
-// 1,000 件でも応答は 1MB 未満: 055 T3）
+// 未削除・新しい順。ページング無し（1,000 件上限）。署名は previews 4 枚 + カバー最大 1,000 枚で、
+// 手元の HMAC 計算なので R2 への往復は無い（1,000 件でも応答は 1MB 未満。055）
 const albumList = implementer.album.list.use(readProcedure).handler(async ({ context }) => {
   const { db, coupleId, r2Sign } = context;
 
@@ -332,7 +323,7 @@ const albumList = implementer.album.list.use(readProcedure).handler(async ({ con
       .prepare(`${ALBUM_SELECT} WHERE a.couple_id = ?1 AND a.deleted_at IS NULL ORDER BY a.created_at DESC, a.id DESC`)
       .bind(coupleId)
       .all<AlbumRow>(),
-    // 047: 鍵の文脈は 1 度だけ引き、全アルバムのカバーの判定に使う（1,000 件でも 30 行）
+    // 鍵の文脈は 1 度だけ引き、全アルバムのカバーの判定に使う（1,000 件でも 30 行）
     loadLock(db, coupleId),
   ]);
 
@@ -349,7 +340,7 @@ const albumGet = implementer.album.get.use(readProcedure).handler(async ({ conte
   return toAlbum(row, r2Sign, await loadLock(db, coupleId));
 });
 
-// post.uploadUrl と同じ形。imageId はサーバが生成し、鍵もサーバだけが組み立てる
+// imageId と鍵はサーバだけが組み立てる
 const albumUploadUrl = implementer.album.uploadUrl.use(writeProcedure).handler(async ({ context, input }) => {
   const { coupleId, r2Sign } = context;
   const imageId = generateImageId();
@@ -357,9 +348,8 @@ const albumUploadUrl = implementer.album.uploadUrl.use(writeProcedure).handler(a
   return { imageId, url };
 });
 
-// 上限判定（COUNT）と挿入は 2 文に分かれる（wish.create と同じ受け入れ）。
-// cover があれば実体を確かめてから、albums と album_photos への書き込みを 1 本の batch() に
-// まとめる（途中で割れた状態を作らない。post.create と同じ）
+// 上限判定（COUNT）と挿入は 2 文に分かれる（同時に作ると上限を少し超えうるが受け入れる）。
+// cover があれば実体を確かめてから、albums と album_photos を 1 本の batch() で書く（途中で割れない）
 const albumCreate = implementer.album.create.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId, userId, r2Sign } = context;
 
@@ -367,8 +357,8 @@ const albumCreate = implementer.album.create.use(writeProcedure).handler(async (
     .prepare(`SELECT COUNT(*) AS count FROM albums WHERE couple_id = ?1 AND deleted_at IS NULL`)
     .bind(coupleId)
     .first<{ count: number }>();
-  // 045: free で無料枠を超えるなら PLAN_LIMIT（cover の 1 枚も入れない）。LIMIT_REACHED より先に見る
-  // （画面が「プランの話」と分かる必要がある。タスク定義 0節 #4）
+  // free で無料枠を超えるなら PLAN_LIMIT（cover の 1 枚も入れない）。画面が「プランの話」と
+  // 分かるよう LIMIT_REACHED より先に見る（045）
   if (input.cover && (await exceedsFreeQuota(db, coupleId, 1, nowSeconds()))) throw errors.PLAN_LIMIT();
   if ((countRow?.count ?? 0) >= MAX_ALBUMS_PER_COUPLE) throw errors.LIMIT_REACHED();
 
@@ -415,8 +405,7 @@ const albumCreate = implementer.album.create.use(writeProcedure).handler(async (
 });
 
 // 渡されなかった項目は変えない。終了日と開始日の順序は既存の値と合わせて確かめる。
-// coverPhotoId はアルバム内の写真でなければ INVALID_INPUT（別のアルバム・別ペアの写真は
-// どちらも「このアルバムに無い」として同じ応答。T7）
+// coverPhotoId はアルバム内の写真でなければ INVALID_INPUT（別のアルバム・別ペアの写真を区別しない）
 const albumUpdate = implementer.album.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, r2Sign } = context;
 
@@ -424,8 +413,8 @@ const albumUpdate = implementer.album.update.use(writeProcedure).handler(async (
 
   const startDate = input.startDate === undefined ? current.start_date : input.startDate;
   let endDate = input.endDate === undefined ? current.end_date : input.endDate;
-  // 開始日を外したら（渡されなかった）終了日も外れる。終了日を明示的に渡しながら開始日が
-  // 無い・開始日より前なら INVALID_INPUT（終了日は開始日が無いと持てない。タスク定義1節）
+  // 終了日は開始日が無いと持てない。開始日を外したら終了日も外れ、開始日が無い・開始日より前の
+  // 終了日を明示したら INVALID_INPUT
   if (input.endDate === undefined && startDate === null) endDate = null;
   if (endDate !== null && (startDate === null || endDate < startDate)) throw errors.INVALID_INPUT();
 
@@ -464,14 +453,13 @@ const albumUpdate = implementer.album.update.use(writeProcedure).handler(async (
   return toAlbum(row, r2Sign, await loadLock(db, coupleId));
 });
 
-// 合計が 500 を超えるなら LIMIT_REACHED（1 枚も入れない）。全部の実体を確かめてから
-// 1 本の batch() で書く（1 枚でも無ければ INVALID_INPUT。部分的に入れない）。taken_at = 今。
-// 同秒の並びは id（ULID。uploadUrl の発行順）で決まる
+// 合計が 500 を超えるなら LIMIT_REACHED（1 枚も入れない）。全部の実体を確かめてから 1 本の batch() で書く。
+// taken_at = 今。同秒の並びは id（ULID。uploadUrl の発行順）で決まる
 const albumAddPhotos = implementer.album.addPhotos.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId, r2Sign } = context;
 
   const current = await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
-  // 045: free で used + 追加枚数 > 無料枠なら PLAN_LIMIT（1 枚も入れない）。LIMIT_REACHED より先に見る
+  // 無料枠を超えるなら PLAN_LIMIT（1 枚も入れない）。LIMIT_REACHED より先に見る
   if (await exceedsFreeQuota(db, coupleId, input.photos.length, nowSeconds())) throw errors.PLAN_LIMIT();
   if (current.photo_count + input.photos.length > MAX_PHOTOS_PER_ALBUM) throw errors.LIMIT_REACHED();
 
@@ -509,7 +497,7 @@ const albumUpdatePhoto = implementer.album.updatePhoto
   .handler(async ({ context, input, errors }) => {
     const { db, coupleId, r2Sign } = context;
 
-    // 047: 鍵の写真は説明文も書けない（downloadUrl と同じく NOT_FOUND。画面は鍵のマスから編集に入れない）
+    // 鍵の写真は説明文も書けない（NOT_FOUND。047）
     const lock = await loadLock(db, coupleId);
     if (lock !== null && !lock.unlockedIds.has(input.photoId)) throw errors.NOT_FOUND();
 
@@ -535,9 +523,7 @@ const albumRemovePhotos = implementer.album.removePhotos
 
     await fetchAlbumOrThrow(db, coupleId, input.id, () => errors.NOT_FOUND());
 
-    // photoIds を REMOVE_PHOTOS_CHUNK_SIZE ずつの DELETE に分けて 1 本の batch() で消す
-    // （D1 の束縛パラメータの上限。上の定数のコメント）。batch はトランザクションなので
-    // 途中で割れない
+    // D1 の束縛パラメータの上限（上の定数）に合わせて分け、1 本の batch() で消す（途中で割れない）
     const statements = [];
     for (let start = 0; start < input.photoIds.length; start += REMOVE_PHOTOS_CHUNK_SIZE) {
       const chunk = input.photoIds.slice(start, start + REMOVE_PHOTOS_CHUNK_SIZE);
@@ -566,8 +552,7 @@ const albumRemovePhotos = implementer.album.removePhotos
   });
 
 // 論理削除 + album_photos は物理削除（同じ batch()）→ R2 を消す。
-// DELETE 文にも couple_id 条件を EXISTS で含める（post.delete と同じ理由: 含めないと
-// 他ペアの id で「アルバムは消せないが写真だけ消せる」経路が生まれる）
+// DELETE にも couple_id の条件を EXISTS で含める（無いと他ペアの id で写真だけ消せる経路ができる）
 const albumDelete = implementer.album.delete.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId } = context;
 
@@ -640,7 +625,7 @@ const photoList = implementer.photo.list.use(readProcedure).handler(async ({ con
   const pageRows = hasMore ? results.slice(0, limit) : results;
   const last = pageRows[pageRows.length - 1];
   const nextCursor = hasMore && last ? encodeCursor({ takenAt: last.taken_at, id: last.id }) : null;
-  // 047: locked のときだけ「鍵でない 30 枚」を引く（paid・猶予中は引かない）。鍵の側を IN に入れない
+  // locked のときだけ「鍵でない 30 枚」を引く（paid・猶予中は引かない）
   const lock = await loadLock(db, coupleId);
   const items = await Promise.all(pageRows.map((row) => toAlbumPhoto(row, r2Sign, lock)));
   return { items, nextCursor };
@@ -675,13 +660,12 @@ async function resolvePhotoRef(
 }
 
 // Content-Disposition: attachment 付きの署名付き GET URL（有効 5 分）。filename はサーバが
-// 組み立てる（futary-YYYYMMDD-{imageId}.jpg。YYYYMMDD は takenAt の JST。ASCII のみ）。
-// readProcedure: ゲストもデモの写真を保存できる（タスク定義4節）
+// 組み立てる（nisoine-YYYYMMDD-{imageId}.jpg。takenAt の JST。ASCII のみ）。ゲストも保存できる
 const photoDownloadUrl = implementer.photo.downloadUrl.use(readProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, r2Sign } = context;
   const resolved = await resolvePhotoRef(db, coupleId, input);
   if (!resolved) throw errors.NOT_FOUND();
-  // 047: 鍵の写真は NOT_FOUND（存在を教えない形に寄せる。want.* と同じ）
+  // 鍵の写真は NOT_FOUND（存在を教えない）
   if (input.kind === "album") {
     const lock = await loadLock(db, coupleId);
     if (lock !== null && !lock.unlockedIds.has(input.photoId)) throw errors.NOT_FOUND();

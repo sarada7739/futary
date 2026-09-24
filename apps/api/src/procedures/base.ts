@@ -2,18 +2,11 @@ import type { Middleware, ORPCErrorConstructorMap } from "@orpc/server";
 import { resolveCoupleContext, resolveIsAdmin, type CoupleContext } from "../middleware/auth-context";
 import type { RpcContext } from "../context";
 
-// このファイルの `any` について（conventions.md 2節: 通常は禁止）。
-// 各基底は複数の procedure に `.use()` で使い回す設計にしたため、
-// `Middleware<...>` の TOutput（procedure ごとの戻り値の型）と
-// TMeta（procedure ごとの oRPC メタ情報の型）を1つの変数の型として
-// 固定できない。ここで具体的な型を書くと、使う procedure ごとに
-// 異なるはずの型を無理やり単一の型に合わせることになり、実体と乖離する。
-// ミドルウェア本体は output/meta のどちらにも触れないため、実害はない
-// （Rレビュー005 往復1回目の指摘。unknown にすると `.use()` 側の代入で
-// 型エラーになるため、ここでは unknown ではなく any を使っている）
+// このファイルの `any`（conventions.md 2節で通常は禁止）: 各基底は複数の手続きに使い回すので、
+// Middleware の TOutput・TMeta を 1 つの型に固定できない。unknown だと `.use()` 側で型エラーになる。
+// ミドルウェアは output・meta に触れないので実害は無い
 
-// couple_id を必要とする手続きの contract は FORBIDDEN / NEEDS_ONBOARDING の
-// 両方を持つ必要がある（そうでない手続きにこの基底は使えない。型で強制される）
+// couple_id を要る手続きの契約は FORBIDDEN・NEEDS_ONBOARDING の両方を持つ必要がある（型で強制される）
 type CoupleErrors = ORPCErrorConstructorMap<{
   FORBIDDEN: Record<string, never>;
   NEEDS_ONBOARDING: Record<string, never>;
@@ -21,12 +14,8 @@ type CoupleErrors = ORPCErrorConstructorMap<{
 
 type AuthedErrors = ORPCErrorConstructorMap<{ FORBIDDEN: Record<string, never> }>;
 
-// 認証必須のみ・couple_id の解決はしない基底。couple.create / invite.accept
-// のように「まだどのペアにも所属していない」ことが前提の手続き用
-// （readProcedure/writeProcedure は未所属を NEEDS_ONBOARDING で弾くため使えない。
-// security-auditor 005監査 Medium指摘: これが無いと認可が2系統に割れ、
-// 将来 couple_id を使わない書き込み手続きで .use() を書き忘れても
-// 型エラーにならず未認証で通ってしまう）
+// 認証必須だけで couple_id を解決しない基底。未所属が前提の手続き（couple.create・invite.accept）用。
+// 認可をこの基底の系統に揃え、.use() の書き忘れを型エラーにする
 export const authedProcedure: Middleware<
   RpcContext,
   { user: NonNullable<RpcContext["user"]> },
@@ -42,8 +31,7 @@ export const authedProcedure: Middleware<
   return next({ context: { user: context.user } });
 };
 
-// 読み取り。`.use()` で個々の手続きに適用する。未認証でも通り、
-// デモペア（readonly）として扱われる
+// 読み取り。未認証でも通り、デモペア（readonly）として扱う
 export const readProcedure: Middleware<
   RpcContext,
   CoupleContext,
@@ -55,11 +43,8 @@ export const readProcedure: Middleware<
   any
 > = async ({ context, next, errors }) => next({ context: await resolveCoupleContext(context, errors) });
 
-// 書き込み。readonly（未認証のデモ）は FORBIDDEN。
-// OutContext を Extract<CoupleContext, { mode: "member" }> にすることで、
-// readonly を弾いた後の userId が呼び出し側で string として絞り込まれる
-// （006 Rレビュー指摘: CoupleContext のまま宣言すると userId が string | null の
-// ままになり、呼び出し側で到達不能な null チェックが必要になっていた）
+// 書き込み。readonly（未認証のデモ）は FORBIDDEN。OutContext を member に絞るので、
+// 呼び出し側で userId が string になる
 export const writeProcedure: Middleware<
   RpcContext,
   Extract<CoupleContext, { mode: "member" }>,
@@ -75,8 +60,7 @@ export const writeProcedure: Middleware<
   return next({ context: coupleContext });
 };
 
-// 057: 運営専用。認証済みで ADMIN_EMAILS に含まれるメールでなければ FORBIDDEN（ゲストも）。
-// admin.* の全部にこれを使う（認可を手続きごとに書かない。タスク定義 0節 #2）
+// 運営専用。認証済みで ADMIN_EMAILS に含まれなければ FORBIDDEN（ゲストも）。admin.* は全部これを使う（057）
 export const adminProcedure: Middleware<
   RpcContext,
   { user: NonNullable<RpcContext["user"]> },

@@ -13892,3 +13892,12 @@ Session: A
 - `vi.setSystemTime(NOW_MS)`（Date だけ差し替え）をその 1 本と `getForDate` の describe に。断言は `days` が 7 件・先頭が `todayJst(NOW_MS)`
 
 Session: B
+
+## 2026-09-25 セッションB: weather テストの修正をマージ・063 段階1
+
+- #431（weather テストの「今」の固定）: R 受け入れ → CI pass → squash merge（main 460742e）
+- 063 段階1 のデッドコード: `find-unused-exports.mjs` で候補を出し、grep で 0 件を確かめて消した（061 の SVG フィルタと theme の `filterId`・`lens*`、`unlockedPhotoIds`、`type Db`、`tab-album.png`）。drizzle のスキーマ定義（`coupleMembers`・`couplePlans`）は残す
+- 063 段階1 のコメント: 57 ファイル。T2 は TypeScript のプリンタ（removeComments）で前後を出し直して比べる `compare-code.mjs`。コメント行 1,887 → 948
+- 置換は「古い行が全部コメント行であること」を確かめてから行を差し替える python の関数で行った（コード行を巻き込む範囲の指定を 2 回止めた）
+
+Session: B

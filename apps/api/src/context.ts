@@ -4,47 +4,30 @@ import type { BillingContext } from "./lib/billing";
 
 export interface RpcContext {
   db: D1Database;
-  // 画像本体は Worker を経由しない。post.uploadUrl/post.list が
-  // 署名付きURLを発行するためだけに使う（apps/api/src/lib/r2-signed-url.ts）
+  // 画像本体は Worker を経由しない。署名付き URL を発行するためだけに使う（lib/r2-signed-url.ts）
   bucket: R2Bucket;
   r2Sign: R2SignConfig;
-  // 037: AIまとめが使うプロバイダ・APIキー。手続き（procedures/ai-summary.ts）は
-  // これをそのままlib/ai.tsのgenerateSummaryへ渡すだけで、中身を見ない
-  // （タスク定義3節「手続きからプロバイダが見えない形にする」）
+  // 手続きはこれを lib/ai.ts へ渡すだけで中身を見ない（プロバイダが手続きから見えない。037）
   aiEnv: AiEnv;
-  // 048 段階2: Stripe の窓口と Price ID（lib/billing.ts）。index.ts が c.env から組む。
-  // optional なのは、Stripe を使わない手続きのテストが context を手で組んでいる（16 箇所）ため。
-  // 無いまま billing.* を呼ぶと INTERNAL（500）で落ちる（黙って free にしない）
+  // Stripe の窓口と Price ID（lib/billing.ts）。optional なのは、Stripe を使わない手続きのテストが
+  // context を手で組むから。無いまま billing.* を呼ぶと 500（黙って free にしない）
   billing?: BillingContext;
-  // 057: 運営のメール（ADMIN_EMAILS を lib/admin-emails.ts で小文字化・trim 済み）。判定は
-  // middleware/auth-context.ts の resolveIsAdmin の 1 箇所。optional なのは billing と同じ理由
-  // （テストが context を手で組む）。無ければ運営はいない（fail-closed）
+  // 運営のメール（小文字化・trim 済み）。判定は middleware/auth-context.ts の resolveIsAdmin の 1 箇所。
+  // 無ければ運営はいない（fail-closed）
   adminEmails?: readonly string[];
-  // 058: 天気・祝日の外部 fetch（lib/weather.ts・lib/holidays.ts）。テストが差し替える。無ければ global の fetch
+  // 天気・祝日の外部 fetch（テストが差し替える）。無ければ global の fetch
   externalFetch?: (input: string, init: RequestInit) => Promise<Response>;
   user: { id: string; name: string; email: string; image: string | null } | null;
-  // me.delete の再認証チェック（024・Aの決定）に使う、実際にサインインした
-  // 時刻。Better Auth の session.createdAt は createSession() 時に一度だけ
-  // 設定され、以後更新されない（session.updatedAt/expiresAt は定期リフレッシュ
-  // 〈updateAge〉で動くため使えない。node_modules内のBetter Auth本体のソースを
-  // 読んで確認済み）。userがnullなら常にnull。エポックミリ秒で持つ
-  // （Dateのままだとnew Date(...)禁止のeslintルールに抵触するファイルが
-  // 増える。architecture.md 5節・eslint.config.js）
+  // 実際にサインインした時刻（me.delete の再認証に使う。024）。session.createdAt は作成時に
+  // 一度だけ設定される（updatedAt・expiresAt はリフレッシュで動くので使えない）。
+  // user が null なら null。Date でなくエポックミリ秒で持つ（new Date 禁止の eslint ルール。architecture.md 5節）
   sessionCreatedAt: number | null;
-  // invite.accept のレート制限キー（invite_failures.account_hash）を
-  // 組み立てるためだけに使う塩（lib/account-hash.ts）。BETTER_AUTH_SECRETと
-  // 同じ値だが、createAuth()が既に検証済み（32バイト以上）であることを
-  // 前提にできるのはこのミドルウェアの中だけなので、ここでは検証し直さず
-  // そのまま渡す
+  // invite.accept のレート制限キーを作る塩（lib/account-hash.ts）。BETTER_AUTH_SECRET と同じ値で、
+  // createAuth() が検証済み（32 バイト以上）なので検証し直さない
   authSecret: string;
-  // レート制限用。Cloudflare が付与する CF-Connecting-IP。ローカル開発等で
-  // 取得できない場合は null（invite.accept のレート制限は IP 条件を外し、
-  // user_id 単独で判定する。apps/api/src/procedures/couple.ts の
-  // reserveInviteFailureSlot を参照。R-23: このコメントが古いままだった）
+  // CF-Connecting-IP。取れなければ null（invite.accept は account_hash だけで判定する）
   ip: string | null;
-  // デモペアの couple_id（wrangler.toml の [vars]）。014 でデモペアを作るまでは
-  // 空文字。未認証アクセスの couple_id 解決に使う
-  // （apps/api/src/middleware/auth-context.ts）。未設定・空文字なら fail-closed
-  // で未認証アクセスそのものを拒否する（docs/tasks/005-authorization-middleware.md）
+  // デモペアの couple_id（[vars]）。未認証アクセスの couple_id 解決に使う（middleware/auth-context.ts）。
+  // 未設定・空文字なら未認証アクセスを拒む（fail-closed）
   demoCoupleId: string | null;
 }

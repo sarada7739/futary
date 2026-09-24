@@ -2,9 +2,7 @@ import { diffDays, todayJst } from "@futary/date";
 import { implementer } from "../implementer";
 import { readProcedure, writeProcedure } from "./base";
 
-// タスク定義9節: event.listと同じ数に揃える（conventions.md 5節
-// 「線に合っていないもの」に記載。DBを読まないと分からない条件ではないが、
-// event.listと同じ場所に置く）
+// event.list と同じ数に揃える
 const MAX_RANGE_DAYS = 400;
 
 function nowSeconds(): number {
@@ -26,12 +24,9 @@ function toEntry(row: MoodRow) {
   return { date: row.date, level: row.level };
 }
 
-// user_idを引数に取らない。ctx.userIdのみを使う（タスク定義6節「渡せない
-// ものは、間違えて渡せない」）。今日の日付はサーバ側で計算する
-// （todayJst()。クライアントから日付を受け取らないことで「今日の分しか
-// 記録できない」を構造的に担保する。タスク定義5節）。
-// 複合主キー（couple_id, user_id, date）へのON CONFLICT DO UPDATEで
-// upsertする（1文。event.tsのmeetup一意化と同じ形）
+// user_id を引数に取らない（渡せないものは間違えて渡せない）。今日の日付はサーバが決める
+// （クライアントから日付を受け取らないので「今日の分しか記録できない」が構造で決まる）。
+// (couple_id, user_id, date) への ON CONFLICT DO UPDATE の 1 文で upsert する
 const moodSetToday = implementer.mood.setToday.use(writeProcedure).handler(async ({ context, input }) => {
   const { db, coupleId, userId } = context;
   const date = todayJst();
@@ -51,8 +46,7 @@ const moodSetToday = implementer.mood.setToday.use(writeProcedure).handler(async
   return { date, level: input.level };
 });
 
-// 物理削除（requirements.md 6節の例外。タスク定義7節）。無い日に呼んでも
-// 冪等に同じ{date}を返す（削除対象が無いだけで、エラーにする理由が無い）
+// 物理削除（requirements.md 6節の例外）。無い日に呼んでも同じ {date} を返す（冪等）
 const moodClearToday = implementer.mood.clearToday.use(writeProcedure).handler(async ({ context }) => {
   const { db, coupleId, userId } = context;
   const date = todayJst();
@@ -65,13 +59,9 @@ const moodClearToday = implementer.mood.clearToday.use(writeProcedure).handler(a
   return { date };
 });
 
-// mine/partnerを分けて返す（タスク定義9節。1本の配列にuserIdを混ぜない）。
-// 未認証（デモ。userIdがnull）の場合、「自分」を特定する手がかりが無いため、
-// couple_membersのslot順で決定的に1人目をmine・2人目をpartnerとして扱う
-// （他のreadProcedureがデモペアの全データを見せるのと同じ考え方。
-// どちらが「わたし」表示になっても実害はなく、ふたり分が見えることの方が
-// デモ体験として重要）。相手が未参加（ペアが1人）ならpartnerはnull
-// （タスク定義11節）
+// mine と partner を分けて返す（1 本の配列に userId を混ぜない）。デモ（userId が null）は「自分」を
+// 決める手がかりが無いので、slot 順で 1 人目を mine・2 人目を partner にする（ふたり分が見える方が大事）。
+// 相手が未参加なら partner は null
 const moodList = implementer.mood.list.use(readProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
 

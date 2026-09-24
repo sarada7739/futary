@@ -5,9 +5,8 @@ import { loadHolidays } from "../lib/holidays";
 import { loadDays, WEATHER_DAYS } from "../lib/weather";
 import { readProcedure } from "./base";
 
-// 058: カレンダーの天気と祝日（docs/tasks/058-weather-and-holidays.md 1節）。読み取り（ゲストも通る）。
-// 地域は個人ごと（couple_members.weather_area）。ゲスト（デモ）は東京地方で固定（0節 #12）。
-// 取りに行くのは lib/weather.ts・lib/holidays.ts（固定の URL・キャッシュ・失敗は空）
+// カレンダーの天気と祝日（058）。読み取りでゲストも通る。地域は個人ごと（couple_members.weather_area）で、
+// ゲストは東京地方で固定。外へ取りに行くのは lib/weather.ts・lib/holidays.ts
 
 export const DEMO_WEATHER_AREA = "130010"; // 東京地方
 

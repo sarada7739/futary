@@ -1,5 +1,4 @@
-// 048 段階2: 購読の状態 → couple_plans の upsert。判定はここの 1 箇所に閉じる
-// （Webhook はどの event でも Stripe から読み直した SubscriptionSnapshot をここに渡すだけ）
+// 購読の状態 → couple_plans の upsert。判定はここの 1 箇所（Webhook は読み直した snapshot を渡すだけ。048）
 import type { BillingPrices } from "@futary/contract";
 import type { StripeGateway, SubscriptionSnapshot } from "./stripe";
 
@@ -8,12 +7,11 @@ export interface BillingContext {
   gateway: StripeGateway;
   priceMonthly: string;
   priceYearly: string;
-  // Checkout の success_url / cancel_url・Portal の return_url の起点（BETTER_AUTH_URL。
-  // 本番は https://nisoine.com。直書きしない。タスク定義 3節）
+  // Checkout・Portal の戻り先の起点（BETTER_AUTH_URL。直書きしない）
   appOrigin: string;
 }
 
-// Stripe の status → plan（タスク定義 3節 Webhook）
+// Stripe の status → plan
 // - active / trialing → paid（expires_at = current_period_end）
 // - past_due → paid のまま（expires_at が来れば free。Stripe の再試行に任せる）
 // - canceled / unpaid / incomplete_expired / incomplete / paused → free（expires_at は残す。047 の猶予の起点）
@@ -34,12 +32,10 @@ export type ApplyResult =
 // - 同じ snapshot を 2 回渡しても結果は同じ（冪等。UPSERT）
 // - free になるときも expires_at は残す（047 の猶予の起点）。paid なのに current_period_end が
 //   無い（無い形の購読）なら expires_at を NULL にはせず今の値を残す（無期限 paid を作らない）
-// - **行に付いた購読と違う購読の snapshot**（タスク定義 0節 #9 の後半。R の指摘で足した）:
-//   「どの event でも Stripe に読み直すので順序に依存しない」は同じ購読の中でしか成り立たない。
-//   同じ customer に 2 本目の購読ができる経路（同時に 2 人が押す・再申し込み）があるので、
-//   - snapshot が paid → 2 本目。行の購読を Stripe で解約して（既に解約済みなら何もしない）新しい方を書く
-//   - snapshot が paid でない → 別の購読が終わっただけ（古い購読の deleted が遅れて届いた等）。書かない。
-//     行の購読の状態は、行の購読自身の event で来る
+// - 行に付いた購読と違う購読の snapshot: 「読み直すので順序に依存しない」は同じ購読の中でしか
+//   成り立たず、同じ customer に 2 本目の購読ができる経路（同時に 2 人が押す・再申し込み）がある。
+//   - snapshot が paid → 2 本目。行の購読を解約して（済みなら何もしない）新しい方を書く
+//   - paid でない → 別の購読が終わっただけ（遅れて届いた deleted 等）。書かない
 export async function applySubscriptionSnapshot(
   db: D1Database,
   gateway: Pick<StripeGateway, "cancelSubscription">,
@@ -61,10 +57,9 @@ export async function applySubscriptionSnapshot(
   const current = existing?.stripe_subscription_id ?? null;
   if (current && current !== snapshot.id) {
     if (plan !== "paid") return "skipped_other_subscription";
-    // 2 本目が生きている: 古い方（行の購読）を Stripe で解約する。二重に課金が続く形を作らない。
-    // 解約に失敗したら例外 → Webhook は 500 → Stripe が再送する（行はまだ古い方のまま）
+    // 2 本目が生きているので古い方を解約する（二重課金にしない）。失敗したら例外 → 500 → Stripe が再送する
     await gateway.cancelSubscription(current);
-    // 文言: 既に canceled だった（再申し込み）なら cancelSubscription は no-op なので「解約した」とは書かない（R の記録）
+    // 既に canceled だった（再申し込み）なら no-op なので、文言で「解約した」とは書かない
     log?.(`stripe: second subscription for couple=${coupleId.slice(0, 8)}: replaced ${current.slice(0, 12)} (cancel requested; no-op if already ended) with ${snapshot.id.slice(0, 12)}`);
     result = "written_replaced_subscription";
   }

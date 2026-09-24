@@ -3,10 +3,8 @@ import { generateImageId } from "../lib/ulid";
 import { createPutUrl, imageKeyFor } from "../lib/r2-signed-url";
 import { writeProcedure } from "./base";
 
-// writeProcedure の上に載せる。デモ（未認証・readonly）からは呼べない
-// （architecture.md 6節: アップロードは書き込み系の操作）。
-// imageId はサーバが生成し、鍵（couple_id を含む）もサーバだけが組み立てる。
-// contentType は contract 側で "image/jpeg" のみを許す z.literal になっている
+// デモ（readonly）からは呼べない（アップロードは書き込み。architecture.md 6節）。
+// imageId と鍵（couple_id を含む）はサーバだけが組み立てる。contentType は契約で "image/jpeg" だけ
 export const postUploadUrl = implementer.post.uploadUrl.use(writeProcedure).handler(async ({ context, input }) => {
   const { coupleId, r2Sign } = context;
   const imageId = generateImageId();

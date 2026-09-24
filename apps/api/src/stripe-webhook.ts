@@ -1,9 +1,9 @@
-// 048 段階2: Stripe の Webhook（POST /api/stripe/webhook）。oRPC の外（Hono に直接）。
+// Stripe の Webhook（POST /api/stripe/webhook）。oRPC の外（Hono に直接。048）。
 //
 // - 生のボディで署名を確かめる（署名が違えば 400）。それ以外の認証は無い（Stripe から来る）
 // - 見る event: checkout.session.completed・customer.subscription.created/updated/deleted・
 //   invoice.paid・invoice.payment_failed。それ以外は 200 で無視
-// - **どの event でも、購読の今の状態を Stripe に読み直して couple_plans を upsert する**
+// - どの event でも、購読の今の状態を Stripe に読み直して upsert する
 //   （event の中身を信じず、順序に依存しない。同じ event が 2 回来ても結果が同じ。lib/billing.ts）
 // - source='manual' の行は書かない
 // - 行に付いた購読と違う購読: paid なら 2 本目（古い方を解約して差し替え）、paid でなければ書かない（lib/billing.ts）

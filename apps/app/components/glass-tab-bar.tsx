@@ -43,8 +43,7 @@ import {
 // 残る層は、ぼかし（glass-blur。blur と saturate だけ。backdrop-filter はこの 1 箇所）・
 // 無地の板（斜めのグラデーション）・色収差・フチ・ピル（色とフチと inset の光）。
 // 歪みは無い「曇りガラス」。この部品に url( が無いこと・backdrop-filter が 1 箇所
-// だけなことはテスト G5 が留めている。+html.tsx の SVG フィルタの定義と theme の
-// filterId・lens* は残っているが、ここからは参照しない。
+// だけなことはテスト G5 が留めている。
 const PILL_HEIGHT = 44;
 // スロットの中でピルが左右に残す余白
 const PILL_INSET = 5;

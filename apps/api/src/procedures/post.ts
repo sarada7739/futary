@@ -5,8 +5,8 @@ import { createGetUrl, imageKeyFor, MAX_IMAGE_BYTES, resolveUserImage, type R2Si
 import { readProcedure, writeProcedure } from "./base";
 
 const PAGE_SIZE = 20;
-// contract の postUploadUrlContract（z.literal）と同じ値。署名付きPUT URLは
-// Content-Type を強制できないため、実体確認のタイミングで検証する
+// 契約の postUploadUrlContract（z.literal）と同じ値。署名付き PUT URL は Content-Type を強制できないので、
+// 実体を確かめるときに見る
 const UPLOAD_CONTENT_TYPE = "image/jpeg";
 
 interface PostRow {
@@ -18,10 +18,8 @@ interface PostRow {
   created_at: number;
 }
 
-// 投稿カードに投稿者名・アバターを出すため user テーブルを LEFT JOIN する
-// （008・architecture.md 5節。理由と到達可能性の注記も同節参照）。
-// posts を couple_id で絞った結果に対して行い、user 側を起点に引かない
-// （認可の範囲を JOIN で広げない）
+// 投稿者名・アバターのため user を LEFT JOIN する。posts を couple_id で絞った結果に対して行い、
+// user 側を起点に引かない（認可の範囲を JOIN で広げない。architecture.md 5節）
 const POST_COLUMNS =
   "posts.id AS id, posts.author_id AS author_id, user.name AS author_name, " +
   "user.image AS author_image, posts.body AS body, posts.created_at AS created_at";
@@ -44,9 +42,8 @@ interface ReactionSummaryRow {
   reacted_by_me: number;
 }
 
-// 投稿一覧の取得と合わせて1〜2クエリで解決する（タスク009。N+1にしない）。
-// pageRows の投稿IDをまとめて1クエリで集計し、Map にして返す。
-// postIds が空なら SQL を投げずに空 Map を返す（IN () は不正なSQLになるため）
+// ページの投稿 ID をまとめて 1 クエリで集計する（N+1 にしない）。
+// postIds が空なら SQL を投げない（IN () は不正な SQL）
 async function fetchReactionSummaries(
   db: D1Database,
   postIds: readonly string[],
@@ -55,8 +52,7 @@ async function fetchReactionSummaries(
   const summaries = new Map<string, ReactionSummary[]>();
   if (postIds.length === 0) return summaries;
 
-  // userId が null（未認証のデモ閲覧）のときは reacted_by_me が常に false になる。
-  // SQLite の `user_id = NULL` は常に偽と評価されるため、明示的な分岐は不要
+  // userId が null（デモ閲覧）なら `user_id = NULL` は常に偽なので、reacted_by_me は分岐なしで false になる
   const placeholders = postIds.map((_, i) => `?${i + 2}`).join(", ");
   const { results } = await db
     .prepare(
@@ -81,7 +77,7 @@ async function fetchReactionSummaries(
   return summaries;
 }
 
-// 031: 1投稿に画像を4枚まで（post_images。position順）
+// 1 投稿に画像 4 枚まで（position 順。031）
 interface PostImageRow {
   post_id: string;
   position: number;
@@ -90,9 +86,7 @@ interface PostImageRow {
   height: number;
 }
 
-// 投稿一覧の取得と合わせて1〜2クエリで解決する（fetchReactionSummariesと同じ形。
-// N+1にしない）。ORDER BY post_id, position で返すため、Map に積む順序が
-// そのまま並び順になる
+// fetchReactionSummaries と同じく 1 クエリ。ORDER BY post_id, position なので Map に積む順がそのまま並び順
 async function fetchPostImages(db: D1Database, postIds: readonly string[]): Promise<Map<string, PostImageRow[]>> {
   const imagesByPost = new Map<string, PostImageRow[]>();
   if (postIds.length === 0) return imagesByPost;
@@ -116,8 +110,7 @@ async function fetchPostImages(db: D1Database, postIds: readonly string[]): Prom
   return imagesByPost;
 }
 
-// 署名付き GET URL を発行する（有効期限1時間。architecture.md 6節）。
-// 鍵そのものはクライアントに渡さず、都度発行し直す短命URLだけを渡す
+// 鍵はクライアントに渡さず、都度発行する短命の署名付き GET URL だけを渡す（1 時間。architecture.md 6節）
 async function toPost(
   row: PostRow,
   imageRows: PostImageRow[],
@@ -131,8 +124,7 @@ async function toPost(
       height: image.height,
     })),
   );
-  // authorImageはGoogleの外部URLか、投稿者が自分でアップロードした画像の
-  // R2キーのどちらもありうる。後者だけ署名付きGET URLへ解決する（019）
+  // authorImage は Google の外部 URL か自分で上げた画像の R2 キー。後者だけ署名付き URL にする
   const authorImage = await resolveUserImage(r2Sign, row.author_image);
   return {
     id: row.id,
@@ -151,9 +143,8 @@ interface Cursor {
   id: string;
 }
 
-// カーソルは created_at と id の複合を不透明な文字列にエンコードしたもの
-// （architecture.md 4節・タスク006）。同一秒の投稿がページ境界をまたいでも、
-// id をタイブレークに使うことで一覧の重複・欠落を防ぐ
+// カーソルは (created_at, id) を不透明な文字列にしたもの。同じ秒の投稿がページ境界をまたいでも
+// id で順が決まり、重複・欠落しない（architecture.md 4節）
 function encodeCursor(cursor: Cursor): string {
   return btoa(JSON.stringify(cursor));
 }
@@ -171,7 +162,7 @@ function decodeCursor(value: string): Cursor {
   return { createdAt: (parsed as Cursor).createdAt, id: (parsed as Cursor).id };
 }
 
-// ctx.coupleId のみを使い、couple_id を引数に取らない（architecture.md 5節）
+// couple_id を引数に取らない（architecture.md 5節）
 const postList = implementer.post.list.use(readProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, r2Sign } = context;
 
@@ -184,7 +175,7 @@ const postList = implementer.post.list.use(readProcedure).handler(async ({ conte
     }
   }
 
-  // 次ページの有無を1回のクエリで判定するため PAGE_SIZE + 1 件取得する
+  // 次ページの有無を 1 回のクエリで判定するため PAGE_SIZE + 1 件取る
   const stmt = cursor
     ? db
         .prepare(
@@ -211,8 +202,7 @@ const postList = implementer.post.list.use(readProcedure).handler(async ({ conte
   const lastRow = pageRows[pageRows.length - 1];
   const nextCursor = hasMore && lastRow ? encodeCursor({ createdAt: lastRow.created_at, id: lastRow.id }) : null;
 
-  // 投稿一覧クエリ1回 + リアクション集計クエリ1回 + 画像一覧クエリ1回の
-  // 計3クエリで解決する（タスク009・031。N+1にしない）
+  // 一覧 1 回 + リアクション 1 回 + 画像 1 回の計 3 クエリ（N+1 にしない）
   const postIds = pageRows.map((row) => row.id);
   const [reactionSummaries, postImages] = await Promise.all([
     fetchReactionSummaries(db, postIds, context.userId),
@@ -229,31 +219,22 @@ const postList = implementer.post.list.use(readProcedure).handler(async ({ conte
 const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId, userId, r2Sign } = context;
 
-  // 031: images は空配列を「無いもの」として扱う（undefinedと区別しない）
+  // 空配列は「無い」と同じ
   const images = input.images ?? [];
 
-  // 本文（trim後）と画像がどちらも空の投稿は作れない（旧L30。architecture.md 5節）。
-  // 空白のみの本文も空として扱う
+  // 本文（trim 後。空白だけも空）と画像がどちらも空の投稿は作れない（architecture.md 5節）
   const trimmedBody = input.body.trim();
   if (trimmedBody === "" && images.length === 0) {
     throw errors.INVALID_INPUT();
   }
 
-  // 途中で止まっても半端な投稿を作らない（タスク定義5節）。DBに1行も書く前に、
-  // images の全ての imageId について R2 に実体があることを確認する
+  // 半端な投稿を作らない。DB に 1 行も書く前に、全部の imageId の実体を確かめる
   const imageKeys: string[] = [];
   for (const image of images) {
     const imageKey = imageKeyFor(coupleId, image.imageId);
-    // image_key が非NULLなら R2 に実体がある、という不変条件を保つため、
-    // 書く前に確認する（architecture.md 6節）。未アップロードの imageId で
-    // 投稿を作らせない。
-    // 【031・security-auditor指摘】head/deleteの例外をそのまま投げると、
-    // withErrorId（error-id.ts）がcatchした例外をconsole.errorへ渡すため、
-    // R2のエラーメッセージに含まれうる画像キーがログに出てしまう
-    // （024のme.ts deleteAllByPrefixと同じ理由。security-requirements.md
-    // 8節「画像キーをログに出さない」）。031で1リクエストあたりのhead呼び出しが
-    // 最大4回に増え、当たる確率も上がったため鍵を含まない汎用メッセージへ
-    // 詰め替えてから投げ直す
+    // 「key があれば実体がある」を保つ（architecture.md 6節）。
+    // R2 の例外は画像キーを含みうるので詰め替えて投げる（withErrorId がログに出す。
+    // security-requirements.md 8節）
     let head: R2Object | null;
     try {
       head = await bucket.head(imageKey);
@@ -261,11 +242,8 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
       throw new Error("R2からの画像実体確認に失敗しました");
     }
     if (!head) throw errors.INVALID_INPUT();
-    // サイズ上限・Content-Type はどちらも署名付きURL自体では強制できない
-    // （r2-signed-url.ts のコメント参照）ため、実体確認のタイミングで検査する。
-    // 圧縮を経ていない・改ざんされたアップロードを弾く。実体は残しておくと
-    // 二度とこの imageId で投稿を作れなくなる（UNIQUE制約と同じ形の孤児）ため削除する
-    // （007 security-auditor 指摘: Content-Type検証を追加）
+    // サイズ・Content-Type は署名付き URL では強制できないので、ここで弾く（圧縮を経ていない・
+    // 改ざんされたアップロード）。実体を残すと、この imageId で二度と投稿できない孤児になるので消す
     if (head.size > MAX_IMAGE_BYTES || head.httpMetadata?.contentType !== UPLOAD_CONTENT_TYPE) {
       try {
         await bucket.delete(imageKey);
@@ -279,18 +257,13 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
 
   const id = crypto.randomUUID();
   const now = nowSeconds();
-  // context.user は resolveCoupleContext が mode="member" を返した時点で必ず
-  // 非null（auth-context.ts: member分岐はcontext.userがtruthyのときだけ発生する）。
-  // CoupleContext の型は user と mode の対応関係を表現できないため、
-  // ここではアサーションで通す（base.ts 冒頭コメントと同種の型システムの限界）
+  // mode="member" なら context.user は必ず非 null（auth-context.ts）。型が user と mode の
+  // 対応を表せないのでアサーションで通す
   const authorName = context.user!.name;
   const authorImage = context.user!.image;
 
-  // posts と post_images への書き込みを1本の batch() にまとめる（architecture.md
-  // 4節「条件を書き込み文のWHEREに埋め込み、更新件数で結果を判定する」の
-  // 原則と同じく、途中で割れた状態を作らない）。batch()は文のエラーで
-  // ロールバックするため、post_images.key のUNIQUE違反（同じimageIdが既に
-  // 使われている）が起きればpostsへのINSERTごと取り消される
+  // posts と post_images を 1 本の batch() で書く（途中で割れない）。batch は文のエラーで
+  // ロールバックするので、post_images.key の UNIQUE 違反なら posts の INSERT ごと取り消される
   const statements = [
     db
       .prepare(`INSERT INTO posts (id, couple_id, author_id, body, created_at) VALUES (?1, ?2, ?3, ?4, ?5)`)
@@ -332,21 +305,14 @@ const postCreate = implementer.post.create.use(writeProcedure).handler(async ({ 
   );
 });
 
-// WHERE 句に couple_id = ctx.coupleId を含めて1文で行う（タスク006）。
-// 他ペアの投稿ID・存在しないID・既に削除済みのIDはすべて更新件数0となり、
-// 区別せず NOT_FOUND を返す
+// WHERE に couple_id を含めた 1 文。他ペア・存在しない・削除済みは更新 0 件で、区別せず NOT_FOUND
 const postDelete = implementer.post.delete.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, bucket, coupleId } = context;
 
-  // D1 を先に更新し、そのあと R2 の削除を試みる（architecture.md 6節）。
-  // 逆順にすると「投稿は残るのに画像が消える」壊れ方が利用者から見えてしまう。
-  // reactions・post_images の削除を同じ batch に含める（M2まとめ監査 Low指摘 /
-  // 031タスク定義6節）。DELETE 文にも couple_id 条件を EXISTS で含める必要が
-  // ある。含めないと、他ペアの投稿IDを指定した場合 UPDATE は0件で NOT_FOUND
-  // になる一方 DELETE だけが無条件で成立してしまい、「投稿は消せないが
-  // 画像だけ消せる」経路が生まれる（reactionsで実装時に実際に検出した形と同じ）。
-  // post_images は論理削除を持たせない（行が残ると key の UNIQUE が空きを塞ぐ。
-  // 031タスク定義6節）ため、ここで物理削除する
+  // D1 → R2 の順（逆だと「投稿は残るのに画像が消える」が見える。architecture.md 6節）。
+  // reactions・post_images も同じ batch で消し、DELETE にも couple_id の条件を EXISTS で含める
+  // （無いと他ペアの投稿 ID で画像だけ消せる経路ができる）。post_images は論理削除を持たない
+  // （行が残ると key の UNIQUE が塞がる）ので物理削除
   const batchResults = await db.batch<{ id?: string; key?: string; width?: number; height?: number }>([
     db
       .prepare(
@@ -383,11 +349,8 @@ const postDelete = implementer.post.delete.use(writeProcedure).handler(async ({ 
     try {
       await bucket.delete(imageKeys);
     } catch {
-      // R2 の削除に失敗しても post.delete は成功として返す（利用者の操作を
-      // 掃除の失敗で失敗させない）。post_images の行は既に消えているため、
-      // 失敗した分は孤児オブジェクトとしてR2に残る（架空リンクの参照は
-      // 無くなるため開示の実害は無い。architecture.md 6節）。
-      // 画像キーはログに出さない（security-requirements.md 8節）
+      // 掃除の失敗で利用者の操作を失敗させない。行は消えているので、残るのは誰も辿れない孤児だけ
+      // （architecture.md 6節）。画像キーはログに出さない（security-requirements.md 8節）
     }
   }
 

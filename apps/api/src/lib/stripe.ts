@@ -1,11 +1,7 @@
-// 048 段階2: Stripe の窓口。手続き（procedures/billing.ts）と Webhook（stripe-webhook.ts）は
-// この StripeGateway だけを呼び、SDK の型を見ない。テストは偽の gateway を context に積む
-// （lib/ai.ts の AiEnv と同じ「この機能が使う値だけに絞った構造体」の方針）。
-//
-// SDK は `stripe` npm。Workers から呼ぶので Stripe.createFetchHttpClient()（Node の https を
-// 使わない）、Webhook の署名は createSubtleCryptoProvider()（WebCrypto）で確かめる。
-// Stripe に送る個人情報は couple_id だけ（名前・メールは送らない。領収書のメールは
-// Checkout の画面で利用者が自分で入れる）
+// Stripe の窓口。手続きと Webhook はこの StripeGateway だけを呼び、SDK の型を見ない
+// （テストは偽の gateway を積む）。Workers なので HTTP は createFetchHttpClient()、Webhook の署名は
+// createSubtleCryptoProvider()（WebCrypto）。Stripe に送る個人情報は couple_id だけ
+// （名前・メールは送らない。領収書のメールは利用者が Checkout で入れる。048）
 import Stripe from "stripe";
 
 // index.ts が c.env から組み立てて渡す。手続きは中身を見ない
@@ -16,8 +12,8 @@ export interface StripeEnv {
   priceYearly?: string;
 }
 
-// 購読の「今」。Webhook はどの event でもこれを Stripe から読み直して couple_plans を upsert する
-// （event の中身を信じない。順序に依存しない。同じ event が 2 回来ても結果が同じ）
+// 購読の「今」。Webhook はどの event でもこれを読み直して upsert する
+// （event の中身を信じない。順序に依存せず、同じ event が 2 回来ても結果が同じ）
 export interface SubscriptionSnapshot {
   id: string;
   customerId: string;
@@ -27,8 +23,7 @@ export interface SubscriptionSnapshot {
   // 秒。items の current_period_end の最大。無ければ null
   currentPeriodEnd: number | null;
   // 「期間の終わりで解約」の終了日時（秒）。今の Stripe は Portal の解約を cancel_at で表す
-  // （cancel_at_period_end は false のまま。実測）。古い形（cancel_at_period_end=true）も同じ意味に寄せる。
-  // 解約していなければ null
+  // （cancel_at_period_end は false のまま）。古い形（cancel_at_period_end=true）も同じ意味に寄せる。null = 解約していない
   cancelAt: number | null;
 }
 
@@ -118,10 +113,8 @@ export function createStripeGateway(env: StripeEnv): StripeGateway {
         cancel_url: cancelUrl,
         metadata: { couple_id: coupleId },
         subscription_data: { metadata: { couple_id: coupleId } },
-        // Managed Payments（Stripe が販売者として税務を代行する仕組み）は新しいアカウントで既定オンで、
-        // オンだと商品に税コードが無い Checkout を拒む（実測: "the product tax code is missing"）。
-        // 日本の個人が日本向けに税込価格で売るだけなので使わない（Stripe Tax も「手動」）。
-        // ダッシュボードの既定に頼らず、セッションごとに明示してオフにする
+        // Managed Payments は新しいアカウントで既定オンで、オンだと税コードの無い商品の Checkout を拒む。
+        // 日本向けに税込価格で売るだけなので使わない。ダッシュボードの既定に頼らず毎回オフにする
         managed_payments: { enabled: false },
       });
       if (!session.url) throw new Error("Stripe Checkout の URL が返りませんでした");

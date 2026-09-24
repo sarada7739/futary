@@ -16,43 +16,37 @@ import { parseAdminEmails } from "./lib/admin-emails";
 export interface Bindings {
   DB: D1Database;
   BUCKET: R2Bucket;
-  // 053: 静的アセット（apps/api/public。wrangler.toml の [assets]）。run_worker_first = true
-  // なので全リクエストが Worker に届き、/api/* 以外はこの binding に渡す。
-  // テスト環境で無いことがあるため optional（無ければ 404）
+  // 静的アセット（apps/api/public）。run_worker_first なので全リクエストが Worker に届き、
+  // /api/* 以外をここへ渡す。テスト環境では無いことがある（無ければ 404）
   ASSETS?: Fetcher;
   BETTER_AUTH_SECRET?: string;
   BETTER_AUTH_URL?: string;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
-  // カンマ区切り。Cookie を使う認証で `credentials: true` を許可するオリジンを
-  // 環境ごとに切り替える（本番は同一オリジン配信のため空でよい）
+  // カンマ区切り。Cookie 付きの越境を許すオリジン（本番は同一オリジンなので空でよい）
   TRUSTED_ORIGINS?: string;
-  // デモペアの couple_id。014 でデモペアを作るまでは空文字（architecture.md 8節）
+  // デモペアの couple_id（architecture.md 8節）
   DEMO_COUPLE_ID?: string;
-  // R2 の S3互換API を署名するための認証情報（Cloudflareダッシュボードの
-  // 「R2 > Manage R2 API Tokens」で発行する。env.BUCKET のバインディングとは別物で、
-  // バインディングは Worker 内から直接オブジェクトを操作するためのもの、
-  // こちらはクライアントに渡す署名付きURLを組み立てるための鍵）
+  // クライアントに渡す署名付き URL を組み立てる鍵（R2 の S3 互換 API のトークン）。
+  // Worker から直接操作する env.BUCKET とは別物
   R2_ACCOUNT_ID?: string;
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
-  // 037: AIまとめ。AI_PROVIDERが指す方のキーだけを読む（apps/api/src/lib/ai.ts）。
-  // 両方を同時に読まない（タスク定義3節）
+  // AI_PROVIDER が指す方のキーだけを読む（lib/ai.ts。037）
   AI_PROVIDER?: string;
   OPENAI_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
-  // 048 段階2: Stripe。鍵 2 つは secret、Price ID は [vars]（秘密ではない）
+  // Stripe。鍵 2 つは secret、Price ID は [vars]（秘密ではない）
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
-  // 057: 運営のメール（カンマ区切り。wrangler secret。ローカルは .dev.vars）
+  // 運営のメール（カンマ区切り。wrangler secret）
   ADMIN_EMAILS?: string;
   STRIPE_PRICE_MONTHLY?: string;
   STRIPE_PRICE_YEARLY?: string;
 }
 
-// 048 段階2: Stripe の窓口。鍵か Price ID が無ければ undefined（billing.* を呼ぶと 500。
-// 他の手続きは影響を受けない）。gateway はリクエストごとに作る（SDK のクライアントは軽い。
-// secret の更新がデプロイ無しで効く）
+// 鍵か Price ID が無ければ undefined（billing.* だけが 500 になり、他は影響を受けない）。
+// gateway はリクエストごとに作る（軽い。secret の更新がデプロイ無しで効く）
 function buildBilling(env: Bindings): BillingContext | undefined {
   if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PRICE_MONTHLY || !env.STRIPE_PRICE_YEARLY || !env.BETTER_AUTH_URL) {
     return undefined;
@@ -71,39 +65,25 @@ const R2_BUCKET_NAME = "futary-images";
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// @orpc/server の RPCHandler は既定（`strictGetMethodPluginEnabled` を渡さない場合）で
-// StrictGetMethodPlugin を自動登録しており、GET経由での手続き実行は元々拒否されている
-// （@orpc/server/dist/adapters/fetch/index.mjs で実装を確認済み）。
-// 009 の M2まとめ監査時、この既定値を確認せずに「GETが通ってしまう」という誤った
-// High指摘が出て一時 CSRF 脆弱性ありと記録したが、実測（curlでのGET確認）は
-// 既にこの時点で 405 を返しており、指摘そのものが誤りだった（fix/reject-get-writes・
-// Rレビューで判明。security-requirements.md 7節「状態変更をGETで行わない」は
-// 元々満たされていた）。ここで明示的に登録しているのは「ライブラリの既定に依存しない」
-// ためで、上のコンストラクタ内の自動登録と合わせて StrictGetMethodPlugin が2つ
-// 登録される（意図的な重複。両方とも同じ検査をするだけで実害は無い）。
-// 回帰テスト（apps/api/test/method-restriction.test.ts）はこの動作を固定する
-// interceptorsは想定外の例外（procedureのバグ・DBエラー等）を捕まえて
-// 一意のIDを振るために使う（apps/api/src/lib/error-id.ts）。procedure側が
-// 意図的にthrowするFORBIDDEN等のORPCErrorには影響しない
+// GET で手続きを実行させない（状態変更を GET で行わない。security-requirements.md 7節）。
+// RPCHandler は既定で StrictGetMethodPlugin を登録するが、ライブラリの既定に頼らず明示する
+// （重複して 2 つになるが同じ検査なので実害は無い。method-restriction.test.ts が固定する）。
+// interceptors は想定外の例外に一意の ID を振る（lib/error-id.ts）。意図した ORPCError には影響しない
 const handler = new RPCHandler(router, {
   plugins: [new StrictGetMethodPlugin()],
   interceptors: [({ next }) => withErrorId(next)],
 });
 
-// 053: 固定のセキュリティヘッダ（nosniff・Referrer-Policy・HSTS）を全応答に付ける。
-// 一番外側に置く: 下の 301・403・API・静的アセットのどの応答にも付く。
-// `_headers` は run_worker_first = true だと効かないため Worker で付ける
-// （src/lib/security-headers.ts）。静的アセットの応答は下の fallback で複製済み
-// （binding の応答はヘッダが immutable）
+// 固定のセキュリティヘッダ（nosniff・Referrer-Policy・HSTS）を全応答に付ける。一番外側に置き、
+// 301・403・API・静的アセットのどれにも付ける（run_worker_first では `_headers` が効かない）
 app.use("*", async (c, next) => {
   await next();
   applyStaticSecurityHeaders(c.res);
 });
 
-// 053: 旧ホスト（*.workers.dev）と www は nisoine.com へ 301（同じパス・同じクエリ）。
-// /api/* は 301 しない: 開きっぱなしの古いタブからの API 呼び出しは fetch が 301 を
-// 黙って追って Cookie 無しの 401 になるだけなので、403 と文言で「開き直して」と伝える
-// （タスク定義 0節 #2）。ローカル（localhost）は isLegacyHost が false で素通り
+// 旧ホスト（*.workers.dev）と www は nisoine.com へ 301（同じパス・クエリ）。
+// /api/* は 301 しない: 古いタブの fetch が 301 を黙って追うと Cookie 無しの 401 になるだけなので、
+// 403 と文言で「開き直して」と伝える（053）
 app.use("*", async (c, next) => {
   const url = new URL(c.req.url);
   if (!isLegacyHost(url.hostname)) {
@@ -116,8 +96,7 @@ app.use("*", async (c, next) => {
   return c.redirect(canonicalUrlFor(url), 301);
 });
 
-// 認証情報（Cookie）付きリクエストを許可するオリジンは環境変数で切り替える。
-// 本番は同一Workerから配信するため同一オリジンになり、そもそも越境しない
+// Cookie 付きの越境を許すオリジンは環境変数で切り替える（本番は同一オリジンで越境しない）
 app.use("/api/*", (c, next) => {
   return cors({
     origin: parseTrustedOrigins(c.env.TRUSTED_ORIGINS),
@@ -125,14 +104,12 @@ app.use("/api/*", (c, next) => {
   })(c, next);
 });
 
-// @better-auth/expo の認可プロキシ。ネイティブの Google ログインは未対応
-// （futary:// を TRUSTED_ORIGINS に含めていない）ため、オープンリダイレクトの
-// 踏み台にされないよう明示的に塞ぐ。ネイティブ対応時にこのブロックを外す
-// （security-auditor 003監査 Medium指摘）
+// @better-auth/expo の認可プロキシ。ネイティブのログインは未対応なので、オープンリダイレクトの
+// 踏み台にされないよう塞ぐ。ネイティブに対応するときに外す
 app.get("/api/auth/expo-authorization-proxy", (c) => c.notFound());
 
-// 048 段階2: Stripe の Webhook。CORS・セッションの前に置く（Stripe からの POST に Cookie は無い。
-// 署名だけで認証する。stripe-webhook.ts）。Stripe が設定されていなければ 404
+// Stripe の Webhook。Cookie は無く署名だけで認証するので、CORS・セッションの前に置く
+// （stripe-webhook.ts）。Stripe が未設定なら 404
 app.post("/api/stripe/webhook", async (c) => {
   const billing = buildBilling(c.env);
   if (!billing) return c.notFound();
@@ -161,15 +138,12 @@ app.use("/api/*", async (c, next) => {
         image: session.user.image ?? null,
       }
     : null;
-  // invite.accept のレート制限に使うIP。Cloudflare が付与するヘッダで、
-  // ローカル開発等で無い場合は null（IP条件を外し user_id 単独で判定する。
-  // 固定の代用文字列に丸めると無関係な利用者を巻き込むため、そうしていない）
+  // invite.accept のレート制限に使う IP。無ければ null（代用文字列にすると無関係な利用者を巻き込む）
   const ip = c.req.header("cf-connecting-ip") ?? null;
-  // 空文字も「未設定」として扱う（fail-closed。docs/tasks/005-authorization-middleware.md）
+  // 空文字も未設定として扱う（fail-closed）
   const demoCoupleId = c.env.DEMO_COUPLE_ID ? c.env.DEMO_COUPLE_ID : null;
   const sessionCreatedAt = session ? session.session.createdAt.getTime() : null;
-  // createAuth(c.env) が既に assertValidSecret を通しているため、ここでは
-  // undefinedチェックをしない（auth.tsのコメント参照）
+  // createAuth(c.env) が assertValidSecret を通しているので、ここでは確かめない
   const authSecret = c.env.BETTER_AUTH_SECRET as string;
   const r2Sign = {
     accountId: c.env.R2_ACCOUNT_ID ?? "",
@@ -177,11 +151,7 @@ app.use("/api/*", async (c, next) => {
     secretAccessKey: c.env.R2_SECRET_ACCESS_KEY ?? "",
     bucketName: R2_BUCKET_NAME,
   };
-  // security-auditor指摘: AI_PROVIDERが指す方だけをcontextに積む
-  // （タスク定義3節「両方のキーを同時に読まない」）。実際に選ぶのは
-  // lib/ai.tsのresolveAiConfigだが、使わない方の秘密が全リクエストの
-  // contextに同居しない方が、将来contextをログ・トレースへ流したときに
-  // 一度に2本漏れる形にならない
+  // AI_PROVIDER が指す方のキーだけを context に積む（使わない方の秘密を全リクエストに同居させない）
   const aiEnv = {
     provider: c.env.AI_PROVIDER,
     openaiApiKey: c.env.AI_PROVIDER === "openai" ? c.env.OPENAI_API_KEY : undefined,
@@ -210,11 +180,9 @@ app.use("/api/*", async (c, next) => {
   await next();
 });
 
-// 053: /api/* 以外は静的アセット（ランディング・/app/*）。run_worker_first = true に
-// したので Worker が ASSETS binding に渡す（html_handling・404 は binding 側の既定
-// のまま。`/privacy` -> privacy.html の解決も変わらない）。HTML には CSP を付ける
-// （inline script のハッシュは配信する HTML から計算。src/lib/security-headers.ts）。
-// /api/* で一致しなかったものは binding に渡さず 404（それまでの Hono の既定と同じ）
+// /api/* 以外は静的アセット（html_handling・404 は binding の既定のまま）。HTML には CSP を付ける
+// （inline script のハッシュは配信する HTML から計算。lib/security-headers.ts）。
+// /api/* で一致しなかったものは binding に渡さず 404
 app.all("*", async (c) => {
   if (c.req.path.startsWith("/api/")) return c.notFound();
   const assets = c.env.ASSETS;

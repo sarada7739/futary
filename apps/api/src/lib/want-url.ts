@@ -1,7 +1,5 @@
-// 040 タスク定義3節「URL の正規化」: Amazon だけ、`/dp/{ASIN}` を含む URL は
-// `https://www.amazon.co.jp/dp/{ASIN}` に揃えて保存する（`?tag=…&th=1` のような
-// 追跡パラメータを落とす。人間が貼った URL にもアフィリエイトの tag が付いていた）。
-// 他の店は触らない。正規化の一般化はしない（店ごとの規則を集め始めると終わらない）
+// Amazon だけ、`/dp/{ASIN}` を含む URL を `https://www.amazon.co.jp/dp/{ASIN}` に揃える
+// （アフィリエイトの tag などの追跡パラメータを落とす）。他の店は触らない（店ごとの規則を集め始めると終わらない。040）
 
 const AMAZON_JP_HOSTS = new Set(["amazon.co.jp", "www.amazon.co.jp"]);
 const ASIN_PATH = /\/dp\/([A-Z0-9]{10})(?=[/?#]|$)/;

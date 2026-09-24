@@ -4,8 +4,7 @@ import { diffDays, monthDayOf, projectMonthDay, yearsBetween } from "@futary/dat
 import { isConstraintViolation } from "./couple";
 import { readProcedure, writeProcedure } from "./base";
 
-// 範囲は最大400日。射影の回数と D1 の行読み取りを有界にする。
-// 月グリッド（最大42日）と年表示（366日）を十分に覆う（architecture.md 5節）
+// 範囲は最大 400 日（射影の回数と D1 の読み取りを有界にする。月グリッド 42 日・年 366 日を覆う。architecture.md 5節）
 const MAX_RANGE_DAYS = 400;
 
 function nowSeconds(): number {
@@ -23,28 +22,22 @@ interface EventRowBase {
   is_shared: number;
 }
 
-// event.list は user を LEFT JOIN して1クエリで取れるが、event.create/update は
-// INSERT/UPDATE の RETURNING に JOIN を書けないため、名前は別途合成する（下記参照）
+// create/update は RETURNING に JOIN を書けないので、名前は別に引いて合わせる
 interface EventRow extends EventRowBase {
   created_by_name: string | null;
   created_by: string;
 }
 
-// 021: plan にだけ行ごとの持ち主がある。anniversary/meetupはどちらでも
-// 編集・削除できる（変えていない）。event.update/deleteのWHERE句（下記）と
-// 同じ規則をここでも計算する。「両方に同じことを書いた」ではなく
-// 「両方が同じ答えを出す」ことをテストで突き合わせる（docs/tasks/021-plan-ownership.md）。
-// viewerIdがnull（未認証のデモ閲覧者）はwriteProcedureが即FORBIDDENで弾くため、
-// kind・isSharedに関わらず常にfalse
+// plan にだけ行ごとの持ち主がある（記念日・会った日はどちらでも編集できる）。update/delete の
+// WHERE と同じ規則で、両方が同じ答えを出すことをテストで突き合わせる（021）。
+// viewerId が null（デモ閲覧）は writeProcedure が弾くので常に false
 function computeCanEdit(kind: string, isShared: boolean, createdBy: string, viewerId: string | null): boolean {
   if (viewerId === null) return false;
   return kind !== "plan" || isShared || createdBy === viewerId;
 }
 
-// repeat_yearly=0 のときは date === sourceDate（射影が起きていない）。
-// createdById は返さない。権限規則（kind・isShared・設定者かどうか）を
-// クライアント側に再度書かせないため、サーバが計算したcanEditだけを返す
-// （021・architecture.md 5節）
+// createdById は返さず、サーバが計算した canEdit だけを返す（権限規則をクライアントに書かせない。
+// architecture.md 5節）
 function toEvent(row: EventRowBase, createdByName: string | null, canEdit: boolean): Event {
   return {
     id: row.id,
@@ -61,17 +54,14 @@ function toEvent(row: EventRowBase, createdByName: string | null, canEdit: boole
   };
 }
 
-// created_by は user(id) への外部キー（ON DELETE no action）。到達不能な状態は
-// 現状作れないが、将来 ON DELETE が変わったときに予定を黙って消さないよう
-// null 許容にする（posts.authorName と同じ判断。architecture.md 5節）
+// 今は到達しないが、ON DELETE が変わったときに予定を黙って消さないよう null 許容（architecture.md 5節）
 async function fetchUserName(db: D1Database, userId: string): Promise<string | null> {
   const row = await db.prepare(`SELECT name AS name FROM user WHERE id = ?1`).bind(userId).first<{ name: string }>();
   return row?.name ?? null;
 }
 
-// repeat_yearly=1 の行を、範囲が触れる年それぞれに射影する（architecture.md 5節）。
-// 「射影する年を決め打ちにしない」ため year(from)〜year(to) を必ずループする。
-// 同じ記念日が2回現れることがあり、重複は除去しない
+// repeat_yearly=1 の行を範囲が触れる年それぞれに射影する（年を決め打ちにしない。architecture.md 5節）。
+// 同じ記念日が 2 回現れうるが、重複は除かない
 function projectEvent(row: EventRow, from: string, to: string, viewerId: string | null): Event[] {
   const canEdit = computeCanEdit(row.kind, row.is_shared === 1, row.created_by, viewerId);
   const event = toEvent(row, row.created_by_name, canEdit);
@@ -84,7 +74,7 @@ function projectEvent(row: EventRow, from: string, to: string, viewerId: string 
     .map((date) => ({ ...event, date }));
 }
 
-// ctx.coupleId のみを使い、couple_id を引数に取らない（architecture.md 5節）
+// couple_id を引数に取らない（architecture.md 5節）
 const eventList = implementer.event.list.use(readProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
 
@@ -93,11 +83,8 @@ const eventList = implementer.event.list.use(readProcedure).handler(async ({ con
     throw errors.INVALID_INPUT();
   }
 
-  // repeat_yearly=0 は SQL 側で範囲に絞る。repeat_yearly=1 はこの couple の
-  // 全件を取ってから射影する（登録された年に関わらず表示されうるため、
-  // date 列の範囲条件では絞れない）。設定者の名前を出すため user を LEFT JOIN
-  // する（018・architecture.md 5節。posts.authorName と同じ形）。created_by は
-  // canEdit の計算にだけ使い、レスポンスには含めない（021）
+  // repeat_yearly=0 は SQL で範囲に絞る。=1 は登録した年に関わらず出うるので全件を取ってから射影する。
+  // created_by は canEdit の計算にだけ使い、応答に含めない
   const { results } = await db
     .prepare(
       `SELECT events.id AS id, events.date AS date, events.title AS title, events.kind AS kind,
@@ -122,17 +109,13 @@ const eventCreate = implementer.event.create.use(writeProcedure).handler(async (
   const startTime = input.startTime ?? null;
   const endTime = input.endTime ?? null;
   const isShared = input.isShared ? 1 : 0;
-  // context.user は resolveCoupleContext が mode="member" を返した時点で必ず
-  // 非null（post.ts と同じ理由。base.ts冒頭コメント参照）
+  // mode="member" なら context.user は必ず非 null（auth-context.ts）
   const createdByName = context.user!.name;
 
-  // kind='meetup' のときだけ events_meetup_unique（couple_id, date の部分UNIQUE。
-  // architecture.md 5節）にぶつかりうる。ON CONFLICT DO UPDATE で1文のまま上書きする
-  // （「SELECTしてからUPDATE」の2段階にしない。security-requirements.md 3節・
-  // D1にインタラクティブなトランザクションが無いため）。id は更新しない
-  // （既存行の身元を保つ。他のkindでは対応する部分インデックスの対象外のため
-  // このON CONFLICT句自体が発火しない）。end_timeもSET句に含める（022。忘れると
-  // 前の「会った日」の終了時刻が上書きされずに残る。Rレビュー指摘）
+  // meetup だけが events_meetup_unique（couple_id, date の部分 UNIQUE）にぶつかりうる。
+  // D1 にトランザクションが無いので、SELECT してから UPDATE にせず ON CONFLICT DO UPDATE の 1 文で上書きする
+  // （security-requirements.md 3節）。id は変えない（既存行の身元を保つ）。
+  // SET に end_time も含める（忘れると前の終了時刻が残る）
   const row = await db
     .prepare(
       `INSERT INTO events (id, couple_id, date, title, kind, repeat_yearly, start_time, end_time, created_by, is_shared, created_at)
@@ -162,34 +145,20 @@ const eventCreate = implementer.event.create.use(writeProcedure).handler(async (
     )
     .first<EventRowBase>();
 
-  // 作成者自身の応答なので常に編集できる（kind='plan'でもcreated_by=userId）
+  // 作成者自身への応答なので常に編集できる
   return toEvent(row!, createdByName, true);
 });
 
-// WHERE 句に couple_id = ctx.coupleId と権限規則（021）を含めて1文で行う
-// （006の post.delete と同じ形）。他ペアのイベントID・存在しないID・権限が無い
-// 場合はすべて更新件数0となり、区別せず NOT_FOUND を返す（docs/tasks/021-plan-ownership.md。
-// 「書き込みが0件で終わったあとに理由を調べない」——2段階と区別している）。
+// WHERE に couple_id と権限規則を含めた 1 文。他ペア・存在しない・権限が無いは更新 0 件で、
+// 区別せず NOT_FOUND（0 件のあとに理由を調べない）。
 //
-// WHERE には3つの条件を入れる（security-auditor指摘・Rレビューで2回訂正。
-// security-requirements.md 3節項目8）。
-// (1) 更新前の行に対する権限（kind <> 'plan' OR is_shared = 1 OR created_by = ?）。
-//     event.deleteのWHERE句と文言をそろえている。片方だけ変えると消せてしまう
-// (2) 更新後の状態でも実行者自身が編集できることを要求する
-//     （?newKind <> 'plan' OR ?newIsShared = 1 OR created_by = ?）。
-//     「自分を締め出す更新を拒む」形。(1)だけだと、設定者でない側が記念日・
-//     会った日〈どちらでも編集できる〉を編集し、その場でkindをplan・
-//     is_sharedを0にすることで自分自身を締め出せてしまう
-// (3) kind<>'plan'からkind='plan'への変換そのものを拒む
-//     （NOT (kind <> 'plan' AND ?newKind = 'plan')）。
-//     (2)だけだと「設定者本人」は素通りする（created_byが更新で変わらない
-//     ため）。自分の記念日・会った日を非共有planに変えて相手を締め出せて
-//     しまう。さらに(2)にis_shared=1の例外を残すと、「共有planにする→
-//     （持ち主が）非共有にする」の2段階で同じ終着点に迂回できる
-//     （単独では正しい2つの更新をつなぐと着く。Rが発見）。区分をまたぐ
-//     変換自体を禁じることで両方を塞ぐ。plan内の共有/非共有は持ち主が
-//     決めてよいため変えていない。event.deleteには(2)(3)とも不要
-//     （削除は状態を変えないため「更新後」が無い）
+// WHERE の 3 つの条件（security-requirements.md 3節項目8）:
+// (1) 更新前の行に対する権限。event.delete と文言をそろえる（片方だけ変えると消せてしまう）
+// (2) 更新後も実行者自身が編集できること。無いと、設定者でない側が記念日を plan・非共有に
+//     変えて自分を締め出せる
+// (3) plan 以外 → plan への変換そのものを拒む。(2) だけだと設定者本人は通り、記念日を
+//     非共有の plan に変えて相手を締め出せる（「共有 plan にする → 非共有にする」の 2 段階でも着く）。
+// plan の中の共有・非共有は持ち主が決めてよい。削除には「更新後」が無いので (2)(3) は要らない
 const eventUpdate = implementer.event.update.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
   const repeatYearly = input.repeatYearly ? 1 : 0;
@@ -225,9 +194,8 @@ const eventUpdate = implementer.event.update.use(writeProcedure).handler(async (
       )
       .first<EventRowBase & { created_by: string }>();
   } catch (error) {
-    // events_meetup_unique 違反 = その日には既に別の「会った日」がある。
-    // update は create と違い上書きしない。「別の行が黙って消える」のは
-    // 利用者の意図と違うため（018・architecture.md 5節）
+    // その日に別の「会った日」がある。update は create と違い上書きしない
+    // （別の行が黙って消えるのは利用者の意図と違う。architecture.md 5節）
     if (isConstraintViolation(error)) throw errors.INVALID_INPUT();
     throw error;
   }
@@ -238,8 +206,7 @@ const eventUpdate = implementer.event.update.use(writeProcedure).handler(async (
   return toEvent(row, createdByName, canEdit);
 });
 
-// 権限規則はevent.updateと文言をそろえている（片方だけ変えると消せてしまう。
-// docs/tasks/021-plan-ownership.md）
+// 権限規則は event.update の (1) と文言をそろえる（片方だけ変えると消せてしまう）
 const eventDelete = implementer.event.delete.use(writeProcedure).handler(async ({ context, input, errors }) => {
   const { db, coupleId, userId } = context;
 

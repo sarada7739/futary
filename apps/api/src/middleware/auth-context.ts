@@ -2,10 +2,8 @@ import type { ORPCErrorConstructorMap } from "@orpc/server";
 import type { RpcContext } from "../context";
 import { isAdminEmail } from "../lib/admin-emails";
 
-// couple_id の解決結果。以降の全手続きはこれだけを使い、couple_id を
-// 自前で解決しない（docs/tasks/005-authorization-middleware.md）。
-// mode で userId の有無が決まるユニオン型にして、writeProcedure が
-// readonly を弾いた後は userId が string に絞り込まれるようにする
+// couple_id の解決結果。全手続きはこれだけを使い、couple_id を自前で解決しない。
+// mode で userId の有無が決まるユニオン型なので、readonly を弾いた後は userId が string に絞られる
 export type CoupleContext =
   | { userId: string; coupleId: string; mode: "member" }
   | { userId: null; coupleId: string; mode: "readonly" };
@@ -16,22 +14,17 @@ type AuthErrors = ORPCErrorConstructorMap<{
 }>;
 
 /**
- * 認可の要。couple_id の解決をここに集約する（architecture.md 5節）。
+ * 認可の要。couple_id の解決をここに集める（architecture.md 5節）。
  *
  * 1. 認証済み -> couple_members から couple_id を解決する。未所属なら NEEDS_ONBOARDING
  * 2. 未認証   -> couple_id = デモペアの id、mode = 'readonly'
- *    ただし DEMO_COUPLE_ID が未設定・空文字なら、その場で FORBIDDEN にする
- *    （014 でデモペアを作るまでの間、`undefined` を couple_id として先へ進めると
- *    条件が意図せず外れて全ペアのデータが返る形になり得るため。fail-closed）
+ *    DEMO_COUPLE_ID が未設定・空文字なら FORBIDDEN（undefined のまま進むと条件が外れて全ペアが返りうる）
  *
- * 未認証分岐は DEMO_COUPLE_ID の値を信用するだけでなく、実際に
- * `is_demo = 1` の couple であることを DB で確認してから通す
- * （T4: デモ経路からの本番データ漏洩。security-requirements.md 9節）。
- * env の設定ミス・書き間違い1つで実在ペアが未認証の全世界に公開される
- * 経路を、値の一致だけに頼らず塞ぐ（security-auditor 005監査 Medium指摘）
+ * 未認証は DEMO_COUPLE_ID を信じるだけでなく、`is_demo = 1` であることを DB で確かめてから通す
+ * （env の書き間違い 1 つで実在のペアが公開される経路を塞ぐ。security-requirements.md 9節 T4）
  */
-// 057: 運営か。認証済みで、メールが ADMIN_EMAILS に含まれるときだけ true。ゲストは false。
-// 判定はここの 1 箇所（admin.* の入口の adminProcedure と、couple.get の isAdmin が呼ぶ）
+// 運営か。認証済みでメールが ADMIN_EMAILS に含まれるときだけ true（ゲストは false）。
+// 判定はここの 1 箇所（adminProcedure と couple.get の isAdmin が呼ぶ。057）
 export function resolveIsAdmin(context: RpcContext): boolean {
   if (!context.user) return false;
   return isAdminEmail(context.user.email, context.adminEmails ?? []);

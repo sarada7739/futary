@@ -3,8 +3,7 @@ import { check, index, integer, primaryKey, sqliteTable, text, unique } from "dr
 import { user } from "./auth";
 import { couples } from "./couple";
 
-// 画像アップロード本体は 007 で実装した（architecture.md 6節）。
-// 画像は 031 で post_images へ移した（1投稿に4枚まで。下のテーブル参照）
+// 画像は post_images（1 投稿に 4 枚まで。下の表）
 export const posts = sqliteTable(
   "posts",
   {
@@ -17,23 +16,18 @@ export const posts = sqliteTable(
       .references(() => user.id),
     body: text("body").notNull().default(""),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-    // 非NULLなら論理削除済み。post.list は deleted_at IS NULL で絞る
+    // 非 NULL なら論理削除済み
     deletedAt: integer("deleted_at", { mode: "timestamp" }),
   },
   (table) => [
-    // post.list のカーソルページング（couple_id 固定 + created_at 降順）を
-    // 支える複合インデックス（architecture.md 4節: INDEX (couple_id, created_at DESC)）。
-    // SQLite は昇順インデックスを逆順に辿れるため、DESC 指定なしでも
-    // ORDER BY created_at DESC のスキャンに使われる
+    // post.list のカーソルページング（couple_id 固定 + created_at 降順。architecture.md 4節）。
+    // SQLite は昇順の索引を逆にも辿れるので DESC の指定は要らない
     index("posts_couple_created_idx").on(table.coupleId, table.createdAt),
   ],
 );
 
-// 031: 1投稿に画像を4枚まで（architecture.md 4節）。position（0..3）が並び順。
-// key が非NULL列として存在すれば実体がある、という不変条件は posts.image_key の
-// ときと同じ（architecture.md 6節「画像の実体と行の対応を1対1に保つ」）。
-// 論理削除を持たせない（posts と違い、行が残ると key の UNIQUE が空きを塞ぐ。
-// post.delete は行ごと物理削除する）
+// 1 投稿に画像 4 枚まで（architecture.md 4節）。position（0..3）が並び順。key があれば実体がある
+// （architecture.md 6節）。論理削除を持たない（行が残ると key の UNIQUE が塞がる。post.delete は物理削除）
 export const postImages = sqliteTable(
   "post_images",
   {
@@ -41,8 +35,7 @@ export const postImages = sqliteTable(
       .notNull()
       .references(() => posts.id),
     position: integer("position").notNull(),
-    // UNIQUE: 同じ imageId（key）を複数の投稿・行から参照させない
-    // （posts_image_key_unique が持っていた性質を移した先で失わない）
+    // 同じ imageId（key）を複数の投稿・行から参照させない
     key: text("key").notNull(),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
@@ -50,8 +43,7 @@ export const postImages = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.postId, table.position] }),
     unique("post_images_key_unique").on(table.key),
-    // 枚数の上限（4枚）を position の CHECK と主キーで DB 側にも表す。
-    // アプリの条件（Zodのmax(4)）だけに頼らない
+    // 4 枚の上限を position の CHECK と主キーで DB 側にも表す（Zod の max(4) だけに頼らない）
     check("post_images_position_range_check", sql`${table.position} BETWEEN 0 AND 3`),
   ],
 );
