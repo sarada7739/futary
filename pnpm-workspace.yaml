@@ -24,7 +24,15 @@ minimumReleaseAgeExclude:
 # 外した状態でも各項目がaudit結果に現れなくなったら赤にする）。
 # 016のリリース前に全項目を再評価する
 auditConfig:
-  ignoreGhsas: []
+  ignoreGhsas:
+    # image-size 1.2.1（経路: @better-auth/expo -> expo -> @expo/cli -> react-native
+    # -> metro@0.87 -> image-size）。ICNSパーサのDoS。修正版は 2.0.3 だが、metro@0.87 が
+    # ^1.0.2 を宣言し require("image-size").default(content) で呼ぶので 2.x へ override
+    # できない。Metro（開発時のバンドラ）経由のみで、Worker と配信アセットには含まれない。
+    # metro が image-size ^2 を宣言したら（または image-size 1.x に修正版が出たら）消すこと
+    - GHSA-w3rx-r6r6-pgpr
+    # image-size（同上の経路）。JXL/HEIFパーサのDoS。到達可能性・削除条件は上と同じ
+    - GHSA-5p2g-fcmc-qvqq
 # 推移的依存の既知脆弱性への追随（security-requirements.md 9節 T7）。
 # 修正版がある勧告は無視リストに入れず、ここで上げる。
 overrides:
