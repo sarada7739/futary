@@ -4,7 +4,7 @@ futary-R で origin/task/065-ai-band-center（a8c91f5）を checkout。`landing.
 
 **受け入れ。必須修正なし。**
 
-## タスク定義に無い 1 行（`.ai-band-copy { flex-grow: 0; }`）は必要
+## `flex-grow: 0` が要ること（#450 で定義に入った）
 
 B の `measure.mjs` で、CSS を 3 通り R も測った（Chromium・375 / 1280）:
 
