@@ -26,7 +26,7 @@ URL を貼ると商品の画像と題名が付く（040 の link-preview）と�
 
 - `packages/db/seed/demo.ts`: `DEMO_ASSET_FILES.wantGunze`・`wantDefs` に 1 件（0節 #1〜#6）。画像のキーは `wantImageKey("demo-want-image-gunze")`。コメントを 0節 #7 の形に
 - `packages/db/seed/assets/want-gunze.jpg`（0節 #5）
-- `packages/db/seed/demo.test.ts`: 件数（ゆい 2・れん 3）・画像を持つのが 2 件・Amazon の URL は 1 件だけで他は `example.com`
+- `packages/db/seed/demo.test.ts`: 件数（ゆい 3・れん 2）・画像を持つのが 2 件・Amazon の URL は 1 件だけで他は `example.com`
 - ローカルで `seed:local` → `/app/?demo=1` のほしいものに画像付きで出る画面を `artifacts/064/`
 
 ## 2. テストで証明すること
