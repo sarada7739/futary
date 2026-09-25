@@ -14020,3 +14020,10 @@ Session: A
 - 人間: デプロイの承認 → `pnpm --filter @futary/db seed:remote` → 本番のデモでグンゼ（ゆいのほしいもの）を確認。064 完了
 
 Session: A
+
+## 2026-09-26 セッションA: 062・063 の本番 OK・065 を起票
+
+- 人間: 062（ピンクの写真タイル）・063 を本番で OK
+- 人間の指示（iPhone の画面）: LP の AI まとめの帯で文字が上に寄る → 真ん中に。`style.css` を読んで原因を特定（720px 以下の `flex-direction: column` に PC の `justify-content: space-between` が残る。子が 1 つなので上端）。065 に
+
+Session: A
