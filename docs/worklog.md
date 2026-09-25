@@ -14027,3 +14027,10 @@ Session: A
 - 人間の指示（iPhone の画面）: LP の AI まとめの帯で文字が上に寄る → 真ん中に。`style.css` を読んで原因を特定（720px 以下の `flex-direction: column` に PC の `justify-content: space-between` が残る。子が 1 つなので上端）。065 に
 
 Session: A
+
+## 2026-09-26 セッションA: 065 の原因を B の実測に合わせる・064 の本番を確かめる
+
+- B の知らせ: 0節 #1・#2 だけでは 375 の文字が動かない（上 24・下 84）。原因は `space-between` ではなく `.ai-band-copy` の `flex: 1 1 auto`（縦並びで伸びる）。720px 以下に `flex-grow: 0` を足して 54・54。起票のときの原因の見立て（`space-between`）は外れていた。065 の原因・0節 #1・T1 を直した
+- B の知らせ: 064 の `seed:remote` が 7403（wrangler の OAuth の権限）で止まった。人間は「確認できました」と言っていたので、本番の `POST /api/want/list`（未認証 = デモペア）を引いた。partner（ゆい）の先頭に「グンゼのインナーシャツ」・`https://www.amazon.co.jp/dp/B00F2G8ZLS`。本番に入っている。064 完了のまま
+
+Session: A
