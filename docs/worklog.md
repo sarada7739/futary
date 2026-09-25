@@ -14065,3 +14065,9 @@ Session: A
 - `landing.test.ts` に 065 T2。`pnpm -r test` 1,538 緑・lint 緑
 
 Session: B
+
+## 2026-09-26 セッションB: 065 追補のマージ
+
+- R が受け入れ（必須修正なし）。判定を `artifacts/065/review.md` の末尾に追記 → CI 緑 → #453 を squash merge
+
+Session: B
