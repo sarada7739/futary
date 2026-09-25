@@ -11,6 +11,7 @@
 - 型は `packages/contract` の Zod スキーマから導出する。同じ形の型を手で二重定義しない
 - 関数の戻り値型は公開APIには明示、内部関数は推論に任せる
 - `null` と `undefined` を混在させない。DB由来の欠損は `null`、未指定は `undefined`
+- **`packages/*/src` の中の相対 import・export には `.ts` を付ける**（`export * from "./holidays.ts"`）。`packages/db/seed/run.ts` は Node が直接実行する（型を剥がすだけで、拡張子を補わない）ので、そこから辿れるファイルに拡張子の無いパスがあると `seed:local`・`seed:remote` が落ちる。`tsconfig.base.json` の `allowImportingTsExtensions` はこのため。アプリ（Metro）と Worker（wrangler）はどちらでも読める
 
 ## 3. ディレクトリと命名
 
