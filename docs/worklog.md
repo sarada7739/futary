@@ -14028,6 +14028,14 @@ Session: A
 
 Session: A
 
+## 2026-09-26 セッションB: 065 LP の AI まとめの帯、スマホで文字を上下の真ん中に
+
+- タスク定義の 2 行を入れて測ると 375 幅の文字は上 24・下 84 のまま。`.ai-band-copy` が `flex: 1 1 auto` で、縦並びでは帯の高さいっぱいに伸び、文字がその箱の上端に置かれていた
+- 720px 以下で `.ai-band-copy { flex-grow: 0 }` を足す → 54・54。1280 幅は main と画素で同じ
+- `landing.test.ts` に 065 T1 を 2 本（flex-grow を 1 に戻すと赤を確かめた）。`pnpm -r test` 1,537 緑・type-check・lint 緑
+- 064 の `seed:remote` を人間が実行 → Cloudflare の 7403（wrangler の OAuth の権限が user・account の読み取りだけ）。本番は何も変わっていない。`wrangler logout` → `login` で取り直す手順を人間に渡した
+
+Session: B
 ## 2026-09-26 セッションA: 065 の原因を B の実測に合わせる・064 の本番を確かめる
 
 - B の知らせ: 0節 #1・#2 だけでは 375 の文字が動かない（上 24・下 84）。原因は `space-between` ではなく `.ai-band-copy` の `flex: 1 1 auto`（縦並びで伸びる）。720px 以下に `flex-grow: 0` を足して 54・54。起票のときの原因の見立て（`space-between`）は外れていた。065 の原因・0節 #1・T1 を直した

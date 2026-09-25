@@ -494,7 +494,7 @@ p {
   color: #FFFFFF;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 24px;
   padding: 28px 32px;
   min-height: 200px;
@@ -522,6 +522,7 @@ p {
 
 .ai-band-copy p {
   font-size: 15px;
+  text-wrap: balance;
 }
 
 /* ---- 6 気分の記録 ---- */
@@ -925,6 +926,11 @@ p {
   .ai-band {
     flex-direction: column;
     padding: 24px 20px;
+  }
+
+  /* 縦並びでは文字の塊を伸ばさない（伸びると帯の高さいっぱいの箱の上端に文字が寄り、center が効かない） */
+  .ai-band-copy {
+    flex-grow: 0;
   }
 
   .day-steps {

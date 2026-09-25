@@ -296,3 +296,18 @@ describe("059 T5: 写真カードの余白（写真の下にも 22px・四隅 14
     expect(landingStyleCss).not.toContain("14px 14px 0 0");
   });
 });
+
+describe("065 T1: AI まとめの帯は、スマホでも文字が上下の真ん中", () => {
+  it(".ai-band は justify-content: center（space-between が無い）。.ai-band-copy p に text-wrap: balance", () => {
+    const band = landingStyleCss.match(/\n\.ai-band \{([^}]*)\}/)?.[1] ?? "";
+    expect(band).toContain("justify-content: center;");
+    expect(band).not.toContain("space-between");
+    expect(landingStyleCss).toMatch(/\.ai-band-copy p \{[^}]*text-wrap: balance;/);
+  });
+
+  it("720px 以下の縦並びでは文字の塊を伸ばさない（伸びると箱の上端に寄って center が効かない）", () => {
+    const phone = landingStyleCss.slice(landingStyleCss.indexOf("@media (max-width: 720px)"));
+    expect(phone).toMatch(/\.ai-band \{[^}]*flex-direction: column;/);
+    expect(phone).toMatch(/\.ai-band-copy \{[^}]*flex-grow: 0;/);
+  });
+});
