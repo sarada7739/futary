@@ -14042,3 +14042,11 @@ Session: B
 - B の知らせ: 064 の `seed:remote` が 7403（wrangler の OAuth の権限）で止まった。人間は「確認できました」と言っていたので、本番の `POST /api/want/list`（未認証 = デモペア）を引いた。partner（ゆい）の先頭に「グンゼのインナーシャツ」・`https://www.amazon.co.jp/dp/B00F2G8ZLS`。本番に入っている。064 完了のまま
 
 Session: A
+
+## 2026-09-26 セッションB: 065 のマージ
+
+- R が受け入れ（必須修正なし）。判定を `artifacts/065/review.md` に保存（見出しは #450 で定義に入った形に合わせた）
+- #450 と docs/state.md がぶつかった → main を取り込み（A の版を先頭、B の版を旧に）→ CI 緑 → #449 を squash merge（main 5ca5e0b）
+- A から: 064 は本番に入っている（本番の want.list でゆいの先頭にグンゼ）
+
+Session: B
