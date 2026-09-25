@@ -14057,3 +14057,11 @@ Session: B
 - 決定: 「を、」の後で `<br />`（PC も 2 行）。LP の他のカードと同じやり方。`<wbr>` や `word-break: auto-phrase` は Safari の対応が揃わないので使わない
 
 Session: A
+
+## 2026-09-26 セッションB: 065 追補（AI まとめの説明を「を、」の後で改行）
+
+- A の #452 を受けて `apps/landing/index.html` の説明に `<br />`（`text-wrap: balance` は残す）
+- 375 幅 54・54、1280 幅 51・51（前は 1 行で 64・64）。どちらも 2 行
+- `landing.test.ts` に 065 T2。`pnpm -r test` 1,538 緑・lint 緑
+
+Session: B

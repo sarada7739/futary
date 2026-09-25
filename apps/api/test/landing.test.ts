@@ -311,3 +311,10 @@ describe("065 T1: AI まとめの帯は、スマホでも文字が上下の真�
     expect(phone).toMatch(/\.ai-band-copy \{[^}]*flex-grow: 0;/);
   });
 });
+
+describe("065 T2: AI まとめの説明は「を、」の後で改行する", () => {
+  it("`/` の説明が「ふたりの 1 週間と 1 ヶ月を、<br />AI が短く振り返ります。」", () => {
+    const copy = landingIndexHtml.match(/<div class="ai-band-copy">([\s\S]*?)<\/div>/)?.[1] ?? "";
+    expect(copy).toContain("<p>ふたりの 1 週間と 1 ヶ月を、<br />AI が短く振り返ります。</p>");
+  });
+});
