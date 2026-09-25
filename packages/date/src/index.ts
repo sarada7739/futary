@@ -288,4 +288,4 @@ export function inclusiveDays(start: string, end: string | null): number {
   if (end === null) return 1;
   return diffDays(start, end) + 1;
 }
-export * from "./holidays";
+export * from "./holidays.ts";

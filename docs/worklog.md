@@ -13986,6 +13986,15 @@ Session: B
 
 Session: A
 
+## 2026-09-25 セッションB: 064 デモのほしいものに Amazon の商品を 1 件
+
+- `fetch-gunze.mjs`（040 の extractMeta と同じ UA）で商品ページと画像を 1 度だけ取得（ボット対策の画面は返らず）→ `resize-gunze.py` で白地の正方形 800×800・品質 82（20,773 バイト）
+- 人間の指示「ゆいが初期表示っぽいからゆいのに入れて」→ 持ち主をれんからゆいに（ゆい 3・れん 2）
+- `seed:local` が `ERR_MODULE_NOT_FOUND packages/date/src/holidays` で落ちた（058 の `export * from "./holidays"`）。`.ts` を付け、tsconfig.base.json に allowImportingTsExtensions
+- ローカルの署名付き URL は本番の R2 を指すので画像が出ない → 撮影に限り Playwright の route で同梱の画像を返して撮った（report.md に明記）
+- demo.test.ts に T1〜T3。`pnpm -r test` 1,535 緑・type-check・lint 緑
+
+Session: B
 ## 2026-09-25 セッションA: 064 の B の知らせを定義に反映
 
 - グンゼの持ち主を れん → ゆい（人間が B に直接指示）。064・040・`docs/sample/README.md`

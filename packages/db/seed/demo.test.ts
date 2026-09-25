@@ -1,6 +1,24 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { addDays, todayJst } from "@futary/date";
 import { describe, expect, it } from "vitest";
-import { buildDemoSeed, buildDemoSeedSql, DEMO_USER_MAN_ID, DEMO_USER_WOMAN_ID } from "./demo";
+import { buildDemoSeed, buildDemoSeedSql, DEMO_ASSET_FILES, DEMO_USER_MAN_ID, DEMO_USER_WOMAN_ID } from "./demo";
+
+// JPEG の SOF（0xFFC0〜0xFFCF。DHT 0xC4・JPG 0xC8・DAC 0xCC を除く）から幅と高さを読む
+function jpegSize(bytes: Uint8Array): { width: number; height: number } | null {
+  let i = 2;
+  while (i + 9 < bytes.length) {
+    if (bytes[i] !== 0xff) return null;
+    const marker = bytes[i + 1]!;
+    const length = (bytes[i + 2]! << 8) | bytes[i + 3]!;
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      return { height: (bytes[i + 5]! << 8) | bytes[i + 6]!, width: (bytes[i + 7]! << 8) | bytes[i + 8]! };
+    }
+    i += 2 + length;
+  }
+  return null;
+}
 
 // 014タスク定義の完了条件を、実際にD1/R2へ投入する前に固定する。
 // 「見つかった場合に対応する」ではなく、この生成ロジックが違反を作らないことを
@@ -125,17 +143,41 @@ describe("buildDemoSeed", () => {
 
   // 027: 「リスト」パネルが押せるようになるため、デモに達成済み・未達成の
   // 両方を入れる（並び順が見えるように）
-  // 040: 各 2 件（ゆい・れん）。画像は 1 件だけ。手に入れたものも 1 件
-  it("wantsは2人に2件ずつ。画像は1件だけR2に置く。手に入れたものが1件ある", () => {
+  // ゆい 3 件・れん 2 件。画像は 2 件。手に入れたものが 1 件（040・064 T1）
+  it("wantsはゆい3件・れん2件。画像は2件R2に置く。手に入れたものが1件ある", () => {
     const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
-    expect(seed.wants.filter((w) => w.ownerId === DEMO_USER_WOMAN_ID)).toHaveLength(2);
+    expect(seed.wants.filter((w) => w.ownerId === DEMO_USER_WOMAN_ID)).toHaveLength(3);
     expect(seed.wants.filter((w) => w.ownerId === DEMO_USER_MAN_ID)).toHaveLength(2);
     const withImage = seed.wants.filter((w) => w.imageKey !== null);
-    expect(withImage).toHaveLength(1);
-    expect(withImage[0]?.imageKey).toMatch(/^couples\/demo-couple\/wants\/.+\.jpg$/);
-    expect(seed.images.some((image) => image.key === withImage[0]?.imageKey)).toBe(true);
+    expect(withImage).toHaveLength(2);
+    for (const want of withImage) {
+      expect(want.imageKey).toMatch(/^couples\/demo-couple\/wants\/.+\.jpg$/);
+      expect(seed.images.some((image) => image.key === want.imageKey)).toBe(true);
+    }
     expect(seed.wants.filter((w) => w.obtainedAt !== null)).toHaveLength(1);
     expect(seed.wants.every((w) => w.url?.startsWith("https://"))).toBe(true);
+  });
+
+  // 実在の店を指すのは Amazon の 1 件だけで、追跡の引数は付けない。他は example.com（064 T2）
+  it("amazon.co.jp を指すのは1件だけでURLに ? が無い。他は example.com", () => {
+    const seed = buildDemoSeed(Date.UTC(2026, 7, 31));
+    const hosts = seed.wants.map((w) => new URL(w.url ?? "").hostname);
+    const amazon = seed.wants.filter((w) => new URL(w.url ?? "").hostname === "www.amazon.co.jp");
+    expect(amazon).toHaveLength(1);
+    expect(amazon[0]?.url).toBe("https://www.amazon.co.jp/dp/B00F2G8ZLS");
+    expect(amazon[0]?.url).not.toContain("?");
+    expect(amazon[0]?.imageKey).not.toBeNull();
+    expect(amazon[0]?.ownerId).toBe(DEMO_USER_WOMAN_ID);
+    expect(hosts.filter((h) => h !== "www.amazon.co.jp").every((h) => h === "example.com" || h.endsWith(".example.com"))).toBe(true);
+  });
+
+  // 同梱の画像は 800×800・250KB 以下（064 T3）
+  it("want-gunze.jpg は 800×800・250KB 以下の JPEG", () => {
+    const file = path.join(path.dirname(fileURLToPath(import.meta.url)), "assets", DEMO_ASSET_FILES.wantGunze);
+    const bytes = new Uint8Array(readFileSync(file));
+    expect([bytes[0], bytes[1]]).toEqual([0xff, 0xd8]);
+    expect(jpegSize(bytes)).toEqual({ width: 800, height: 800 });
+    expect(bytes.length).toBeLessThanOrEqual(250 * 1024);
   });
 
   // 041: アルバム 1 件（題名・期間つき）と写真 3 枚

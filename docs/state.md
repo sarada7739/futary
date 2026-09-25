@@ -11,6 +11,13 @@
 
 ---
 
+**最終更新（旧）**: 2026-09-25 / セッションB。**064（デモのほしいものに Amazon の商品を 1 件）: PR（`task/064-demo-want-amazon`）。R の手番。**
+- 人間の指示で**ゆい**のほしいものに入れた（タスク定義はれん。ゆい 3・れん 2。0節 #1・040 6節の件数は A が直す）。画像は 040 の抽出で 1 度だけ取り 800×800 で同梱（`artifacts/064/`）
+- `seed:local`・`seed:remote` が 058 から落ちていた（`packages/date` の拡張子の無い相対 import）→ `.ts` を付け、`tsconfig.base.json` に `allowImportingTsExtensions`
+- 人間の手番: デプロイの後に `pnpm --filter @futary/db seed:remote`。続き: 061 段階3・062 のデプロイ → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price・Dependabot の fflate（#340・#382）
+
+---
+
 **最終更新（旧）**: 2026-09-25 / セッションA。**064（デモの「ほしいもの」に Amazon の実在の商品を 1 件）を起票。B の手番。063 は追補まで完了（main dbf7d08）。**
 - 人間の指示: `https://amzn.asia/d/0boW0835`（→ `amazon.co.jp/dp/B00F2G8ZLS`・グンゼのインナーシャツ）をデモのほしいものに。画像は Amazon の商品画像を使う（人間の選択）。れんの 3 件目。デモが実在の店を指すのはこの 1 件だけ
 - 本番のデモへの反映は人間: デプロイの後に `pnpm --filter @futary/db seed:remote`

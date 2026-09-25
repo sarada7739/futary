@@ -9,6 +9,9 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    // packages/db の seed/run.ts は Node が .ts を直接実行し、@futary/date 等のソースも読む。Node ESM は
+    // 拡張子を省略できないので、パッケージの中の相対 import は .ts を付ける（type-check は全部 --noEmit）
+    "allowImportingTsExtensions": true
   }
 }
