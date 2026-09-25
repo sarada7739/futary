@@ -35,3 +35,18 @@
 ## 人間の手番
 
 本番デプロイの後、iPhone の Safari で帯を見る（Safari は Chromium と別。`text-wrap: balance` は Safari 17.5 以降）。
+
+## 追補: 説明を「を、」の後で改行する（0節 #2・T2）
+
+R の記録（375 幅で 2 行目が「を、」で始まる）への A の決定。`apps/landing/index.html` の説明を `<p>ふたりの 1 週間と 1 ヶ月を、<br />AI が短く振り返ります。</p>` に。`.ai-band-copy p` の `text-wrap: balance` は残した。
+
+`node artifacts/065/scripts/measure.mjs artifacts/065/br`:
+
+| 幅 | 文字の上・下の余白 | 説明 |
+|---|---|---|
+| 375 | 54・54 | 2 行（「ふたりの 1 週間と 1 ヶ月を、 / AI が短く振り返ります。」） |
+| 1280 | 51・51 | 2 行（同じ。前は 1 行で 64・64） |
+
+画面: `br/ai-band-375.png`・`br/ai-band-1280.png`。PC も 2 行になるのは 0節 #2 のとおり（上下の真ん中は保つ）。
+
+T2: `landing.test.ts` の「065 T2」（`.ai-band-copy` の中の `<p>` が上の文字列）。`pnpm -r test` 1,538 緑（api +1）・lint 緑。
