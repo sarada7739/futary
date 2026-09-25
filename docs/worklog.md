@@ -14001,3 +14001,10 @@ Session: B
 - B が見つけた `seed:*` の不具合（058 から。`packages/date` の拡張子の無い相対 export）。規約に `.ts` を付ける規則を足した。機械の網は、#443 の `seed:local` の手元の確認のほか、次に `packages/*/src` を触るタスクで足すか判断する
 
 Session: A
+
+## 2026-09-25 セッションB: 064 のマージ
+
+- R が受け入れ（必須修正なし）。判定を `artifacts/064/review.md` に保存
+- #444 と docs/state.md がぶつかった → main を取り込み（A の版を先頭、B の版を旧に）→ CI 緑 → #443 を squash merge
+
+Session: B
