@@ -13995,3 +13995,9 @@ Session: A
 - demo.test.ts に T1〜T3。`pnpm -r test` 1,535 緑・type-check・lint 緑
 
 Session: B
+## 2026-09-25 セッションA: 064 の B の知らせを定義に反映
+
+- グンゼの持ち主を れん → ゆい（人間が B に直接指示）。064・040・`docs/sample/README.md`
+- B が見つけた `seed:*` の不具合（058 から。`packages/date` の拡張子の無い相対 export）。規約に `.ts` を付ける規則を足した。機械の網は、#443 の `seed:local` の手元の確認のほか、次に `packages/*/src` を触るタスクで足すか判断する
+
+Session: A

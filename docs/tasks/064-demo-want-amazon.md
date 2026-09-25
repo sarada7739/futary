@@ -13,7 +13,7 @@ URL を貼ると商品の画像と題名が付く（040 の link-preview）と�
 
 | # | 論点 | 決定 | 理由 |
 |---|---|---|---|
-| 1 | 誰のほしいもの | **れん**（`DEMO_USER_MAN_ID`）。れんは 3 件になる（ゆい 2・れん 3） | 男性用の肌着 |
+| 1 | 誰のほしいもの | **ゆい**（`DEMO_USER_WOMAN_ID`。人間の指示）。ゆい 3・れん 2 | デモのほしいものは、ゆいの一覧が最初に出る |
 | 2 | 題名 | **`グンゼのインナーシャツ`**（Amazon の長い題名は使わない。デモの他の題名と同じ短さ） | 一覧で 1 行に収まる |
 | 3 | URL | **`https://www.amazon.co.jp/dp/B00F2G8ZLS`**（`ref`・`social_share` 等の追跡の引数は付けない） | 共有の追跡を載せない |
 | 4 | メモ | **`白の LL。2 枚組のやつ`** | 他のデモと同じく一言 |
@@ -33,7 +33,7 @@ URL を貼ると商品の画像と題名が付く（040 の link-preview）と�
 
 | # | 何を | どこで |
 |---|---|---|
-| T1 | `wants` はゆい 2・れん 3。画像を持つのは 2 件で、キーは両方 `couples/demo-couple/wants/…jpg` | `packages/db/seed/demo.test.ts` |
+| T1 | `wants` はゆい 3・れん 2。画像を持つのは 2 件で、キーは両方 `couples/demo-couple/wants/…jpg` | `packages/db/seed/demo.test.ts` |
 | T2 | `amazon.co.jp` を指すのは 1 件だけで、URL に `?` が無い。他は `example.com` | 同上 |
 | T3 | `want-gunze.jpg` が 800×800・250KB 以下 | 同上か `scripts` |
 

@@ -178,7 +178,7 @@ CREATE INDEX wants_couple_owner_created_idx ON wants (couple_id, owner_id, creat
 
 ## 6. デモに入れる
 
-`packages/db/seed/demo.ts` に**ゆい 2 件・れん 3 件**。URL あり・題名あり。URL は `example.com`（実在の店を指さない）。**例外は 064 の Amazon の 1 件**（人間の指示。商品画像つき）。画像は **2 件**（マグカップと 064）
+`packages/db/seed/demo.ts` に**ゆい 3 件・れん 2 件**。URL あり・題名あり。URL は `example.com`（実在の店を指さない）。**例外は 064 の Amazon の 1 件**（人間の指示。商品画像つき）。画像は **2 件**（マグカップと 064）
 （既存のデモ画像の置き方に倣う。無ければ画像無しで 4 件）。
 
 ## 7. やらないもの（先に決める）
