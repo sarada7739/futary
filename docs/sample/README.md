@@ -105,6 +105,7 @@
 | `packages/ui/assets/panel-white-want.jpg` | `simpleMode/新機能/A_single_isolated_Wishlist_*.png`（人間が「これを使っていい」と言った） | 2×2 の商品グリッド部分（x 262〜1000・y 300〜1038）を正方形に切り出し、600×600・JPEG 品質 82 に。役割の名前で保存 |
 | `packages/ui/assets/panel-want.png` | **原本無し。B が新規に描き起こした**（ハート。A の指示「ハートか、リボンの付いた箱」） | 既存の `panel-*.png` と同じ規格: 96×96・RGBA・単色 #4A3733・線幅 6px・塗りなし。PIL で 8 倍で描いて縮小 |
 | `packages/db/seed/assets/want-mug.jpg` | 同じ Wishlist の絵のマグカップの写真部分（x 650〜980・y 668〜998） | 正方形に切り出し 800×800・JPEG 品質 82。デモペアの「ほしいもの」の画像（AI 生成。実在の商品ではない） |
+| `packages/db/seed/assets/want-gunze.jpg` | Amazon の商品ページ（`https://www.amazon.co.jp/dp/B00F2G8ZLS`）の商品画像。040 の link-preview と同じ抽出で取った | 正方形 800×800・JPEG 品質 82。デモペア（れん）の「ほしいもの」の画像。**実在の商品**（人間の指示でデモに使う。064） |
 
 ### 041 で切り出したもの
 
