@@ -14027,3 +14027,12 @@ Session: A
 - 人間の指示（iPhone の画面）: LP の AI まとめの帯で文字が上に寄る → 真ん中に。`style.css` を読んで原因を特定（720px 以下の `flex-direction: column` に PC の `justify-content: space-between` が残る。子が 1 つなので上端）。065 に
 
 Session: A
+
+## 2026-09-26 セッションB: 065 LP の AI まとめの帯、スマホで文字を上下の真ん中に
+
+- タスク定義の 2 行を入れて測ると 375 幅の文字は上 24・下 84 のまま。`.ai-band-copy` が `flex: 1 1 auto` で、縦並びでは帯の高さいっぱいに伸び、文字がその箱の上端に置かれていた
+- 720px 以下で `.ai-band-copy { flex-grow: 0 }` を足す → 54・54。1280 幅は main と画素で同じ
+- `landing.test.ts` に 065 T1 を 2 本（flex-grow を 1 に戻すと赤を確かめた）。`pnpm -r test` 1,537 緑・type-check・lint 緑
+- 064 の `seed:remote` を人間が実行 → Cloudflare の 7403（wrangler の OAuth の権限が user・account の読み取りだけ）。本番は何も変わっていない。`wrangler logout` → `login` で取り直す手順を人間に渡した
+
+Session: B
