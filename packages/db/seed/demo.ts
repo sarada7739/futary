@@ -50,6 +50,7 @@ export const DEMO_ASSET_FILES = {
   avatarMan: "avatar-man.jpg",
   // 040: ほしいものの画像（800×800）
   wantMug: "want-mug.jpg",
+  wantGunze: "want-gunze.jpg",
   meetupPhotos: MEETUP_PHOTOS.map((p) => p.file),
 };
 
@@ -399,13 +400,15 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
     doneAt: w.done && w.doneDaysAgo !== undefined ? nowSecondsValue - w.doneDaysAgo * DAY_SECONDS : null,
   }));
 
-  // --- wants: 040。各 2 件（ゆい・れん）。URL あり・題名あり。画像は 1 件だけ R2 に置く
-  // （タスク定義6節）。実在の店の商品ページを指さない（014 と同じ理由。URL は
-  // 例示用の予約ドメイン example.com にする。押しても何も売っていない）。
-  // 画像は docs/sample/simpleMode/新機能/ の Wishlist の絵から切り出したマグカップ
-  // （AI 生成。実在の商品ではない。出自は docs/sample/README.md）
+  // --- wants: 040。ゆい 3 件・れん 2 件。URL あり・題名あり。画像は 2 件 R2 に置く。
+  // 実在の店の商品ページは指さない（014 と同じ理由。URL は例示用の予約ドメイン example.com）。
+  // 例外は Amazon の 1 件だけ（人間の指示。URL を貼ると商品の画像と題名が付く見え方を見せる。064）。
+  // 画像: マグカップは Wishlist の絵から切り出したもの（AI 生成）、グンゼは Amazon の商品画像
+  // （artifacts/064/scripts/ で 1 度だけ取って同梱。出自は docs/sample/README.md）
   const wantImageKeyValue = wantImageKey("demo-want-image-mug");
   images.push({ key: wantImageKeyValue, assetFile: DEMO_ASSET_FILES.wantMug });
+  const wantGunzeImageKey = wantImageKey("demo-want-image-gunze");
+  images.push({ key: wantGunzeImageKey, assetFile: DEMO_ASSET_FILES.wantGunze });
   const wantDefs: Array<{
     title: string;
     url: string;
@@ -430,6 +433,14 @@ export function buildDemoSeed(nowMs: number = Date.now()): DemoSeed {
       ownerId: DEMO_USER_WOMAN_ID,
       imageKey: null,
       createdDaysAgo: 12,
+    },
+    {
+      title: "グンゼのインナーシャツ",
+      url: "https://www.amazon.co.jp/dp/B00F2G8ZLS",
+      note: "白の LL。2 枚組のやつ",
+      ownerId: DEMO_USER_WOMAN_ID,
+      imageKey: wantGunzeImageKey,
+      createdDaysAgo: 1,
     },
     {
       title: "フィルムカメラ",
