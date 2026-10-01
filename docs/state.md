@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-02 / セッションB。**066（依存の既知脆弱性に追随・Dependabot の失敗を止める）: PR（`task/066-deps-security`）。R の手番。**
+**最終更新**: 2026-10-02 / セッションB。**066: R 受け入れ（必須修正なし）→ CI 緑 → #456 を squash merge。A の #457（定義の追随）はこの後。B は待機。**
+- 判定 `artifacts/066/review.md`。audit high 9 → 0・moderate 16 → 4・low 6 → 0
+- R の記録: `minimumReleaseAgeExclude` に `@cloudflare/vitest-plugin@1.1.0` が残っている（lockfile には無い。次に依存を触るときに消してよい）
+- 人間の手番: デプロイの後に本番の Google ログイン・Actions で Dependabot の `undici`・`image-size` の失敗が出ないか。続き: 065 のデプロイ後に iPhone の Safari で帯。061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price・Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-10-02 / セッションB。**066（依存の既知脆弱性に追随・Dependabot の失敗を止める）: PR（`task/066-deps-security`）。R の手番。**
 - audit high 9 → 0（無視リストの image-size 2 だけ）・moderate 16 → 4・low 6 → 0。wrangler 4.146.0・jsdom 30.1.1・hono 4.13.12・brace-expansion 5.0.12（update で上がった）。sharp の override を消した。`.github/dependabot.yml`（image-size を ignore）
 - 定義に無い 2 つも上げた: `@cloudflare/vitest-plugin` 1.3.4（1.1.0 が undici 7.29.0 の miniflare を持つ）・`@cloudflare/workers-types` 5.20261001.1（wrangler の peer）。A に知らせた
 - `memory.test.ts` が今日の日付で落ちていた（30 日前 = 1 ヶ月前になる月）→ 10 日前に。main でも同じく落ちる
