@@ -5,9 +5,8 @@ allowBuilds:
   esbuild: true
   workerd: true
 minimumReleaseAgeExclude:
-  - hono@4.13.5
-  - miniflare@5.20260825.0-alpha
-  - wrangler@4.126.0
+  - miniflare@5.20261001.0-alpha
+  - wrangler@4.146.0
   - '@cloudflare/vitest-plugin@1.1.0'
   - '@better-auth/core@1.7.2'
   - '@better-auth/drizzle-adapter@1.7.2'
@@ -18,6 +17,13 @@ minimumReleaseAgeExclude:
   - '@better-auth/telemetry@1.7.2'
   - better-auth@1.7.2
   - '@better-auth/expo@1.7.2'
+  - '@cloudflare/workerd-darwin-64@1.20261001.1'
+  - '@cloudflare/workerd-darwin-arm64@1.20261001.1'
+  - '@cloudflare/workerd-linux-64@1.20261001.1'
+  - '@cloudflare/workerd-linux-arm64@1.20261001.1'
+  - '@cloudflare/workerd-windows-64@1.20261001.1'
+  - workerd@1.20261001.1
+  - '@cloudflare/workers-types@5.20261001.1'
 # L11・security-requirements.md 9節「修正版の無い勧告の扱い（無視リスト）」。
 # 登録できるのは A だけ。B は自分を通すために足さない（塞がれたら A に上げる）。
 # CIが陳腐化を検出する（scripts/check-audit-ignore-staleness.mjs。無視リストを
@@ -36,13 +42,6 @@ auditConfig:
 # 推移的依存の既知脆弱性への追随（security-requirements.md 9節 T7）。
 # 修正版がある勧告は無視リストに入れず、ここで上げる。
 overrides:
-  # sharp GHSA-g89c-p67h-r497 / GHSA-2jg2-4ch7-h545（libheif）。経路:
-  # wrangler / @cloudflare/vitest-plugin -> miniflare -> sharp。miniflare が
-  # sharp@0.35.2 を固定で宣言しているため、通常の更新では上がらない。
-  # 開発時（ローカル実行・テスト）のみで、デプロイ後の Worker には含まれない。
-  # miniflare が sharp>=0.35.4 を宣言する版へ上がったら（5.20260911.0-alpha 以降）
-  # この override を消すこと
-  "sharp@<0.35.4": "0.35.4"
   # js-yaml GHSA-2883-xcg3-v3hh（merge key の CPU 消費）。経路:
   # @better-auth/expo -> expo -> @expo/cli -> @expo/xcpretty -> js-yaml。
   # 宣言範囲 ^4.1.0 は 4.3.2 を含むが、pnpm update は推移的依存を動かさない
