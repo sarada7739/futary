@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-02 / セッションB。**066: R 受け入れ（必須修正なし）→ CI 緑 → #456 を squash merge。A の #457（定義の追随）はこの後。B は待機。**
+**最終更新**: 2026-10-02 / セッションA。**066 完了（#456・main 5edd1d1。R 受け入れ）。B の知らせを定義に反映: 066 の 0節 #1 に `@cloudflare/vitest-plugin`・`@cloudflare/workers-types`、`security-requirements.md` 9節に Dependabot の設定ファイルと override の扱い。B は待機。**
+- audit は high 9 → 0・moderate 16 → 4・low 6 → 0。sharp の override を消した・brace-expansion は update で上がった（override 無し）。`memory.test.ts` の日付依存（10-02 に落ちる）も #456 で直った
+- R の記録: `pnpm-workspace.yaml` の `minimumReleaseAgeExclude` に `@cloudflare/vitest-plugin@1.1.0` が残る（lockfile には無い）。次に依存を触るタスクで消す
+- 人間の手番: 066 のデプロイの承認 → 本番の Google ログイン・Actions で Dependabot の undici・image-size の失敗が止まったか。065 の iPhone の帯。061 段階3 のタブバー。（続き）060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price
+- 未着手のもの: 061 の 0節 #3・#4 の書き換え（A。タブバーの確認の後）・iOS 段階0（Opus で）・メール認証（マジックリンク）・042 の上限 50・2027 年 2 月ごろ: 2028 年の祝日の表。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-10-02 / セッションB。**066: R 受け入れ（必須修正なし）→ CI 緑 → #456 を squash merge。A の #457（定義の追随）はこの後。B は待機。**
 - 判定 `artifacts/066/review.md`。audit high 9 → 0・moderate 16 → 4・low 6 → 0
 - R の記録: `minimumReleaseAgeExclude` に `@cloudflare/vitest-plugin@1.1.0` が残っている（lockfile には無い。次に依存を触るときに消してよい）
 - 人間の手番: デプロイの後に本番の Google ログイン・Actions で Dependabot の `undici`・`image-size` の失敗が出ないか。続き: 065 のデプロイ後に iPhone の Safari で帯。061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price・Dependabot の fflate（#340・#382）
