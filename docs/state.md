@@ -3,7 +3,16 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-09-26 / セッションB。**065 追補: R 受け入れ（必須修正なし）→ CI 緑 → #453 を squash merge。065 は追補まで完了。B は待機。**
+**最終更新**: 2026-10-02 / セッションA。**066（依存の既知脆弱性に追随: undici・brace-expansion・hono。Dependabot の失敗を止める）を起票。B の手番（最優先）。065 は追補まで完了（main a485061）。**
+- 人間の問い: Actions に `Dependabot Updates` の赤が並ぶ（09-26〜09-30 に 10 回）。正体は Dependabot のセキュリティ更新が `security_update_not_possible` で終わったもの（undici は miniflare が 7.29.0 で固定、image-size は metro が ^1）
+- `pnpm audit` は今 high 9（undici 7・brace-expansion 2）。**次の CI は「high 以上で赤」で落ちる。**hono（Worker の本番依存）に moderate 1
+- 方針: wrangler・jsdom・hono を上げる（override より親を上げる）。sharp の override は条件を満たしたので消す。`image-size` は `.github/dependabot.yml` で ignore（`open-pull-requests-limit: 0` でセキュリティ更新だけのまま）
+- 人間の手番: 065 のデプロイの承認 → iPhone で帯。061 段階3 のタブバー（iPhone の Safari）。（続き）060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price
+- 未着手のもの: 061 の 0節 #3・#4 の書き換え（A。タブバーの確認の後）・iOS 段階0（Opus で）・メール認証（マジックリンク）・042 の上限 50・2027 年 2 月ごろ: 2028 年の祝日の表。開いている PR: Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-09-26 / セッションB。**065 追補: R 受け入れ（必須修正なし）→ CI 緑 → #453 を squash merge。065 は追補まで完了。B は待機。**
 - 判定は `artifacts/065/review.md` の末尾。AI まとめの説明は PC・スマホとも「ふたりの 1 週間と 1 ヶ月を、 / AI が短く振り返ります。」の 2 行
 - 人間の手番: 065 のデプロイ後に iPhone の Safari で帯を見る。続き: 061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price・Dependabot の fflate（#340・#382）
 
