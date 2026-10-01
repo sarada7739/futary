@@ -110,7 +110,9 @@ describe("memory.get", () => {
   it("どの節目にも無いが7日以上前の投稿があれば、ランダムに1件返る", async () => {
     const user = await createUser();
     const couple = await createCouple(user);
-    await insertPost(couple.id, user.id, addDays(todayJst(), -30), { body: "古い投稿" });
+    // 10 日前はどの節目（1 ヶ月前・半年前・1 年前）とも重ならない（30 日前だと、前の月が 30 日の月のとき
+    // 1 ヶ月前と同じ日になる）
+    await insertPost(couple.id, user.id, addDays(todayJst(), -10), { body: "古い投稿" });
 
     const result = await call(router.memory.get, undefined, { context: contextFor(user) });
 

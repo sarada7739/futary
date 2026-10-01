@@ -14080,3 +14080,15 @@ Session: B
 - `.github/dependabot.yml` は今まで無かった（セキュリティ更新はリポジトリの設定だけ）。image-size を ignore するために置く。`open-pull-requests-limit: 0` で版の更新は作らない
 
 Session: A
+
+## 2026-10-02 セッションB: 066 依存の既知脆弱性に追随・Dependabot の失敗を止める
+
+- wrangler ^4.146.0・@cloudflare/vitest-plugin ^1.3.4・jsdom ^30.1.1・hono ^4.13.12。vitest-plugin 1.1.0 が undici 7.29.0 の miniflare を持っていたので一緒に上げた。wrangler の peer で @cloudflare/workers-types ^5.20261001.1（packages/db）
+- brace-expansion は `pnpm update -r --depth=Infinity brace-expansion minimatch` で 5.0.12 に。override は足していない。sharp の override を消した（lockfile は 0.35.4 だけ）
+- audit high 9 → 0・moderate 16 → 4・low 6 → 0。陳腐化の検出も緑
+- `memory.test.ts` の「ランダムに1件」が 2026-10-02 に落ちた（30 日前 = 1 ヶ月前の 09-02）。10 日前に置く形に
+- wrangler dev で `/`・`/app/`・ログインの入口（Google の URL まで）・セッションの往復・投稿 1 件を確かめた（`artifacts/066/scripts/check-dev.mjs`。9 / 9）
+- `.github/dependabot.yml`（open-pull-requests-limit: 0・image-size を ignore）
+- `pnpm -r test` 1,538 緑・type-check・lint 緑
+
+Session: B

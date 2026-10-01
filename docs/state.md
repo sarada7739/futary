@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-02 / セッションA。**066（依存の既知脆弱性に追随: undici・brace-expansion・hono。Dependabot の失敗を止める）を起票。B の手番（最優先）。065 は追補まで完了（main a485061）。**
+**最終更新**: 2026-10-02 / セッションB。**066（依存の既知脆弱性に追随・Dependabot の失敗を止める）: PR（`task/066-deps-security`）。R の手番。**
+- audit high 9 → 0（無視リストの image-size 2 だけ）・moderate 16 → 4・low 6 → 0。wrangler 4.146.0・jsdom 30.1.1・hono 4.13.12・brace-expansion 5.0.12（update で上がった）。sharp の override を消した。`.github/dependabot.yml`（image-size を ignore）
+- 定義に無い 2 つも上げた: `@cloudflare/vitest-plugin` 1.3.4（1.1.0 が undici 7.29.0 の miniflare を持つ）・`@cloudflare/workers-types` 5.20261001.1（wrangler の peer）。A に知らせた
+- `memory.test.ts` が今日の日付で落ちていた（30 日前 = 1 ヶ月前になる月）→ 10 日前に。main でも同じく落ちる
+- 人間の手番: デプロイの後に本番の Google ログイン・Actions で Dependabot の失敗が出ないか。続き: 065 のデプロイ後に iPhone の Safari で帯。061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price・Dependabot の fflate（#340・#382）
+
+---
+
+**最終更新（旧）**: 2026-10-02 / セッションA。**066（依存の既知脆弱性に追随: undici・brace-expansion・hono。Dependabot の失敗を止める）を起票。B の手番（最優先）。065 は追補まで完了（main a485061）。**
 - 人間の問い: Actions に `Dependabot Updates` の赤が並ぶ（09-26〜09-30 に 10 回）。正体は Dependabot のセキュリティ更新が `security_update_not_possible` で終わったもの（undici は miniflare が 7.29.0 で固定、image-size は metro が ^1）
 - `pnpm audit` は今 high 9（undici 7・brace-expansion 2）。**次の CI は「high 以上で赤」で落ちる。**hono（Worker の本番依存）に moderate 1
 - 方針: wrangler・jsdom・hono を上げる（override より親を上げる）。sharp の override は条件を満たしたので消す。`image-size` は `.github/dependabot.yml` で ignore（`open-pull-requests-limit: 0` でセキュリティ更新だけのまま）
