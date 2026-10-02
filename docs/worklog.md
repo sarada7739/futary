@@ -14122,3 +14122,12 @@ Session: A
 - 9節の条件（修正版なし・配信物に入らない）に当たるので A が無視リストに登録。9節に表を足した
 
 Session: A
+
+## 2026-10-02 セッションB: 067 fflate を 0.8.3・Dependabot の設定の後始末
+
+- `pnpm --filter @futary/app add fflate@0.8.3 --save-exact`。Dependabot の #382 は 066 より前の main から作られていて lockfile がぶつかるので使わず、#340・#382 は閉じる
+- `dependabot.yml` の `ignore`（image-size）を消し、警告を閉じる方針のコメントを 1 行。`minimumReleaseAgeExclude` の `@cloudflare/vitest-plugin@1.1.0` を消した
+- audit moderate 4 → 3（fflate が消えた）。high は無視リストの 3 件だけ。陳腐化なし
+- `pnpm -r test` 1,538 緑（ZIP のテスト 32 件を含む）・type-check・lint 緑
+
+Session: B

@@ -1,5 +1,6 @@
 # Dependabot の設定（066）。セキュリティ更新はリポジトリの設定で有効にしてあり、勧告が出ると
 # 自動で PR を作る。通常の版の更新は作らない（open-pull-requests-limit: 0）。
+# 上げられない勧告は Dependabot の警告を理由付きで閉じる（security-requirements.md 9節）。`ignore` では赤は止まらない
 version: 2
 updates:
   - package-ecosystem: npm
@@ -7,9 +8,3 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 0
-    ignore:
-      # image-size（経路: @better-auth/expo -> expo -> @expo/cli -> react-native -> metro@0.87 -> image-size）。
-      # 修正版は 2.0.3 だが、metro@0.87 が ^1.0.2 を宣言しているので上げられず、Dependabot は
-      # security_update_not_possible で毎回失敗する。pnpm-workspace.yaml の auditConfig.ignoreGhsas
-      # （security-requirements.md 9節）と同じ扱い。metro が image-size ^2 を宣言したら消すこと
-      - dependency-name: image-size

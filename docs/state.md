@@ -3,7 +3,13 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-02 / セッションA。**066 は本番に出た（Deploy 6d7ac97 成功）。人間の問い（失敗のメール・まだ出る Dependabot の赤）を片付け、067（fflate を 0.8.3・Dependabot の設定の後始末）を起票。B の手番。**
+**最終更新**: 2026-10-02 / セッションB。**067（fflate を 0.8.3・Dependabot の設定の後始末）: PR（`task/067-fflate`）。R の手番。**
+- fflate 0.8.2 → 0.8.3（固定のまま。ZIP のテスト緑）。audit moderate 4 → 3。`dependabot.yml` の `ignore` を消した。`minimumReleaseAgeExclude` の `@cloudflare/vitest-plugin@1.1.0` を消した。Dependabot の #340・#382 は閉じる
+- 人間の手番: デプロイの後に Actions で新しい `Dependabot Updates` の赤が出ないか。066: 本番の Google ログイン。065 のデプロイ後に iPhone の Safari で帯。続き: 061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price
+
+---
+
+**最終更新（旧）**: 2026-10-02 / セッションA。**066 は本番に出た（Deploy 6d7ac97 成功）。人間の問い（失敗のメール・まだ出る Dependabot の赤）を片付け、067（fflate を 0.8.3・Dependabot の設定の後始末）を起票。B の手番。**
 - **audit の無視リストに `node-forge`（GHSA-86w9-cpqp-85rv。high・修正版なし・Expo の開発ツールだけ）を足した**（#459 の CI で新しく出た）
 - メール: 承認されず残っていた古い Deploy（#454 のもの）を 10-01 に承認 → 066 の前だったので audit の high で失敗した通知。今の本番は最新。**本番より古い承認待ちの Deploy を A が取り消した**（約 150 本。GitHub の側で取り消しも却下もできない 20 本が残る。30 日で期限切れ。そのとき失敗のメールが来るが害は無い）
 - 残っていた Dependabot の赤（esbuild・image-size・decode-uri-component・uuid）は、親が古い版を宣言していて上げられないもの。**人間の了承で 5 件の警告を「許容できるリスク」として閉じた**（理由と開き直す条件は `security-requirements.md` 9節の表）。`dependabot.yml` の `ignore` では赤は止まらなかった（067 で消す）
