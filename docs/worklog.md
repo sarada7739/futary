@@ -14105,3 +14105,20 @@ Session: B
 - B が見つけた `memory.test.ts` の日付依存（10-02 に落ちる）は #456 で直る。058 の weather（09-24）に続く日付依存のテスト。B・R には「今」を固定する書き方を求め続ける
 
 Session: A
+
+## 2026-10-02 セッションA: 失敗のメールと Dependabot の赤を片付ける・067 を起票
+
+- 人間の問い（スクショ 2 枚）: 「Deploy: All jobs have failed」のメール・Actions にまだ Dependabot の赤
+- メール: Deploy 36176084199（#454 のコミット）が 10-01 16:45 に承認され、066 の前だったので audit の high で失敗。最新の Deploy（6d7ac97）は成功
+- 承認待ちの古い Deploy が大量に残っていた（本番より古い。承認すると巻き戻る）。`gh run cancel` で取り消し。20 本は API が `waiting` を返すのに取り消しも却下（pending_deployments rejected）も 409/422 で受け付けない。消す（`gh run delete`）のはしない。期限切れを待つ
+- Dependabot の 4 本: esbuild（drizzle-kit → @esbuild-kit が 0.18 固定）・uuid（@expo/config-plugins → xcode）・decode-uri-component（expo-router → query-string 7）は `security_update_not_possible`。image-size は `all_versions_ignored`（066 の `ignore` は効いたがエラー扱い）
+- 人間の了承を取り、警告 #1・#2・#5・#9・#10 を `tolerable_risk` で閉じた（`gh api -X PATCH .../dependabot/alerts/N`）。9節に表と開き直す条件。残る警告は fflate（#7・#8）だけ → 067
+
+Session: A
+
+## 2026-10-02 セッションA: audit の無視リストに node-forge を足す
+
+- #459（docs）の CI で「high 以上で赤」が落ちた。新しく `pnpm audit` に出た `node-forge` GHSA-86w9-cpqp-85rv（high・修正版なし・<= 1.4.0）。経路は `@expo/cli` と `@expo/code-signing-certificates` だけ（lockfile の `node-forge` の参照はこの 2 つ）
+- 9節の条件（修正版なし・配信物に入らない）に当たるので A が無視リストに登録。9節に表を足した
+
+Session: A

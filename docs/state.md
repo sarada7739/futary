@@ -3,7 +3,16 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-02 / セッションA。**066 完了（#456・main 5edd1d1。R 受け入れ）。B の知らせを定義に反映: 066 の 0節 #1 に `@cloudflare/vitest-plugin`・`@cloudflare/workers-types`、`security-requirements.md` 9節に Dependabot の設定ファイルと override の扱い。B は待機。**
+**最終更新**: 2026-10-02 / セッションA。**066 は本番に出た（Deploy 6d7ac97 成功）。人間の問い（失敗のメール・まだ出る Dependabot の赤）を片付け、067（fflate を 0.8.3・Dependabot の設定の後始末）を起票。B の手番。**
+- **audit の無視リストに `node-forge`（GHSA-86w9-cpqp-85rv。high・修正版なし・Expo の開発ツールだけ）を足した**（#459 の CI で新しく出た）
+- メール: 承認されず残っていた古い Deploy（#454 のもの）を 10-01 に承認 → 066 の前だったので audit の high で失敗した通知。今の本番は最新。**本番より古い承認待ちの Deploy を A が取り消した**（約 150 本。GitHub の側で取り消しも却下もできない 20 本が残る。30 日で期限切れ。そのとき失敗のメールが来るが害は無い）
+- 残っていた Dependabot の赤（esbuild・image-size・decode-uri-component・uuid）は、親が古い版を宣言していて上げられないもの。**人間の了承で 5 件の警告を「許容できるリスク」として閉じた**（理由と開き直す条件は `security-requirements.md` 9節の表）。`dependabot.yml` の `ignore` では赤は止まらなかった（067 で消す）
+- 人間の手番: 067 のデプロイ後、Actions に新しい Dependabot の赤が出ないか。本番の Google ログイン（066 で hono を上げた）。065 の iPhone の帯。061 段階3 のタブバー。（続き）060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price
+- 未着手のもの: 061 の 0節 #3・#4 の書き換え（A。タブバーの確認の後）・iOS 段階0（Opus で）・メール認証（マジックリンク）・042 の上限 50・2027 年 2 月ごろ: 2028 年の祝日の表
+
+---
+
+**最終更新（旧）**: 2026-10-02 / セッションA。**066 完了（#456・main 5edd1d1。R 受け入れ）。B の知らせを定義に反映: 066 の 0節 #1 に `@cloudflare/vitest-plugin`・`@cloudflare/workers-types`、`security-requirements.md` 9節に Dependabot の設定ファイルと override の扱い。B は待機。**
 - audit は high 9 → 0・moderate 16 → 4・low 6 → 0。sharp の override を消した・brace-expansion は update で上がった（override 無し）。`memory.test.ts` の日付依存（10-02 に落ちる）も #456 で直った
 - R の記録: `pnpm-workspace.yaml` の `minimumReleaseAgeExclude` に `@cloudflare/vitest-plugin@1.1.0` が残る（lockfile には無い）。次に依存を触るタスクで消す
 - 人間の手番: 066 のデプロイの承認 → 本番の Google ログイン・Actions で Dependabot の undici・image-size の失敗が止まったか。065 の iPhone の帯。061 段階3 のタブバー。（続き）060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price
