@@ -373,7 +373,7 @@ security-auditorによる独立監査は通していない。次にセキュリ�
 | gitleaks | **検出1件で赤。例外なし** | 秘密情報の混入は程度問題ではない。1件でも公開されれば失効させるしかない |
 | `.gitleaksignore` | **誤検知（秘密ではないと確かめたもの）だけ。fingerprint（commit:file:rule:line）で 1 件ずつ。**規則ごと・ファイルごとの除外は書かない | 「例外なし」は程度の話（軽微でも赤）であって、**秘密でない文字列を秘密として扱い続ける話ではない**。041 でテストの `futary-YYYYMMDD-<ULID>.jpg` が `generic-api-key` に見えた |
 | `pnpm audit` | **high 以上で赤**（`--audit-level=high`）。moderate 以下は出力のみ。既知の到達不能な勧告は無視リストで除外する（下記） | 下記 |
-| Dependabot | — | **セキュリティ更新のみ**（リポジトリの設定）。通常のバージョン更新は開けない。`.github/dependabot.yml` は **`open-pull-requests-limit: 0`（版の更新を開けない）と `ignore`（上げられないと分かっている依存。今は `image-size`。理由は下の無視リストと同じ）のためだけ**に置く |
+| Dependabot | — | **セキュリティ更新のみ**（リポジトリの設定）。通常のバージョン更新は開けない。`.github/dependabot.yml` は **`open-pull-requests-limit: 0`（版の更新を開けない）のためだけ**に置く。**上げられない勧告は、Dependabot の警告を理由付きで閉じる**（下記。`ignore` では Dependabot が `all_versions_ignored` を赤にするので止まらない） |
 
 **`.gitleaksignore` の書き方。**
 - 1 行ごとに**なぜ秘密でないか**をコメントで書く（読む人が確かめられる形。「テストの文字列」だけでは足りない。何の文字列かまで）
@@ -388,6 +388,15 @@ security-auditorによる独立監査は通していない。次にセキュリ�
 moderate 以下は出力に残し、公開前の全体監査（10節3）で人間が読む。
 
 **修正版がある間接依存の勧告は、無視リストに入れず上げる。**まず**依存元（親）を上げる**（066: `wrangler`・`@cloudflare/vitest-plugin`・`jsdom` を上げて `undici` を直した）。親が固定していて上げられないときだけ `pnpm-workspace.yaml` の **`overrides`** で上げる。各 override には**勧告・経路・到達可能性・消す条件**をコメントで書き、**条件を満たしたら消す**（066 で `sharp` の override を消した）。一覧の正は `pnpm-workspace.yaml`（ここに写さない）
+
+**上げられない勧告の Dependabot の警告は、理由を付けて閉じる（「許容できるリスク」）。**閉じた警告には Dependabot が手を出さず、Actions に赤が出続けない。**閉じてよいのは、親が古い版を宣言していてこちらで上げられず、かつ配信物（Worker・配信アセット）に入らないか、入っても利用者自身のブラウザの中だけのもの。**閉じるのは A で、人間の了承を取る。閉じたものは下の表に置き、**開き直す条件を満たしたら開き直す**（016 の全体監査でも読み直す）。`pnpm audit` には閉じても出続ける（moderate は出力だけ。high は上の無視リスト）
+
+| 警告 | パッケージ（入っている版） | 経路 | どこで使われるか | 開き直す条件 |
+|---|---|---|---|---|
+| #9・#10（GHSA-w3rx-r6r6-pgpr・GHSA-5p2g-fcmc-qvqq。high） | `image-size` 1.2.1 | `metro@0.87` | 開発時のバンドラ | Metro が `image-size ^2` を宣言したとき |
+| #1（GHSA-67mh-4wv8-2f99。moderate） | `esbuild` 0.18.20 | `drizzle-kit@0.31` → `@esbuild-kit/esm-loader` | マイグレーションの生成（開発時） | drizzle-kit が `@esbuild-kit` を外したとき |
+| #2（GHSA-w5hq-g745-h8pq。moderate） | `uuid` 7.0.3 | `@expo/config-plugins` → `xcode` | iOS のビルド時 | Expo が `xcode` か `uuid` を上げたとき |
+| #5（GHSA-vcc3-ghjq-m6fr。moderate） | `decode-uri-component` 0.2.2 | `expo-router` → `query-string@7` | アプリの画面（利用者自身のブラウザで URL を解く）。サーバには無い | expo-router が `query-string` を上げたとき |
 
 **Dependabot をセキュリティ更新のみにする理由。**
 通常のバージョン更新を有効にすると、2〜4週間で公開する規模の開発に対して
