@@ -3,7 +3,13 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-02 / セッションB。**067（fflate を 0.8.3・Dependabot の設定の後始末）: PR（`task/067-fflate`）。R の手番。**
+**最終更新**: 2026-10-02 / セッションB。**067: R 受け入れ（必須修正なし）→ CI 緑 → #460 を squash merge（main faedda9）。Dependabot の #340・#382 を閉じた。開いている PR は 0。B は待機。**
+- 判定 `artifacts/067/review.md`。fflate 0.8.3・audit moderate 3（esbuild・uuid・decode-uri-component）・high は無視リストの 3 件だけ
+- 人間の手番: デプロイの後に Actions で新しい `Dependabot Updates` の赤が出ないか（出たら A へ）。066: 本番の Google ログイン。065 のデプロイ後に iPhone の Safari で帯。続き: 061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price
+
+---
+
+**最終更新（旧）**: 2026-10-02 / セッションB。**067（fflate を 0.8.3・Dependabot の設定の後始末）: PR（`task/067-fflate`）。R の手番。**
 - fflate 0.8.2 → 0.8.3（固定のまま。ZIP のテスト緑）。audit moderate 4 → 3。`dependabot.yml` の `ignore` を消した。`minimumReleaseAgeExclude` の `@cloudflare/vitest-plugin@1.1.0` を消した。Dependabot の #340・#382 は閉じる
 - 人間の手番: デプロイの後に Actions で新しい `Dependabot Updates` の赤が出ないか。066: 本番の Google ログイン。065 のデプロイ後に iPhone の Safari で帯。続き: 061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price
 
