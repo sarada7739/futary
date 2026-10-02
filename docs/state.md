@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-02 / セッションB。**067: R 受け入れ（必須修正なし）→ CI 緑 → #460 を squash merge（main faedda9）。Dependabot の #340・#382 を閉じた。開いている PR は 0。B は待機。**
+**最終更新**: 2026-10-02 / セッションA。**067 完了（#460・main faedda9）。開いている PR は 0。人間の了承で Dependabot の警告 #23（node-forge）を閉じた。開いている警告は 0。B は待機。**
+- audit は moderate 3（esbuild・uuid・decode-uri-component。警告は閉じてある）・high は無視リストの 3 件だけ
+- 人間の手番: 066・067 のデプロイの承認（最新だけ）→ 本番の Google ログイン（hono を上げた）・Actions に新しい Dependabot の赤が出ないか。065 の iPhone の帯。061 段階3 のタブバー。（続き）060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price
+- 未着手のもの: 061 の 0節 #3・#4 の書き換え（A。タブバーの確認の後）・iOS 段階0（Opus で）・メール認証（マジックリンク）・042 の上限 50・2027 年 2 月ごろ: 2028 年の祝日の表
+
+---
+
+**最終更新（旧）**: 2026-10-02 / セッションB。**067: R 受け入れ（必須修正なし）→ CI 緑 → #460 を squash merge（main faedda9）。Dependabot の #340・#382 を閉じた。開いている PR は 0。B は待機。**
 - 判定 `artifacts/067/review.md`。fflate 0.8.3・audit moderate 3（esbuild・uuid・decode-uri-component）・high は無視リストの 3 件だけ
 - 人間の手番: デプロイの後に Actions で新しい `Dependabot Updates` の赤が出ないか（出たら A へ）。066: 本番の Google ログイン。065 のデプロイ後に iPhone の Safari で帯。続き: 061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price
 
