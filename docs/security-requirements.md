@@ -419,6 +419,14 @@ L11 の実装時に実測したところ、**導入した瞬間に high が2件�
 | 修正版 | `image-size@2.0.3`（メジャー版が違う）。**依存元の `metro@0.87` が `^1.0.2` を宣言し、`require("image-size").default(content)` で呼ぶ**ので、override で 2.x に上げると Metro が壊れうる。1.x に修正版は無い |
 | 削除の条件 | Metro が `image-size ^2` を宣言したとき、または 1.x に修正版が出たとき |
 
+| | |
+|---|---|
+| GHSA | `GHSA-86w9-cpqp-85rv`（high。RSA PKCS#1 v1.5 の署名検証が余分な要素を受け入れる） |
+| 経路 | `@expo/cli` → `node-forge`、`@expo/cli` → `@expo/code-signing-certificates` → `node-forge` |
+| 到達可能性 | Expo の開発・ビルド時の道具（開発サーバ・更新のコード署名）だけ。デプロイ後の Worker と配信アセットには含まれない |
+| 修正版 | **無し**（`<= 1.4.0` 全部） |
+| 削除の条件 | 修正版が出て Expo が上げたとき |
+
 **`pnpm audit --prod` では分離できない。** `@better-auth/expo` が `apps/api` の
 **本番依存**であり、そこから Expo のツールチェーン一式が依存グラフに入るため、
 `--prod` を付けても同じ4件が出る（実測確認済み。再挑戦しないこと）。

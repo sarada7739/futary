@@ -39,6 +39,11 @@ auditConfig:
     - GHSA-w3rx-r6r6-pgpr
     # image-size（同上の経路）。JXL/HEIFパーサのDoS。到達可能性・削除条件は上と同じ
     - GHSA-5p2g-fcmc-qvqq
+    # node-forge 1.4.0（経路: @better-auth/expo -> expo -> @expo/cli、および
+    # @expo/cli -> @expo/code-signing-certificates）。RSA PKCS#1 v1.5 の署名検証の不備。
+    # 修正版なし（<= 1.4.0 全部）。Expo の開発・ビルド時の道具だけで、Worker と配信アセットには
+    # 含まれない。修正版が出たら（Expo が上げたら）消すこと
+    - GHSA-86w9-cpqp-85rv
 # 推移的依存の既知脆弱性への追随（security-requirements.md 9節 T7）。
 # 修正版がある勧告は無視リストに入れず、ここで上げる。
 overrides:

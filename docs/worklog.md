@@ -14115,3 +14115,10 @@ Session: A
 - 人間の了承を取り、警告 #1・#2・#5・#9・#10 を `tolerable_risk` で閉じた（`gh api -X PATCH .../dependabot/alerts/N`）。9節に表と開き直す条件。残る警告は fflate（#7・#8）だけ → 067
 
 Session: A
+
+## 2026-10-02 セッションA: audit の無視リストに node-forge を足す
+
+- #459（docs）の CI で「high 以上で赤」が落ちた。新しく `pnpm audit` に出た `node-forge` GHSA-86w9-cpqp-85rv（high・修正版なし・<= 1.4.0）。経路は `@expo/cli` と `@expo/code-signing-certificates` だけ（lockfile の `node-forge` の参照はこの 2 つ）
+- 9節の条件（修正版なし・配信物に入らない）に当たるので A が無視リストに登録。9節に表を足した
+
+Session: A
