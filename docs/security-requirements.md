@@ -397,6 +397,7 @@ moderate 以下は出力に残し、公開前の全体監査（10節3）で人�
 | #1（GHSA-67mh-4wv8-2f99。moderate） | `esbuild` 0.18.20 | `drizzle-kit@0.31` → `@esbuild-kit/esm-loader` | マイグレーションの生成（開発時） | drizzle-kit が `@esbuild-kit` を外したとき |
 | #2（GHSA-w5hq-g745-h8pq。moderate） | `uuid` 7.0.3 | `@expo/config-plugins` → `xcode` | iOS のビルド時 | Expo が `xcode` か `uuid` を上げたとき |
 | #5（GHSA-vcc3-ghjq-m6fr。moderate） | `decode-uri-component` 0.2.2 | `expo-router` → `query-string@7` | アプリの画面（利用者自身のブラウザで URL を解く）。サーバには無い | expo-router が `query-string` を上げたとき |
+| #23（GHSA-86w9-cpqp-85rv。high。audit の無視リストにもある） | `node-forge` 1.4.0 | `@expo/cli`・`@expo/code-signing-certificates` | Expo の開発・ビルド時の道具 | 修正版が出て Expo が上げたとき |
 
 **Dependabot をセキュリティ更新のみにする理由。**
 通常のバージョン更新を有効にすると、2〜4週間で公開する規模の開発に対して
