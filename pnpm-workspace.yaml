@@ -43,6 +43,10 @@ auditConfig:
     # 修正版なし（<= 1.4.0 全部）。Expo の開発・ビルド時の道具だけで、Worker と配信アセットには
     # 含まれない。修正版が出たら（Expo が上げたら）消すこと
     - GHSA-86w9-cpqp-85rv
+    # braces 3.0.3（経路: metro-file-map@0.84・0.87、@expo/metro-file-map -> micromatch -> braces）。
+    # 深く入れ子のパターンでのスタック枯渇（DoS）。修正版なし（<= 3.0.3 全部）。Metro の
+    # ファイル監視（開発時）だけで、Worker と配信アセットには含まれない。修正版が出たら消すこと
+    - GHSA-vfj7-8cjw-p6xm
 # 推移的依存の既知脆弱性への追随（security-requirements.md 9節 T7）。
 # 修正版がある勧告は無視リストに入れず、ここで上げる。
 overrides:
