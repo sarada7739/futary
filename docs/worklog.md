@@ -14144,3 +14144,10 @@ Session: B
 - 067 の後、開いている警告は #23（node-forge・high・修正版なし）だけ。人間の了承で `tolerable_risk` で閉じた。9節の表に足した。開いている警告・PR とも 0
 
 Session: A
+
+## 2026-10-04 セッションA: 066・067 の本番確認
+
+- 人間: 本番の Google ログイン OK（066 で hono 4.13.12 に上げた分）
+- A: 最新の Deploy（f13490f）は成功。`/`・`/app/`・`/api/auth/get-session` は 200。10-02 以降の main の CI は全部緑、Dependabot の実行は 10-01 が最後、開いている警告 0。古い承認待ちの Deploy 3 本を取り消した
+
+Session: A
