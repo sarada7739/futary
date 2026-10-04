@@ -12,7 +12,7 @@
 import { AmbientLight, DirectionalLight, Group, Mesh, MeshBasicMaterial, NoBlending, PerspectiveCamera, Scene, Shape, ShapeGeometry, WebGLRenderer } from "three";
 import { CSS3DObject, CSS3DRenderer } from "three/addons/renderers/CSS3DRenderer.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { decayTilt, isAtRest, tiltFromDrag } from "./tilt.mjs";
+import { FRONT, angleForScroll, decayTilt, isAtRest, scrollProgress, tiltFromDrag } from "./tilt.mjs";
 
 // phone.glb の画面（黒い縁の内側）の位置と大きさ（モデルの単位。正面を正射影で描いて測った値。
 // artifacts/068/stage2/report.md）。画面の表面は z = screenZ（モデルの最前面）
@@ -198,6 +198,9 @@ function setUp(phone) {
     iframe.style.borderRadius = `${SCREEN_RADIUS}px`;
     phone.classList.add("is-3d");
     ready = true;
+    // 始めはスクロールの位置で決まる角度（節の手前なら斜め）
+    target = targetForScroll();
+    tilt = target;
     draw();
   };
 
@@ -206,6 +209,14 @@ function setUp(phone) {
   let visible = false;
   let frame = 0;
   let last = 0;
+  // 止まっているときの角度。スクロールの位置で決まる（追補 3）。動きを減らす設定なら正面のまま
+  let target = FRONT;
+  const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const targetForScroll = () => {
+    if (reducedMotion()) return FRONT;
+    const rect = phone.getBoundingClientRect();
+    return angleForScroll(scrollProgress(rect.top, rect.height, window.innerHeight));
+  };
 
   const draw = () => {
     if (stopped || !ready) return;
@@ -220,14 +231,14 @@ function setUp(phone) {
     if (!drag && isAtRest(tilt)) flatten();
   };
 
-  // 見えている間かつ動いている間だけ描く
+  // 見えている間かつ動いている間だけ描く。離したあとは target（スクロールで決まる角度）へ戻す
   const tick = (now) => {
     frame = 0;
     const dt = last ? (now - last) / 1000 : 0;
     last = now;
-    if (!drag) tilt = decayTilt(tilt, dt);
+    if (!drag) tilt = decayTilt(tilt, dt, target);
     draw();
-    if (!stopped && visible && (drag || !isAtRest(tilt))) frame = requestAnimationFrame(tick);
+    if (!stopped && visible && (drag || !isAtRest(tilt, target))) frame = requestAnimationFrame(tick);
   };
   const start = () => {
     if (frame || !visible || stopped || !ready) return;
@@ -251,8 +262,8 @@ function setUp(phone) {
     if (!drag || event.pointerId !== drag.id) return;
     drag = null;
     phone.classList.remove("is-dragging");
-    // 動きを減らす設定のときは、正面へ戻る動きを付けずにすぐ戻す
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) tilt = { x: 0, y: 0 };
+    // 動きを減らす設定のときは、戻る動きを付けずにすぐ戻す
+    if (reducedMotion()) tilt = target;
     start();
   };
   phone.addEventListener("pointerup", release);
@@ -267,9 +278,33 @@ function setUp(phone) {
     { rootMargin: "400px" },
   );
   near.observe(phone);
+  // スクロールで斜めから正面へ（追補 3）。1 フレームに 1 回だけ角度を出し直す。ドラッグの間は使わない。
+  // 戻っている途中なら向かう先だけを変え、止まっていればその角度で描く
+  let scrollFrame = 0;
+  const onScroll = () => {
+    scrollFrame = 0;
+    if (stopped || !ready || !visible) return;
+    const atTarget = isAtRest(tilt, target);
+    target = targetForScroll();
+    if (drag) return;
+    if (atTarget) {
+      tilt = target;
+      draw();
+    } else {
+      start();
+    }
+  };
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (!scrollFrame) scrollFrame = requestAnimationFrame(onScroll);
+    },
+    { passive: true },
+  );
+
   new IntersectionObserver((entries) => {
     visible = entries.some((entry) => entry.isIntersecting);
-    if (visible) start();
+    if (visible) onScroll();
   }).observe(phone);
 
   draw();

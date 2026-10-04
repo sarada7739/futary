@@ -24,15 +24,42 @@ export function tiltFromDrag(start, dx, dy, { yOnly = false } = {}) {
   };
 }
 
-// 離したあと、dt 秒ぶん正面へ戻す（指数の減衰。RETURN_SECONDS で 1% まで）。十分小さければ 0
-export function decayTilt(tilt, dt) {
+// 離したあと、dt 秒ぶん target（既定は正面）へ戻す（指数の減衰。RETURN_SECONDS で差が 1% まで）。
+// 十分近ければ target ちょうどにする
+export function decayTilt(tilt, dt, target = FRONT) {
   const factor = Math.exp((Math.log(0.01) / RETURN_SECONDS) * Math.max(0, dt));
-  const next = { x: tilt.x * factor, y: tilt.y * factor };
-  if (Math.abs(next.x) < REST_EPSILON) next.x = 0;
-  if (Math.abs(next.y) < REST_EPSILON) next.y = 0;
-  return next;
+  const step = (value, goal) => {
+    const next = goal + (value - goal) * factor;
+    return Math.abs(next - goal) < REST_EPSILON ? goal : next;
+  };
+  return { x: step(tilt.x, target.x), y: step(tilt.y, target.y) };
 }
 
-export function isAtRest(tilt) {
-  return tilt.x === 0 && tilt.y === 0;
+export function isAtRest(tilt, target = FRONT) {
+  return tilt.x === target.x && tilt.y === target.y;
+}
+
+export const FRONT = Object.freeze({ x: 0, y: 0 });
+
+// --- スクロールで斜めから正面へ（追補 3）
+// 節が入ってくるときの始めの角度（rad）。y は左向き（左の側面とボタンが見える）、x は上の縁が奥へ
+export const ENTRY_TILT = Object.freeze({ x: -0.14, y: 0.44 });
+
+// ステージの上端がビューポートの下端に入った時点 = 0、スマホの中心がビューポートの中心に来た時点 = 1。
+// 外は 0 と 1 で止める（中心を過ぎたら正面のまま）。top はステージの上端のビューポートからの位置（px）
+export function scrollProgress(top, stageHeight, viewportHeight) {
+  const start = viewportHeight;
+  const end = viewportHeight / 2 - stageHeight / 2;
+  if (start === end) return 1;
+  return clamp((start - top) / (start - end), 0, 1);
+}
+
+export function easeOutCubic(t) {
+  return 1 - (1 - t) ** 3;
+}
+
+// 進み具合（0〜1）→ 角度。0 で ENTRY_TILT、1 で正面。間は easeOutCubic
+export function angleForScroll(progress) {
+  const remaining = 1 - easeOutCubic(clamp(progress, 0, 1));
+  return { x: ENTRY_TILT.x * remaining + 0, y: ENTRY_TILT.y * remaining + 0 };
 }
