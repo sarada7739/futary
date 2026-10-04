@@ -14236,3 +14236,9 @@ Session: B
 - 対応はスマホの中心の位置で決める（中心を過ぎたら正面のまま）。動きを減らす設定は最初から正面。#471 の後の別の PR
 
 Session: A
+
+## 2026-10-05 セッションA: 元の 3D モデルの ZIP を .gitignore に
+
+- R の記録（B 経由）: #471 で追跡から外した `docs/sample/fbx/purple smartphone 3d model.zip` が .gitignore に無く、`git add` で戻りうる。`docs/sample/fbx/` を足した（`git check-ignore` で確かめた）
+
+Session: A
