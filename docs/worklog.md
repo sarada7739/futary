@@ -14284,3 +14284,11 @@ Session: B
 - 実機の原因を見るため、`?debug3d` のときだけ左上に段階（幅・WebGL・WebGLRenderer・phone.glb・ready・2D に戻る・エラー）を出す。WebKit で表示を確かめた
 
 Session: B
+
+## 2026-10-05 セッションB: #477（?debug3d）のマージ
+
+- A の希望で、WebGL のコンテキストが取れなかった理由（webglcontextcreationerror の statusMessage）も出すようにした
+- R が受け入れ（必須修正なし）。判定を `artifacts/068/review.md` の末尾に R の版のまま → CI 緑 → #477 を squash merge
+- R の記録 1（枠が出ないこと自体が手がかり）を人間への段取りに入れた。記録 2（表示を残すか外すか）を A に渡した
+
+Session: B
