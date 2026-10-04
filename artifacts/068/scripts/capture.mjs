@@ -1,5 +1,6 @@
 // 068 T4: LP の「さわってみる」の 3D を実ブラウザ（Playwright・Chromium）で確かめ、撮る。
 //   node artifacts/068/scripts/capture.mjs <outDir> [baseURL=http://localhost:8787]
+// 追補（人間のモデル）からの画面は artifacts/068/stage2/ に出す
 // 先に `pnpm build:public` と api-dev（wrangler dev）。
 // 傾けたまま押す: ふち（ステージの余白）をタッチで押さえて引いたまま（CDP の touchStart・touchMove）、
 // マウスで iframe の中のタブを押す（pointerId が違うので傾きは動かない）。押したら touchEnd で離す
@@ -92,6 +93,33 @@ const demoFrame = (page) => page.frames().find((f) => f.url().includes("/app/"))
   const back = await rectOf(page);
   check("離すと正面に戻る（約 0.6 秒）", Math.abs(back.w - front.w) <= 1 && Math.abs(back.h - front.h) <= 1, back);
   await page.screenshot({ path: path.join(outDir, "returned-1280.png"), clip: { x: box.x - 40, y: box.y - 40, width: box.width + 80, height: box.height + 80 } });
+
+  // マウスで右へ大きく引くと、上限（約 80°）まで傾く。裏面は見えない
+  await page.mouse.move(sx, sy);
+  await page.mouse.down();
+  for (let i = 1; i <= 12; i++) {
+    await page.mouse.move(sx + 30 * i, sy);
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(300);
+  const max = await rectOf(page);
+  check("上限まで傾けると画面の幅が大きく縮む（約 80°。裏返らない）", max.w < front.w * 0.35 && max.w > 0, max);
+  await page.screenshot({ path: path.join(outDir, "tilted-80-1280.png"), clip: { x: box.x - 40, y: box.y - 40, width: box.width + 80, height: box.height + 80 } });
+  await page.mouse.up();
+  await page.waitForTimeout(1200);
+
+  // タッチの縦のスワイプはページのスクロール（touch-action: pan-y）。傾きは変わらない
+  const scrollBefore = await page.evaluate(() => window.scrollY);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: sx, y: sy, id: 2 }] });
+  for (let i = 1; i <= 8; i++) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: sx, y: sy - 25 * i, id: 2 }] });
+    await page.waitForTimeout(16);
+  }
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await page.waitForTimeout(800);
+  const scrollAfter = await page.evaluate(() => window.scrollY);
+  const afterSwipe = await rectOf(page);
+  check("タッチの縦のスワイプはページがスクロールし、傾かない", scrollAfter > scrollBefore && Math.abs(afterSwipe.w - front.w) <= 1, { scrollBefore, scrollAfter, afterSwipe });
   await context.close();
 }
 

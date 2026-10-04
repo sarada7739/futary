@@ -22,11 +22,20 @@ describe("068 T2: tiltFromDrag", () => {
     expect(tilt.y).toBeCloseTo(-0.2 + 10 * TILT_PER_PIXEL);
   });
 
-  it("上下限（x ±0.5・y ±0.7）で止まる", () => {
+  it("上下限（x ±0.5・y ±1.4 = 約 80°。裏面は見せない）で止まる", () => {
     expect(MAX_TILT_X).toBe(0.5);
-    expect(MAX_TILT_Y).toBe(0.7);
+    expect(MAX_TILT_Y).toBe(1.4);
+    expect(MAX_TILT_Y).toBeLessThan(Math.PI / 2);
     expect(tiltFromDrag({ x: 0, y: 0 }, 10_000, 10_000)).toEqual({ x: MAX_TILT_X, y: MAX_TILT_Y });
     expect(tiltFromDrag({ x: 0, y: 0 }, -10_000, -10_000)).toEqual({ x: -MAX_TILT_X, y: -MAX_TILT_Y });
+  });
+});
+
+describe("068 T2: タッチ（yOnly）は横のスワイプだけ傾ける", () => {
+  it("縦の動きでは x が押した時点のまま（縦はページのスクロールに任せる）", () => {
+    expect(tiltFromDrag({ x: 0, y: 0 }, 0, 200, { yOnly: true })).toEqual({ x: 0, y: 0 });
+    expect(tiltFromDrag({ x: 0.1, y: 0 }, 50, -300, { yOnly: true })).toEqual({ x: 0.1, y: 50 * TILT_PER_PIXEL });
+    expect(tiltFromDrag({ x: 0, y: 0 }, 10_000, 0, { yOnly: true })).toEqual({ x: 0, y: MAX_TILT_Y });
   });
 });
 

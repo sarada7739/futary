@@ -1,8 +1,8 @@
 // LP「さわってみる」の 3D のスマホの傾き（068）。DOM・three.js に触らない純粋な計算だけを置く（テストする）
 
-// 傾きの上下限（rad）。x は上下（手前・奥へ倒す）、y は左右
+// 傾きの上下限（rad）。x は上下（手前・奥へ倒す）、y は左右（約 80°。裏面は見せない）
 export const MAX_TILT_X = 0.5;
-export const MAX_TILT_Y = 0.7;
+export const MAX_TILT_Y = 1.4;
 // ドラッグ 1px あたりの傾き（rad）
 export const TILT_PER_PIXEL = 0.006;
 // 離してから正面に戻るまでの目安（秒）。この時間で 1% まで減る
@@ -15,10 +15,11 @@ export function clamp(value, min, max) {
 }
 
 // 押した時点の傾き start と、そこからのドラッグ量（px）から、今の傾きを返す。
-// 右へ引くと y が増え（右の縁が奥へ）、下へ引くと x が増える（上の縁が手前へ）
-export function tiltFromDrag(start, dx, dy) {
+// 右へ引くと y が増え（右の縁が奥へ）、下へ引くと x が増える（上の縁が手前へ）。
+// yOnly（タッチ）のときは x を押した時点のまま（縦のスワイプはページのスクロールに任せる）
+export function tiltFromDrag(start, dx, dy, { yOnly = false } = {}) {
   return {
-    x: clamp(start.x + dy * TILT_PER_PIXEL, -MAX_TILT_X, MAX_TILT_X),
+    x: yOnly ? start.x : clamp(start.x + dy * TILT_PER_PIXEL, -MAX_TILT_X, MAX_TILT_X),
     y: clamp(start.y + dx * TILT_PER_PIXEL, -MAX_TILT_Y, MAX_TILT_Y),
   };
 }

@@ -341,4 +341,15 @@ describe("068: 「さわってみる」の 3D", () => {
     expect(landingStyleCss).toMatch(/\.phone3d-gl \{[^}]*pointer-events: none;/);
     expect(landingStyleCss).toMatch(/\.phone\.is-3d \{[^}]*cursor: grab;/);
   });
+
+  it("タッチは縦のスワイプをページのスクロールに残す（touch-action: pan-y。追補 0節 #4）", () => {
+    expect(landingStyleCss).toMatch(/\.phone\.is-3d \{[^}]*touch-action: pan-y;/);
+  });
+
+  it("本体のモデル assets/phone.glb は gzip で 500KB 以下（追補 0節 #2）", () => {
+    const glb = landingAssets.find((f) => f.name === "phone.glb");
+    expect(glb).toBeDefined();
+    expect(glb!.gzipBytes).toBeGreaterThan(0);
+    expect(glb!.gzipBytes!).toBeLessThanOrEqual(500 * 1024);
+  });
 });

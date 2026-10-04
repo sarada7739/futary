@@ -14196,6 +14196,16 @@ Session: B
 
 Session: A
 
+## 2026-10-05 セッションB: 068 追補（人間のモデル・傾きの範囲・タッチ・縞）
+
+- 人間の問い「3D にならない・つかめない」: Windows の「アニメーション効果」がオフ（SPI_GETCLIENTAREAANIMATION = False）で prefers-reduced-motion: reduce → 0節 #6 のとおり 2D。本番の /phone3d.js は 200
+- 人間のモデル（FBX + 4096 のテクスチャ。Tripo）: 背面の Apple のロゴを Coons の面で塗りつぶし → 1024px JPEG → Chromium の中で FBXLoader + GLTFExporter → gltf-transform の weld・simplify（0.2・0.001）・quantize → 586KB（gzip 367KB）
+- 変換で flipY=false にしたら色がずれた。FBX の UV は既定の flipY=true が前提
+- 正面の正射影の絵と Raycaster で画面（幅 0.430 × 高さ 0.9645・角 0.065）・島・表面の z を測り、iframe を 3D のとき 390×875 に。穴は島の形を抜く
+- 人間が見た縞は z-fighting（near=1 で精度 0.15 単位、縁の板と穴が 0.2 差）。near・far をモデルのまわりに詰め、穴に polygonOffset
+- MAX_TILT_Y 1.4・タッチは yOnly・touch-action: pan-y。T4 9/9・`pnpm -r test` 1,554 緑
+
+Session: B
 ## 2026-10-05 セッションA: 068 のモデルの利用条件（人間の確認）
 
 - 人間: Tripo の有料プランで作ったので使ってよい。068 の追補のマージの条件を外した

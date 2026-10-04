@@ -11,6 +11,8 @@ declare module "virtual:landing-assets" {
     bytes: number;
     // PNG（RGBA 8bit）だけ。056 T6: 指定した点のアルファ（center・leftBezel・topLeftOutside・notch・screenBottom）
     png?: { width: number; height: number; alphaAt: Record<string, number> };
+    // 068: .glb だけ。gzip したときの大きさ
+    gzipBytes?: number;
   }>;
   export default files;
   // 056 T5: apps/landing/style.css の本文

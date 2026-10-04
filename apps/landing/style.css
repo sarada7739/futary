@@ -344,9 +344,10 @@ p {
 /* 3D のとき（/phone3d.js が .is-3d を付ける。068）。大きさは 2D と同じ箱のまま、iframe は CSS3D の層へ移る。
    CSS3DRenderer が iframe の transform を中心基準で書くので、2D の left・top・transform-origin を打ち消す。
    画面（iframe）の上の操作はデモが受け、ドラッグはふち・余白からだけ始まる */
+/* タッチは横のスワイプだけ傾ける（縦はページのスクロール） */
 .phone.is-3d {
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .phone.is-3d.is-dragging {
@@ -357,11 +358,11 @@ p {
   display: none;
 }
 
+/* 大きさと角の丸みは /phone3d.js がモデルの画面に合わせて書く */
 .phone.is-3d .phone-screen {
   left: 0;
   top: 0;
   transform-origin: 50% 50%;
-  border-radius: 48px;
   cursor: auto;
 }
 
