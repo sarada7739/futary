@@ -14249,3 +14249,24 @@ Session: A
 - 決定: easeInCubic（上端 600px で 24.1°・全部見えて 4.5°・中心で 0）。始めの角度の符号は B が見比べた y +0.44・x −0.14 に定義を合わせた
 
 Session: A
+## 2026-10-05 セッションB: 068 追補 2 のマージ・追補 3
+
+- #471（追補 2）: R 受け入れ（必須修正なし）。判定を `artifacts/068/review.md` の末尾に R の版のまま。#472 と docs/state.md がぶつかった → main を取り込み → CI 緑 → squash merge（main e65ace0）。R の記録（外した ZIP が .gitignore に無い）を A に渡した → A が #473
+- 追補 3: `scrollProgress`・`angleForScroll`（easeOutCubic）・戻る先を指定できる `decayTilt`。scroll は passive・rAF でまとめる。離したらスクロールで決まる角度へ
+- 向きは 4 通りを撮って y +0.44・x −0.14 に
+- 中心ちょうど（上端 54.5px）が画素で 55px に丸まり、角度がわずかに残って 3D の変形のままになり文字がにじんだ → 残り 0.5% 未満は正面に丸める
+- 測り方: 外接の矩形の幅は遠近で傾きとそろわない（313 にもなる）ので高さで見た。ドラッグの確かめはビューポートの外を押していたので、見えている帯を押す形に
+- 気づき: ステージ 791px とビューポート 900px が近く、easeOutCubic だと下から 300px（3 分の 1 見えた）で 6.8°・半分ほどでほぼ 0°。easeInCubic なら 24°。A に相談
+- scroll-tilt.mjs 7/7・capture.mjs 11/11・`pnpm -r test` 1,561 緑
+
+Session: B
+
+## 2026-10-05 セッションB: 068 追補 3 の差し戻しを直す
+
+- A が easeInCubic に決めた（#475）。R の差し戻し（必須修正: 曲線）。判定を `artifacts/068/review.md` の末尾に R の版のまま
+- angleForScroll を easeInCubic に。テストに 1280×900 の値（600px で約 24°・全部見えて約 4.5°・中心で正面・55px でも正面）
+- 正面に丸める余裕: p > ∛0.995（上端 56.4px より上）で丸まる。55px で 2D の変形を scroll-tilt.mjs で確かめた
+- R の記録 1: 角度が変わらなければ描き直さない。記録 2（SNAP のテストのコメントの式）は easeInCubic の式に直した
+- scroll-tilt.mjs 7/7（820→600→300→全部→中心 の高さで見る形に）・capture.mjs 11/11・`pnpm -r test` 1,562 緑
+
+Session: B

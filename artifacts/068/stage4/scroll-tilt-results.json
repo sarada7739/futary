@@ -1,0 +1,82 @@
+{
+  "節が入ってきたところ（上端が下から 80px）では斜め（3D の変形）": {
+    "ok": true,
+    "detail": {
+      "entering": {
+        "w": 295,
+        "h": 732,
+        "stageTop": 817,
+        "transform": "matrix3d("
+      },
+      "atCenter": {
+        "w": 312,
+        "h": 700,
+        "stageTop": 55,
+        "transform": "matrix(0."
+      }
+    }
+  },
+  "見えている間は斜めのまま、中央に近づいてから正面へ（高さが 820→600→300→全部→中心 で増えない。300px でもはっきり斜め）": {
+    "ok": true,
+    "detail": {
+      "heights": [
+        732,
+        731,
+        723,
+        707,
+        700
+      ],
+      "whole": {
+        "w": 313,
+        "h": 707,
+        "stageTop": 109,
+        "transform": "matrix3d("
+      }
+    }
+  },
+  "中心がビューポートの中心で正面（2D の変形・文字がにじまない）": {
+    "ok": true,
+    "detail": {
+      "w": 312,
+      "h": 700,
+      "stageTop": 55,
+      "transform": "matrix(0."
+    }
+  },
+  "中心を過ぎても正面のまま": {
+    "ok": true,
+    "detail": {
+      "w": 312,
+      "h": 700,
+      "stageTop": -245,
+      "transform": "matrix(0."
+    }
+  },
+  "上に戻ると同じ位置で同じ斜め": {
+    "ok": true,
+    "detail": {
+      "entering": 732,
+      "back": 732
+    }
+  },
+  "ドラッグを離すと、正面ではなくスクロールの位置で決まる斜めへ戻る": {
+    "ok": true,
+    "detail": {
+      "before": 732,
+      "dragged": 758,
+      "settled": {
+        "h": 732,
+        "transform": "matrix3d("
+      }
+    }
+  },
+  "動きを減らす設定では最初から正面（節の手前でも）": {
+    "ok": true,
+    "detail": {
+      "w": 312,
+      "h": 700,
+      "stageTop": 814,
+      "transform": "matrix(0."
+    }
+  }
+}

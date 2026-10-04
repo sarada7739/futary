@@ -1,0 +1,126 @@
+{
+  "3D になる（canvas がある・2D の枠の絵は消える）": {
+    "ok": true,
+    "detail": {
+      "x": 291,
+      "y": 80,
+      "w": 312,
+      "h": 700
+    }
+  },
+  "ふちのドラッグで傾く（iframe の外接の矩形が正面と変わる）": {
+    "ok": true,
+    "detail": {
+      "front": {
+        "x": 291,
+        "y": 80,
+        "w": 312,
+        "h": 700
+      },
+      "tilted": {
+        "x": 305,
+        "y": 56,
+        "w": 269,
+        "h": 748
+      }
+    }
+  },
+  "傾けたまま iframe の中のタブを押すとデモの画面が変わる": {
+    "ok": true,
+    "detail": {
+      "before": "http://localhost:8787/app/",
+      "after": "http://localhost:8787/app/calendar"
+    }
+  },
+  "押している間も傾いたまま（マウスの操作で傾きが動かない）": {
+    "ok": true,
+    "detail": {
+      "x": 305,
+      "y": 56,
+      "w": 269,
+      "h": 748
+    }
+  },
+  "離すと正面に戻る（約 0.6 秒）": {
+    "ok": true,
+    "detail": {
+      "x": 291,
+      "y": 80,
+      "w": 312,
+      "h": 700
+    }
+  },
+  "上限まで傾けると画面の幅が大きく縮む（約 80°。裏返らない）": {
+    "ok": true,
+    "detail": {
+      "x": 418,
+      "y": 32,
+      "w": 54,
+      "h": 798
+    }
+  },
+  "タッチの縦のスワイプはページがスクロールし、傾かない": {
+    "ok": true,
+    "detail": {
+      "scrollBefore": 938,
+      "scrollAfter": 1123,
+      "afterSwipe": {
+        "x": 291,
+        "y": -105,
+        "w": 312,
+        "h": 700
+      }
+    }
+  },
+  "767 幅では節が出ない・3D も組まない": {
+    "ok": true,
+    "detail": {
+      "demoVisible": false,
+      "canvases": 0
+    }
+  },
+  "prefers-reduced-motion でも 3D になり、離すとすぐ（0.12 秒で）正面に戻る": {
+    "ok": true,
+    "detail": {
+      "front": {
+        "x": 291,
+        "y": 80,
+        "w": 312,
+        "h": 700
+      },
+      "tilted": {
+        "x": 320,
+        "y": 49,
+        "w": 236,
+        "h": 763
+      },
+      "back": {
+        "x": 291,
+        "y": 80,
+        "w": 312,
+        "h": 700
+      }
+    }
+  },
+  "モデルを読んでいる間は 2D の枠の絵のまま（iframe は 3D の層へ移してある）、読めたら 3D に切り替わる": {
+    "ok": true,
+    "detail": {
+      "loading": {
+        "frameVisible": true,
+        "is3d": 0,
+        "iframeInCss3d": 1
+      },
+      "loaded": {
+        "frameVisible": false,
+        "is3d": 1
+      }
+    }
+  },
+  "止まっているときは 2D の変形（文字がにじまない）・傾けている間は 3D": {
+    "ok": true,
+    "detail": {
+      "transformAtRest": "matrix(0.800255, 0, 0, 0.800255, 107, 45",
+      "transformTilted": "matrix3d(0.825336, 0, -0.564642, 0, 0, -"
+    }
+  }
+}

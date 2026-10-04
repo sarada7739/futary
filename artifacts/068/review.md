@@ -101,3 +101,53 @@ R の手元（futary-R、`pnpm install --frozen-lockfile` から）で確かめ�
 - Safari（Mac・iPad）・Firefox・実機のタッチ。Safari で画質の直し方が同じように効くか
 - devicePixelRatio 2 の画質（R は dsf 1 だけ流した）
 - main を取り込んだ後の CI
+
+---
+
+## 追補 3 #474（0701dab。スクロールで斜めから正面へ）— R の判定（往復 1 回目）
+
+**差し戻し。必須修正 1 件。**それ以外は受け入れる。
+
+### 必須修正
+
+1. **スクロールとの対応の曲線を `easeInCubic` にする。**B の相談を受けて、A が #474 を出した後に定義を改めた（main d5eb079・#475。追補 3 の 0節 #2「間は **`easeInCubic`** でつなぐ」）。#474 の `angleForScroll` は `easeOutCubic` のままで、今の定義と合わない。`tilt.mjs` の `easeOutCubic` とそのテスト（`phone3d-tilt.test.ts` の「途中は単調に正面へ近づく（easeOutCubic）」・`easeOutCubic(0.5)` が 0.875）・報告・画面（`halfway-1280.png` 等）を `easeInCubic` に合わせる
+   - 直したあと、**中心での正面ちょうどへの丸め（`SNAP_REMAINING`）が今も効くこと**を `scroll-tilt.mjs` で確かめてほしい。easeIn は終わりが急なので、丸めが効く範囲は中心の直前だけになる（R の見積もり: 中心の位置が 55px に丸められたときの進み具合は 845 / 845.5 ≈ 0.99941 で、残りは 1 − 0.99941³ ≈ 0.0018 < 0.005。効くはずだが、余裕は小さい）
+   - 始めの角度の符号（y +0.44・x −0.14）は #475 で定義の方が実装に合わせたので、直すことはない
+
+### R の手元（futary-R、`pnpm install --frozen-lockfile` から）で確かめたこと
+
+- **テスト**: type-check・lint 緑。`pnpm run test` は ui 23・date 68・db 34・app 630・api 806 = 1,561 で全部緑。`phone3d.js` は gzip 166,636 バイト
+- **ブラウザ**: `scroll-tilt.mjs` 7 / 7・`capture.mjs` 11 / 11 を R の手元で再現した。R の `extra.mjs`（マウスだけのドラッグ・iframe の上で離す・画面の上から引いても傾かない・傾けたままホイールでスクロール・止まっている間の rAF 0 回）と `fallback.mjs`（GLB が 404 なら 2D・遅いときは枠の絵のまま・切り替えで読み直さない）も通る
+- **組み方**: `scroll` は `passive` で、rAF で 1 フレーム 1 回にまとめている。ドラッグの間は角度を使わず、離すとスクロールで決まる角度へ戻る。reduced-motion は戻る先がいつも正面。`draw()` の 2D の変形への置き換え（追補 2）は正面のときだけ（`isAtRest(tilt)` は既定の正面と比べる）で、斜めで止まっている間は 3D のまま。どれも 0節 #3〜#5 のとおり
+
+### 記録（判定に使わない）
+
+1. **正面のまま（中心を過ぎた後）スクロールしている間も、スクロールのフレームごとに WebGL と CSS3D を描き直している。**R が `drawElements` を数えた（1280×900）: 中心から下へ 6 回スクロールすると 12 回（1 フレーム 2 回 = 本体と穴）。止まっている間は 0 回。角度が変わらないのに `draw()`（`getBoundingClientRect` 2 回と 2D の変形の書き直しを含む）が走る。節が見えている間だけなので 0節 #5 には反しないが、`target` が前と同じで `tilt` もそこにいるなら描かない、で省ける
+2. `phone3d-tilt.test.ts` の SNAP のテストのコメント「`1 - (1 - p)^3 < SNAP_REMAINING` になる p」は式が逆（残りは `(1 - p)^3`。コードの `edge = 1 - cbrt(SNAP_REMAINING)` の方が正しい）。easeIn に直すときに一緒に消える
+
+### 私が確かめていないこと
+
+- Safari・Firefox・実機（慣性のスクロール中の描画の追従）
+
+---
+
+## 追補 3 #474（262f794。往復 2 回目）— R の判定
+
+**受け入れ。必須修正なし。**（CI は R が見た時点で実行中。緑を確かめてからマージすること。main d5eb079 の上にあり、ぶつかりは無い）
+
+- **必須修正 1（easeInCubic）: 直った。**`tilt.mjs` の `angleForScroll` は `1 − easeInCubic(p)`（`p³`）、`tilt.d.mts`・テスト（`easeInCubic(0.5)` が 0.125・1280×900 の値）も合わせてある。0701dab からのコードの差分はこれと `onScroll` の 3 行だけ
+- **丸め**: 残りは `1 − p³` で、`p > ∛0.995` で正面。R の手元の `scroll-tilt.mjs` でも、中心（上端 55px）で iframe の変形は `matrix(…)`（2D）。テストにも「55px でも正面ちょうど」がある
+- **記録 1（描き直し）: 直った。**R の `scrollcost.mjs` で数え直した: 中心から下へ 6 回スクロールして `drawElements` は **0 回**（前は 12 回）。上へ戻って斜めになるときは描く（12 回のスクロールで 16 回）。`onScroll` の「止まっていて・ドラッグしていなくて・向かう先が変わらなければ返す」は、ドラッグ中・戻る途中には効かない（そのときは今まで通り `target` を変える）
+- **記録 2（テストのコメント）: 直った**（「1 − p³ < SNAP_REMAINING」・`edge = ∛(1 − SNAP_REMAINING)`）
+
+R の手元（futary-R、`pnpm install --frozen-lockfile` から）で確かめた:
+
+- type-check・lint 緑。`pnpm run test` は ui 23・date 68・db 34・app 630・api 807 = 1,562 で全部緑。`phone3d.js` は gzip 166,649 バイト
+- `scroll-tilt.mjs` **7 / 7**（高さ 732 → 731 → 723 → 707 → 700。全部見えた位置〈上端 109px〉でも `matrix3d`。上に戻ると 732 → 732）・`capture.mjs` **11 / 11**・R の `extra.mjs` も通る（ページの例外 0）
+- 下から 300px 見えた位置の画面（R が撮った `halfway-1280.png`）で、スマホははっきり斜めに見える
+- `artifacts/068/review.md` の末尾の判定 4 は、R の版と一字一句同じ
+- `worklog.md` は追記のみ（削除 0 行）。4 つのコミットとも `Session: B` と Co-Authored-By が続いている
+
+## 私が確かめていないこと
+
+- Safari・Firefox・実機（慣性のスクロール中の描画の追従）
