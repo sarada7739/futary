@@ -31,7 +31,7 @@
 - 描画のループは**見えている間（`IntersectionObserver`）かつ動いている間だけ** `requestAnimationFrame`。止まると描かない
 - 出す条件: `(min-width: 768px)` かつ WebGL が使える（調べるのに作った文脈は `WEBGL_lose_context` ですぐ手放す）かつ `prefers-reduced-motion: reduce` でない。満たさなければ何もしない（HTML のままの 2D の枠と iframe）
 - **読み込みの時機（0節 #8）の実装**: `<script type="module">` は HTML を止めずに読まれ、最初の表示を遅らせない。モジュールは 2 段で動く:
-  1. すぐ: CSS3D の層を組み、iframe をそこへ移す。**iframe は DOM の中で動かすと読み直しになる**ので、`loading="lazy"` の読み込みが始まる前（節が見える前）に移す
+  1. すぐ: CSS3D の層を組み、iframe をそこへ移す。**iframe は DOM の中で動かすと読み直しになる**ので、なるべく早く移す。ただし **Chromium の lazy の読み込みはビューポートからかなり離れた位置で始まり、移すより先に 1 回目が始まるので、3D のときデモの HTML（`/app/?demo=1`）は 2 回読まれる**（R の計測。約 20ms 差で 2 回、2D では 1 回。JS の束は 3D でも 1 回だけ。`review.md` の記録 1）
   2. 節が `rootMargin: 400px` に入ったとき: WebGL の本体を作る（重い方）
   - 0節 #8 の「`import()` で読む」は、外部の JS を 1 ファイルにする（0節 #7）と両立しない（`import()` で読む先が 2 つ目のファイルになる）ので、上の形にした。ファイルは最初に読まれるが、実行は軽い 1 段目だけ
 
