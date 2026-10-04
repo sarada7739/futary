@@ -14316,3 +14316,10 @@ Session: A
 - `pnpm -r test` 1,563 緑。type-check・lint 緑
 
 Session: B
+
+## 2026-10-05 セッションB: 068 追補 4 #482 のマージ
+
+- R 受け入れ（必須修正なし）。判定を `artifacts/068/review.md` に追記。CI 緑 → squash merge（main 5b2f2a1）
+- R の記録 1（縦でも 768px 以上の iPad はこの原因では説明がつかない）を A に渡した。記録 2: 報告の gzip 165,680 は `gzip -c` で数えた値で、R のビルドの値（166,695）と違う。判定には関わらない
+
+Session: B
