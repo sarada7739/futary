@@ -181,3 +181,31 @@ R の手元（futary-R、`pnpm install --frozen-lockfile` から）で確かめ�
 
 - iOS の実機（この PR の目的。デプロイの後に人間が撮る）
 - Playwright の WebKit は実機の Safari と同じではない（UA も iOS 12 のまま）
+
+
+---
+
+## 追補 4 #482（318b0bb。縦で開いて横に回したときに 3D にする・`?debug3d` を外す）— R の判定
+
+**受け入れ。必須修正なし。**（CI 緑を確かめた。main be82660 の上で、ぶつかりは無い）
+
+- **差分**: `phone3d.mjs` を #477 の前（a5f0008）と比べると、違いは `canUse3D` → `hasWebGL`（幅の判定を外しただけ）と、最後の `matchMedia("(min-width: 768px)")` の `change` を見る 10 行だけ。`?debug3d` の表示（#477）はコードからすべて消えている（`apps/` の `.mjs`・`.html`・`.css` に `debug3d` は無い。ビルドした `phone3d.js` に残る `webglcontextcreationerror` は three.js の `WebGLRenderer` のもの）
+- **組み方は追補 4 #4 のとおり**: 広くなったときだけ組み、組んだら（または WebGL が無いと分かったら）`change` を見るのをやめる。狭くなっても何もしない。出す条件（幅 768 以上・WebGL）は変わらない。`setUp` の中の `clientWidth`・`clientHeight` を読む時点で節は `display` されているので、ステージの大きさは正しく取れる（R の手元の画面でも、横にした後の本体と iframe の大きさが合っている）
+
+R の手元（futary-R、`pnpm install --frozen-lockfile` から）で確かめた:
+
+- **テスト**: type-check・lint 緑。`pnpm run test` は ui 23・date 68・db 34・app 630・api 808 = 1,563 で全部緑（1 回目は api の 2 ファイルがテスト用の workerd の起動で `ECONNRESET` になり走らなかった。#477 のときと同じで、コードと関係ない。api だけ流し直して 33 ファイル 808 件 緑）。`phone3d.js` は R のビルドで gzip **166,695** バイト（上限 200KB）
+- **`orientation.mjs`**: WebKit・Chromium とも **7 / 7**（縦で開くと層・canvas 0 → 横で `.is-3d`・層 1・canvas 1 → 傾けて戻る → 縦で節が隠れ 3D はそのまま → もう一度横で層・canvas 1 つずつ・iframe の読み直し 0 → また傾けられる → ページの例外 0）。Chromium の横で傾けた画面を R が見て、本体と iframe が合っている
+- 既存の確かめも通る: `capture.mjs` 11 / 11・`scroll-tilt.mjs` 7 / 7
+- `worklog.md` は追記のみ（削除 0 行）。コミットのトレーラーは `Session: B` と Co-Authored-By が続いている
+
+## 記録（判定に使わない）
+
+1. **iPad はこの直しで説明がつくとは限らない。**縦で 768px 以上ある iPad（多くの機種は縦でも 810〜1024px）なら、読み込みのときの幅の判定は通るので、この原因ではない。追補 4 #5 の見込み（iPad mini の縦 744px）に当てはまるかは、人間の iPad の機種・`?debug3d` の撮影で分かる。ただし `?debug3d` はこの PR で外れるので、**iPad で直らなかったら、調べる手段をもう一度入れる必要がある**（A の判断）
+2. 報告の `phone3d.js` の gzip（165,680）は、R のビルド（166,695）と 1,015 バイト違う。#474 の 166,649 に 10 行足した大きさとしては R の値の方が自然。上限からは遠いので判定には関わらない
+3. 1 回目の横向きで組むとき、iframe は 3D の層へ移るので読み直しになる（縦では節が `display: none` で、lazy の読み込みは始まっていない見込みだが、R は数えていない）。2 回目以降の回転で読み直さないことは `orientation.mjs` で確かめてある
+4. 「Windows の Playwright の WebKit は CSS の `perspective` を描かない」は B の最小の例による。R は確かめていない（WebKit の列は状態だけで判定していて、見た目は Chromium で見ているので、判定には関わらない）
+
+## 私が確かめていないこと
+
+- 実機の iPhone・iPad（Safari の 3D の描き方・本体の穴と iframe が合うか）。デプロイの後に人間が見る

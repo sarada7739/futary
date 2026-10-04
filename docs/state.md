@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-05 / セッションB。**068: `?debug3d` の表示（#477）を R 受け入れ → CI 緑 → squash merge。iPad・iPhone で 3D にならない件は、人間の撮影待ち。**
+**最終更新**: 2026-10-05 / セッションB。**068 追補 4: 縦で開いて横に回したときに 3D にする（`matchMedia` の `change`）・`?debug3d` を外す: PR（`task/068-orientation`）。R の手番。**
+- 原因: 人間の iPhone の `?debug3d` は `min-width 768: false` で止まっていた（読み込みのとき縦向き 440。判定が 1 回だけ）
+- 証跡 `artifacts/068/stage5/`: WebKit・Chromium の iPhone で 縦で開く → 横 → 3D・傾く → 縦 → 横 → 3D のまま（iframe の読み直し 0 回）。7 / 7 を 3 回ずつ。Windows の Playwright の WebKit は CSS の perspective を描かないので、画面は Chromium で撮った
+- 人間の手番（マージ・デプロイの後）: iPhone・iPad の Safari で、縦で開いてから横にして 3D になるか・本体の穴と画面が合っているか
+- 続き: 068 を PC の Chrome で触る。066: 本番の Google ログイン。065 のデプロイ後に iPhone の Safari で帯。Actions の Dependabot の赤。061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price
+
+---
+
+**最終更新（旧）**: 2026-10-05 / セッションB。**068: `?debug3d` の表示（#477）を R 受け入れ → CI 緑 → squash merge。iPad・iPhone で 3D にならない件は、人間の撮影待ち。**
 - 人間の手番: (1) iPhone・iPad の「設定 → プライバシーとセキュリティ → ロックダウンモード」を確かめる（オンだと Safari で WebGL が使えず 2D。A の見立て）。(2) デプロイの後、Safari で `https://nisoine.com/?debug3d` を開いて「さわってみる」までスクロールし、左上の黒い枠を撮る。**枠そのものが出ないときも、そのまま知らせる**（phone3d.js が動いていない印）
 - A に渡したもの: この表示を残すか外すか（R の記録 2）
 - 続き: 068 を PC の Chrome で触る。066: 本番の Google ログイン。065 のデプロイ後に iPhone の Safari で帯。Actions の Dependabot の赤。061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price

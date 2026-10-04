@@ -14307,3 +14307,12 @@ Session: A
 - 決定: `matchMedia` の `change` で広くなったら組む。B の案 2（狭くなったら 2D に戻す・組み直す）は採らない: 768 未満は節ごと隠れて描画も止まるので、戻すと iframe が読み直しになるだけ
 
 Session: A
+
+## 2026-10-05 セッションB: 068 追補 4 縦で開いて横に回したときに 3D にする
+
+- 人間の iPhone の `?debug3d`: `viewport 440x736`・`min-width 768: false` で止まっていた。読み込みのとき縦向きで、判定が 1 回だけだった。A に案を出し、案 1・3 を採る決定（#481）
+- `phone3d.mjs`: `matchMedia("(min-width: 768px)")` の `change` で、広くなったら組む。狭くなっても何もしない。`?debug3d` の表示を外した
+- 証跡 `artifacts/068/scripts/orientation.mjs`（WebKit・Chromium で 7 / 7 を 3 回ずつ）。Windows の Playwright の WebKit は CSS の perspective を描かない（最小の例で確かめた）ので、画面は Chromium。WebKit は画面の大きさを変えた直後にスクロールを直すことがあり、真ん中に置く処理を繰り返す形にした
+- `pnpm -r test` 1,563 緑。type-check・lint 緑
+
+Session: B
