@@ -14179,3 +14179,11 @@ Session: A
 - `pnpm -r test` 1,551 緑・type-check・lint 緑
 
 Session: B
+
+## 2026-10-05 セッションB: 068 のマージ
+
+- R が受け入れ（必須修正なし）。判定を `artifacts/068/review.md` に R の版のまま保存
+- R の計測で、3D のときデモの HTML が 2 回読まれる（Chromium の lazy が移す前に始まる）と分かり、報告の「lazy の読み込みが始まる前に移す」を計測に合わせて直した
+- CI 緑 → #465 を squash merge。記録 1（HTML 2 回）・3（0節 #8 の文言）を A に渡した
+
+Session: B
