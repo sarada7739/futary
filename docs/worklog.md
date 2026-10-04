@@ -14242,3 +14242,10 @@ Session: A
 - R の記録（B 経由）: #471 で追跡から外した `docs/sample/fbx/purple smartphone 3d model.zip` が .gitignore に無く、`git add` で戻りうる。`docs/sample/fbx/` を足した（`git check-ignore` で確かめた）
 
 Session: A
+
+## 2026-10-05 セッションA: 068 の追補 3 の動きを easeInCubic に
+
+- B の相談: ステージ 791px とビューポート 900px が近く、easeOutCubic だと半分見えた頃（上端 600px）に 6.8° でほぼ正面。人間の「3D だと分かるように」が上の方しか見えない間だけになる（`artifacts/068/stage4/halfway-1280.png`）
+- 決定: easeInCubic（上端 600px で 24.1°・全部見えて 4.5°・中心で 0）。始めの角度の符号は B が見比べた y +0.44・x −0.14 に定義を合わせた
+
+Session: A
