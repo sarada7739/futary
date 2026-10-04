@@ -55,17 +55,18 @@ export function scrollProgress(top, stageHeight, viewportHeight) {
   return clamp((start - top) / (start - end), 0, 1);
 }
 
-export function easeOutCubic(t) {
-  return 1 - (1 - t) ** 3;
+export function easeInCubic(t) {
+  return t ** 3;
 }
 
 // 残りの割合がこれより小さければ正面にする。正面ちょうどなら iframe を 2D の変形で描けて文字がにじまない
 // （0.005 × 0.44 rad ≈ 0.13°。見た目では区別できない）
 export const SNAP_REMAINING = 0.005;
 
-// 進み具合（0〜1）→ 角度。0 で ENTRY_TILT、1 で正面。間は easeOutCubic
+// 進み具合（0〜1）→ 角度。0 で ENTRY_TILT、1 で正面。間は easeInCubic（見えている間ははっきり斜めで、中央に
+// 近づいてから正面へ向く。ステージがビューポートに近い高さなので、easeOut だと半分見えた頃にはほぼ正面になる）
 export function angleForScroll(progress) {
-  const remaining = 1 - easeOutCubic(clamp(progress, 0, 1));
+  const remaining = 1 - easeInCubic(clamp(progress, 0, 1));
   if (remaining < SNAP_REMAINING) return { x: 0, y: 0 };
   return { x: ENTRY_TILT.x * remaining, y: ENTRY_TILT.y * remaining };
 }

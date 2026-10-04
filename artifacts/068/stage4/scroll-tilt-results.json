@@ -3,9 +3,9 @@
     "ok": true,
     "detail": {
       "entering": {
-        "w": 305,
-        "h": 725,
-        "stageTop": 814,
+        "w": 295,
+        "h": 732,
+        "stageTop": 817,
         "transform": "matrix3d("
       },
       "atCenter": {
@@ -16,12 +16,22 @@
       }
     }
   },
-  "近づくほど正面に近づく（外接の矩形の高さが正面の値へ縮む）": {
+  "見えている間は斜めのまま、中央に近づいてから正面へ（高さが 820→600→300→全部→中心 で増えない。300px でもはっきり斜め）": {
     "ok": true,
     "detail": {
-      "entering": 725,
-      "halfway": 710,
-      "atCenter": 700
+      "heights": [
+        732,
+        731,
+        723,
+        707,
+        700
+      ],
+      "whole": {
+        "w": 313,
+        "h": 707,
+        "stageTop": 109,
+        "transform": "matrix3d("
+      }
     }
   },
   "中心がビューポートの中心で正面（2D の変形・文字がにじまない）": {
@@ -45,17 +55,17 @@
   "上に戻ると同じ位置で同じ斜め": {
     "ok": true,
     "detail": {
-      "entering": 725,
-      "back": 723
+      "entering": 732,
+      "back": 732
     }
   },
   "ドラッグを離すと、正面ではなくスクロールの位置で決まる斜めへ戻る": {
     "ok": true,
     "detail": {
-      "before": 724,
-      "dragged": 771,
+      "before": 732,
+      "dragged": 758,
       "settled": {
-        "h": 726,
+        "h": 732,
         "transform": "matrix3d("
       }
     }
@@ -65,7 +75,7 @@
     "detail": {
       "w": 312,
       "h": 700,
-      "stageTop": 817,
+      "stageTop": 814,
       "transform": "matrix(0."
     }
   }

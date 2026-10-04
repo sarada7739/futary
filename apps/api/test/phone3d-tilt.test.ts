@@ -9,7 +9,7 @@ import {
   TILT_PER_PIXEL,
   angleForScroll,
   decayTilt,
-  easeOutCubic,
+  easeInCubic,
   isAtRest,
   scrollProgress,
   tiltFromDrag,
@@ -114,20 +114,29 @@ describe("068 追補 3: angleForScroll（進み具合 → 角度）", () => {
     expect(angleForScroll(-1)).toEqual(ENTRY_TILT);
   });
 
-  it("途中は単調に正面へ近づく（easeOutCubic）", () => {
+  it("途中は単調に正面へ近づく（easeInCubic）", () => {
     let previous = Infinity;
     for (let p = 0; p <= 1.0001; p += 0.1) {
       const size = Math.abs(angleForScroll(p).y);
       expect(size).toBeLessThanOrEqual(previous);
       previous = size;
     }
-    expect(Math.abs(angleForScroll(0.5).y)).toBeCloseTo(Math.abs(ENTRY_TILT.y) * (1 - easeOutCubic(0.5)));
-    expect(easeOutCubic(0.5)).toBeCloseTo(0.875);
+    expect(Math.abs(angleForScroll(0.5).y)).toBeCloseTo(Math.abs(ENTRY_TILT.y) * (1 - easeInCubic(0.5)));
+    expect(easeInCubic(0.5)).toBeCloseTo(0.125);
+  });
+
+  it("1280×900 の LP（ステージ 791px）: 上端 600px で約 24°・全部見えて約 4.5°・中心で正面", () => {
+    const degrees = (top: number) => (Math.abs(angleForScroll(scrollProgress(top, 791, 900)).y) * 180) / Math.PI;
+    expect(degrees(600)).toBeCloseTo(24.1, 0);
+    expect(degrees(900 - 791)).toBeCloseTo(4.5, 0);
+    expect(angleForScroll(scrollProgress(900 / 2 - 791 / 2, 791, 900))).toEqual(FRONT);
+    // 画素に丸めた中心（55px）でも正面ちょうど
+    expect(angleForScroll(scrollProgress(55, 791, 900))).toEqual(FRONT);
   });
 
   it("正面のすぐ手前（残りが SNAP_REMAINING 未満）は正面ちょうど（2D の変形で描けて文字がにじまない）", () => {
-    // 1 - (1 - p)^3 < SNAP_REMAINING になる p の手前と先
-    const edge = 1 - Math.cbrt(SNAP_REMAINING);
+    // 1 - p^3 < SNAP_REMAINING になる p の手前と先
+    const edge = Math.cbrt(1 - SNAP_REMAINING);
     expect(angleForScroll(edge + 0.001)).toEqual(FRONT);
     expect(angleForScroll(edge - 0.01)).not.toEqual(FRONT);
   });

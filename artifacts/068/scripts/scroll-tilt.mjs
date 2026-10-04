@@ -64,11 +64,21 @@ const shot = async (page, name) => {
   await shot(page, "entering-1280.png");
   const halfway = await placeStageTop(page, 600);
   await shot(page, "halfway-1280.png");
+  const most = await placeStageTop(page, 300);
+  await shot(page, "most-1280.png");
+  const whole = await placeStageTop(page, vh - Math.round(h));
+  await shot(page, "whole-1280.png");
   const atCenter = await placeStageTop(page, center);
   await shot(page, "center-1280.png");
   const past = await placeStageTop(page, center - 300);
   check("節が入ってきたところ（上端が下から 80px）では斜め（3D の変形）", entering.transform === "matrix3d(" && entering.h > atCenter.h + 10, { entering, atCenter });
-  check("近づくほど正面に近づく（外接の矩形の高さが正面の値へ縮む）", entering.h > halfway.h && halfway.h >= atCenter.h, { entering: entering.h, halfway: halfway.h, atCenter: atCenter.h });
+  // easeInCubic: 見えている間ははっきり斜め（820px・600px はほぼ同じ）、中央に近づいてから正面へ
+  const heights = [entering.h, halfway.h, most.h, whole.h, atCenter.h];
+  check(
+    "見えている間は斜めのまま、中央に近づいてから正面へ（高さが 820→600→300→全部→中心 で増えない。300px でもはっきり斜め）",
+    heights.every((v, i) => i === 0 || v <= heights[i - 1] + 1) && most.h > atCenter.h + 8 && whole.transform === "matrix3d(",
+    { heights, whole },
+  );
   check("中心がビューポートの中心で正面（2D の変形・文字がにじまない）", atCenter.transform === "matrix(0." && atCenter.w === 312, atCenter);
   check("中心を過ぎても正面のまま", past.transform === "matrix(0." && past.w === 312, past);
   // 戻ると斜めに戻る（位置で決まる）

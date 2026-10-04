@@ -285,7 +285,10 @@ function setUp(phone) {
     scrollFrame = 0;
     if (stopped || !ready || !visible) return;
     const atTarget = isAtRest(tilt, target);
-    target = targetForScroll();
+    const next = targetForScroll();
+    // 角度が変わらなければ描き直さない（中心を過ぎて正面のままスクロールしている間など）
+    if (atTarget && !drag && isAtRest(next, target)) return;
+    target = next;
     if (drag) return;
     if (atTarget) {
       tilt = target;
