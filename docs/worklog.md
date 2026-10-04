@@ -14276,3 +14276,11 @@ Session: B
 - R が受け入れ（往復 2 回目。必須修正なし）。判定を `artifacts/068/review.md` の末尾に R の版のまま → CI 緑 → #474 を squash merge
 
 Session: B
+
+## 2026-10-05 セッションB: 068 iPad・iPhone で 3D にならない（調べる仕掛け）
+
+- 人間の報告: iPad・iPhone（横向き）の Safari で前の型（2D の枠）のまま・傾けられない。iOS 27.0.1、iPad は今年の機種・初めて開いた（キャッシュではない）
+- 本番の phone3d.js は最新と同じ（md5 一致）。HTML も `/phone3d.js` を読む。Playwright の WebKit（iPad (gen 7)）で手元・本番とも 3D になる。iPhone 13 の横向き（750px）は 768px 未満で節が出ない
+- 実機の原因を見るため、`?debug3d` のときだけ左上に段階（幅・WebGL・WebGLRenderer・phone.glb・ready・2D に戻る・エラー）を出す。WebKit で表示を確かめた
+
+Session: B
