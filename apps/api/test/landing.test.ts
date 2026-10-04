@@ -72,13 +72,23 @@ describe("054 T1: `/` と `/tech` が 200。技術構成の節は `/tech` にだ
   });
 });
 
-describe("054 T2: `/` と `/tech` の HTML に <script が無い（CSP のハッシュが要らないまま）", () => {
+// inline script は置かない（CSP のハッシュが要らないまま）。外部の JS は `/` の /phone3d.js の 1 つだけ（054 0節 #13・068）
+describe("054 T2・068 T1: `/` と `/tech` の HTML に inline script が無い", () => {
+  it("`/` の <script は src=\"/phone3d.js\" の type=module 1 つだけ", () => {
+    const scripts = [...landingIndexHtml.matchAll(/<script\b[^>]*>/gi)].map((m) => m[0]);
+    expect(scripts).toEqual(['<script type="module" src="/phone3d.js">']);
+    expect(landingIndexHtml).toContain('<script type="module" src="/phone3d.js"></script>');
+    expect(landingIndexHtml).not.toMatch(/importmap/i);
+  });
+
+  it("`/tech` に <script が無い", () => {
+    expect(landingTechHtml).not.toMatch(/<script/i);
+  });
+
   it.each([
     ["/", landingIndexHtml],
     ["/tech", landingTechHtml],
-  ])("%s", (_path, html) => {
-    expect(html).not.toMatch(/<script/i);
-    // style 属性も使わない（0節 #13）
+  ])("%s に style 属性が無い（0節 #13）", (_path, html) => {
     expect(html).not.toMatch(/\sstyle=/i);
   });
 });
@@ -209,7 +219,7 @@ describe("047 T10: 法務ページと LP の文言が鍵の実装と一致する
 });
 
 describe("056 T5: `/` のスマホの枠の iframe", () => {
-  it("<iframe が 1 つ。src=/app/?demo=1・loading=lazy・title あり・sandbox 無し。<script は無いまま", () => {
+  it("<iframe が 1 つ。src=/app/?demo=1・loading=lazy・title あり・sandbox 無し", () => {
     const iframes = [...landingIndexHtml.matchAll(/<iframe\b[^>]*>/g)].map((m) => m[0]);
     expect(iframes).toHaveLength(1);
     const tag = iframes[0]!;
@@ -217,7 +227,6 @@ describe("056 T5: `/` のスマホの枠の iframe", () => {
     expect(tag).toContain('loading="lazy"');
     expect(tag).toMatch(/\btitle="[^"]+"/);
     expect(tag).not.toMatch(/\bsandbox/);
-    expect(landingIndexHtml).not.toMatch(/<script/i);
     // 節「さわってみる」の文言（056 の 0節 #9 → 059 の 0節 #4 で差し替え。ここに無い文言は足さない）
     expect(landingIndexHtml).toContain('<section class="demo" id="demo"');
     expect(landingIndexHtml).toContain("さわってみる");
@@ -316,5 +325,20 @@ describe("065 T2: AI まとめの説明は「を、」の後で改行する", ()
   it("`/` の説明が「ふたりの 1 週間と 1 ヶ月を、<br />AI が短く振り返ります。」", () => {
     const copy = landingIndexHtml.match(/<div class="ai-band-copy">([\s\S]*?)<\/div>/)?.[1] ?? "";
     expect(copy).toContain("<p>ふたりの 1 週間と 1 ヶ月を、<br />AI が短く振り返ります。</p>");
+  });
+});
+
+describe("068: 「さわってみる」の 3D", () => {
+  it("<script type=module src=/phone3d.js> は節「さわってみる」の中。2D の枠の絵は残す（3D が使えないときの表示）", () => {
+    const section = landingIndexHtml.match(/<section class="demo" id="demo"[\s\S]*?<\/section>/)?.[0] ?? "";
+    expect(section).toContain('<script type="module" src="/phone3d.js"></script>');
+    expect(section).toContain('class="phone-frame"');
+  });
+
+  it("3D のとき（.is-3d）: 枠の絵を消し、iframe の 2D の位置を打ち消す。WebGL の層は入力を受けない", () => {
+    expect(landingStyleCss).toMatch(/\.phone\.is-3d \.phone-frame \{[^}]*display: none;/);
+    expect(landingStyleCss).toMatch(/\.phone\.is-3d \.phone-screen \{[^}]*left: 0;[^}]*top: 0;[^}]*transform-origin: 50% 50%;/);
+    expect(landingStyleCss).toMatch(/\.phone3d-gl \{[^}]*pointer-events: none;/);
+    expect(landingStyleCss).toMatch(/\.phone\.is-3d \{[^}]*cursor: grab;/);
   });
 });

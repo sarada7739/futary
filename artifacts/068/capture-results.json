@@ -1,0 +1,68 @@
+{
+  "3D になる（canvas がある・2D の枠の絵は消える）": {
+    "ok": true,
+    "detail": {
+      "x": 289,
+      "y": 88,
+      "w": 316,
+      "h": 684
+    }
+  },
+  "ふちのドラッグで傾く（iframe の外接の矩形が正面と変わる）": {
+    "ok": true,
+    "detail": {
+      "front": {
+        "x": 289,
+        "y": 88,
+        "w": 316,
+        "h": 684
+      },
+      "tilted": {
+        "x": 302,
+        "y": 76,
+        "w": 289,
+        "h": 707
+      }
+    }
+  },
+  "傾けたまま iframe の中のタブを押すとデモの画面が変わる": {
+    "ok": true,
+    "detail": {
+      "before": "http://localhost:8787/app/",
+      "after": "http://localhost:8787/app/calendar"
+    }
+  },
+  "押している間も傾いたまま（マウスの操作で傾きが動かない）": {
+    "ok": true,
+    "detail": {
+      "x": 302,
+      "y": 76,
+      "w": 289,
+      "h": 707
+    }
+  },
+  "離すと正面に戻る（約 0.6 秒）": {
+    "ok": true,
+    "detail": {
+      "x": 289,
+      "y": 88,
+      "w": 316,
+      "h": 684
+    }
+  },
+  "767 幅では節が出ない・3D も組まない": {
+    "ok": true,
+    "detail": {
+      "demoVisible": false,
+      "canvases": 0
+    }
+  },
+  "prefers-reduced-motion では 2D の枠のまま": {
+    "ok": true,
+    "detail": {
+      "canvases": 0,
+      "is3d": 0,
+      "frameVisible": true
+    }
+  }
+}

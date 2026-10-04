@@ -3,6 +3,13 @@ import landingIndexHtml from "../../landing/index.html?raw";
 import landingTechHtml from "../../landing/tech.html?raw";
 import { styleCss as landingStyleCss } from "virtual:landing-assets";
 import { stripCssComments, stripHtmlComments } from "../../../scripts/build-public.mjs";
+import {
+  bytes as phone3dBytes,
+  gzipBytes as phone3dGzipBytes,
+  gzipLimit as phone3dGzipLimit,
+  hasDynamicImport as phone3dHasDynamicImport,
+  urls as phone3dUrls,
+} from "virtual:phone3d-bundle";
 
 // 060: 本番の LP からコメントを落とす（docs/tasks/060-strip-comments-on-build.md 2節 T1〜T4）。
 // ソース（apps/landing/）は landing.test.ts が見る。ここは「出力」= strip* を通した結果を見る。
@@ -88,5 +95,20 @@ describe("060 T4: 実物の index.html・tech.html・style.css を通した結�
     expect(index).not.toMatch(/artifacts\//);
     expect(css).not.toMatch(/docs\/tasks\//);
     expect(css).not.toMatch(/artifacts\//);
+  });
+});
+
+// 068 T3: LP の 3D（/phone3d.js）。本番と同じ bundlePhone3d() で束ねた結果（設定側で束ねる。vitest.landing-assets.ts）
+describe("068 T3: phone3d.js の束ね", () => {
+  it("gzip で 200KB 以下", () => {
+    expect(phone3dGzipLimit).toBe(200 * 1024);
+    expect(phone3dBytes).toBeGreaterThan(0);
+    expect(phone3dGzipBytes).toBeLessThanOrEqual(phone3dGzipLimit);
+  });
+
+  it("外から読む URL を含まない（CDN・importmap を使わない。現れる URL は名前空間と、シェーダーの注記の文献だけ）", () => {
+    expect(phone3dUrls.some((url) => /cdn|jsdelivr|unpkg|esm\.sh|skypack/i.test(url))).toBe(false);
+    expect([...phone3dUrls].sort()).toEqual(["http://www.w3.org/1999/xhtml", "https://jcgt.org/published/0007/04/01/"]);
+    expect(phone3dHasDynamicImport).toBe(false);
   });
 });

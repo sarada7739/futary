@@ -3,6 +3,7 @@
 //
 // 出力構成:
 //   apps/api/public/index.html, style.css, assets/...   <- apps/landing（HTML・CSS はコメントを除く。060）
+//   apps/api/public/phone3d.js                           <- apps/landing/js/phone3d.mjs を three.js ごと束ねたもの（068）
 //   apps/api/public/app/...                              <- apps/app の web export
 //
 // レスポンスヘッダ（CSP 等）は Worker が付ける（run_worker_first では `_headers` が効かない。
@@ -16,6 +17,8 @@ import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { gzipSync } from "node:zlib";
+import { buildSync } from "esbuild";
 
 // 配信する LP からコメントを落とす（ソースのコメントは内部の注記を含む。060）。
 // 圧縮ツールは入れず正規表現 1 つずつ。条件付きコメントは使っていない。CSS の `content:` と
@@ -30,6 +33,24 @@ export function stripCssComments(text) {
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const landingDir = path.join(repoRoot, "apps", "landing");
+
+// LP の「さわってみる」の 3D（068）。three.js ごと 1 ファイルに束ねて /phone3d.js に置く（CDN から読まない。
+// CSP の script-src 'self' のまま）。gzip で 200KB を超えたら止める（0節 #7）
+export const PHONE3D_GZIP_LIMIT = 200 * 1024;
+
+export function bundlePhone3d() {
+  const result = buildSync({
+    entryPoints: [path.join(landingDir, "js", "phone3d.mjs")],
+    bundle: true,
+    format: "esm",
+    minify: true,
+    target: "es2020",
+    write: false,
+    logLevel: "silent",
+  });
+  const code = result.outputFiles[0].text;
+  return { code, gzipBytes: gzipSync(code).length };
+}
 const appDir = path.join(repoRoot, "apps", "app");
 const publicDir = path.join(repoRoot, "apps", "api", "public");
 
@@ -168,6 +189,14 @@ function main() {
   cpSync(path.join(landingDir, "sitemap.xml"), path.join(publicDir, "sitemap.xml"));
   copyStripped("style.css", stripCssComments);
   cpSync(path.join(landingDir, "assets"), path.join(publicDir, "assets"), { recursive: true });
+
+  console.log("LP の 3D（phone3d.js）を束ねます...");
+  const phone3d = bundlePhone3d();
+  if (phone3d.gzipBytes > PHONE3D_GZIP_LIMIT) {
+    throw new Error(`phone3d.js が gzip で ${phone3d.gzipBytes} バイトあります（上限 ${PHONE3D_GZIP_LIMIT}）`);
+  }
+  writeFileSync(path.join(publicDir, "phone3d.js"), phone3d.code, "utf8");
+  console.log(`  phone3d.js: ${phone3d.code.length} バイト（gzip ${phone3d.gzipBytes}）`);
 
   console.log("apps/app を web 向けにエクスポートします...");
   const appPublicDir = path.join(publicDir, "app");

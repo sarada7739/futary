@@ -20,12 +20,18 @@ importers:
       '@types/node':
         specifier: ^25.9.5
         version: 25.9.5
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       eslint:
         specifier: ^10.9.1
         version: 10.9.1(supports-color@10.2.2)
       globals:
         specifier: ^17.11.0
         version: 17.11.0
+      three:
+        specifier: ^0.186.1
+        version: 0.186.1
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -4855,6 +4861,9 @@ packages:
     resolution: {integrity: sha512-JYiEGbgBGtmHAWX8Kf99gGRL1HtjcRVHLrmJNTZL4vFs9XrnWcuL45Iszw/pO4094+JR7havSrN+ds6YTOpSQA==}
     peerDependencies:
       react: ^19.0.0
+
+  three@0.186.1:
+    resolution: {integrity: sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==}
 
   throat@5.0.0:
     resolution: {integrity: sha512-fcwX4mndzpLQKBS1DVYhGAcYaYt7vsHNIvQV+WXMvnow5cgjPphq5CaayLaGsjRdSCKZFNGt7/GYAuXaNOiYCA==}
@@ -10075,6 +10084,8 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
     optional: true
+
+  three@0.186.1: {}
 
   throat@5.0.0: {}
 

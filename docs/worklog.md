@@ -14167,3 +14167,15 @@ Session: A
 - 試作のため `.claude/launch.json` に一時的に設定を足し、終わって元に戻した（コミットしていない）
 
 Session: A
+
+## 2026-10-05 セッションB: 068 LP の「さわってみる」のスマホを 3D に
+
+- A の試作（WebGL + CSS3D の 2 層・NoBlending の穴）を本番の形に: `apps/landing/js/phone3d.mjs`・`tilt.mjs`、`build-public.mjs` の `bundlePhone3d()`（esbuild。gzip 146KB）、`<script type="module" src="/phone3d.js">` の 1 行
+- iframe は DOM の中で動かすと読み直しになるので、lazy の読み込みが始まる前に CSS3D の層へ移す。WebGL の本体は節の 400px 手前で作る。0節 #8 の `import()` は 1 ファイルの決まりと両立しないので、この 2 段に
+- 本体の色: 最初の 0x3a3a40 は環境マップ無しの金属で黒く沈んだ → 0x8a8a94・環境光 1.6・平行光 3
+- T4 は CDP のタッチで傾けたまま押さえ、マウスで iframe の中のタブを押す形で確かめた（pointerId を分けて追う）。7/7
+- 054 T2・056 T5 の「`<script` が無い」を「`/phone3d.js` の 1 つだけ」に。T3 は vitest の設定側で束ねて仮想モジュールで渡す
+- 内蔵ブラウザは prefers-reduced-motion: reduce なので 2D になる（正しい動き）
+- `pnpm -r test` 1,551 緑・type-check・lint 緑
+
+Session: B
