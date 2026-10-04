@@ -136,16 +136,73 @@ const demoFrame = (page) => page.frames().find((f) => f.url().includes("/app/"))
   await context.close();
 }
 
-// --- prefers-reduced-motion: 2D のまま
+// --- prefers-reduced-motion: 3D は出す。離すと正面へ戻る動きを付けずにすぐ戻る（人間の指示 2026-10-05）
 {
   const { context, page } = await openDemo({ reducedMotion: "reduce" });
+  await page.locator(".phone.is-3d canvas.phone3d-gl").waitFor({ timeout: 15000 });
   await page.waitForTimeout(1500);
-  const canvases = await page.locator("canvas.phone3d-gl").count();
-  const is3d = await page.locator(".phone.is-3d").count();
-  const frameVisible = await page.locator(".phone-frame").isVisible();
-  check("prefers-reduced-motion では 2D の枠のまま", canvases === 0 && is3d === 0 && frameVisible, { canvases, is3d, frameVisible });
   const box = await page.locator(".phone").boundingBox();
+  const front = await rectOf(page);
+  const sx = box.x + 30;
+  const sy = box.y + box.height / 2;
+  await page.mouse.move(sx, sy);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(sx + 15 * i, sy);
+    await page.waitForTimeout(16);
+  }
+  await page.waitForTimeout(200);
+  const tilted = await rectOf(page);
+  await page.mouse.up();
+  await page.waitForTimeout(120);
+  const back = await rectOf(page);
+  check("prefers-reduced-motion でも 3D になり、離すとすぐ（0.12 秒で）正面に戻る", tilted.w !== front.w && Math.abs(back.w - front.w) <= 1, { front, tilted, back });
   await page.screenshot({ path: path.join(outDir, "reduced-motion-1280.png"), clip: { x: box.x - 40, y: box.y - 40, width: box.width + 80, height: box.height + 80 } });
+  await context.close();
+}
+
+// --- モデルを読んでいる間は 2D の枠の絵のまま。読めたら 3D に切り替わる（追補 2 #4）
+{
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await context.route("**/assets/phone.glb", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await route.continue();
+  });
+  const page = await context.newPage();
+  await page.goto(`${base}/`);
+  await page.locator("#demo").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1200);
+  const loading = {
+    frameVisible: await page.locator(".phone-frame").isVisible(),
+    is3d: await page.locator(".phone.is-3d").count(),
+    iframeInCss3d: await page.locator(".phone3d-css .phone-screen").count(),
+  };
+  const box = await page.locator(".phone").boundingBox();
+  await page.screenshot({ path: path.join(outDir, "loading-1280.png"), clip: { x: box.x - 40, y: box.y - 40, width: box.width + 80, height: box.height + 80 } });
+  await page.locator(".phone.is-3d canvas.phone3d-gl").waitFor({ timeout: 15000 });
+  const loaded = { frameVisible: await page.locator(".phone-frame").isVisible(), is3d: await page.locator(".phone.is-3d").count() };
+  check(
+    "モデルを読んでいる間は 2D の枠の絵のまま（iframe は 3D の層へ移してある）、読めたら 3D に切り替わる",
+    loading.frameVisible && loading.is3d === 0 && loading.iframeInCss3d === 1 && !loaded.frameVisible && loaded.is3d === 1,
+    { loading, loaded },
+  );
+  await context.close();
+}
+
+// --- 止まっているときは iframe の変形が 2D（matrix(…)）。傾けている間は 3D（matrix3d(…)）
+{
+  const { context, page } = await openDemo({});
+  await page.locator(".phone.is-3d canvas.phone3d-gl").waitFor({ timeout: 15000 });
+  await page.waitForTimeout(1500);
+  const transformAtRest = await page.locator(".phone .phone-screen").evaluate((el) => getComputedStyle(el).transform);
+  const box = await page.locator(".phone").boundingBox();
+  await page.mouse.move(box.x + 30, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 130, box.y + box.height / 2, { steps: 5 });
+  await page.waitForTimeout(200);
+  const transformTilted = await page.locator(".phone .phone-screen").evaluate((el) => getComputedStyle(el).transform);
+  await page.mouse.up();
+  check("止まっているときは 2D の変形（文字がにじまない）・傾けている間は 3D", transformAtRest.startsWith("matrix(") && transformTilted.startsWith("matrix3d("), { transformAtRest: transformAtRest.slice(0, 40), transformTilted: transformTilted.slice(0, 40) });
   await context.close();
 }
 

@@ -339,6 +339,8 @@ p {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  /* 3D の本体を読んでいる間も、CSS3D の層（の中の iframe）より上に出す（068） */
+  z-index: 1;
 }
 
 /* 3D のとき（/phone3d.js が .is-3d を付ける。068）。大きさは 2D と同じ箱のまま、iframe は CSS3D の層へ移る。

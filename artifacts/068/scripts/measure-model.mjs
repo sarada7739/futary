@@ -33,8 +33,11 @@ for (const [name, dataUrl] of Object.entries(result.views)) {
 }
 console.log(JSON.stringify({ box: result.box, width: result.width, height: result.height, pixelsPerUnit: Number(ppu) }));
 // 画面の中央・四隅の近く・島・縁（左右の端）の z
-const points = [
-  [0, 0.502], [-0.18, 0.1], [0.18, 0.9], [0, 0.9495], [-0.234, 0.5], [0.2, 0.5],
-];
-console.log(JSON.stringify(await page.evaluate(([b, p]) => window.raycastZ(b, p), [readFileSync(glbFile).toString("base64"), points])));
+const points = [];
+// 画面の上（島のまわり）を細かく: x −0.08〜0.08・y 0.92〜0.98
+for (let x = -0.08; x <= 0.0801; x += 0.004) for (let y = 0.92; y <= 0.9801; y += 0.002) points.push([x, y]);
+const hits = await page.evaluate(([b, p]) => window.raycastZ(b, p), [readFileSync(glbFile).toString("base64"), points]);
+const zs = hits.filter((h) => h.z !== null).map((h) => h.z);
+const top = [...hits].filter((h) => h.z !== null).sort((a, b) => b.z - a.z).slice(0, 5);
+console.log(JSON.stringify({ count: zs.length, max: Math.max(...zs), min: Math.min(...zs), top }));
 await browser.close();
