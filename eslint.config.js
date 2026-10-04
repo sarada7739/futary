@@ -41,6 +41,13 @@ export default tseslint.config(
     },
   },
   {
+    // LP のブラウザで動く JS（/phone3d.js に束ねる元。068）
+    files: ["apps/landing/js/**/*.mjs"],
+    languageOptions: {
+      globals: globals.browser,
+    },
+  },
+  {
     // architecture.md 5節「日付計算は packages/date に置く」（L63・L64）。
     // 011で todayJst が apps/app と apps/api の2箇所に同名で重複した反省から、
     // new Date(...) を packages/date の外で書けないようにする。

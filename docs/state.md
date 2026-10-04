@@ -3,7 +3,15 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-05 / セッションA。**068（LP の「さわってみる」のスマホを 3D にし、ふちのドラッグで傾ける。中のデモは触れるまま）を起票。B の手番。**
+**最終更新**: 2026-10-05 / セッションB。**068（LP の「さわってみる」のスマホを 3D に・ふちのドラッグで傾ける）: PR（`task/068-phone-3d`）。R の手番。**
+- `apps/landing/js/phone3d.mjs`（three.js の WebGL + CSS3D の 2 層。既存の iframe をそのまま CSS3D へ）・`tilt.mjs`（純粋な関数）。`build-public.mjs` が esbuild で `/phone3d.js` に束ねる（gzip 146KB）。`three`・`esbuild` はルートの devDependencies
+- T4（Playwright・Chromium）7/7: 傾けたまま iframe の中のタブを押すとデモが `/app/calendar` に変わる・離すと戻る・767 幅と reduced-motion は 2D
+- 0節 #8 の `import()` は 1 ファイル（#7）と両立しないので、iframe を先に 3D の層へ移し（読み直しを避ける）、WebGL は節の 400px 手前で作る 2 段にした（報告に）
+- 人間の手番: 068 のデプロイ後に PC の Chrome で触る・Safari（Mac）があれば（ずれたら A へ）。066: 本番の Google ログイン。065 のデプロイ後に iPhone の Safari で帯。Actions の Dependabot の赤。続き: 061 段階3・062・063 のデプロイの承認 → Safari のタブを開き直してピンクのタイムラインを撮る・ピンクのホーム。060・059・058・057・056 の確認・047 の観点・Stripe の本番の Price
+
+---
+
+**最終更新（旧）**: 2026-10-05 / セッションA。**068（LP の「さわってみる」のスマホを 3D にし、ふちのドラッグで傾ける。中のデモは触れるまま）を起票。B の手番。**
 - 人間の指示。A が試作で確かめた: three.js の WebGL の本体と、本物の iframe（`CSS3DRenderer`）を同じカメラで重ねると、傾けたままでも iframe の中のボタン・スクロールが効く（`artifacts/068/prototype.html`）
 - モデルはコードで組む（外部の glTF を使わない）。JS は自分のオリジンの `/phone3d.js` 1 つ（three.js を同梱・CDN 無し・CSP はそのまま）。幅 768 未満・WebGL 無し・`prefers-reduced-motion` は今の 2D のまま。054 の 0節 #13 と `security-requirements.md` 7節を改めた
 - 人間の手番: 065 の iPhone の帯。061 段階3 のタブバー（iPhone の Safari）。（続き）060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price

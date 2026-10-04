@@ -7,6 +7,8 @@ import { inflateSync } from "node:zlib";
 import type { Plugin } from "vite";
 
 export const LANDING_ASSETS_ID = "virtual:landing-assets";
+// 068 T3: phone3d.js を本番と同じ関数（scripts/build-public.mjs の bundlePhone3d）で束ねた結果
+export const PHONE3D_BUNDLE_ID = "virtual:phone3d-bundle";
 
 export interface LandingAsset {
   name: string;
@@ -96,9 +98,20 @@ export function landingAssetsPlugin(landingAssetsDir: string): Plugin {
   return {
     name: "landing-assets",
     resolveId(id) {
-      return id === LANDING_ASSETS_ID ? `\0${LANDING_ASSETS_ID}` : null;
+      if (id === LANDING_ASSETS_ID || id === PHONE3D_BUNDLE_ID) return `\0${id}`;
+      return null;
     },
-    load(id) {
+    async load(id) {
+      if (id === `\0${PHONE3D_BUNDLE_ID}`) {
+        const { bundlePhone3d, PHONE3D_GZIP_LIMIT } = await import("../../scripts/build-public.mjs");
+        const { code, gzipBytes } = bundlePhone3d();
+        const urls = [...new Set([...code.matchAll(/https?:\/\/[^"'`\s)\\]+/g)].map((m) => m[0]))];
+        return `export const bytes = ${code.length};
+export const gzipBytes = ${gzipBytes};
+export const gzipLimit = ${PHONE3D_GZIP_LIMIT};
+export const urls = ${JSON.stringify(urls)};
+export const hasDynamicImport = ${/\bimport\(/.test(code)};`;
+      }
       if (id !== `\0${LANDING_ASSETS_ID}`) return null;
       const files: LandingAsset[] = readdirSync(landingAssetsDir).map((name) => {
         const file = path.join(landingAssetsDir, name);
