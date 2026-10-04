@@ -62,6 +62,15 @@
 
 テスト: 関数（進み具合 0 → 始めの角度・1 以上 → 0・途中は単調に減る）。実ブラウザ（Chromium）で、節の手前で斜め・スマホの中心がビューポートの中心で正面・`prefers-reduced-motion` では最初から正面。画面 `artifacts/068/stage3/`（斜め・正面）。
 
+## 追補 4（2026-10-05）: iPad・iPhone（横向き）の Safari で 3D にならない
+
+人間の報告: iPad・iPhone（横向き）の Safari（iOS 27.0.1）で 2D の枠のまま。Playwright の WebKit では 3D になる（実機だけ）。B が `?debug3d` のときだけ段階とエラーを画面に出す形を入れた（#477）。
+
+| # | 何 | 決定 |
+|---|---|---|
+| 1 | 原因の切り分け | 人間が実機で `https://nisoine.com/?debug3d` を撮る。あわせてロックダウンモード（オンだと Safari で WebGL が使えない）を確かめる。直し方は結果を見て A が決める |
+| 2 | `?debug3d` の表示 | **原因が分かって直したら外す**（直す PR で消す）。本番に調べもの用の表示を残さない（R の記録） |
+
 ## 1. B の作業
 
 - `three` を依存に足す（置き場所は B が決めて報告に。LP の JS の元は `apps/landing/js/phone3d.mjs` など）。`build-public.mjs` に束ねる段を足す（060 のコメント除去と同じ場所）。`apps/api/public/phone3d.js` が出る
