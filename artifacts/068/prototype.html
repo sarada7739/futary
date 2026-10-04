@@ -1,0 +1,40 @@
+<!doctype html><html><head><meta charset="utf-8"><title>proto</title>
+<style>
+body{margin:0;background:#fdf3f1;font-family:sans-serif}
+#stage{position:relative;width:700px;height:820px;margin:20px auto;cursor:grab}
+#css,#gl{position:absolute;inset:0}
+#gl{pointer-events:none}
+#log{position:fixed;left:8px;top:8px;font:12px monospace;background:#fff;padding:4px}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head><body><div id="log">-</div><div id="stage"><div id="css"></div><canvas id="gl"></canvas></div>
+<script type="module">
+import * as THREE from 'three';
+import {CSS3DRenderer,CSS3DObject} from 'three/addons/renderers/CSS3DRenderer.js';
+import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+const W=700,H=820, stage=document.getElementById('stage'), log=document.getElementById('log');
+const camera=new THREE.PerspectiveCamera(35,W/H,1,5000); camera.position.set(0,0,1500);
+const sceneGL=new THREE.Scene(), sceneCSS=new THREE.Scene();
+const gl=new THREE.WebGLRenderer({canvas:document.getElementById('gl'),alpha:true,antialias:true}); gl.setSize(W,H); gl.setPixelRatio(devicePixelRatio);
+const css=new CSS3DRenderer({element:document.getElementById('css')}); css.setSize(W,H);
+const phone=new THREE.Group(), phoneCSS=new THREE.Group(); sceneGL.add(phone); sceneCSS.add(phoneCSS);
+// 本体（WebGL）
+const body=new THREE.Mesh(new RoundedBoxGeometry(430,880,40,8,60),new THREE.MeshStandardMaterial({color:0x2a2a2e,metalness:.6,roughness:.35}));
+phone.add(body);
+// 画面の穴: 深度だけ書いて色は消す（下の CSS の層が見える）
+const hole=new THREE.Mesh(new THREE.PlaneGeometry(390,844),new THREE.MeshBasicMaterial({color:0,opacity:0,transparent:true,blending:THREE.NoBlending}));
+hole.position.z=20.5; phone.add(hole);
+sceneGL.add(new THREE.AmbientLight(0xffffff,1.2)); const dl=new THREE.DirectionalLight(0xffffff,2); dl.position.set(300,500,800); sceneGL.add(dl);
+// 画面（本物の iframe）
+const ifr=document.createElement('iframe'); ifr.style.cssText='width:390px;height:844px;border:0;background:#fff';
+ifr.srcdoc=`<body style="margin:0;font:16px sans-serif"><button id=b style="font-size:24px;margin:20px">押す</button><div id=c>0</div>${'<p>行</p>'.repeat(80)}<script>let n=0;b.onclick=()=>{c.textContent=++n;parent.postMessage('click:'+n,'*')};addEventListener('scroll',()=>parent.postMessage('scroll:'+scrollY,'*'))<\/script></body>`;
+const obj=new CSS3DObject(ifr); obj.position.z=20.5; phoneCSS.add(obj);
+addEventListener('message',e=>log.textContent=e.data);
+// ふちのドラッグで傾ける（iframe の上では iframe が受ける）
+let drag=null, rx=0, ry=0;
+stage.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,rx,ry};stage.setPointerCapture(e.pointerId);stage.style.cursor='grabbing'});
+stage.addEventListener('pointermove',e=>{if(!drag)return;ry=drag.ry+(e.clientX-drag.x)*0.006;rx=drag.rx+(e.clientY-drag.y)*0.006;ry=Math.max(-.7,Math.min(.7,ry));rx=Math.max(-.5,Math.min(.5,rx));log.textContent=`rx=${rx.toFixed(2)} ry=${ry.toFixed(2)}`});
+stage.addEventListener('pointerup',()=>{drag=null;stage.style.cursor='grab'});
+function tick(){ if(!drag&&!window.__hold){rx*=.92;ry*=.92;} for(const g of [phone,phoneCSS]){g.rotation.x=rx;g.rotation.y=ry;} gl.render(sceneGL,camera); css.render(sceneCSS,camera); requestAnimationFrame(tick);} tick();
+window.__state=()=>({rx,ry});window.__set=(a,b)=>{rx=a;ry=b};
+</script></body></html>
