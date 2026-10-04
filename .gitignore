@@ -43,3 +43,6 @@ coverage/
 Thumbs.db
 desktop.ini
 artifacts/058/scripts/.cache/
+
+# 068: 人間の 3D モデルの元（ロゴ入りのテクスチャを含む）。人間の手元にだけ置き、追跡しない（docs/sample/README.md）
+docs/sample/fbx/
