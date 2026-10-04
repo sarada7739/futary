@@ -15,4 +15,5 @@ export const FRONT: Readonly<Tilt>;
 export const ENTRY_TILT: Readonly<Tilt>;
 export function scrollProgress(top: number, stageHeight: number, viewportHeight: number): number;
 export function easeOutCubic(t: number): number;
+export const SNAP_REMAINING: number;
 export function angleForScroll(progress: number): Tilt;

@@ -42,7 +42,8 @@ export function isAtRest(tilt, target = FRONT) {
 export const FRONT = Object.freeze({ x: 0, y: 0 });
 
 // --- スクロールで斜めから正面へ（追補 3）
-// 節が入ってくるときの始めの角度（rad）。y は左向き（左の側面とボタンが見える）、x は上の縁が奥へ
+// 節が入ってくるときの始めの角度（rad。約 25°・約 8°）。y は正（画面が右の説明文の方を向き、左の側面とボタンが
+// 見える）、x は負（上の縁が奥へ）。4 通りを見比べて決めた（artifacts/068/stage4/report.md）
 export const ENTRY_TILT = Object.freeze({ x: -0.14, y: 0.44 });
 
 // ステージの上端がビューポートの下端に入った時点 = 0、スマホの中心がビューポートの中心に来た時点 = 1。
@@ -58,8 +59,13 @@ export function easeOutCubic(t) {
   return 1 - (1 - t) ** 3;
 }
 
+// 残りの割合がこれより小さければ正面にする。正面ちょうどなら iframe を 2D の変形で描けて文字がにじまない
+// （0.005 × 0.44 rad ≈ 0.13°。見た目では区別できない）
+export const SNAP_REMAINING = 0.005;
+
 // 進み具合（0〜1）→ 角度。0 で ENTRY_TILT、1 で正面。間は easeOutCubic
 export function angleForScroll(progress) {
   const remaining = 1 - easeOutCubic(clamp(progress, 0, 1));
-  return { x: ENTRY_TILT.x * remaining + 0, y: ENTRY_TILT.y * remaining + 0 };
+  if (remaining < SNAP_REMAINING) return { x: 0, y: 0 };
+  return { x: ENTRY_TILT.x * remaining, y: ENTRY_TILT.y * remaining };
 }

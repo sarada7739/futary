@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  ENTRY_TILT,
+  FRONT,
   MAX_TILT_X,
   MAX_TILT_Y,
   RETURN_SECONDS,
+  SNAP_REMAINING,
   TILT_PER_PIXEL,
+  angleForScroll,
   decayTilt,
+  easeOutCubic,
   isAtRest,
+  scrollProgress,
   tiltFromDrag,
 } from "../../landing/js/tilt.mjs";
 
@@ -72,5 +78,70 @@ describe("068 T2: decayTilt（離したあと正面へ戻る）", () => {
     expect(decayTilt({ x: 0.2, y: 0.1 }, 0)).toEqual({ x: 0.2, y: 0.1 });
     expect(decayTilt({ x: 0.2, y: 0.1 }, -1)).toEqual({ x: 0.2, y: 0.1 });
     expect(isAtRest({ x: 0.2, y: 0 })).toBe(false);
+  });
+});
+
+// スクロールで斜めから正面へ（068 追補 3）
+describe("068 追補 3: scrollProgress（ステージの位置 → 進み具合）", () => {
+  const vh = 900;
+  const h = 791;
+  it("上端がビューポートの下端で 0、中心がビューポートの中心で 1", () => {
+    expect(scrollProgress(vh, h, vh)).toBe(0);
+    expect(scrollProgress(vh / 2 - h / 2, h, vh)).toBe(1);
+  });
+
+  it("まだ入っていなければ 0、中心を過ぎたら 1 のまま", () => {
+    expect(scrollProgress(vh + 300, h, vh)).toBe(0);
+    expect(scrollProgress(-2000, h, vh)).toBe(1);
+  });
+
+  it("間は位置に比例する（上へ動くほど大きい）", () => {
+    const a = scrollProgress(800, h, vh);
+    const b = scrollProgress(400, h, vh);
+    expect(a).toBeGreaterThan(0);
+    expect(b).toBeGreaterThan(a);
+    expect(b).toBeLessThan(1);
+  });
+});
+
+describe("068 追補 3: angleForScroll（進み具合 → 角度）", () => {
+  it("0 で始めの角度（y は約 25°・x は約 8°）、1 以上で正面", () => {
+    expect(angleForScroll(0)).toEqual(ENTRY_TILT);
+    expect(Math.abs(ENTRY_TILT.y)).toBeCloseTo(0.44);
+    expect(Math.abs(ENTRY_TILT.x)).toBeCloseTo(0.14);
+    expect(angleForScroll(1)).toEqual(FRONT);
+    expect(angleForScroll(1.5)).toEqual(FRONT);
+    expect(angleForScroll(-1)).toEqual(ENTRY_TILT);
+  });
+
+  it("途中は単調に正面へ近づく（easeOutCubic）", () => {
+    let previous = Infinity;
+    for (let p = 0; p <= 1.0001; p += 0.1) {
+      const size = Math.abs(angleForScroll(p).y);
+      expect(size).toBeLessThanOrEqual(previous);
+      previous = size;
+    }
+    expect(Math.abs(angleForScroll(0.5).y)).toBeCloseTo(Math.abs(ENTRY_TILT.y) * (1 - easeOutCubic(0.5)));
+    expect(easeOutCubic(0.5)).toBeCloseTo(0.875);
+  });
+
+  it("正面のすぐ手前（残りが SNAP_REMAINING 未満）は正面ちょうど（2D の変形で描けて文字がにじまない）", () => {
+    // 1 - (1 - p)^3 < SNAP_REMAINING になる p の手前と先
+    const edge = 1 - Math.cbrt(SNAP_REMAINING);
+    expect(angleForScroll(edge + 0.001)).toEqual(FRONT);
+    expect(angleForScroll(edge - 0.01)).not.toEqual(FRONT);
+  });
+});
+
+describe("068 追補 3: decayTilt・isAtRest の向かう先", () => {
+  it("target へ戻り、着いたら target ちょうど", () => {
+    const target = { x: -0.05, y: 0.2 };
+    const half = decayTilt({ x: 0.4, y: -0.6 }, 0.1, target);
+    expect(half.x).toBeLessThan(0.4);
+    expect(half.x).toBeGreaterThan(target.x);
+    const done = decayTilt({ x: 0.4, y: -0.6 }, RETURN_SECONDS * 3, target);
+    expect(done).toEqual(target);
+    expect(isAtRest(done, target)).toBe(true);
+    expect(isAtRest(done)).toBe(false);
   });
 });
