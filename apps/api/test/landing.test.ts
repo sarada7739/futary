@@ -8,6 +8,7 @@ import landingPrivacyHtml from "../../landing/privacy.html?raw";
 import landingTermsHtml from "../../landing/terms.html?raw";
 import landingTokushohoHtml from "../../landing/tokushoho.html?raw";
 import landingSitemapXml from "../../landing/sitemap.xml?raw";
+import phone3dSource from "../../landing/js/phone3d.mjs?raw";
 import landingAssets, { styleCss as landingStyleCss } from "virtual:landing-assets";
 
 // 054: ランディングページを一般向けに作り直す（docs/tasks/054-landing-for-users.md 5節 T1〜T5）。
@@ -351,5 +352,11 @@ describe("068: 「さわってみる」の 3D", () => {
     expect(glb).toBeDefined();
     expect(glb!.gzipBytes).toBeGreaterThan(0);
     expect(glb!.gzipBytes!).toBeLessThanOrEqual(500 * 1024);
+  });
+
+  it("幅は読み込みのときだけでなく、広くなったとき（matchMedia の change）にも見る。調べもの用の ?debug3d は残さない（追補 4）", () => {
+    expect(phone3dSource).toContain('window.matchMedia("(min-width: 768px)")');
+    expect(phone3dSource).toContain('addEventListener("change"');
+    expect(phone3dSource).not.toContain("debug3d");
   });
 });

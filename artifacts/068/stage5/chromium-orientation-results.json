@@ -1,0 +1,149 @@
+[
+  {
+    "name": "縦で開く: 節が隠れ、3D は組まれていない",
+    "ok": true,
+    "detail": {
+      "viewport": "430x739",
+      "demoShown": false,
+      "is3d": false,
+      "cssLayers": 0,
+      "canvases": 0,
+      "iframeIn3d": false,
+      "iframe3d": false,
+      "iframeWidth": 0,
+      "phoneCenterOffset": -369
+    }
+  },
+  {
+    "name": "横にする: 3D になる（.is-3d・CSS3D の層 1・canvas 1・iframe は 3D の層）",
+    "ok": true,
+    "detail": {
+      "viewport": "814x380",
+      "demoShown": true,
+      "is3d": true,
+      "cssLayers": 1,
+      "canvases": 1,
+      "iframeIn3d": true,
+      "iframe3d": false,
+      "iframeWidth": 312,
+      "phoneCenterOffset": 0
+    }
+  },
+  {
+    "name": "横: ふちをドラッグすると傾き（matrix3d・画面の幅が縮む）、離すと正面（2D の変形）に戻る",
+    "ok": true,
+    "detail": {
+      "before": {
+        "viewport": "814x380",
+        "demoShown": true,
+        "is3d": true,
+        "cssLayers": 1,
+        "canvases": 1,
+        "iframeIn3d": true,
+        "iframe3d": false,
+        "iframeWidth": 312,
+        "phoneCenterOffset": 0
+      },
+      "during": {
+        "viewport": "814x380",
+        "demoShown": true,
+        "is3d": true,
+        "cssLayers": 1,
+        "canvases": 1,
+        "iframeIn3d": true,
+        "iframe3d": true,
+        "iframeWidth": 236,
+        "phoneCenterOffset": 0
+      },
+      "dragging": 1,
+      "after": {
+        "viewport": "814x380",
+        "demoShown": true,
+        "is3d": true,
+        "cssLayers": 1,
+        "canvases": 1,
+        "iframeIn3d": true,
+        "iframe3d": false,
+        "iframeWidth": 312,
+        "phoneCenterOffset": 0
+      }
+    }
+  },
+  {
+    "name": "縦に戻す: 節が隠れ、組んである 3D はそのまま（外さない）",
+    "ok": true,
+    "detail": {
+      "viewport": "430x739",
+      "demoShown": false,
+      "is3d": true,
+      "cssLayers": 1,
+      "canvases": 1,
+      "iframeIn3d": true,
+      "iframe3d": false,
+      "iframeWidth": 0,
+      "phoneCenterOffset": -369
+    }
+  },
+  {
+    "name": "もう一度横にする: 3D のまま（層・canvas は 1 つずつ・iframe を読み直さない）",
+    "ok": true,
+    "detail": {
+      "viewport": "814x380",
+      "demoShown": true,
+      "is3d": true,
+      "cssLayers": 1,
+      "canvases": 1,
+      "iframeIn3d": true,
+      "iframe3d": false,
+      "iframeWidth": 312,
+      "phoneCenterOffset": 0,
+      "iframeNavigations": 3,
+      "navigationsBeforeRotate": 3
+    }
+  },
+  {
+    "name": "もう一度横: ふちをドラッグすると傾き、離すと正面に戻る",
+    "ok": true,
+    "detail": {
+      "before": {
+        "viewport": "814x380",
+        "demoShown": true,
+        "is3d": true,
+        "cssLayers": 1,
+        "canvases": 1,
+        "iframeIn3d": true,
+        "iframe3d": false,
+        "iframeWidth": 312,
+        "phoneCenterOffset": 0
+      },
+      "during": {
+        "viewport": "814x380",
+        "demoShown": true,
+        "is3d": true,
+        "cssLayers": 1,
+        "canvases": 1,
+        "iframeIn3d": true,
+        "iframe3d": true,
+        "iframeWidth": 236,
+        "phoneCenterOffset": 0
+      },
+      "dragging": 1,
+      "after": {
+        "viewport": "814x380",
+        "demoShown": true,
+        "is3d": true,
+        "cssLayers": 1,
+        "canvases": 1,
+        "iframeIn3d": true,
+        "iframe3d": false,
+        "iframeWidth": 312,
+        "phoneCenterOffset": 0
+      }
+    }
+  },
+  {
+    "name": "ページのエラーが無い",
+    "ok": true,
+    "detail": []
+  }
+]
