@@ -6,15 +6,16 @@
 // 下の iframe を見せる。画面の上の操作は iframe が受けるので、ドラッグはふち・余白からだけ始まる。
 // 本体は人間が作ったモデル（/assets/phone.glb。docs/sample/fbx/ から artifacts/068/scripts/ で変換）。
 //
-// 出す条件（満たさなければ何もしない = HTML のままの 2D の枠と iframe）: 幅 768px 以上・WebGL が使える・
-// prefers-reduced-motion でない。モデルが読めなければ 2D に戻す
-import { AmbientLight, DirectionalLight, Group, Mesh, MeshBasicMaterial, NoBlending, Path, PerspectiveCamera, Scene, Shape, ShapeGeometry, WebGLRenderer } from "three";
+// 出す条件（満たさなければ何もしない = HTML のままの 2D の枠と iframe）: 幅 768px 以上・WebGL が使える。
+// prefers-reduced-motion のときも 3D は出す（傾けるのは本人が動かす操作）が、離したあと正面へ戻る動きは
+// 付けずにすぐ正面に戻す。モデルが読めなければ 2D に戻す
+import { AmbientLight, DirectionalLight, Group, Mesh, MeshBasicMaterial, NoBlending, PerspectiveCamera, Scene, Shape, ShapeGeometry, WebGLRenderer } from "three";
 import { CSS3DObject, CSS3DRenderer } from "three/addons/renderers/CSS3DRenderer.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { decayTilt, isAtRest, tiltFromDrag } from "./tilt.mjs";
 
 // phone.glb の画面（黒い縁の内側）の位置と大きさ（モデルの単位。正面を正射影で描いて測った値。
-// artifacts/068/stage2/report.md）。画面の表面は z = SCREEN_Z（モデルの最前面）、島はそれより奥に凹む
+// artifacts/068/stage2/report.md）。画面の表面は z = screenZ（モデルの最前面）
 const MODEL = {
   screenX: -0.0008,
   screenY: 0.502,
@@ -22,9 +23,6 @@ const MODEL = {
   screenW: 0.43,
   screenH: 0.9645,
   screenRadius: 0.065,
-  islandY: 0.94925,
-  islandW: 0.124,
-  islandH: 0.044,
 };
 // iframe の幅は 390（CSS px）のまま、モデルの画面の幅に合わせて拡大する（1 単位 = 1 CSS px）
 const IFRAME_W = 390;
@@ -35,12 +33,11 @@ const SCREEN_RADIUS = MODEL.screenRadius * K;
 // 正面のとき 1 単位を 0.8px に見せる（2D の iframe の scale(0.8) と同じ大きさ）
 const SCALE = 0.8;
 const FOV = 35;
-// 穴を画面の表面からどれだけ手前に置くか（単位）
+// 穴と iframe を画面の表面からどれだけ手前に置くか（単位）
 const HOLE_LIFT = 0.5;
 
 function canUse3D() {
   if (!window.matchMedia("(min-width: 768px)").matches) return false;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
   try {
     const context = document.createElement("canvas").getContext("webgl2") || document.createElement("canvas").getContext("webgl");
     // 調べるために作った文脈はすぐ手放す（本物は節が近づいてから作る）
@@ -66,13 +63,11 @@ function roundedRect(path, cx, cy, width, height, radius) {
   return path;
 }
 
-// 画面の穴: 色を透明で上書きして（NoBlending）、下の CSS の層（iframe）を見せる。島の形は抜く（モデルの島を残す）。
-// polygonOffset で手前に寄せ、画面の表面と奥行きで競り合わない（縞が出ない）ようにする
+// 画面の穴: 色を透明で上書きして（NoBlending）、下の CSS の層（iframe）を見せる。画面の上の島も覆う
+// （デモの帯の文字に重なるので消す）。本体は凸で画面は最前面なので、正面が見えている間に本体が画面の手前を
+// ふさぐことは無い。なので奥行きを見ずに本体の後で上書きする（depthTest: false。奥行きの競り合いで縞や点が出ない）
 function buildHole() {
   const shape = roundedRect(new Shape(), 0, 0, IFRAME_W, IFRAME_H, SCREEN_RADIUS);
-  const islandW = MODEL.islandW * K;
-  const islandH = MODEL.islandH * K;
-  shape.holes.push(roundedRect(new Path(), 0, (MODEL.islandY - MODEL.screenY) * K, islandW, islandH, islandH / 2));
   const hole = new Mesh(
     new ShapeGeometry(shape, 16),
     new MeshBasicMaterial({
@@ -80,11 +75,11 @@ function buildHole() {
       transparent: true,
       opacity: 0,
       blending: NoBlending,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -4,
+      depthTest: false,
+      depthWrite: false,
     }),
   );
+  hole.renderOrder = 1;
   hole.position.z = HOLE_LIFT;
   return hole;
 }
@@ -103,24 +98,47 @@ function setUp(phone) {
   camera.position.set(0, 0, distance);
 
   // 下の層（CSS3D）はすぐ組む: 既存の iframe をそのまま移す（2 つ目は作らない）。iframe は DOM の中で
-  // 動かすと読み直しになるので早く移す（Chromium の lazy は移す前に始まるので、3D のとき HTML は 2 回読まれる。0節 #8）
+  // 動かすと読み直しになるので早く移す（Chromium の lazy は移す前に始まるので、3D のとき HTML は 2 回読まれる。0節 #8）。
+  // 本体のモデルが読めるまでは描かず、iframe は 2D の CSS のまま（.is-3d を付けない）で、枠の絵の下に置いておく
+  // （遅い回線でも本体の無い画面だけが見えない。追補 2 #4）
   const css = new CSS3DRenderer();
   css.setSize(width, height);
   css.domElement.className = "phone3d-css";
   const sceneCSS = new Scene();
   const modelCSS = new Group();
   sceneCSS.add(modelCSS);
-  iframe.style.width = `${IFRAME_W}px`;
-  iframe.style.height = `${IFRAME_H}px`;
-  iframe.style.borderRadius = `${SCREEN_RADIUS}px`;
   const screen = new CSS3DObject(iframe);
   screen.position.z = HOLE_LIFT;
   modelCSS.add(screen);
-  phone.classList.add("is-3d");
   phone.append(css.domElement);
+  const cameraElement = css.domElement.firstChild.firstChild;
+  // CSS3DRenderer は描くときに初めて iframe を自分の層へ移すので、描くのを待つ間も先に移しておく
+  cameraElement.appendChild(iframe);
+
+  // 正面で止まっているときは、iframe を同じ位置・大きさの 2D の変形（translate + scale）に置き換える。
+  // 3D の変形のままだと、Chromium は iframe を等倍で描いてから縮めるので文字がにじむ（2D の scale は縮めた
+  // 大きさで描く）。CSS3DRenderer は書いた文字列を覚えていて同じなら書き直さないので、3D に戻すときは
+  // 覚えている文字列を元に戻してから描く
+  let flat = null;
+  const flatten = () => {
+    const stage = phone.getBoundingClientRect();
+    const rect = iframe.getBoundingClientRect();
+    flat = { camera: cameraElement.style.transform, iframe: iframe.style.transform };
+    cameraElement.style.transform = "none";
+    iframe.style.transformOrigin = "0 0";
+    iframe.style.transform = `translate(${Math.round(rect.left - stage.left)}px, ${Math.round(rect.top - stage.top)}px) scale(${rect.width / IFRAME_W})`;
+  };
+  const unflatten = () => {
+    if (!flat) return;
+    cameraElement.style.transform = flat.camera;
+    iframe.style.transformOrigin = "";
+    iframe.style.transform = flat.iframe;
+    flat = null;
+  };
 
   // モデルが読めなかったときは 2D に戻す（iframe を元の場所へ。読み直しになる）
   const backTo2D = () => {
+    flat = null;
     iframe.removeAttribute("style");
     iframe.removeAttribute("draggable");
     phone.insertBefore(iframe, frameImage);
@@ -137,6 +155,7 @@ function setUp(phone) {
   let sceneGL = null;
   let modelGL = null;
   let stopped = false;
+  let ready = false;
   const setUpGL = async () => {
     try {
       gl = new WebGLRenderer({ alpha: true, antialias: true });
@@ -173,6 +192,12 @@ function setUp(phone) {
     light.position.set(400, 600, 900);
     sceneGL.add(light);
     phone.append(gl.domElement);
+    // 本体が読めたら 3D に切り替える: 枠の絵を消し（.is-3d）、iframe をモデルの画面の大きさにする
+    iframe.style.width = `${IFRAME_W}px`;
+    iframe.style.height = `${IFRAME_H}px`;
+    iframe.style.borderRadius = `${SCREEN_RADIUS}px`;
+    phone.classList.add("is-3d");
+    ready = true;
     draw();
   };
 
@@ -183,14 +208,16 @@ function setUp(phone) {
   let last = 0;
 
   const draw = () => {
-    if (stopped) return;
+    if (stopped || !ready) return;
     for (const model of [modelGL, modelCSS]) {
       if (!model) continue;
       model.rotation.x = tilt.x;
       model.rotation.y = tilt.y;
     }
     if (gl && sceneGL) gl.render(sceneGL, camera);
+    unflatten();
     css.render(sceneCSS, camera);
+    if (!drag && isAtRest(tilt)) flatten();
   };
 
   // 見えている間かつ動いている間だけ描く
@@ -203,13 +230,13 @@ function setUp(phone) {
     if (!stopped && visible && (drag || !isAtRest(tilt))) frame = requestAnimationFrame(tick);
   };
   const start = () => {
-    if (frame || !visible || stopped) return;
+    if (frame || !visible || stopped || !ready) return;
     last = 0;
     frame = requestAnimationFrame(tick);
   };
 
   phone.addEventListener("pointerdown", (event) => {
-    if (stopped || drag || event.button !== 0) return;
+    if (stopped || !ready || drag || event.button !== 0) return;
     // タッチは横のスワイプだけ傾ける（縦はページのスクロール。CSS の touch-action: pan-y）
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY, start: tilt, yOnly: event.pointerType === "touch" };
     phone.setPointerCapture(event.pointerId);
@@ -224,6 +251,8 @@ function setUp(phone) {
     if (!drag || event.pointerId !== drag.id) return;
     drag = null;
     phone.classList.remove("is-dragging");
+    // 動きを減らす設定のときは、正面へ戻る動きを付けずにすぐ戻す
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) tilt = { x: 0, y: 0 };
     start();
   };
   phone.addEventListener("pointerup", release);
