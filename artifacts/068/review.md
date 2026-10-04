@@ -67,3 +67,37 @@ R の手元（futary-R、`pnpm install --frozen-lockfile` から。インスト�
 - Safari（Mac・iPad）・Firefox・実機のタッチ
 - 遅い回線での実際の見え方（Playwright で GLB を遅らせただけ）
 - main を取り込んだ後の CI（まだ走っていない）
+
+---
+
+## 追補 2 #471（83518e3。島を消す・画質・動きを減らす設定・読み込み中・元の ZIP）— R の判定
+
+**受け入れ。必須修正なし。ただし、マージの前に main の取り込みが要る。**
+
+- **#471 は今 main とぶつかっている**（`mergeable: CONFLICTING`）。PR の CI（83518e3）は緑だが、その後に A の #472（追補 3 の起票）が main に入り、`docs/state.md` がぶつかった（`git merge-tree` で確かめた。ぶつかるのは `state.md` だけ）。main を取り込んで、**CI が緑になってからマージすること**
+
+R の手元（futary-R、`pnpm install --frozen-lockfile` から）で確かめた:
+
+- **テスト**: type-check・lint 緑。`pnpm run test` は ui 23・date 68・db 34・app 630・api 799 = 1,554 で全部緑。`phone3d.js` は gzip 166,366 バイト（上限 200KB）
+- **T4**: `capture.mjs` を R の手元で流して **11 / 11 OK**。止まっているときの iframe の変形は `matrix(0.800257, …)`（2D）、傾けている間は `matrix3d(…)`。reduced-motion でも 3D になり、離して 0.12 秒で正面
+- **#1 島**: R の撮った正面・傾きの画面で、デモの帯「これはデモです。ログインで記録を残せます」が上端まで全部見え、島・点・縞は無い。穴の `depthTest: false`・`renderOrder: 1` の理由（本体は凸で画面は最前面。傾きは 80° までで裏面は見えない）は通る
+- **#2 画質**: `sharpness.mjs`（dsf 1）を R の手元で流し、切り出しを R が別の数え方（PIL のラプラシアン。値は 0〜255 に切り詰めるので B の値とは大きさが違う）で数えた: 2D 844.2・3D 正面 823.9（比 0.98。B の 1,290 / 1,335 = 0.97 と合う）。`sharpness-zoom.png` で、直す前は名前と顔がにじみ、直した後は 2D と同じに見える
+  - `flatten`・`unflatten` は three 0.186.1 の `CSS3DRenderer` の作りと合う（`domElement > viewElement > cameraElement`。カメラと物体の `transform` の文字列を覚えていて、同じなら書き直さない。だから 3D に戻すとき、覚えている文字列を書き戻してから描く必要がある）。`css.domElement.firstChild.firstChild` は cameraElement
+- **#4 読み込み中**（R が GLB を止めて見た。スクリプトは R の scratchpad の `loading.mjs`・`fallback.mjs`）:
+  - 止めている間は `.is-3d` が無く、canvas は 0・枠の絵が見え、iframe は 3D の層の中で 2D の位置（312×675）にある。**この間も、枠の絵越しにデモのタブを押せる**（`/app/` → `/app/calendar`）
+  - 読めると `.is-3d` が付いて 3D になる。**切り替わるときに iframe は読み直されない**（`/app/?demo=1` の読み込みは切り替えの前後とも 2 回。2 回なのは 0節 #8 で受け入れたもの）。押したあとの画面（`/app/calendar`）も残る
+  - GLB を 404 にすると 2D に戻る（iframe は `.phone` の直下で枠の絵の前・`style` 無し）。デモは押せる。余白のドラッグでは何も起きない
+- **R が #465 から続けている確かめ**（`extra.mjs`）: マウスだけで傾く・iframe の上で離しても戻る・画面の上から引いても傾かない・傾けたままホイールでデモの中がスクロール（0 → 216）・止まっている間の rAF は 0 回・ページの例外 0。全部通る
+- **#5 元の ZIP**: このコミットで `docs/sample/fbx/` に追跡されたファイルは 0。`docs/sample/README.md` は main（A が直した）で「人間の手元・リポジトリには置かない」になっている。過去のコミットには残る（定義のとおり）
+- `worklog.md` は追記のみ（削除 0 行）。コミットのトレーラーは `Session: B` と Co-Authored-By が続いている
+
+## 記録（判定に使わない）
+
+1. `git rm --cached` した ZIP は B の手元に残っているが、`.gitignore` に入っていない（`git check-ignore` で外れる）。追跡されていないファイルとして見え続けるので、パスを名指しする `git add` でも入る可能性はある。気になるなら `.gitignore` に `docs/sample/fbx/` を足す（A の判断）
+2. 正面の 2D の変形に置き換えたあと、WebGL の穴との位置は整数の画素に丸めた分（1px 未満）ずれうる（報告のとおり）。R の画面では縁に隙間は見えない
+
+## 私が確かめていないこと
+
+- Safari（Mac・iPad）・Firefox・実機のタッチ。Safari で画質の直し方が同じように効くか
+- devicePixelRatio 2 の画質（R は dsf 1 だけ流した）
+- main を取り込んだ後の CI
