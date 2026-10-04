@@ -11,17 +11,29 @@
 | # | 論点 | 決定 | 理由 |
 |---|---|---|---|
 | 1 | 描き方 | **2 層を同じカメラで描く**: 下に `CSS3DRenderer`（**既存の iframe をそのまま** `CSS3DObject` に入れる。2 つ目の iframe は作らない）、上に `WebGLRenderer`（`alpha: true`・`pointer-events: none`）で本体。画面の位置に**穴**（`PlaneGeometry` 390×844・`opacity: 0`・`blending: NoBlending`）を置き、下の iframe が見えるようにする | 試作の形。iframe は本物の DOM なので触れる。WebGL の層は入力を受けない |
-| 2 | モデル | **コードで組む**（`RoundedBoxGeometry` の本体・側面のボタン 3 つ・画面の上のピル型の黒い島・背面のカメラの出っ張り）。**外部の 3D モデル（glTF）は使わない** | ライセンスと Apple の意匠の心配が無い。読み込むファイルが増えない。形は「スマホらしい」で足りる |
+| 2 | モデル | **人間が用意したモデルを使う**（`docs/sample/fbx/purple smartphone 3d model.zip`。Tripo で人間が作った紫のスマホ。FBX + 色のテクスチャ 4096×4096）。**テクスチャの Apple のロゴ（背面の中央）とほかの他社の印は塗りつぶす**（画面に出なくても、公開すれば画像は取り出せる）。**一度だけ GLB に変換して軽くする**（three の `FBXLoader` で読んで `GLTFExporter` で書き出し、`@gltf-transform/cli` で面を減らし・テクスチャを 1024px の JPEG か WebP に。手順は `artifacts/068/scripts/`）。**形状の圧縮（Draco・meshopt）は使わない**（復号に WebAssembly が要り、CSP に `wasm-unsafe-eval` を足すことになる）。**モデルとテクスチャを合わせて転送 500KB 以下**（gzip 後）。配信は `/assets/phone.glb`、読むのは `GLTFLoader`。読み込みに失敗したら 2D のまま | 人間の提案（2026-10-05）。見栄えが良くなる。ロゴは商標なので残さない。重さは変換と面の削減で抑える |
 | 3 | 色と光 | 本体はダークのチタン調（`MeshStandardMaterial`・`metalness` 0.6 前後・`roughness` 0.35 前後）。環境光 + 斜め上の平行光 1 つ。**値は B が 1280 幅で見て決め、報告に書く** | LP の淡いピンクの地に浮く |
-| 4 | ドラッグ | ステージ（スマホの周り）で `pointerdown` → `pointermove` で傾ける。**画面（iframe）の上の操作は iframe が受ける**ので、ドラッグはふち・ステージの余白からだけ始まる。傾きは `rotateX` ±0.5 rad・`rotateY` ±0.7 rad で止める。離すと **約 0.6 秒で正面に戻る**（減衰）。カーソルは `grab` / `grabbing` | 人間の言う「ふちをドラッグ」。画面の中は今まで通りデモの操作 |
+| 4 | ドラッグ | ステージ（スマホの周り）で `pointerdown` → `pointermove` で傾ける。**画面（iframe）の上の操作は iframe が受ける**ので、ドラッグはふち・ステージの余白からだけ始まる。傾きは **`rotateY` ±1.4 rad（約 80°）・`rotateX` ±0.5 rad** で止める（**裏面は見せない**。人間の案）。離すと約 0.6 秒で正面に戻る（減衰）。カーソルは `grab` / `grabbing`。**タッチ（`pointerType: touch`）はステージに `touch-action: pan-y`**: 縦のスワイプはページのスクロール、横のスワイプだけ傾ける（`rotateY` だけ） | 人間の言う「ふちをドラッグ」。iPad 等で余白から縦にスワイプしてもページが動く（R の記録） |
 | 5 | 描画のループ | **見えている間（`IntersectionObserver`）かつ動いている間だけ** `requestAnimationFrame`。止まっている間は描かない | 電池と CPU。LP の他の節をスクロールしている間は 0 |
 | 6 | 出す条件（そうでなければ今の 2D のまま） | **幅 768px 以上**（056 のとおり節ごと出ている）**かつ WebGL が使える かつ `prefers-reduced-motion: reduce` でない**。条件を満たさないときは、今の枠の絵 + iframe（056）をそのまま使う。**HTML は今の 2D の形のまま書き、JS が条件を見て 3D に組み替える**（JS が読めなくても今と同じ表示） | 段階的に足す。今の表示を壊さない |
-| 7 | JS の置き方 | **自分のオリジンの外部ファイル 1 つ**（`/phone3d.js`。`<script type="module" src="/phone3d.js">`）。**three.js は CDN から読まない**（CSP の `script-src 'self'` のまま）。`three` を依存に足し、`build-public.mjs` が esbuild で 1 ファイルに束ねて圧縮する（`three` の使う部分だけ）。**inline script・importmap は置かない**。**gzip で 200KB 以下** | CSP を緩めない。ハッシュも要らない |
-| 8 | 読み込みの時機 | `phone3d.js` は節が見える少し前（`IntersectionObserver` の `rootMargin` 400px）に `import()` で読む。最初の表示（ヒーロー）を遅らせない | 015・056 の「初回表示の速さ」 |
+| 7 | JS の置き方 | **自分のオリジンの外部ファイル 1 つ**（`/phone3d.js`。`<script type="module" src="/phone3d.js">`）。**three.js は CDN から読まない**（CSP の `script-src 'self'` のまま）。`three` を依存に足し、`build-public.mjs` が esbuild で 1 ファイルに束ねて圧縮する（`three` の使う部分と `GLTFLoader`）。**inline script・importmap は置かない**。**JS は gzip で 200KB 以下**（モデルは #2 の別枠） | CSP を緩めない。ハッシュも要らない |
+| 8 | 読み込みの時機 | `phone3d.js` は `<script type="module">` で読む（HTML を止めない）。**2 段で動く**: (1) すぐ、条件（#6）を見て CSS3D の層を組み、iframe をそこへ移す（iframe は DOM の中で動かすと読み直しになるので、早く移す）。(2) 節が見える少し前（`IntersectionObserver` の `rootMargin` 400px）に WebGL を始め、モデル（#2）を読む。**3D のとき、デモの HTML は 2 回読まれる**（Chromium の lazy の読み込みが、移すより先に始まる）。**受け入れる**（読み取りだけ・PC 幅で 1 回余分なだけ。直すと JS の無いときの表示が壊れる） | 1 ファイルの方針（#7）と両立させる。最初の表示（ヒーロー）を遅らせない |
 | 9 | 054 の 0節 #13「JS を入れない」 | **改める**: 「inline script は置かない。外部の JS は `/phone3d.js` の 1 つだけ（「さわってみる」の 3D。無くても表示は成り立つ）」。A が 054 を直した | 決まりを黙って破らない |
 | 10 | 枠の絵 `phone-frame.png` | **残す**（#6 の 2D のとき使う） | 段階的に足す |
 | 11 | スマホ幅 | 今まで通り節ごと隠す（056） | |
 | 12 | `releases.ts` | 載せない（LP で、アプリの機能ではない） | |
+
+## 追補（2026-10-05）: 人間のモデルに差し替える・傾きの範囲・タッチ
+
+本体は #465 で入った（コードで組んだ灰色の本体）。上の 0節 #2・#4・#7・#8 を書き換えた。B の作業:
+
+- `docs/sample/fbx/purple smartphone 3d model.zip` を追跡に入れる（人間の素材。`docs/sample/README.md` に行を足す: 出自は人間が Tripo で作ったもの）
+- ロゴを塗りつぶし → GLB に変換 → 面とテクスチャを減らす（0節 #2。手順と前後の大きさを報告に）。`apps/landing/assets/phone.glb`
+- `phone3d.mjs`: コードで組んだ本体を `GLTFLoader` のモデルに差し替える。モデルの画面の位置と大きさを測り、iframe と穴を合わせる（傾けても画面の縁から iframe がはみ出さない・隙間が見えないこと）。傾きの上下限（#4）・タッチの `touch-action: pan-y`（#4）
+- テスト: 傾きの関数の上下限（`rotateY` ±1.4）。`phone.glb` が 500KB 以下（gzip）。テクスチャにロゴが無いことは画面（背面に回せないので、テクスチャの画像そのもの）を `artifacts/068/` に置いて R が目で見る
+- 画面: `artifacts/068/stage2/`（正面・80° 近くまで傾けたところ・傾けたままデモのタブを押したところ）
+
+**マージの前に人間の確認**: Tripo で作ったモデルを公開のサイトで使ってよいか（Tripo の利用条件・プラン）。人間が「使ってよい」と確かめるまで、R が受け入れてもマージしない。
 
 ## 1. B の作業
 
