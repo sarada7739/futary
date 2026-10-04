@@ -3,7 +3,7 @@
 // PNG の読みは依存を増やさず node:zlib で（IHDR・IDAT・フィルタの 5 種。RGBA 8bit の非インターレースだけ）
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { inflateSync } from "node:zlib";
+import { gzipSync, inflateSync } from "node:zlib";
 import type { Plugin } from "vite";
 
 export const LANDING_ASSETS_ID = "virtual:landing-assets";
@@ -15,6 +15,8 @@ export interface LandingAsset {
   bytes: number;
   // PNG（RGBA 8bit）だけ: 幅・高さと、指定した点のアルファ
   png?: { width: number; height: number; alphaAt: Record<string, number> };
+  // 068: 3D のモデル（.glb）だけ。gzip（既定の圧縮率）したときの大きさ
+  gzipBytes?: number;
 }
 
 // 読みたい点（比率で指定。0..1）。phone-frame.png: 中央（画面）・左の縁・左上の角（外側）・ノッチの中央
@@ -117,6 +119,7 @@ export const hasDynamicImport = ${/\bimport\(/.test(code)};`;
         const file = path.join(landingAssetsDir, name);
         const asset: LandingAsset = { name, bytes: statSync(file).size };
         if (name.endsWith(".png")) asset.png = readPngAlpha(file);
+        if (name.endsWith(".glb")) asset.gzipBytes = gzipSync(readFileSync(file)).length;
         return asset;
       });
       // 056 T5: style.css の本文も渡す（vitest は CSS を空にする〈test.css〉ので ?raw では読めない）
