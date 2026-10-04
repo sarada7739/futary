@@ -77,8 +77,19 @@ function canUse3D() {
   debug(`min-width 768: ${wide}`);
   if (!wide) return false;
   try {
-    const webgl2 = document.createElement("canvas").getContext("webgl2");
-    const context = webgl2 || document.createElement("canvas").getContext("webgl");
+    // 取れなかったときの理由は webglcontextcreationerror の statusMessage でしか分からない
+    const probe = (type) => {
+      const canvas = document.createElement("canvas");
+      let reason = "";
+      canvas.addEventListener("webglcontextcreationerror", (event) => {
+        reason = event.statusMessage || "(no statusMessage)";
+      });
+      const context = canvas.getContext(type);
+      if (!context) debug(`${type}: none${reason ? ` — ${reason}` : ""}`);
+      return context;
+    };
+    const webgl2 = probe("webgl2");
+    const context = webgl2 || probe("webgl");
     debug(`webgl2: ${Boolean(webgl2)} webgl: ${Boolean(context)}`);
     // 調べるために作った文脈はすぐ手放す（本物は節が近づいてから作る）
     context?.getExtension("WEBGL_lose_context")?.loseContext();
