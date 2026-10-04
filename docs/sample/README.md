@@ -63,11 +63,11 @@
 | `ai-network.jpg` | 濃紺の地に光る点と線（1360×768） | AI まとめの帯の地 |
 | `phone-frame.png` | スマホの枠（1024×1536。画面は黒。AI 生成。056） | LP の「さわってみる」。画面部分を透明に切り抜いて `/app/?demo=1` の iframe に重ねる |
 
-### 3D モデル（`fbx/`。068）
+### 3D モデル（068）
 
 | ファイル | 内容 | 出自 |
 |---|---|---|
-| `fbx/purple smartphone 3d model.zip` | 紫のスマホの 3D モデル（FBX 1.43MB・色のテクスチャ 4096×4096 の JPEG。三角形 約 5 万） | **人間が Tripo（有料プラン）で作ったもの。公開のサイトで使ってよいことを人間が確かめた**（2026-10-05）。テクスチャの背面に Apple のロゴがあるので、使うときは塗りつぶす |
+| （人間の手元）`purple smartphone 3d model.zip` | 紫のスマホの 3D モデル（FBX 1.43MB・色のテクスチャ 4096×4096 の JPEG。三角形 約 5 万） | **人間が Tripo（有料プラン）で作ったもの。公開のサイトで使ってよいことを人間が確かめた**（2026-10-05）。テクスチャの背面に Apple のロゴがあるので、**リポジトリには置かない**。リポジトリの正は、ロゴを塗りつぶしたテクスチャ `artifacts/068/stage2/texture-no-logo.png` と `apps/landing/assets/phone.glb` |
 
 LP の「さわってみる」の 3D の本体（`apps/landing/assets/phone.glb`）はここから作った: ロゴを塗りつぶし（`artifacts/068/scripts/paint-logo.py`）→ 1024px の JPEG → GLB に変換（`convert-model.mjs`）→ 頂点をまとめて面を減らし量子化（`@gltf-transform/cli` の weld・simplify・quantize）。手順と前後の大きさは `artifacts/068/stage2/report.md`
 
