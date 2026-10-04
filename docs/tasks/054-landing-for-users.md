@@ -26,7 +26,7 @@
 | 10 | ホワイトモード | LP には作らない。ピンク（`bg` の地）だけ | 外観の切り替えはアプリの中の話 |
 | 11 | 横幅 | 本文の最大幅 **960px**（アプリの 640 より広い。写真を並べるため）。カードの角丸 20（`radius.card`）・影は `shadow.card` | 絵は PC 幅で 3 列。スマホは 1 列に畳む |
 | 12 | OGP・メタ | `description` を 3 節の文に差し替え。`og:image` は今の `ogp.png` のまま。`canonical`・`theme-color`・favicon はそのまま | 絵は変わっても看板は同じ |
-| 13 | CSP | **inline script なし**。CSS は `style.css` に（`style` 属性を使わない）（今と同じ。`security-requirements.md` 7節「ランディングには inline script が無い」を守る）。FAQ の開閉は `<details>` | JS を入れない |
+| 13 | CSP | **inline script なし**。CSS は `style.css` に（`style` 属性を使わない）（`security-requirements.md` 7節「ランディングには inline script が無い」を守る）。FAQ の開閉は `<details>`。**外部の JS は `/phone3d.js` の 1 つだけ**（068。「さわってみる」のスマホの 3D。読めなくても表示は成り立つ） | inline script を置かない。JS は無くても成り立つものだけ |
 | 14 | `style.css` | 書き直してよい。`privacy.html`・`terms.html`・`tokushoho.html`・`tech.html` も同じ `style.css` を読むので、**法務ページの見た目が崩れないこと**（T5） | 4 ページで 1 つの CSS |
 | 15 | 絵の「ある 1 日」の節 | **入れる**（文言は 3 節 #8）。絵の丸いアイコンは `packages/ui/assets/panel-*.png`（96px の線画）を使う。新しい絵は描かない | 機能の説明を「1 日の流れ」で繰り返す。全部ある機能 |
 | 16 | 「みんなの声」 | **入れない**（声が無い） | 作った声を載せない |
