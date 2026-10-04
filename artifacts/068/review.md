@@ -30,3 +30,40 @@ R の手元（futary-R、`pnpm install --frozen-lockfile` から。インスト�
 - Safari（Mac・iPad）・Firefox。停止条件の「Safari で iframe と穴がずれる・ぼやける」は人間の手番
 - 実機のタッチ（CDP のタッチで代えた）
 - GPU の無い環境・WebGL が途中で失われたとき（`webglcontextlost`）の振る舞い
+
+---
+
+## 追補 #469（589fc21。人間のモデル・傾き約 80°・タッチ・縞）— R の判定
+
+**受け入れ。必須修正なし。ただし、マージの前に main の取り込みが要る。**
+
+- **#469 は今 main とぶつかっていて（`mergeable: CONFLICTING`）、CI が 1 回も走っていない**（PR の checks は空）。ぶつかっているのは `docs/state.md` だけ（`git merge-tree` で確かめた。#468 が同じ先頭を書き換えた）。main を取り込んで、**CI が緑になってからマージすること**
+
+R の手元（futary-R、`pnpm install --frozen-lockfile` から。インストール後に作業ツリーの差分なし）で確かめた:
+
+- **テスト**: type-check・lint 緑。`pnpm run test` は ui 23・date 68・db 34・app 630・api 799 = 1,554 で全部緑
+- **大きさ**: `phone3d.js` は gzip 166,219 バイト（ビルドの表示。R の `gzip -c` では 165,203）で上限 200KB の下。`phone.glb` は 585,632 バイト・R の `gzip -c` で 368,935 バイトで上限 500KB の下
+- **GLB の中身**（R が GLB を解いて見た）: メッシュ 1・材質 1・画像 1（1024×1024 の JPEG・131,872 バイト・EXIF 無し）・三角形 14,015。拡張は `KHR_mesh_quantization` だけ（Draco・meshopt は無い）。外部の URI は無い（バッファも画像も GLB の中）
+- **ロゴ**: **配信する GLB から取り出したテクスチャそのもの**を R が目で見た。背面（左から 2 列目）にロゴは無い。コントラストを強めると、塗った箱の範囲がうっすら四角く見えるが、ロゴの形は見えない。元の zip のテクスチャには、報告の箱の位置に Apple のロゴがあることも確かめた（塗る場所は合っている）。元のテクスチャを 1024px で見た範囲で、ほかに他社の文字・印は見当たらない
+- **配信**: wrangler dev で `/assets/phone.glb` は 200・`model/gltf-binary`・`Cache-Control: public, max-age=0, must-revalidate`。CSP は `connect-src 'self' blob: …`（GLB の fetch）・`img-src 'self' data: blob: …`（テクスチャの blob:）で通る。CSP は変わっていない
+- **T4**: `seed:local` の後、`capture.mjs` を R の手元で流して **9 / 9 OK**（正面 312×700・傾き 269×748・80° で 54×798・タッチの縦スワイプでページが 938 → 1123 にスクロールして傾かない）
+- **R が足した確かめ**（Playwright・Chromium。スクリプトは R の scratchpad の `extra.mjs`・`fallback.mjs`）:
+  - #465 のときと同じ 5 つ（マウスだけで傾く・iframe の上で離しても戻る・画面の上から引いても傾かない・傾けたままホイールでデモの中がスクロール 0 → 216・止まっている間の rAF は 0 回）がこの版でも通る。ページの例外は 0
+  - **`/assets/phone.glb` を 404 にすると 2D に戻る**: `.is-3d`・canvas・CSS3D の層が消え、iframe は `.phone` の直下で枠の絵の前に戻り、`style` 属性も無くなる。枠の絵が見える。その後デモの「カレンダー」を押すと `/app/calendar` に変わる。余白をドラッグしても何も起きない
+- **縞**: `near`・`far` をモデルのまわりに詰めた理由は通る。R の見積もりでは、モデルの点は画面の中心から最大でおよそ 0.56 × K（約 509 単位）で、`near`・`far` の幅 ±0.6K（約 544）の内側に収まるので、どの傾きでも切れない。`angles-1280.png` と R の撮った 80° の画面に縞は無い
+- 画面の縁と iframe: 正面の画面で、iframe の角は黒い縁の内側に収まっていて、はみ出しや隙間は見えない
+- `tiltFromDrag` の `yOnly`、`touch-action: pan-y`（縦のスワイプで `pointercancel` が来て離したことになる）は 0節 #4 のとおり
+- `worklog.md` は追記のみ（削除 0 行）。コミットのトレーラーは `Session: B` と Co-Authored-By が続いている
+
+## 記録（判定に使わない）
+
+1. **GLB を読んでいる間は、本体の無い画面（角丸の iframe だけ）が見える。**R が GLB を 3 秒遅らせて撮った: `.is-3d` で枠の絵は隠れ、canvas はまだ無い。読み終わると本体が出る。読み込みは節の 400px 手前で始まるので、速い回線ではほぼ見えないが、遅い回線ではしばらくこの形になる。直すなら、本体が出るまで 2D の枠の絵を残すなどだが、A の判断
+2. **公開リポジトリ（GitHub の visibility は PUBLIC）の `docs/sample/fbx/purple smartphone 3d model.zip` には、Apple のロゴが入ったままの元のテクスチャがある。**配信するものからは消えているが、リポジトリからは取り出せる。追跡に入れたのは定義どおりで、README にも「使うときは塗りつぶす」と書いてある。気にするかは A・人間の判断
+3. 0節 #3（色と光: ダークのチタン・`metalness` 0.6 前後）は、モデルのテクスチャ（紫）に置き換わった。値（`metalness` 0.35・`roughness` 0.45・光 1.4・2.4）は報告にある。定義の #3 の文言を今に合わせるかは A の判断
+4. 画面の上の島は、#465 のときと同じく、デモの帯「これはデモです…」の文字に重なる（2D の枠の絵の切り欠きも同じ）
+
+## 私が確かめていないこと
+
+- Safari（Mac・iPad）・Firefox・実機のタッチ
+- 遅い回線での実際の見え方（Playwright で GLB を遅らせただけ）
+- main を取り込んだ後の CI（まだ走っていない）

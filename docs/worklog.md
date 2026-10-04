@@ -14206,3 +14206,8 @@ Session: A
 - MAX_TILT_Y 1.4・タッチは yOnly・touch-action: pan-y。T4 9/9・`pnpm -r test` 1,554 緑
 
 Session: B
+## 2026-10-05 セッションA: 068 のモデルの利用条件（人間の確認）
+
+- 人間: Tripo の有料プランで作ったので使ってよい。068 の追補のマージの条件を外した
+
+Session: A
