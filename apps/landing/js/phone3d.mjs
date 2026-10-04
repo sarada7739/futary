@@ -36,14 +36,66 @@ const FOV = 35;
 // 穴と iframe を画面の表面からどれだけ手前に置くか（単位）
 const HOLE_LIFT = 0.5;
 
+// URL に ?debug3d があるときだけ、3D の準備がどこまで進んだかを画面の左上に出す（実機で原因を見るため。
+// 開発者ツールの無い iPhone・iPad で使う）。それ以外のときは何もしない
+const DEBUG = new URLSearchParams(window.location.search).has("debug3d");
+let debugBox = null;
+function debug(message) {
+  if (!DEBUG) return;
+  if (!debugBox) {
+    debugBox = document.createElement("pre");
+    Object.assign(debugBox.style, {
+      position: "fixed",
+      left: "8px",
+      top: "8px",
+      zIndex: "2147483647",
+      maxWidth: "calc(100vw - 16px)",
+      maxHeight: "60vh",
+      overflow: "auto",
+      margin: "0",
+      padding: "8px",
+      background: "rgba(0, 0, 0, 0.8)",
+      color: "#fff",
+      font: "12px/1.4 monospace",
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-all",
+    });
+    document.body.append(debugBox);
+  }
+  const time = (performance.now() / 1000).toFixed(2);
+  debugBox.textContent += `${time}s ${message}\n`;
+}
+if (DEBUG) {
+  window.addEventListener("error", (event) => debug(`error: ${event.message} @ ${event.filename}:${event.lineno}`));
+  window.addEventListener("unhandledrejection", (event) => debug(`unhandledrejection: ${event.reason?.message ?? event.reason}`));
+  debug(`ua: ${navigator.userAgent}`);
+  debug(`viewport: ${window.innerWidth}x${window.innerHeight} dpr ${window.devicePixelRatio}`);
+}
+
 function canUse3D() {
-  if (!window.matchMedia("(min-width: 768px)").matches) return false;
+  const wide = window.matchMedia("(min-width: 768px)").matches;
+  debug(`min-width 768: ${wide}`);
+  if (!wide) return false;
   try {
-    const context = document.createElement("canvas").getContext("webgl2") || document.createElement("canvas").getContext("webgl");
+    // 取れなかったときの理由は webglcontextcreationerror の statusMessage でしか分からない
+    const probe = (type) => {
+      const canvas = document.createElement("canvas");
+      let reason = "";
+      canvas.addEventListener("webglcontextcreationerror", (event) => {
+        reason = event.statusMessage || "(no statusMessage)";
+      });
+      const context = canvas.getContext(type);
+      if (!context) debug(`${type}: none${reason ? ` — ${reason}` : ""}`);
+      return context;
+    };
+    const webgl2 = probe("webgl2");
+    const context = webgl2 || probe("webgl");
+    debug(`webgl2: ${Boolean(webgl2)} webgl: ${Boolean(context)}`);
     // 調べるために作った文脈はすぐ手放す（本物は節が近づいてから作る）
     context?.getExtension("WEBGL_lose_context")?.loseContext();
     return Boolean(context);
-  } catch {
+  } catch (error) {
+    debug(`webgl check threw: ${error?.message ?? error}`);
     return false;
   }
 }
@@ -138,6 +190,7 @@ function setUp(phone) {
 
   // モデルが読めなかったときは 2D に戻す（iframe を元の場所へ。読み直しになる）
   const backTo2D = () => {
+    debug("back to 2D");
     flat = null;
     iframe.removeAttribute("style");
     iframe.removeAttribute("draggable");
@@ -157,9 +210,12 @@ function setUp(phone) {
   let stopped = false;
   let ready = false;
   const setUpGL = async () => {
+    debug("near: setting up WebGL");
     try {
       gl = new WebGLRenderer({ alpha: true, antialias: true });
-    } catch {
+      debug(`WebGLRenderer ok (webgl2: ${gl.capabilities.isWebGL2 !== false})`);
+    } catch (error) {
+      debug(`WebGLRenderer failed: ${error?.message ?? error}`);
       backTo2D();
       return;
     }
@@ -168,8 +224,11 @@ function setUp(phone) {
     gl.domElement.className = "phone3d-gl";
     let gltf;
     try {
+      debug("loading /assets/phone.glb");
       gltf = await new GLTFLoader().loadAsync("/assets/phone.glb");
-    } catch {
+      debug("phone.glb loaded");
+    } catch (error) {
+      debug(`phone.glb failed: ${error?.message ?? error}`);
       backTo2D();
       return;
     }
@@ -198,6 +257,7 @@ function setUp(phone) {
     iframe.style.borderRadius = `${SCREEN_RADIUS}px`;
     phone.classList.add("is-3d");
     ready = true;
+    debug("ready (3D)");
     // 始めはスクロールの位置で決まる角度（節の手前なら斜め）
     target = targetForScroll();
     tilt = target;
@@ -314,4 +374,8 @@ function setUp(phone) {
 }
 
 const phone = document.querySelector(".demo .phone");
-if (phone && canUse3D()) setUp(phone);
+debug(`phone element: ${Boolean(phone)}`);
+if (phone && canUse3D()) {
+  debug("setUp");
+  setUp(phone);
+}

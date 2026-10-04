@@ -151,3 +151,33 @@ R の手元（futary-R、`pnpm install --frozen-lockfile` から）で確かめ�
 ## 私が確かめていないこと
 
 - Safari・Firefox・実機（慣性のスクロール中の描画の追従）
+
+---
+
+## #477（46bf7ff。iPad・iPhone で 3D にならない原因を見る `?debug3d`）— R の判定
+
+**受け入れ。必須修正なし。**（CI 緑を確かめた。main a5f0008 の上で、ぶつかりは無い）
+
+R の手元（futary-R、`pnpm install --frozen-lockfile` から）で確かめた:
+
+- **テスト**: type-check・lint 緑。`pnpm run test` は ui 23・date 68・db 34・app 630・api 807 = 1,562 で全部緑（1 回目は api の 3 ファイルがテスト用の workerd の起動で `ECONNRESET` になり走らなかった。コードと関係なく、api だけ流し直して 33 ファイル 807 件 緑）。`phone3d.js` は gzip 167,363 バイト（上限 200KB）
+- **表示**（R の `debug3d-r.mjs`・B の `debug3d-check.mjs`。`build:public` からやり直した 46bf7ff のビルドで）:
+  - Chromium の `?debug3d`: ua・viewport・`min-width 768: true`・`webgl2: true`・`setUp`・`WebGLRenderer ok`・`phone.glb loaded`・`ready (3D)` が時刻付きで出て、3D になる
+  - **WebGL を切った Chromium（`--disable-webgl --disable-webgl2`）で `?utm_source=x&debug3d=1`**: `webgl2: none — disabled by enterprise policy or commandline switch`・`webgl: none — …` と理由が出て、`.is-3d` は付かず 2D のまま。ほかの引数と並べても、値を付けても効く（`has("debug3d")`）
+  - **`?debug3d` が無いとき**: `<pre>` は足されず、`body` の子の数も変わらない（3）。3D の動きはそのまま
+  - WebKit（iPad (gen 7) を真似たもの）でも段階が `ready (3D)` まで出る
+- 既存の確かめも通る: `capture.mjs` 11 / 11・`scroll-tilt.mjs` 7 / 7
+- **安全**: 出す文は `textContent` に足すだけで、HTML として解釈しない（`innerHTML` 無し）。URL の値は画面に出さない（`has` だけ見る）。出すのは見ている本人の端末の ua・画面の大きさ・エラーの文で、外へは送らない。スタイルは JS の `style` で書くので、CSP（`style-src`）に関わらない
+- 付けないときの動きの差: `canUse3D` で `webglcontextcreationerror` の受け手を付けるのと、`debug(...)` の引数の文字列を組むのが増えるだけ。`gl.capabilities.isWebGL2` を読むのが `try` の中に入ったが、three 0.186.1 の `WebGLRenderer` は `capabilities` を必ず持つので、そこで投げて 2D に戻ることは無い
+- `worklog.md` は追記のみ（削除 0 行）。2 つのコミットとも `Session: B` と Co-Authored-By が続いている
+
+## 記録（判定に使わない）
+
+1. **黒い枠がまったく出ないことも手がかりになる。**`error`・`unhandledrejection` の受け手は `phone3d.js` の中で付けている。束ねたファイルでは three.js のコードが先に評価されるので、モジュールが読めない・three の評価の途中で投げた、という場合は受け手が付く前に止まり、枠そのものが出ない。人間に撮ってもらうときは、「枠が出ない」もそのまま知らせてもらう（そのときは `phone3d.js` が動いていない、と分かる）
+2. この表示は、原因が分かったら外すか残すかを決める（A の判断）。068 の定義には、この表示の項目は無い
+3. R の手元の手順の注意: wrangler dev（api-dev）を動かしたまま `build:public` を流すと `apps/api/public` の削除が `EPERM` で失敗し、前のビルドのまま配信される（`build-public.mjs` は exit 1 になる）。R も 1 回これを踏み、止めてからビルドし直して確かめた
+
+## 私が確かめていないこと
+
+- iOS の実機（この PR の目的。デプロイの後に人間が撮る）
+- Playwright の WebKit は実機の Safari と同じではない（UA も iOS 12 のまま）
