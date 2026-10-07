@@ -58,3 +58,22 @@ overrides:
   # デプロイ後の Worker と配信アセットには含まれない。
   # @expo/xcpretty が js-yaml>=4.3.2 を解決するようになったら消すこと
   "js-yaml@<4.3.2": "4.3.2"
+  # 069。以下 4 つは 2026-10-07 に公開された勧告。`pnpm update -r --depth=Infinity`
+  # では lockfile が変わらず（実測）、親の最新版も同じ範囲・同じ版を宣言しているので override で上げる。
+  # shell-quote GHSA-pqg4-j6r4-53mv（critical）。経路: react-native -> react-devtools-core
+  # （^1.6.1 を宣言。範囲は修正版を含む）。React Native の開発ツール（開発時）だけで、
+  # Worker と配信アセットには含まれない。lockfile が shell-quote>=1.11.0 を解決するようになったら消すこと
+  "shell-quote@<1.11.0": "1.11.0"
+  # source-map-js GHSA-68fv-2mgg-jv7q（high）。経路: postcss・css-tree（どちらも ^1.2.1 を宣言）。
+  # ビルド・テスト時の CSS の処理だけで、Worker と配信アセットには含まれない。
+  # lockfile が source-map-js>=1.2.2 を解決するようになったら消すこと
+  "source-map-js@<1.2.2": "1.2.2"
+  # compression GHSA-vc2v-76pw-4v95（high）。経路: @expo/cli（^1.7.4 を宣言）。Expo の開発サーバ
+  # だけで、Worker と配信アセットには含まれない。lockfile が compression>=1.8.2 を解決するように
+  # なったら消すこと
+  "compression@<1.8.2": "1.8.2"
+  # sharp GHSA-wq5f-xc86-pv6w（high。librsvg）。経路: wrangler・@cloudflare/vitest-plugin -> miniflare。
+  # miniflare は sharp を 0.35.4 に固定していて、最新（5.20261006.0-alpha）も 0.35.4。
+  # `wrangler dev`・テストの画像の処理（開発時）だけで、Worker と配信アセットには含まれない。
+  # miniflare が sharp>=0.35.5 を宣言したら消すこと
+  "sharp@<0.35.5": "0.35.5"

@@ -3,7 +3,14 @@
 > セッション開始直後・コンテキスト圧縮直後は、まずこのファイルを読む。
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
-**最終更新**: 2026-10-07 / セッションA。**068 完了（追補 4 まで）。人間が実機で「全部 OK」（iPhone・iPad の Safari で 3D になる・傾けても画面と枠がずれない）。069（依存の既知脆弱性: shell-quote（critical）・source-map-js・compression・sharp。どれも修正版あり・開発時だけ）を起票。B の手番（最優先）。今の main は CI の audit（high）で赤い。A はこの後 `/clear`。**
+**最終更新**: 2026-10-07 / セッションB。**069: 依存の既知脆弱性 4 つ（shell-quote・source-map-js・compression・sharp）を override で上げる: PR（`task/069-deps-security`）。R の手番。**
+- `pnpm update -r --depth=Infinity` では lockfile が変わらず、親の最新版も同じ範囲・同じ版（miniflare は sharp 0.35.4 に固定）なので、4 つとも `pnpm-workspace.yaml` の `overrides`（コメント付き）
+- audit: critical 1・high 7 → critical 0・high 4（無視リストの 4 件だけ）。`pnpm -r test` 1,563 緑。`wrangler dev` で `/`・`/app/` が 200。報告 `artifacts/069/stage1.md`
+- 人間の手番（068 から変わらず）: 065 の iPhone の Safari で AI まとめの帯。061 段階3 のタブバー。060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price。Actions に新しい Dependabot の赤が出ないか
+
+---
+
+**最終更新（旧）**: 2026-10-07 / セッションA。**068 完了（追補 4 まで）。人間が実機で「全部 OK」（iPhone・iPad の Safari で 3D になる・傾けても画面と枠がずれない）。069（依存の既知脆弱性: shell-quote（critical）・source-map-js・compression・sharp。どれも修正版あり・開発時だけ）を起票。B の手番（最優先）。今の main は CI の audit（high）で赤い。A はこの後 `/clear`。**
 - 068 の中身: LP の「さわってみる」のスマホを人間の 3D モデル（Tripo・ロゴを塗りつぶし・`/assets/phone.glb`）で表示。ふちのドラッグで傾く（横 ±80°）・傾けたままデモを操作できる・スクロールで斜め（easeInCubic）から中央で正面・正面で止まっている間は 2D の変形で文字がくっきり・`prefers-reduced-motion` は戻りの動きだけ無し・横に回して幅 768 以上になったら 3D を組む。JS は `/phone3d.js` の 1 つだけ
 - 依存の脆弱性: audit の無視リストは 4 件（image-size 2・node-forge・braces。どれも修正版なし・配信物に入らない）。Dependabot の警告は 6 件を人間の了承で閉じた（`security-requirements.md` 9節の表）。新しい勧告で CI が突然赤になることがある（A が経路を見て判断）
 - 人間の手番: 065 の iPhone の Safari で AI まとめの帯。061 段階3 のタブバー（iPhone の Safari。二重化・帯が消えたか）。060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price。Actions に新しい Dependabot の赤が出ないか
