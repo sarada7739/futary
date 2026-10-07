@@ -14343,3 +14343,11 @@ Session: A
 - 9節のとおり上げる（lockfile の更新 → 親 → override の順）。069 に
 
 Session: A
+
+## 2026-10-07 セッションB: 069 依存の既知脆弱性 4 つを上げる
+
+- `pnpm update -r --depth=Infinity shell-quote source-map-js compression sharp` では lockfile が変わらなかった。親の宣言は shell-quote ^1.6.1・source-map-js ^1.2.1・compression ^1.7.4（どれも修正版を含む範囲）、miniflare は sharp 0.35.4 に固定（最新の 5.20261006.0-alpha も同じ）
+- 4 つとも `pnpm-workspace.yaml` の `overrides` に、勧告・経路・到達可能性・消す条件のコメント付きで足した
+- audit: critical 1・high 7 → critical 0・high 4（無視リストだけ）。陳腐化の検出も緑。`pnpm -r test` 1,563 緑。`wrangler dev` で `/`・`/app/` が 200
+
+Session: B
