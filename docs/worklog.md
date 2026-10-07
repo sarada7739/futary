@@ -14355,7 +14355,7 @@ Session: B
 ## 2026-10-07 セッションB: 069 #486 のマージ
 
 - R 受け入れ（必須修正なし）。判定を `artifacts/069/review.md` にそのまま保存。CI 緑 → squash merge（main 5143c92）。main の push の CI も緑
-- Dependabot の開いている警告は #24（braces・無視リスト）の 1 件だけ。069 の 4 つの勧告の警告は一覧に無かった
+- Dependabot の開いている警告は #24（braces・無視リスト）の 1 件だけ。069 の 4 つの勧告の警告は、状態を問わず一覧に 1 件も無い（sharp の #6 は 9 月の別の勧告で閉じ済み）
 - R の記録 1（override を消す条件の見え方）は state.md に写した
 
 Session: B

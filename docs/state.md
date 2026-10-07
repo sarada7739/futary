@@ -4,7 +4,7 @@
 > ファイル変更を伴う作業の完了時は、必ずこのファイルを更新する。
 
 **最終更新**: 2026-10-07 / セッションB。**069: 依存の既知脆弱性 4 つ（#486）を R 受け入れ → CI 緑 → squash merge（main 5143c92）。main の CI（audit を含む）は緑に戻った。**
-- Dependabot: マージの後に開いている警告は #24（braces。無視リストの GHSA-vfj7-8cjw-p6xm・修正版なし）の 1 件だけ。069 の 4 つの勧告の警告は、マージの前から一覧に無かった（閉じるものが無い）
+- Dependabot: マージの後に開いている警告は #24（braces。無視リストの GHSA-vfj7-8cjw-p6xm・修正版なし）の 1 件だけ。069 の 4 つの勧告（GHSA-pqg4・68fv・vc2v・wq5f）の警告は、開いたもの・閉じたものを含めて一覧に 1 件も無い（閉じるものが無い。sharp の警告 #6 は 9 月の別の勧告で、閉じ済み）
 - R の記録 1: shell-quote・source-map-js・compression の override を消すかどうかは、override を外して `pnpm install` し、lockfile が修正版のままかで判断する（js-yaml と同じ）
 - 人間の手番（068 から変わらず）: 065 の iPhone の Safari で AI まとめの帯。061 段階3 のタブバー。060・059・058・057・056 の確認・047 の確認観点・Stripe の本番 Price。Actions に新しい Dependabot の赤が出ないか
 
