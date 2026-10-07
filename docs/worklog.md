@@ -14336,3 +14336,10 @@ Session: B
 - 人間: 実機で「全部 OK」（A の問い: 見た端末・傾けたときの画面と枠のずれ）。068 を閉じた。state.md の先頭を次のセッション向けにまとめた
 
 Session: A
+
+## 2026-10-07 セッションA: 069（shell-quote ほか 4 つ）を起票
+
+- 068 の完了の記録の PR（#485）の CI で audit（high）が赤。新しい勧告 4 つ（shell-quote critical・source-map-js・compression・sharp high）。どれも修正版あり。経路は react-devtools-core・postcss/css-tree・@expo/cli・miniflare（開発・ビルド時だけ）
+- 9節のとおり上げる（lockfile の更新 → 親 → override の順）。069 に
+
+Session: A
