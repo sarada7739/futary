@@ -14367,3 +14367,10 @@ Session: B
 - 069 は B が記録済み（#486・#487）。main の CI は緑、Dependabot の開いている警告は #24 だけ、を A も確かめた
 
 Session: A
+
+## 2026-10-17 セッションA: claude-security プラグインを入れる
+
+- 人間の指示で `claude plugin install claude-security@claude-plugins-official`（user スコープ）。Python 3.10.11 があることも確かめた。開いているセッションは `/reload-plugins` か開き直しで読み込む
+- state.md の人間の手番から「プラグインを入れる」を外した
+
+Session: A
