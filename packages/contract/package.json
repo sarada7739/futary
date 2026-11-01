@@ -11,7 +11,7 @@
   "dependencies": {
     "@futary/date": "workspace:*",
     "@orpc/contract": "1.15.0",
-    "zod": "^4.1.11"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
